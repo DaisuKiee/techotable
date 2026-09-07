@@ -12,7 +12,9 @@ const {
   getSettings,
   signup,
   verifyEmail,
-  resendVerification
+  resendVerification,
+  forgotPassword,
+  resetPassword
 } = require('../controllers/auth.controller');
 const { protect } = require('../middleware/auth.middleware');
 
@@ -51,6 +53,8 @@ router.post('/login', loginValidation, login);
 router.post('/signup', signup); // Student signup with email verification
 router.get('/verify-email/:token', verifyEmail); // Verify email
 router.post('/resend-verification', resendVerification); // Resend verification email
+router.post('/forgot-password', forgotPassword); // Request password reset
+router.post('/reset-password/:token', resetPassword); // Reset password with token
 
 // Protected routes
 router.get('/me', protect, getMe);

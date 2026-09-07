@@ -67,7 +67,9 @@ export const authAPI = {
   changePassword: (data) => api.put('/auth/change-password', data),
   getSettings: () => api.get('/auth/settings'),
   updateSettings: (data) => api.put('/auth/settings', data),
-  logout: () => api.post('/auth/logout')
+  logout: () => api.post('/auth/logout'),
+  forgotPassword: (data) => api.post('/auth/forgot-password', data),
+  resetPassword: (token, data) => api.post(`/auth/reset-password/${token}`, data)
 };
 
 // ============== USER ENDPOINTS ==============
@@ -155,6 +157,15 @@ export const programAPI = {
   delete: (id) => api.delete(`/programs/${id}`)
 };
 
+/**
+ * Client timeout for a solver-backed request: the solver's own budget plus
+ * headroom for data loading, the Python process and JSON transfer.
+ */
+const solverTimeout = (data) => {
+  const limit = Number(data?.timeLimit) || 60;
+  return (limit + 45) * 1000;
+};
+
 // ============== SCHEDULE ENDPOINTS ==============
 export const scheduleAPI = {
   getAll: (params) => api.get('/schedules', { params }),
@@ -165,14 +176,19 @@ export const scheduleAPI = {
   bulkCreate: (schedules) => api.post('/schedules/bulk', { schedules }),
   update: (id, data) => api.put(`/schedules/${id}`, data),
   delete: (id) => api.delete(`/schedules/${id}`),
+  batchDelete: (ids) => api.post('/schedules/batch-delete', { ids }),
   getByProgramAndYear: (program, year, params) => 
     api.get(`/schedules/program/${program}/year/${year}`, { params }),
   getFacultySchedule: (facultyId, params) => 
     api.get(`/schedules/faculty/${facultyId}`, { params }),
   checkConflicts: (data) => api.post('/schedules/check-conflicts', data),
   publish: (data) => api.post('/schedules/publish', data),
-  generate: (data) => api.post('/schedules/generate', data),
-  preview: (data) => api.post('/schedules/preview', data),
+  // Schedule generation runs a constraint solver server-side for up to
+  // `timeLimit` seconds, so the client has to wait longer than the 30s default
+  // or the request is aborted before the solver can possibly answer
+  // ("timeout of 30000ms exceeded" with the default 60s limit).
+  generate: (data) => api.post('/schedules/generate', data, { timeout: solverTimeout(data) }),
+  preview: (data) => api.post('/schedules/preview', data, { timeout: solverTimeout(data) }),
   savePreview: (data) => api.post('/schedules/save-preview', data),
   checkORToolsStatus: () => api.get('/schedules/ortools-status')
 };

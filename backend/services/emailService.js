@@ -144,6 +144,26 @@ const sendVerificationEmail = async (email, token, firstName) => {
 
 // Send password reset email
 const sendPasswordResetEmail = async (email, token, firstName) => {
+  // Development mode: Log to console instead of sending email
+  if (process.env.NODE_ENV === 'development' && process.env.EMAIL_CONSOLE_MODE === 'true') {
+    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password/${token}`;
+    
+    console.log('\n╔═══════════════════════════════════════════════════════════════╗');
+    console.log('║  🔒 PASSWORD RESET LINK (Development Mode)                   ║');
+    console.log('╠═══════════════════════════════════════════════════════════════╣');
+    console.log(`║  To: ${email.padEnd(53)}║`);
+    console.log(`║  Name: ${firstName.padEnd(51)}║`);
+    console.log('╠═══════════════════════════════════════════════════════════════╣');
+    console.log('║  RESET LINK (expires in 10 minutes):                         ║');
+    console.log(`║  ${resetUrl.padEnd(59)}║`);
+    console.log('╠═══════════════════════════════════════════════════════════════╣');
+    console.log('║  👉 Copy the link above and paste it in your browser          ║');
+    console.log('╚═══════════════════════════════════════════════════════════════╝\n');
+    
+    return { success: true, messageId: 'console-dev-mode' };
+  }
+
+  // Production mode: Send actual email
   try {
     const transporter = createTransporter();
     
@@ -220,7 +240,7 @@ const sendPasswordResetEmail = async (email, token, firstName) => {
               
               <div class="warning">
                 <strong>⚠️ Security Notice:</strong><br>
-                This link will expire in 1 hour. If you didn't request a password reset, please ignore this email and ensure your account is secure.
+                This link will expire in 10 minutes. If you didn't request a password reset, please ignore this email and ensure your account is secure.
               </div>
               
               <p style="text-align: center; color: #6b7280; font-size: 12px; margin-top: 20px;">

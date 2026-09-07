@@ -10,6 +10,8 @@ import './i18n'; // Initialize i18n
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 import EmailVerificationPage from './pages/EmailVerificationPage';
 import DebugAuthPage from './pages/DebugAuthPage';
 import TestLoginPage from './pages/TestLoginPage';
@@ -66,6 +68,8 @@ function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/test-login" element={<TestLoginPage />} />
             <Route path="/signup" element={<SignupPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
             <Route path="/verify-email/:token" element={<EmailVerificationPage />} />
             <Route path="/debug-auth" element={<DebugAuthPage />} />
             <Route path="/dashboard-test" element={<DashboardPage />} />

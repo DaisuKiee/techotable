@@ -110,38 +110,47 @@ async function generateScheduleForProgram(params) {
           }
 
           // Calculate required time slots based on lecture + lab hours
-          const totalHours = subject.lectureHours + subject.labHours;
-          const slotsNeeded = Math.ceil(totalHours / 1.5); // 1.5 hours per slot
-
-          // Assign time slots
+          const isNSTP = /NSTP/i.test(subject.subjectCode) || /NSTP/i.test(subject.subjectName);
           const assignedSlots = [];
-          for (let i = 0; i < slotsNeeded; i++) {
-            if (slotIndex >= timeSlots.length) {
-              dayIndex++;
-              slotIndex = 0;
-            }
 
-            if (dayIndex >= 6) { // Max 6 days (Mon-Sat)
-              results.failed.push({
-                subject: subject.subjectCode,
-                reason: 'Not enough time slots available'
-              });
-              break;
-            }
-
-            const slot = timeSlots[slotIndex];
+          if (isNSTP) {
             assignedSlots.push({
-              day: getDayName(dayIndex),
-              startTime: slot.startTime,
-              endTime: slot.endTime
+              day: 'Saturday',
+              startTime: '08:00',
+              endTime: '11:00'
             });
+          } else {
+            const totalHours = subject.lectureHours + subject.labHours;
+            const slotsNeeded = Math.ceil(totalHours / 1.5); // 1.5 hours per slot
 
-            slotIndex++;
-          }
+            for (let i = 0; i < slotsNeeded; i++) {
+              if (slotIndex >= timeSlots.length) {
+                dayIndex++;
+                slotIndex = 0;
+              }
 
-          if (assignedSlots.length < slotsNeeded) {
-            results.statistics.failedSubjects++;
-            continue;
+              if (dayIndex >= 6) { // Max 6 days (Mon-Sat)
+                results.failed.push({
+                  subject: subject.subjectCode,
+                  reason: 'Not enough time slots available'
+                });
+                break;
+              }
+
+              const slot = timeSlots[slotIndex];
+              assignedSlots.push({
+                day: getDayName(dayIndex),
+                startTime: slot.startTime,
+                endTime: slot.endTime
+              });
+
+              slotIndex++;
+            }
+
+            if (assignedSlots.length < slotsNeeded) {
+              results.statistics.failedSubjects++;
+              continue;
+            }
           }
 
           // Create schedule entry
@@ -464,39 +473,48 @@ async function previewScheduleForProgram(params) {
         }
 
         // Calculate required time slots based on lecture + lab hours
-        const totalHours = subject.lectureHours + subject.labHours;
-        const slotsNeeded = Math.ceil(totalHours / 1.5);
-
-        // Assign time slots
+        const isNSTP = /NSTP/i.test(subject.subjectCode) || /NSTP/i.test(subject.subjectName);
         const assignedSlots = [];
-        for (let i = 0; i < slotsNeeded; i++) {
-          if (slotIndex >= timeSlots.length) {
-            dayIndex++;
-            slotIndex = 0;
-          }
 
-          if (dayIndex >= 6) {
-            preview.failed.push({
-              subject: subject.subjectCode,
-              subjectName: subject.subjectName,
-              reason: 'Not enough time slots available'
-            });
-            break;
-          }
-
-          const slot = timeSlots[slotIndex];
+        if (isNSTP) {
           assignedSlots.push({
-            day: getDayName(dayIndex),
-            startTime: slot.startTime,
-            endTime: slot.endTime
+            day: 'Saturday',
+            startTime: '08:00',
+            endTime: '11:00'
           });
+        } else {
+          const totalHours = subject.lectureHours + subject.labHours;
+          const slotsNeeded = Math.ceil(totalHours / 1.5);
 
-          slotIndex++;
-        }
+          for (let i = 0; i < slotsNeeded; i++) {
+            if (slotIndex >= timeSlots.length) {
+              dayIndex++;
+              slotIndex = 0;
+            }
 
-        if (assignedSlots.length < slotsNeeded) {
-          preview.statistics.failedSubjects++;
-          continue;
+            if (dayIndex >= 6) {
+              preview.failed.push({
+                subject: subject.subjectCode,
+                subjectName: subject.subjectName,
+                reason: 'Not enough time slots available'
+              });
+              break;
+            }
+
+            const slot = timeSlots[slotIndex];
+            assignedSlots.push({
+              day: getDayName(dayIndex),
+              startTime: slot.startTime,
+              endTime: slot.endTime
+            });
+
+            slotIndex++;
+          }
+
+          if (assignedSlots.length < slotsNeeded) {
+            preview.statistics.failedSubjects++;
+            continue;
+          }
         }
 
         // Create schedule preview object

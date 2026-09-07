@@ -894,6 +894,52 @@ exports.batchPublishSchedules = async (req, res) => {
   }
 };
 
+// @desc    Batch delete schedules by IDs
+// @route   POST /api/schedules/batch-delete
+// @access  Private/Admin
+exports.batchDeleteSchedules = async (req, res) => {
+  try {
+    const { ids } = req.body;
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No schedule IDs provided for deletion'
+      });
+    }
+
+    const schedules = await Schedule.find({ _id: { $in: ids }, isActive: true })
+      .populate('subject', 'units');
+
+    let deletedCount = 0;
+    for (const schedule of schedules) {
+      if (schedule.faculty && schedule.subject?.units) {
+        await Faculty.findByIdAndUpdate(schedule.faculty, {
+          $inc: { currentLoad: -schedule.subject.units }
+        });
+      }
+      schedule.isActive = false;
+      await schedule.save();
+      await deactivateClassSpaceForSchedule(schedule);
+      deletedCount++;
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Successfully deleted ${deletedCount} schedule(s)`,
+      count: deletedCount
+    });
+
+  } catch (error) {
+    console.error('Batch delete schedules error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting schedules',
+      error: error.message
+    });
+  }
+};
+
 // @desc    Generate schedule automatically
 // @route   POST /api/schedules/generate
 // @access  Private/Admin
@@ -987,9 +1033,16 @@ exports.generateSchedule = async (req, res) => {
 
     res.status(200).json({
       success: result.success,
-      message: result.message || (result.success ? 'Schedule generated successfully' : 'Schedule generation failed'),
+      // `result.error` carries the solver's specific reason (a section that is
+      // already full, no lab room, a load cap). Dropping it left the user with
+      // a bare "Schedule generation failed".
+      message: result.message
+        || result.error
+        || (result.success ? 'Schedule generated successfully' : 'Schedule generation failed'),
       method: method === 'ortools' ? 'Google OR-Tools CP-SAT' : 'Greedy Algorithm',
       aiUsed: result.aiUsed || false,
+      blockers: result.blockers || [],
+      diagnostics: result.diagnostics || [],
       data: result
     });
 
@@ -1031,22 +1084,31 @@ exports.previewSchedule = async (req, res) => {
 
     // Choose generation method
     if (method === 'ortools') {
-      // OR-Tools preview not yet implemented, fall back to greedy for preview
-      console.log('OR-Tools preview requested, falling back to greedy algorithm for preview');
-      const { previewScheduleForProgram } = require('../services/scheduleGenerator.service');
+      // Previously this silently fell back to the greedy algorithm, so choosing
+      // OR-Tools in the preview dialog produced a greedy timetable and then
+      // saving it ran the solver - a different schedule from the one reviewed.
+      const { previewWithORTools } = require('../services/ortoolsBridge.service');
 
-      preview = await previewScheduleForProgram({
+      const solved = await previewWithORTools({
         academicYear,
         semester,
         program,
         yearLevel,
         section,
         shift,
-        useAIRecommendations: useAIRecommendations === true || useAIRecommendations === 'true'
+        timeLimit,
       });
-      
-      // Override method name for display
-      preview.methodNote = 'Preview generated using Greedy Algorithm (OR-Tools preview not yet implemented)';
+
+      preview = {
+        ...solved.preview,
+        success: solved.success,
+        message: solved.message,
+        status: solved.status,
+        blockers: solved.blockers || [],
+        diagnostics: solved.diagnostics || [],
+        skipped: solved.skipped || [],
+        methodNote: 'Preview generated with Google OR-Tools CP-SAT',
+      };
     } else {
       // Use greedy algorithm - preview only
       const { previewScheduleForProgram } = require('../services/scheduleGenerator.service');

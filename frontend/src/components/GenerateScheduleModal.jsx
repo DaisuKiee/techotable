@@ -14,6 +14,9 @@ const GenerateScheduleModal = ({ onClose }) => {
   const [ortoolsStatus, setOrtoolsStatus] = useState(null);
   const [availableSections, setAvailableSections] = useState([]);
   const [loadingSections, setLoadingSections] = useState(false);
+  // A constraint solve can run for the full time limit. Without a visible
+  // counter a 60-second wait behind a static spinner looks like a hang.
+  const [elapsed, setElapsed] = useState(0);
   const [formData, setFormData] = useState({
     section: '', // Section ID
     method: 'greedy', // 'greedy' or 'ortools'
@@ -25,6 +28,14 @@ const GenerateScheduleModal = ({ onClose }) => {
   useEffect(() => {
     checkOrtoolsAvailability();
   }, []);
+
+  useEffect(() => {
+    if (!generating) return;
+    setElapsed(0);
+    const started = Date.now();
+    const id = setInterval(() => setElapsed(Math.round((Date.now() - started) / 1000)), 1000);
+    return () => clearInterval(id);
+  }, [generating]);
 
   const fetchAvailableSections = useCallback(async () => {
     setLoadingSections(true);
@@ -117,45 +128,73 @@ const GenerateScheduleModal = ({ onClose }) => {
       const response = await scheduleAPI.preview(generateData);
       console.log('Preview response:', response.data);
       
-      if (response.data.success) {
+      const payload = response.data;
+      const body = payload.data || {};
+      const preview = body.preview || body;
+
+      if (payload.success) {
+        const scheduled = preview.schedules?.length || 0;
+
         setPreviewData({
           success: true,
-          message: response.data.message,
-          method: response.data.method,
-          methodNote: response.data.data.methodNote || response.data.data.preview?.methodNote,
-          aiUsed: response.data.aiUsed || formData.useAIRecommendations,
-          preview: response.data.data.preview || response.data.data,
+          message: payload.message,
+          method: payload.method,
+          methodNote: body.methodNote || preview.methodNote,
+          aiUsed: payload.aiUsed || formData.useAIRecommendations,
+          // Solver notes: relaxed room capacity, subjects left alone, and so on
+          diagnostics: body.diagnostics || preview.diagnostics || [],
+          skipped: body.skipped || preview.skipped || [],
+          preview,
           sectionInfo: selectedSection
         });
-        
-        // Show note if OR-Tools fell back to greedy
-        if (response.data.data.methodNote) {
-          toast.success(response.data.data.methodNote, { duration: 5000 });
+
+        // A successful solve with nothing to place is not worth a success toast
+        if (scheduled === 0) {
+          toast(payload.message || 'Nothing to schedule for this section', { duration: 6000 });
         } else {
-          toast.success('Schedule preview generated successfully!');
+          toast.success(`${scheduled} class${scheduled === 1 ? '' : 'es'} ready to review`);
         }
       } else {
         setPreviewData({
           success: false,
-          message: response.data.message,
-          method: response.data.method
+          message: payload.message,
+          method: payload.method,
+          blockers: payload.blockers || body.blockers || [],
+          diagnostics: payload.diagnostics || body.diagnostics || [],
         });
-        toast.error(response.data.message || 'Failed to generate preview');
+        toast.error(payload.message || 'Could not generate a preview');
       }
     } catch (error) {
-      console.error('=== GENERATE PREVIEW ERROR ===');
-      console.error('Error object:', error);
-      console.error('Error response:', error.response);
-      
-      const errorMessage = error.response?.data?.message || 'Failed to generate preview';
+      console.error('Generate preview failed:', error);
+
+      // A solver timeout or a dead server has no response body, so reading
+      // error.response.data.message alone produced a bare "Failed to generate
+      // preview" with nothing the user could act on.
+      let message;
+      let hint;
+
+      if (error.code === 'ECONNABORTED' || /timeout/i.test(error.message || '')) {
+        message = `The request timed out after about ${formData.timeLimit + 45}s.`;
+        hint = 'Lower the optimization time limit, or pick the Greedy method for a fast result.';
+      } else if (!error.response) {
+        message = 'Could not reach the server.';
+        hint = 'Check that the backend is running, then try again.';
+      } else {
+        message = error.response.data?.message
+          || error.response.data?.error
+          || `The server returned ${error.response.status}.`;
+        hint = error.response.data?.blockers?.length ? null : undefined;
+      }
+
       setPreviewData({
         success: false,
-        message: errorMessage
+        message,
+        hint,
+        blockers: error.response?.data?.blockers || [],
       });
-      toast.error(errorMessage);
+      toast.error(message);
     } finally {
       setGenerating(false);
-      console.log('=== GENERATE PREVIEW COMPLETED ===');
     }
   };
 
@@ -196,6 +235,11 @@ const GenerateScheduleModal = ({ onClose }) => {
     }
   };
 
+  const isORTools = formData.method === 'ortools';
+  // Both generators nest their numbers differently; read once, guarded, so a
+  // missing field can't blow up the whole panel.
+  const stats = previewData?.preview?.statistics || {};
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'success':
@@ -223,31 +267,45 @@ const GenerateScheduleModal = ({ onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-        <div
-          className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
-          onClick={handleClose}
-        ></div>
+    /*
+     * Fixed-height panel with its own scrolling body. The dialog used to grow
+     * with its content and rely on the page scrolling, so once a preview was
+     * rendered the action buttons were pushed off screen.
+     */
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
+      <div
+        className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm"
+        onClick={handleClose}
+      />
 
-        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-3xl sm:w-full">
-          {/* Header */}
-          <div className="bg-purple-600 px-6 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <Wand2 className="text-white mr-3" size={24} />
-                <h3 className="text-lg font-medium text-white">
-                  AI-Powered Schedule Generator
+      <div className="relative bg-white rounded-xl text-left shadow-2xl w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="bg-purple-600 px-4 sm:px-6 py-4 flex-shrink-0">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center min-w-0">
+              <Wand2 className="text-white mr-3 flex-shrink-0" size={22} />
+              <div className="min-w-0">
+                <h3 className="text-base sm:text-lg font-semibold text-white truncate">
+                  Schedule Generator
                 </h3>
+                <p className="text-xs text-purple-200 truncate">
+                  {isORTools ? 'Google OR-Tools constraint solver' : 'Greedy algorithm'}
+                </p>
               </div>
-              <button onClick={handleClose} className="text-white hover:text-gray-200">
-                <X size={24} />
-              </button>
             </div>
+            <button
+              onClick={handleClose}
+              aria-label="Close"
+              className="text-purple-100 hover:text-white transition-colors flex-shrink-0"
+            >
+              <X size={22} />
+            </button>
           </div>
+        </div>
 
-          {/* Form */}
-          <form onSubmit={handleGenerate} className="p-6">
+        {/* Form: body scrolls, footer stays put */}
+        <form onSubmit={handleGenerate} className="flex-1 flex flex-col min-h-0">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6">
             <div className="mb-6">
               <p className="text-sm text-gray-600 mb-4">
                 Generate an optimized schedule using AI recommendations. The system will automatically
@@ -349,23 +407,42 @@ const GenerateScheduleModal = ({ onClose }) => {
                   </div>
 
                   {/* Time Limit (OR-Tools only) */}
-                  {formData.method === 'ortools' && (
+                  {isORTools && (
                     <div className="md:col-span-2">
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Optimization Time Limit (seconds)
+                        Optimization time limit
                       </label>
-                      <input
-                        type="number"
-                        name="timeLimit"
-                        value={formData.timeLimit}
-                        onChange={handleChange}
-                        disabled={generating}
-                        min="10"
-                        max="300"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 disabled:opacity-50"
-                      />
-                      <p className="text-xs text-gray-500 mt-1">
-                        Higher values may find better solutions but take longer (10-300 seconds)
+                      <div className="flex flex-wrap items-center gap-2">
+                        {[15, 30, 60, 120].map(preset => (
+                          <button
+                            key={preset}
+                            type="button"
+                            onClick={() => setFormData(prev => ({ ...prev, timeLimit: preset }))}
+                            disabled={generating}
+                            className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors disabled:opacity-50 ${
+                              formData.timeLimit === preset
+                                ? 'bg-purple-600 border-purple-600 text-white'
+                                : 'bg-white border-gray-300 text-gray-700 hover:border-purple-400'
+                            }`}
+                          >
+                            {preset}s
+                          </button>
+                        ))}
+                        <input
+                          type="number"
+                          name="timeLimit"
+                          value={formData.timeLimit}
+                          onChange={handleChange}
+                          disabled={generating}
+                          min="10"
+                          max="300"
+                          aria-label="Optimization time limit in seconds"
+                          className="w-24 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 disabled:opacity-50"
+                        />
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1.5">
+                        The solver searches for up to this long, so generating will take
+                        about {formData.timeLimit}s. Longer budgets can find better timetables.
                       </p>
                     </div>
                   )}
@@ -402,9 +479,9 @@ const GenerateScheduleModal = ({ onClose }) => {
 
             {/* Preview Results */}
             {previewData && previewData.success && previewData.preview && (
-              <div className="mb-6 max-h-96 overflow-y-auto">
+              <div className="mb-6">
                 {/* Preview Header */}
-                <div className="mb-4 p-4 bg-purple-50 rounded-lg border border-purple-200 sticky top-0 z-10">
+                <div className="mb-4 p-4 bg-purple-50 rounded-lg border border-purple-200">
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="flex items-center gap-2 mb-1">
@@ -419,7 +496,7 @@ const GenerateScheduleModal = ({ onClose }) => {
                         )}
                       </div>
                       <p className="text-xs text-purple-700">
-                        {previewData.preview.statistics.scheduledSubjects} of {previewData.preview.statistics.totalSubjects} subjects scheduled successfully
+                        {stats.scheduledSubjects ?? 0} of {stats.totalSubjects ?? 0} subjects scheduled
                       </p>
                       {previewData.methodNote && (
                         <p className="text-xs text-purple-600 mt-1 italic">
@@ -436,22 +513,86 @@ const GenerateScheduleModal = ({ onClose }) => {
                   <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
                     <p className="text-xs text-green-600 font-medium">Scheduled</p>
                     <p className="text-2xl font-bold text-green-700">
-                      {previewData.preview.statistics.scheduledSubjects}
+                      {stats.scheduledSubjects ?? 0}
                     </p>
                   </div>
                   <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                    <p className="text-xs text-red-600 font-medium">Failed</p>
+                    <p className="text-xs text-red-600 font-medium">Not placed</p>
                     <p className="text-2xl font-bold text-red-700">
-                      {previewData.preview.statistics.failedSubjects}
+                      {stats.failedSubjects ?? 0}
                     </p>
                   </div>
                   <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
                     <p className="text-xs text-orange-600 font-medium">Conflicts</p>
                     <p className="text-2xl font-bold text-orange-700">
-                      {previewData.preview.statistics.conflictsDetected}
+                      {stats.conflictsDetected ?? 0}
                     </p>
                   </div>
                 </div>
+
+                {/* Solver detail. Worth showing: it explains what the optimizer
+                    actually balanced, and whether it ran out of time. */}
+                {stats.solverTime !== undefined && (
+                  <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                    <dl className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                      <div>
+                        <dt className="text-gray-500">Solve time</dt>
+                        <dd className="font-semibold text-gray-900">{stats.solverTime}s</dd>
+                      </div>
+                      <div>
+                        <dt className="text-gray-500">Busiest teacher</dt>
+                        <dd className="font-semibold text-gray-900">
+                          {stats.busiestFacultyUnits || 0} units
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-gray-500">Matched on experience</dt>
+                        <dd className="font-semibold text-gray-900">
+                          {stats.assignmentsWithExperience || 0}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-gray-500">Existing classes avoided</dt>
+                        <dd className="font-semibold text-gray-900">
+                          {stats.existingBlocksRespected || 0}
+                        </dd>
+                      </div>
+                    </dl>
+                    {stats.hitTimeLimit && (
+                      <p className="text-xs text-gray-600 mt-2">
+                        The solver used its full {formData.timeLimit}s budget, so this is a good
+                        timetable rather than a proven-best one. Raise the time limit to search further.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Solver notes, e.g. room capacity relaxed */}
+                {previewData.diagnostics?.length > 0 && (
+                  <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                    <p className="text-xs font-semibold text-amber-900 mb-1.5">Worth knowing</p>
+                    <ul className="space-y-1">
+                      {previewData.diagnostics.map((d, i) => (
+                        <li key={i} className="text-xs text-amber-800 flex gap-2">
+                          <span className="text-amber-500 flex-shrink-0">•</span>
+                          <span>{d}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Subjects left alone because they already have a schedule */}
+                {previewData.skipped?.length > 0 && (
+                  <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-xs font-semibold text-blue-900 mb-1">
+                      Already scheduled, left untouched ({previewData.skipped.length})
+                    </p>
+                    <p className="text-xs text-blue-800">
+                      {previewData.skipped.map(s => s.subject_code || s.subjectCode).join(', ')}
+                    </p>
+                  </div>
+                )}
 
                 {/* Scheduled Subjects */}
                 {previewData.preview.schedules && previewData.preview.schedules.length > 0 && (
@@ -468,9 +609,22 @@ const GenerateScheduleModal = ({ onClose }) => {
                                 <span className="font-semibold text-gray-900">
                                   {schedule.metadata.subjectCode}
                                 </span>
-                                <span className="text-xs px-2 py-0.5 bg-purple-100 text-purple-700 rounded">
-                                  {schedule.metadata.units} units
-                                </span>
+                                {/* Guarded: the OR-Tools path did not send units,
+                                    which rendered a bare " units" badge */}
+                                {schedule.metadata.units != null && (
+                                  <span className="text-xs px-2 py-0.5 bg-purple-100 text-purple-700 rounded">
+                                    {schedule.metadata.units} units
+                                  </span>
+                                )}
+                                {schedule.metadata.facultyExperience > 0 && (
+                                  <span
+                                    className="text-xs px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded inline-flex items-center gap-1"
+                                    title="Assigned to a teacher who has taught this subject before"
+                                  >
+                                    <Sparkles size={10} />
+                                    experienced
+                                  </span>
+                                )}
                               </div>
                               <p className="text-sm text-gray-700 mb-1">
                                 {schedule.metadata.subjectName}
@@ -487,7 +641,10 @@ const GenerateScheduleModal = ({ onClose }) => {
                             <div>
                               <span className="text-gray-500">Room:</span>
                               <span className="ml-1 text-gray-900 font-medium">
-                                {schedule.metadata.roomName} (Cap: {schedule.metadata.roomCapacity})
+                                {schedule.metadata.roomName || schedule.metadata.roomNumber || 'TBA'}
+                                {schedule.metadata.roomCapacity
+                                  ? ` (cap. ${schedule.metadata.roomCapacity})`
+                                  : ''}
                               </span>
                             </div>
                           </div>
@@ -515,7 +672,10 @@ const GenerateScheduleModal = ({ onClose }) => {
                         <div key={idx} className="bg-red-50 rounded-lg p-3 border border-red-200">
                           <div className="flex items-center justify-between">
                             <div>
-                              <span className="font-semibold text-red-900">{fail.subject}</span>
+                              {/* Greedy reports `subject`, the solver `subjectCode` */}
+                              <span className="font-semibold text-red-900">
+                                {fail.subjectCode || fail.subject}
+                              </span>
                               {fail.subjectName && (
                                 <span className="text-sm text-red-700 ml-2">- {fail.subjectName}</span>
                               )}
@@ -554,18 +714,41 @@ const GenerateScheduleModal = ({ onClose }) => {
               </div>
             )}
 
-            {/* Failed Generation */}
+            {/* Failed Generation. The solver explains WHY (section already full,
+                no lab room, load caps), so surface that instead of a bare
+                "Failed to generate preview". */}
             {previewData && !previewData.success && (
               <div className="mb-6 p-4 rounded-lg bg-red-50 border border-red-200">
-                <div className="flex items-start">
-                  <AlertTriangle className="text-red-600 flex-shrink-0 mt-0.5" size={24} />
-                  <div className="ml-3 flex-1">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="text-red-600 flex-shrink-0 mt-0.5" size={22} />
+                  <div className="flex-1 min-w-0">
                     <h4 className="text-sm font-semibold text-red-800 mb-1">
-                      Generation Failed
+                      Could not generate a schedule
                     </h4>
-                    <p className="text-sm text-red-700">
-                      {previewData.message}
-                    </p>
+                    <p className="text-sm text-red-700 break-words">{previewData.message}</p>
+
+                    {previewData.hint && (
+                      <p className="text-sm text-red-600 mt-2">{previewData.hint}</p>
+                    )}
+
+                    {previewData.blockers?.length > 0 && (
+                      <ul className="mt-3 space-y-1.5">
+                        {previewData.blockers.map((b, i) => (
+                          <li key={i} className="text-xs text-red-700 flex gap-2">
+                            <span className="text-red-400 flex-shrink-0">•</span>
+                            <span>{b}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => setPreviewData(null)}
+                      className="mt-3 text-xs font-medium text-red-800 underline hover:no-underline"
+                    >
+                      Change the settings and try again
+                    </button>
                   </div>
                 </div>
               </div>
@@ -575,16 +758,28 @@ const GenerateScheduleModal = ({ onClose }) => {
             {generating && (
               <div className="mb-6 p-6 bg-purple-50 rounded-lg border border-purple-200">
                 <div className="flex flex-col items-center justify-center">
-                  <div className="relative">
-                    <Loader className="animate-spin text-purple-600" size={48} />
-                    <Wand2 className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-purple-600" size={24} />
-                  </div>
+                  <Loader className="animate-spin text-purple-600" size={40} />
                   <p className="mt-4 text-sm font-medium text-purple-900">
-                    Generating schedule preview...
+                    {isORTools ? 'Solving the timetable' : 'Building the schedule'}
+                    {elapsed > 0 && ` · ${elapsed}s`}
                   </p>
-                  <p className="text-xs text-purple-700 mt-1">
-                    This may take a few moments
-                  </p>
+                  {isORTools ? (
+                    <>
+                      <div className="w-full max-w-xs h-1.5 bg-purple-200 rounded-full mt-3 overflow-hidden">
+                        <div
+                          className="h-full bg-purple-600 transition-all duration-1000"
+                          style={{
+                            width: `${Math.min(100, (elapsed / Math.max(1, formData.timeLimit)) * 100)}%`,
+                          }}
+                        />
+                      </div>
+                      <p className="text-xs text-purple-700 mt-2">
+                        The solver uses up to {formData.timeLimit}s to search for the best timetable.
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-xs text-purple-700 mt-1">This usually takes a moment.</p>
+                  )}
                 </div>
               </div>
             )}
@@ -614,45 +809,64 @@ const GenerateScheduleModal = ({ onClose }) => {
               </div>
             )}
 
-            {/* Actions */}
-            <div className="flex justify-end gap-3">
+          </div>
+
+          {/* Actions: pinned so they stay reachable however long the preview is */}
+          <div className="flex-shrink-0 border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-3 flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:gap-3">
+            <button
+              type="button"
+              onClick={handleClose}
+              disabled={generating || saving}
+              className="px-4 py-2 border border-gray-300 bg-white rounded-lg text-gray-700 hover:bg-gray-100 disabled:opacity-50 transition-colors"
+            >
+              {previewData?.success && previewData.preview ? 'Cancel' : 'Close'}
+            </button>
+
+            {/* Generate, and re-generate once a preview exists */}
+            {(!previewData || (previewData.success && !previewData.preview?.schedules?.length)) && (
               <button
-                type="button"
-                onClick={handleClose}
-                disabled={generating || saving}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                type="submit"
+                disabled={generating || !formData.section}
+                className="flex items-center justify-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {previewData?.success && previewData.preview ? 'Cancel' : 'Close'}
+                {generating ? (
+                  <>
+                    <Loader className="animate-spin mr-2" size={18} />
+                    Solving{elapsed > 0 ? ` ${elapsed}s` : ''}...
+                  </>
+                ) : (
+                  <>
+                    <Wand2 size={18} className="mr-2" />
+                    Generate Preview
+                  </>
+                )}
               </button>
-              
-              {/* Preview Button - Shows when no preview yet */}
-              {!previewData && (
+            )}
+
+            {previewData?.success && previewData.preview?.schedules?.length > 0 && (
+              <>
                 <button
                   type="submit"
-                  disabled={generating || !formData.section}
-                  className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={generating || saving}
+                  className="flex items-center justify-center px-4 py-2 border border-purple-300 text-purple-700 bg-white rounded-lg hover:bg-purple-50 disabled:opacity-50 transition-colors"
                 >
                   {generating ? (
                     <>
                       <Loader className="animate-spin mr-2" size={18} />
-                      Generating Preview...
+                      Solving{elapsed > 0 ? ` ${elapsed}s` : ''}...
                     </>
                   ) : (
                     <>
                       <Wand2 size={18} className="mr-2" />
-                      Generate Preview
+                      Regenerate
                     </>
                   )}
                 </button>
-              )}
-
-              {/* Save Button - Shows when preview is ready */}
-              {previewData?.success && previewData.preview && previewData.preview.schedules?.length > 0 && (
                 <button
                   type="button"
                   onClick={handleSaveSchedules}
-                  disabled={saving}
-                  className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={saving || generating}
+                  className="flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {saving ? (
                     <>
@@ -662,14 +876,15 @@ const GenerateScheduleModal = ({ onClose }) => {
                   ) : (
                     <>
                       <CheckCircle size={18} className="mr-2" />
-                      Save {previewData.preview.schedules.length} Schedule{previewData.preview.schedules.length !== 1 ? 's' : ''}
+                      Save {previewData.preview.schedules.length} class
+                      {previewData.preview.schedules.length !== 1 ? 'es' : ''}
                     </>
                   )}
                 </button>
-              )}
-            </div>
-          </form>
-        </div>
+              </>
+            )}
+          </div>
+        </form>
       </div>
     </div>
   );

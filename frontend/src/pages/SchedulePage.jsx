@@ -52,9 +52,10 @@ const SchedulePage = () => {
   });
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showConflictWarning, setShowConflictWarning] = useState(false);
-  const [viewMode, setViewMode] = useState('calendar'); // 'calendar', 'list', 'builder'
+  const [viewMode, setViewMode] = useState('list'); // 'list', 'builder'
   const [timetableView, setTimetableView] = useState('week'); // 'week', 'day'
   const [selectedSection, setSelectedSection] = useState(null); // for program manager section picker
+  const [selectedSchedules, setSelectedSchedules] = useState([]); // checkbox selection
 
   // Permission checks
   const canEditSchedules = user?.role === 'admin' || user?.role === 'scheduling_officer' || user?.role === 'program_manager';
@@ -258,6 +259,53 @@ const SchedulePage = () => {
       } else {
         toast.error(error.response?.data?.message || 'Failed to delete schedule');
       }
+    }
+  };
+
+  const handleSelectAll = () => {
+    if (selectedSchedules.length === filteredSchedules.length && filteredSchedules.length > 0) {
+      setSelectedSchedules([]);
+    } else {
+      setSelectedSchedules(filteredSchedules.map(s => s._id));
+    }
+  };
+
+  const handleSelectOne = (id) => {
+    setSelectedSchedules(prev => 
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleBatchDeleteSelected = async () => {
+    if (selectedSchedules.length === 0) return;
+    const confirmed = window.confirm(`Are you sure you want to delete ${selectedSchedules.length} selected schedule(s)?`);
+    if (!confirmed) return;
+
+    try {
+      const res = await scheduleAPI.batchDelete(selectedSchedules);
+      toast.success(res.data.message || `Deleted ${selectedSchedules.length} schedule(s)`);
+      setSelectedSchedules([]);
+      loadAllData();
+    } catch (error) {
+      console.error('Batch delete error:', error);
+      toast.error(error.response?.data?.message || 'Failed to delete selected schedules');
+    }
+  };
+
+  const handleBatchPublishSelected = async () => {
+    if (selectedSchedules.length === 0) return;
+    try {
+      let count = 0;
+      for (const id of selectedSchedules) {
+        await scheduleAPI.update(id, { status: 'published' });
+        count++;
+      }
+      toast.success(`Published ${count} selected schedule(s)`);
+      setSelectedSchedules([]);
+      loadAllData();
+    } catch (error) {
+      console.error('Batch publish error:', error);
+      toast.error(error.response?.data?.message || 'Failed to publish selected schedules');
     }
   };
 
@@ -646,19 +694,8 @@ const SchedulePage = () => {
                 {/* View Toggle */}
                 <div className="flex border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden">
                   <button
-                    onClick={() => setViewMode('calendar')}
-                    className={`px-3 py-2 transition-colors ${
-                      viewMode === 'calendar' 
-                        ? 'bg-blue-600 text-white' 
-                        : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600'
-                    }`}
-                    title="Calendar View"
-                  >
-                    <CalendarIcon className="w-5 h-5" />
-                  </button>
-                  <button
                     onClick={() => setViewMode('list')}
-                    className={`px-3 py-2 border-l border-gray-300 dark:border-gray-600 transition-colors ${
+                    className={`px-3 py-2 transition-colors ${
                       viewMode === 'list' 
                         ? 'bg-blue-600 text-white' 
                         : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600'
@@ -668,19 +705,17 @@ const SchedulePage = () => {
                     <List className="w-5 h-5" />
                   </button>
                   {canEditSchedules && (
-                    <>
-                      <button
-                        onClick={() => setViewMode('builder')}
-                        className={`px-3 py-2 border-l border-gray-300 dark:border-gray-600 rounded-r-lg transition-colors ${
-                          viewMode === 'builder' 
-                            ? 'bg-blue-600 text-white' 
-                            : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600'
-                        }`}
-                        title="Schedule Builder"
-                      >
-                        <Grid className="w-5 h-5" />
-                      </button>
-                    </>
+                    <button
+                      onClick={() => setViewMode('builder')}
+                      className={`px-3 py-2 border-l border-gray-300 dark:border-gray-600 rounded-r-lg transition-colors ${
+                        viewMode === 'builder' 
+                          ? 'bg-blue-600 text-white' 
+                          : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600'
+                      }`}
+                      title="Schedule Builder"
+                    >
+                      <Grid className="w-5 h-5" />
+                    </button>
                   )}
                 </div>
               </div>
@@ -907,7 +942,7 @@ const SchedulePage = () => {
             <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto"></div>
             <p className="mt-4 text-gray-600 dark:text-gray-400 text-lg">Loading schedules...</p>
           </div>
-        ) : viewMode === 'list' ? (
+        ) : (
           /* LIST VIEW */
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
             {filteredSchedules.length === 0 ? (
@@ -934,9 +969,62 @@ const SchedulePage = () => {
               </div>
             ) : (
               <div className="overflow-x-auto">
+                {/* Bulk Action Bar */}
+                {selectedSchedules.length > 0 && (
+                  <div className="p-3 bg-blue-50 dark:bg-blue-900/40 border-b border-blue-200 dark:border-blue-700 flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={filteredSchedules.length > 0 && selectedSchedules.length === filteredSchedules.length}
+                        onChange={handleSelectAll}
+                        className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 cursor-pointer"
+                        title="Select All"
+                      />
+                      <span className="text-sm font-semibold text-blue-900 dark:text-blue-100">
+                        {selectedSchedules.length} of {filteredSchedules.length} selected
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {canEditSchedules && (
+                        <>
+                          <button
+                            onClick={handleBatchPublishSelected}
+                            className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs sm:text-sm font-medium transition-colors inline-flex items-center gap-1.5 shadow-sm"
+                          >
+                            <CheckCircle className="w-4 h-4" />
+                            Publish Selected ({selectedSchedules.length})
+                          </button>
+                          <button
+                            onClick={handleBatchDeleteSelected}
+                            className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs sm:text-sm font-medium transition-colors inline-flex items-center gap-1.5 shadow-sm"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            Delete Selected ({selectedSchedules.length})
+                          </button>
+                        </>
+                      )}
+                      <button
+                        onClick={() => setSelectedSchedules([])}
+                        className="px-3 py-1.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-xs sm:text-sm font-medium transition-colors"
+                      >
+                        Clear Selection
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <table className="w-full">
                   <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
                     <tr>
+                      <th className="px-4 py-3 text-left w-10">
+                        <input
+                          type="checkbox"
+                          checked={filteredSchedules.length > 0 && selectedSchedules.length === filteredSchedules.length}
+                          onChange={handleSelectAll}
+                          className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 cursor-pointer"
+                          title={selectedSchedules.length === filteredSchedules.length ? "Deselect All" : "Select All"}
+                        />
+                      </th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                         Subject
                       </th>
@@ -963,12 +1051,26 @@ const SchedulePage = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                    {filteredSchedules.map((schedule) => (
-                      <tr 
-                        key={schedule._id}
-                        className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                      >
-                        <td className="px-4 py-4">
+                    {filteredSchedules.map((schedule) => {
+                      const isSelected = selectedSchedules.includes(schedule._id);
+                      return (
+                        <tr 
+                          key={schedule._id}
+                          className={`transition-colors ${
+                            isSelected
+                              ? 'bg-blue-50/80 dark:bg-blue-900/30'
+                              : 'hover:bg-gray-50 dark:hover:bg-gray-700'
+                          }`}
+                        >
+                          <td className="px-4 py-4 w-10">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => handleSelectOne(schedule._id)}
+                              className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 cursor-pointer"
+                            />
+                          </td>
+                          <td className="px-4 py-4">
                           <div className="flex items-center">
                             <BookOpen className="w-5 h-5 text-blue-600 dark:text-blue-400 mr-2 flex-shrink-0" />
                             <div>
@@ -1025,8 +1127,6 @@ const SchedulePage = () => {
                           </div>
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap">
-                          {/* Matches the schema's 'published' value; this used to
-                              test 'active' and so always read Draft. */}
                           <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
                             schedule.status === 'published'
                               ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
@@ -1056,74 +1156,12 @@ const SchedulePage = () => {
                           </td>
                         )}
                       </tr>
-                    ))}
+                    );
+                  })}
                   </tbody>
                 </table>
               </div>
             )}
-          </div>
-        ) : (
-          /* CALENDAR VIEW */
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
-            {/* Week/Day Toggle */}
-            <div className="flex justify-end gap-2 mb-4">
-              <button
-                onClick={() => setTimetableView('week')}
-                className={`px-4 py-2 rounded-lg transition-colors text-sm ${
-                  timetableView === 'week'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
-                }`}
-              >
-                Week View
-              </button>
-              <button
-                onClick={() => setTimetableView('day')}
-                className={`px-4 py-2 rounded-lg transition-colors text-sm ${
-                  timetableView === 'day'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
-                }`}
-              >
-                Day View
-              </button>
-            </div>
-
-            {/* Say so when the grid is showing more than one section, since
-                different sections legitimately share the same time slots and
-                would otherwise look like one section's timetable. */}
-            {!selectedSection && sectionsInView.length > 1 && (
-              <div className="mb-4 flex items-start gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
-                <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-                <p className="text-xs text-amber-800 dark:text-amber-200">
-                  Showing <strong>{sectionsInView.length} sections</strong> together
-                  ({sectionsInView.join(', ')}). Classes from different sections can share the
-                  same slot. Choose a section above to see a single timetable.
-                </p>
-              </div>
-            )}
-
-            <TimetableGrid
-              schedules={filteredSchedules}
-              onScheduleClick={handleEdit}
-              canEdit={canEditSchedules}
-              viewMode={timetableView}
-              shift={filters.shift || 'all'}
-              // Label each card with its section when more than one is in view
-              showSection={!selectedSection && sectionsInView.length > 1}
-            />
-
-            {/* Legend */}
-            <div className="mt-4 flex items-center gap-4 text-sm">
-              <div className="flex items-center">
-                <div className="w-4 h-4 bg-green-500 rounded mr-2"></div>
-                <span className="text-gray-700 dark:text-gray-300">Published</span>
-              </div>
-              <div className="flex items-center">
-                <div className="w-4 h-4 bg-orange-500 rounded mr-2"></div>
-                <span className="text-gray-700 dark:text-gray-300">Draft</span>
-              </div>
-            </div>
           </div>
         )}
 

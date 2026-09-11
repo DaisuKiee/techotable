@@ -28,10 +28,21 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Unauthorized - clear token and redirect to login
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/';
+      // Unauthorized - BUT: Don't redirect if this is a login/register/auth attempt
+      // Only redirect if this is an authenticated endpoint failing (expired token)
+      const isAuthEndpoint = error.config?.url?.includes('/auth/login') || 
+                            error.config?.url?.includes('/auth/register') ||
+                            error.config?.url?.includes('/auth/signup') ||
+                            error.config?.url?.includes('/auth/forgot-password') ||
+                            error.config?.url?.includes('/auth/reset-password');
+      
+      if (!isAuthEndpoint) {
+        // Clear token and redirect to home only for expired/invalid tokens on protected routes
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/';
+      }
+      // If it's an auth endpoint, let the page handle the error (don't redirect)
     } else if (error.response?.status === 403) {
       // Forbidden - log the error but don't redirect
       // Let individual pages handle 403 errors as needed

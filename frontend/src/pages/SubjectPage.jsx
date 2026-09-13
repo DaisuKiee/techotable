@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 import { 
   Plus, Search, Edit2, Trash2, BookOpen, 
   X, GraduationCap, Clock, FileText, Grid3x3, List,
-  Layers, TrendingUp, CheckCircle, Upload
+  Layers, TrendingUp, CheckCircle, Upload, Copy
 } from 'lucide-react';
 import SubjectModal from '../components/SubjectModal';
 import ExcelImportModal from '../components/ExcelImportModal';
@@ -137,6 +137,14 @@ const SubjectPage = () => {
         toast.error(errorMessage);
       }
     }
+  };
+
+  const copySubjectCode = (code) => {
+    navigator.clipboard.writeText(code).then(() => {
+      toast.success(`Copied: ${code}`);
+    }).catch(() => {
+      toast.error('Failed to copy code');
+    });
   };
 
   const handleModalClose = (shouldRefresh) => {
@@ -498,6 +506,14 @@ const SubjectPage = () => {
                 {/* Actions */}
                 <div className="flex gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
                   <button
+                    onClick={() => copySubjectCode(subject.subjectCode)}
+                    className="flex items-center justify-center gap-2 px-3 py-2.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all shadow-sm hover:shadow-md font-medium"
+                    title="Copy subject code"
+                  >
+                    <Copy className="w-4 h-4" />
+                    Copy
+                  </button>
+                  <button
                     onClick={() => handleEdit(subject)}
                     className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg transition-all shadow-sm hover:shadow-md font-medium"
                   >
@@ -589,6 +605,13 @@ const SubjectPage = () => {
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-right">
                         <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => copySubjectCode(subject.subjectCode)}
+                            className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900 rounded-lg transition-colors"
+                            title="Copy Code"
+                          >
+                            <Copy className="w-4 h-4" />
+                          </button>
                           <button
                             onClick={() => handleEdit(subject)}
                             className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900 rounded-lg transition-colors"

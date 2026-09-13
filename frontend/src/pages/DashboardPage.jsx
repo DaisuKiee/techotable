@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout';
+import MyClassesEnrollment from '../components/MyClassesEnrollment';
 import { 
   Users, BookOpen, DoorOpen, Calendar, 
   TrendingUp, Clock, CheckCircle, AlertTriangle,
@@ -937,6 +938,9 @@ const StudentDashboard = ({ user, loading: parentLoading }) => {
           </div>
         )}
       </div>
+
+      {/* My Classes Enrollment */}
+      <MyClassesEnrollment />
 
       {/* My Classes */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 dark:bg-gray-800 dark:border-gray-700">

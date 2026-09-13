@@ -261,7 +261,11 @@ export const classSpaceAPI = {
   // Regular students pass a SECTION enrollment code; irregular students pass a
   // SUBJECT class code. The backend routes on the student's studentType.
   join: (code) => api.post('/classSpaces/join', { code }),
-  leave: (id) => api.post(`/classSpaces/${id}/leave`)
+  leave: (id) => api.post(`/classSpaces/${id}/leave`),
+  
+  // Self-enrollment with class code (for irregular students)
+  enrollByCode: (classCode) => api.post('/classSpaces/enroll-by-code', { classCode }),
+  unenroll: (id) => api.delete(`/classSpaces/${id}/unenroll`)
 };
 
 /** Absolute URL for an uploaded material. */

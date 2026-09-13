@@ -926,3 +926,225 @@ exports.deleteClassSpace = async (req, res) => {
     });
   }
 };
+
+
+// @desc    Enroll student using class code (self-enrollment)
+// @route   POST /api/classSpaces/enroll-by-code
+// @access  Private (student only)
+exports.enrollByCode = async (req, res) => {
+  try {
+    const { classCode } = req.body;
+
+    if (!classCode) {
+      return res.status(400).json({
+        success: false,
+        message: 'Class code is required'
+      });
+    }
+
+    // Find the class space
+    const classSpace = await ClassSpace.findOne({ classCode: classCode.toUpperCase() })
+      .populate('subject', 'subjectCode subjectName')
+      .populate('schedule', 'timeSlots');
+
+    if (!classSpace) {
+      return res.status(404).json({
+        success: false,
+        message: 'Invalid class code. Please check and try again.'
+      });
+    }
+
+    if (!classSpace.isActive) {
+      return res.status(400).json({
+        success: false,
+        message: 'This class is no longer active.'
+      });
+    }
+
+    // Get the student record
+    const student = await Student.findOne({ user: req.user._id });
+
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student record not found. Please contact administration.'
+      });
+    }
+
+    // Check if already enrolled
+    if (classSpace.hasStudent(student._id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'You are already enrolled in this class.'
+      });
+    }
+
+    // Check for time conflicts with existing enrollments
+    const studentClasses = await ClassSpace.find({
+      'enrolledStudents.student': student._id,
+      isActive: true
+    }).populate('schedule', 'timeSlots');
+
+    // Simple conflict check
+    if (classSpace.schedule && classSpace.schedule.timeSlots) {
+      for (const existingClass of studentClasses) {
+        if (existingClass.schedule && existingClass.schedule.timeSlots) {
+          // Check for time slot overlaps
+          const hasConflict = classSpace.schedule.timeSlots.some(newSlot =>
+            existingClass.schedule.timeSlots.some(existingSlot =>
+              newSlot.day === existingSlot.day &&
+              timeSlotsOverlap(newSlot, existingSlot)
+            )
+          );
+
+          if (hasConflict) {
+            return res.status(400).json({
+              success: false,
+              message: `Schedule conflict detected with ${existingClass.subject?.subjectName || 'another class'}.`,
+              conflict: {
+                subjectName: existingClass.subject?.subjectName,
+                subjectCode: existingClass.subject?.subjectCode
+              }
+            });
+          }
+        }
+      }
+    }
+
+    // Enroll the student as 'subject' type (irregular student)
+    classSpace.enrolledStudents.push({
+      student: student._id,
+      enrollmentType: 'subject',
+      enrolledAt: new Date()
+    });
+
+    await classSpace.save();
+
+    // Add subject code to student's subjectCodes array
+    if (!student.subjectCodes.includes(classSpace.subject.toString())) {
+      student.subjectCodes.push(classSpace.subject.toString());
+    }
+
+    // Update student type to irregular if not already
+    if (student.studentType !== 'irregular') {
+      student.studentType = 'irregular';
+    }
+
+    // Update enrollment status
+    if (student.enrollmentStatus === 'not_enrolled') {
+      student.enrollmentStatus = 'enrolled';
+    }
+
+    await student.save();
+
+    // Fetch updated class space with full details
+    const updatedClassSpace = await ClassSpace.findById(classSpace._id)
+      .populate(CLASS_POPULATE);
+
+    res.status(200).json({
+      success: true,
+      message: `Successfully enrolled in ${classSpace.subject?.subjectName}!`,
+      data: updatedClassSpace
+    });
+
+  } catch (error) {
+    console.error('Enroll by code error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error enrolling in class',
+      error: error.message
+    });
+  }
+};
+
+// Helper function to check if time slots overlap
+function timeSlotsOverlap(slot1, slot2) {
+  const start1 = timeToMinutes(slot1.startTime);
+  const end1 = timeToMinutes(slot1.endTime);
+  const start2 = timeToMinutes(slot2.startTime);
+  const end2 = timeToMinutes(slot2.endTime);
+
+  return start1 < end2 && start2 < end1;
+}
+
+function timeToMinutes(timeStr) {
+  const [hours, minutes] = timeStr.split(':').map(Number);
+  return hours * 60 + minutes;
+}
+
+// @desc    Drop/unenroll from a class (student self-drop)
+// @route   DELETE /api/classSpaces/:id/unenroll
+// @access  Private (student only)
+exports.unenrollFromClass = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const classSpace = await ClassSpace.findById(id)
+      .populate('subject', 'subjectCode subjectName');
+
+    if (!classSpace) {
+      return res.status(404).json({
+        success: false,
+        message: 'Class not found'
+      });
+    }
+
+    // Get student record
+    const student = await Student.findOne({ user: req.user._id });
+
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student record not found'
+      });
+    }
+
+    // Check if enrolled
+    if (!classSpace.hasStudent(student._id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'You are not enrolled in this class'
+      });
+    }
+
+    // Check enrollment type - students can only drop subject-type enrollments (irregular)
+    const enrollment = classSpace.findEnrollment(student._id);
+    if (enrollment && enrollment.enrollmentType === 'section') {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot drop this class. Please contact your program manager to change section enrollment.'
+      });
+    }
+
+    // Remove from class space
+    classSpace.removeStudent(student._id);
+    await classSpace.save();
+
+    // Remove subject code from student
+    student.subjectCodes = student.subjectCodes.filter(
+      code => code.toString() !== classSpace.subject.toString()
+    );
+
+    // If no more subject codes and no section code, set to not_enrolled
+    if (student.subjectCodes.length === 0 && !student.sectionCode) {
+      student.enrollmentStatus = 'not_enrolled';
+      student.studentType = 'regular'; // Reset to regular
+    }
+
+    await student.save();
+
+    res.status(200).json({
+      success: true,
+      message: `Successfully dropped ${classSpace.subject?.subjectName}`,
+      data: { classId: id }
+    });
+
+  } catch (error) {
+    console.error('Unenroll from class error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error dropping class',
+      error: error.message
+    });
+  }
+};

@@ -16,6 +16,8 @@ const {
   deleteAnnouncement,
   uploadMaterial,
   deleteMaterial,
+  enrollByCode,
+  unenrollFromClass,
 } = require('../controllers/classSpace.controller');
 const { protect, authorize } = require('../middleware/auth.middleware');
 const { uploadMaterial: uploadMaterialFile } = require('../middleware/upload.middleware');
@@ -29,6 +31,8 @@ const TEACHING = [...STAFF, 'faculty'];
 /* -------- student enrollment (declared before /:id so it isn't shadowed) -------- */
 router.post('/join', authorize('student'), joinByCode);
 router.post('/:id/leave', authorize('student'), leaveClassSpace);
+router.post('/enroll-by-code', authorize('student'), enrollByCode);
+router.delete('/:id/unenroll', authorize('student'), unenrollFromClass);
 
 /* -------- listing -------- */
 // Own classes: any role, resolved per-role in the controller

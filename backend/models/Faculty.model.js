@@ -21,7 +21,22 @@ const FacultySchema = new mongoose.Schema({
   position: {
     type: String,
     required: true,
+    enum: ['Instructor', 'Assistant Professor', 'Associate Professor', 'Professor', 'Chairman', 'Dean', 'CD'],
     trim: true
+  },
+  positionHours: {
+    type: Number,
+    default: 0,
+    min: 0,
+    get: function() {
+      // Auto-calculate based on position
+      switch(this.position) {
+        case 'Chairman': return 12; // 12-15 hours, using 12 as default
+        case 'Dean': return 9;
+        case 'CD': return 6;
+        default: return 0;
+      }
+    }
   },
   employmentType: {
     type: String,
@@ -61,13 +76,13 @@ const FacultySchema = new mongoose.Schema({
       max: 5
     }
   }],
-  maxTeachingLoad: {
+  maxTeachingHours: {
     type: Number,
-    default: 24,
+    default: 36, // Standard: 36 hours for regular/part-time
     min: 0,
-    max: 40
+    max: 40  // Can go up to 40 with warning
   },
-  currentLoad: {
+  currentTeachingHours: {
     type: Number,
     default: 0,
     min: 0
@@ -100,5 +115,28 @@ const FacultySchema = new mongoose.Schema({
 
 // Index for faster queries on specializations
 FacultySchema.index({ 'specializations': 1 });
+
+// Virtual field for total hours (teaching + administrative)
+FacultySchema.virtual('totalHours').get(function() {
+  return (this.currentTeachingHours || 0) + (this.positionHours || 0);
+});
+
+// Virtual field for load status
+FacultySchema.virtual('loadStatus').get(function() {
+  const total = this.totalHours;
+  const standard = 36;
+  
+  if (total <= standard) {
+    return { status: 'normal', color: 'green', message: 'Normal load' };
+  } else if (total <= 40) {
+    return { status: 'warning', color: 'yellow', message: 'Above standard (allowed)' };
+  } else {
+    return { status: 'overload', color: 'red', message: 'Overloaded' };
+  }
+});
+
+// Ensure virtuals are included in JSON
+FacultySchema.set('toJSON', { virtuals: true });
+FacultySchema.set('toObject', { virtuals: true });
 
 module.exports = mongoose.model('Faculty', FacultySchema);

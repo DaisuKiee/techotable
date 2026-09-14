@@ -16,9 +16,17 @@ import { usePrograms } from '../hooks/usePrograms';
 import { summarizeAllSubjects, describeRecency } from '../utils/teachingExperience';
 
 // Accessors for the Faculty schema (backend/models/Faculty.model.js).
-// The fields are `maxTeachingLoad` and `specializations` — reading `maxLoad` or
-// `specialization` yields undefined, which renders as "0 / hrs" and NaN-width bars.
-const getMaxLoad = (f) => f.maxTeachingLoad || 24;
+const getMaxLoad = (f) => f.maxTeachingHours || f.maxTeachingLoad || 36;
+const getCurrentLoad = (f) => f.currentTeachingHours || f.currentLoad || 0;
+const getPositionHours = (f) => {
+  switch(f.position) {
+    case 'Chairman': return 12;
+    case 'Dean': return 9;
+    case 'CD': return 6;
+    default: return 0;
+  }
+};
+const getTotalHours = (f) => getCurrentLoad(f) + getPositionHours(f);
 const getSpecializations = (f) => f.specializations || [];
 const getPrograms = (f) => f.programs || [];
 const getTopQualification = (f) => {
@@ -26,8 +34,25 @@ const getTopQualification = (f) => {
   if (!q) return null;
   return [q.degree, q.field].filter(Boolean).join(' in ');
 };
-const getLoadPercent = (f) =>
-  Math.min((((f.currentLoad || 0) / getMaxLoad(f)) * 100), 100);
+
+// Get load status with color (Green: 0-36, Yellow: 37-40, Red: 40+)
+const getLoadStatus = (f) => {
+  const total = getTotalHours(f);
+  const standard = 36;
+  
+  if (total <= standard) {
+    return { status: 'normal', color: 'green', bgColor: 'bg-green-600', percent: (total / standard) * 100 };
+  } else if (total <= 40) {
+    return { status: 'warning', color: 'yellow', bgColor: 'bg-yellow-500', percent: 100 };
+  } else {
+    return { status: 'overload', color: 'red', bgColor: 'bg-red-600', percent: 100 };
+  }
+};
+
+const getLoadPercent = (f) => {
+  const status = getLoadStatus(f);
+  return Math.min(status.percent, 100);
+};
 
 // The schema has no `averageRating` field — ratings live on individual
 // teachingHistory entries, so average the ones that have a score.
@@ -158,9 +183,10 @@ const FacultyPage = () => {
     total: faculty.length,
     active: faculty.filter(f => f.isActive).length,
     avgLoad: faculty.length > 0 
-      ? Math.round(faculty.reduce((sum, f) => sum + (f.currentLoad || 0), 0) / faculty.length)
+      ? Math.round(faculty.reduce((sum, f) => sum + getTotalHours(f), 0) / faculty.length)
       : 0,
-    overloaded: faculty.filter(f => (f.currentLoad || 0) > getMaxLoad(f)).length
+    overloaded: faculty.filter(f => getTotalHours(f) > 40).length,
+    warning: faculty.filter(f => getTotalHours(f) > 36 && getTotalHours(f) <= 40).length
   };
 
   return (
@@ -547,26 +573,34 @@ const FacultyPage = () => {
                 {/* Workload Progress */}
                 <div className="mb-4">
                   <div className="flex items-center justify-between text-sm mb-1.5">
-                    <span className="text-gray-600 dark:text-gray-400 font-medium">Workload</span>
+                    <span className="text-gray-600 dark:text-gray-400 font-medium">Total Hours</span>
                     <span className="font-semibold text-gray-900 dark:text-white">
-                      {facultyMember.currentLoad || 0} / {getMaxLoad(facultyMember)} units
+                      {getTotalHours(facultyMember)} hrs
+                      {getPositionHours(facultyMember) > 0 && (
+                        <span className="text-xs text-gray-500"> ({getCurrentLoad(facultyMember)}T + {getPositionHours(facultyMember)}A)</span>
+                      )}
                     </span>
                   </div>
                   <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 overflow-hidden">
                     <div 
-                      className={`h-full rounded-full transition-all duration-500 ${
-                        (facultyMember.currentLoad || 0) > getMaxLoad(facultyMember)
-                          ? 'bg-red-600'
-                          : getLoadPercent(facultyMember) > 80
-                          ? 'bg-orange-500'
-                          : 'bg-green-600'
-                      }`}
+                      className={`h-full rounded-full transition-all duration-500 ${getLoadStatus(facultyMember).bgColor}`}
                       style={{ width: `${getLoadPercent(facultyMember)}%` }}
                     />
                   </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    {Math.max(getMaxLoad(facultyMember) - (facultyMember.currentLoad || 0), 0)} units available
-                  </p>
+                  <div className="flex items-center justify-between mt-1">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {Math.max(36 - getTotalHours(facultyMember), 0)} hrs below standard
+                    </p>
+                    <span className={`text-xs font-semibold ${
+                      getLoadStatus(facultyMember).color === 'green' ? 'text-green-600' :
+                      getLoadStatus(facultyMember).color === 'yellow' ? 'text-yellow-600' :
+                      'text-red-600'
+                    }`}>
+                      {getLoadStatus(facultyMember).status === 'normal' ? '✓ Normal' :
+                       getLoadStatus(facultyMember).status === 'warning' ? '⚠️ Warning' :
+                       '⛔ Overload'}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Status Badge */}
@@ -708,21 +742,23 @@ const FacultyPage = () => {
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
                         <div className="flex items-center">
-                          <div className="flex-1 min-w-[120px]">
+                          <div className="flex-1 min-w-[140px]">
                             <div className="flex items-center justify-between text-xs mb-1">
                               <span className="text-gray-600 dark:text-gray-400">
-                                {facultyMember.currentLoad || 0} / {getMaxLoad(facultyMember)} units
+                                {getTotalHours(facultyMember)} hrs
+                              </span>
+                              <span className={`font-semibold ${
+                                getLoadStatus(facultyMember).color === 'green' ? 'text-green-600' :
+                                getLoadStatus(facultyMember).color === 'yellow' ? 'text-yellow-600' :
+                                'text-red-600'
+                              }`}>
+                                {getLoadStatus(facultyMember).status === 'normal' ? '✓' :
+                                 getLoadStatus(facultyMember).status === 'warning' ? '⚠️' : '⛔'}
                               </span>
                             </div>
                             <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                               <div
-                                className={`h-2 rounded-full ${
-                                  (facultyMember.currentLoad || 0) > getMaxLoad(facultyMember)
-                                    ? 'bg-red-600'
-                                    : getLoadPercent(facultyMember) > 80
-                                    ? 'bg-orange-500'
-                                    : 'bg-green-600'
-                                }`}
+                                className={`h-2 rounded-full ${getLoadStatus(facultyMember).bgColor}`}
                                 style={{ width: `${getLoadPercent(facultyMember)}%` }}
                               ></div>
                             </div>

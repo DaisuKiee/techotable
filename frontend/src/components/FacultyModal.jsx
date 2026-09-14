@@ -11,9 +11,10 @@ const FacultyModal = ({ mode, faculty, onClose }) => {
     user: '',
     employeeId: '',
     employmentType: 'Regular',
+    position: 'Instructor',
     specialization: [''],
     programs: [],
-    maxLoad: 40,
+    maxLoad: 36,
     isActive: true
   });
 
@@ -25,9 +26,10 @@ const FacultyModal = ({ mode, faculty, onClose }) => {
         user: faculty.user?._id || '',
         employeeId: faculty.employeeId || '',
         employmentType: faculty.employmentType || 'Regular',
+        position: faculty.position || 'Instructor',
         specialization: faculty.specialization || [''],
         programs: faculty.programs || [],
-        maxLoad: faculty.maxLoad || 40,
+        maxLoad: faculty.maxLoad || 36,
         isActive: faculty.isActive !== false
       });
     }
@@ -265,6 +267,33 @@ const FacultyModal = ({ mode, faculty, onClose }) => {
                     <option value="Part-time">Part-time Instructor</option>
                   </select>
                 </div>
+
+                {/* Position */}
+                <div className="mt-4">
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    Position <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    name="position"
+                    value={formData.position}
+                    onChange={handleChange}
+                    required
+                    className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 dark:bg-gray-700 dark:text-white transition-all appearance-none bg-white dark:bg-gray-700"
+                  >
+                    <option value="Instructor">Instructor</option>
+                    <option value="Assistant Professor">Assistant Professor</option>
+                    <option value="Associate Professor">Associate Professor</option>
+                    <option value="Professor">Professor</option>
+                    <option value="Chairman">Chairman (12-15 hrs admin)</option>
+                    <option value="Dean">Dean (9 hrs admin)</option>
+                    <option value="CD">CD (6 hrs admin)</option>
+                  </select>
+                  {['Chairman', 'Dean', 'CD'].includes(formData.position) && (
+                    <p className="text-xs text-blue-600 dark:text-blue-400 mt-1.5">
+                      ℹ️ Administrative hours will be added to teaching load
+                    </p>
+                  )}
+                </div>
               </div>
 
               {/* Academic Information Section */}
@@ -370,10 +399,10 @@ const FacultyModal = ({ mode, faculty, onClose }) => {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Max Load */}
+                  {/* Max Teaching Hours */}
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                      Maximum Teaching Load (hrs/week) <span className="text-red-500">*</span>
+                      Max Teaching Hours (per week) <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="number"
@@ -382,12 +411,12 @@ const FacultyModal = ({ mode, faculty, onClose }) => {
                       onChange={handleChange}
                       required
                       min="0"
-                      max="60"
-                      placeholder="40"
+                      max="40"
+                      placeholder="36"
                       className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 dark:bg-gray-700 dark:text-white placeholder-gray-400 transition-all"
                     />
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5">
-                      Recommended: 18-40 hours per week
+                      ⚠️ Standard: 36 hours (can go up to 40 with warning)
                     </p>
                   </div>
 

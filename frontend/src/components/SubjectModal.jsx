@@ -71,6 +71,21 @@ const SubjectModal = ({ mode, subject, onClose }) => {
     });
   };
 
+  const handleGenerateCode = async () => {
+    try {
+      const response = await subjectAPI.generateCode();
+      const generatedCode = response.data.data.subjectCode;
+      setFormData({
+        ...formData,
+        subjectCode: generatedCode
+      });
+      toast.success(`Generated code: ${generatedCode}`);
+    } catch (error) {
+      console.error('Generate code error:', error);
+      toast.error('Could not generate code');
+    }
+  };
+
   const handlePrerequisiteToggle = (subjectId) => {
     const current = formData.prerequisites || [];
     if (current.includes(subjectId)) {
@@ -189,15 +204,33 @@ const SubjectModal = ({ mode, subject, onClose }) => {
                     <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                       Subject Code <span className="text-red-500">*</span>
                     </label>
-                    <input
-                      type="text"
-                      name="subjectCode"
-                      value={formData.subjectCode}
-                      onChange={handleChange}
-                      required
-                      placeholder="e.g., IT311"
-                      className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
-                    />
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        name="subjectCode"
+                        value={formData.subjectCode}
+                        onChange={handleChange}
+                        required
+                        placeholder="e.g., IT311"
+                        className="flex-1 px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all uppercase"
+                        style={{ textTransform: 'uppercase' }}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleGenerateCode}
+                        className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-all flex items-center gap-2 whitespace-nowrap"
+                        title="Generate random code"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        Generate
+                      </button>
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Click "Generate" for a random code (e.g., AB1234)
+                    </p>
+                  </div>
                   </div>
 
                   {/* Units */}

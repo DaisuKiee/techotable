@@ -144,7 +144,8 @@ export const subjectAPI = {
   getByProgramAndYear: (program, year) => api.get(`/subjects/program/${program}/year/${year}`),
   getStats: () => api.get('/subjects/stats'),
   bulkImport: (data) => api.post('/subjects/bulk-import', data),
-  getByQualification: (qualification) => api.get(`/subjects/qualification/${qualification}`)
+  getByQualification: (qualification) => api.get(`/subjects/qualification/${qualification}`),
+  generateCode: () => api.post('/subjects/generate-code')
 };
 
 // ============== ROOM ENDPOINTS ==============

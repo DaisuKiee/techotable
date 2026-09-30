@@ -504,3 +504,23 @@ exports.getSubjectsByQualification = async (req, res) => {
     });
   }
 };
+
+// @desc    Generate a unique subject code
+// @route   POST /api/subjects/generate-code
+// @access  Private (staff only)
+exports.generateSubjectCode = async (req, res) => {
+  try {
+    const code = await Subject.generateUniqueSubjectCode();
+    res.status(200).json({
+      success: true,
+      data: { subjectCode: code }
+    });
+  } catch (error) {
+    console.error('Generate subject code error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error generating subject code',
+      error: error.message
+    });
+  }
+};

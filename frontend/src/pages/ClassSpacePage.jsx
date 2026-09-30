@@ -844,23 +844,6 @@ const ClassSpacePage = () => {
                 className="w-full sm:w-56 pl-9 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
-            {/* Students can always join: irregular students add subjects one at
-                a time, and regular students may need to switch sections. */}
-            {isStudent && (
-              <button
-                onClick={() => setShowEnrollModal(true)}
-                title={isIrregular ? 'Join Subject' : notEnrolled ? 'Join Section' : 'Change Section'}
-                className="flex items-center gap-2 flex-shrink-0 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm transition-colors"
-              >
-                <Plus className="w-4 h-4 flex-shrink-0" />
-                <span className="whitespace-nowrap">
-                  {isIrregular ? 'Join' : notEnrolled ? 'Join' : 'Change'}
-                  <span className="hidden sm:inline">
-                    {isIrregular ? ' Subject' : ' Section'}
-                  </span>
-                </span>
-              </button>
-            )}
           </div>
         </div>
 
@@ -915,21 +898,47 @@ const ClassSpacePage = () => {
                  depends on whether they are regular or irregular. */
               <>
                 <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-                  {isIrregular ? "You haven't joined any subjects yet" : "You haven't joined a section yet"}
+                  You haven't joined yet
                 </h2>
-                <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-sm">
-                  {joinHint ||
-                    (isIrregular
-                      ? 'Enter a subject class code from your instructor to join a class. As an irregular student you join one subject at a time.'
-                      : 'Enter the enrollment code from your program manager to join your section. Your subjects will appear automatically.')}
+                <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-md text-center">
+                  {joinHint || 'Join your section for regular enrollment, or add subjects individually if you\'re an irregular student.'}
                 </p>
-                <button
-                  onClick={() => setShowEnrollModal(true)}
-                  className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold transition-colors"
-                >
-                  <UserPlus className="w-5 h-5" />
-                  {isIrregular ? 'Enter Subject Code' : 'Enter Enrollment Code'}
-                </button>
+                
+                {/* Two buttons: Section Code and Subject Code */}
+                <div className="flex flex-col sm:flex-row gap-3 w-full max-w-md">
+                  <button
+                    onClick={() => {
+                      setStudentType('regular');
+                      setShowEnrollModal(true);
+                    }}
+                    className="flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold transition-colors shadow-md hover:shadow-lg"
+                  >
+                    <UserPlus className="w-5 h-5" />
+                    <div className="text-left">
+                      <div>Enter Section Code</div>
+                      <div className="text-xs text-blue-100 font-normal">For regular students</div>
+                    </div>
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      setStudentType('irregular');
+                      setShowEnrollModal(true);
+                    }}
+                    className="flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-semibold transition-colors shadow-md hover:shadow-lg"
+                  >
+                    <BookOpen className="w-5 h-5" />
+                    <div className="text-left">
+                      <div>Enter Subject Code</div>
+                      <div className="text-xs text-purple-100 font-normal">For irregular students</div>
+                    </div>
+                  </button>
+                </div>
+                
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-4 max-w-md text-center">
+                  <strong>Regular:</strong> Join your section to see all subjects automatically<br />
+                  <strong>Irregular:</strong> Add subjects one by one using subject codes
+                </p>
               </>
             ) : isStudent && !notEnrolled ? (
               /* Student is enrolled in a section but no schedules published yet */

@@ -3,7 +3,7 @@ import axios from 'axios';
 // Create axios instance with default config
 const api = axios.create({
   baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000/api',
-  timeout: 30000,
+  timeout: 60000, // Increased to 60 seconds for Render free tier spin-up
   headers: {
     'Content-Type': 'application/json'
   }

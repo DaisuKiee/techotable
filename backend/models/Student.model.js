@@ -24,8 +24,8 @@ const StudentSchema = new mongoose.Schema({
   studentType: {
     type: String,
     enum: ['regular', 'irregular'],
-    default: 'regular',
-    required: true
+    default: null,
+    required: false
   },
   // For regular students: enrolled in a section (e.g., "BSIT-4A")
   // Will be assigned by program manager after signup

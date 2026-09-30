@@ -85,7 +85,7 @@ const ClassSpacePage = () => {
   
   // Whether the server says the current user may post in the open class
   const [canPostHere, setCanPostHere] = useState(false);
-  const [studentType, setStudentType] = useState('regular');
+  const [studentType, setStudentType] = useState(null); // null until backend tells us or student chooses
   const [joinHint, setJoinHint] = useState(null);
 
   const isFaculty = user?.role === 'faculty';

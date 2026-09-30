@@ -503,7 +503,7 @@ exports.signup = async (req, res) => {
       user: user._id,
       studentId: studentId,
       program: program,
-      studentType: 'regular', // Default to regular, can be changed by manager
+      studentType: null, // Will be determined when student enrolls (regular=section, irregular=subjects)
       academicYear: '2024-2025',
       semester: 1,
       enrollmentStatus: 'not_enrolled', // Changed from 'enrolled' - will be enrolled when assigned to section

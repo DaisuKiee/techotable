@@ -231,7 +231,6 @@ const SubjectModal = ({ mode, subject, onClose }) => {
                       Click "Generate" for a random code (e.g., AB1234)
                     </p>
                   </div>
-                  </div>
 
                   {/* Units */}
                   <div>

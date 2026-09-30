@@ -116,7 +116,8 @@ app.get('/api/health', (req, res) => {
     status: 'OK',
     message: 'CoTE Timetabling API is running',
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV
+    environment: process.env.NODE_ENV,
+    frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000' // Debug: show what FRONTEND_URL is set to
   });
 });
 

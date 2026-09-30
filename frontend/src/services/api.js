@@ -201,7 +201,8 @@ export const scheduleAPI = {
   generate: (data) => api.post('/schedules/generate', data, { timeout: solverTimeout(data) }),
   preview: (data) => api.post('/schedules/preview', data, { timeout: solverTimeout(data) }),
   savePreview: (data) => api.post('/schedules/save-preview', data),
-  checkORToolsStatus: () => api.get('/schedules/ortools-status')
+  checkORToolsStatus: () => api.get('/schedules/ortools-status'),
+  getConflicts: (summary = false) => api.get(`/schedules/conflicts${summary ? '?summary=true' : ''}`)
 };
 
 // ============== AI ENDPOINTS ==============
@@ -273,7 +274,8 @@ export const resolveUploadUrl = (fileUrl) => {
   if (!fileUrl) return '';
   if (/^https?:\/\//i.test(fileUrl)) return fileUrl;
   // API_URL ends with /api; uploads are served from the server root.
-  return `${API_URL.replace(/\/api\/?$/, '')}${fileUrl}`;
+  const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+  return `${apiUrl.replace(/\/api\/?$/, '')}${fileUrl}`;
 };
 
 // ============== SECTION ENDPOINTS ==============
@@ -290,3 +292,13 @@ export const sectionAPI = {
 };
 
 export default api;
+
+
+// ============== NOTIFICATION ENDPOINTS ==============
+export const notificationAPI = {
+  getAll: (params) => api.get('/notifications', { params }),
+  getUnreadCount: () => api.get('/notifications/unread-count'),
+  markAsRead: (id) => api.put(`/notifications/${id}/read`),
+  markAllAsRead: () => api.put('/notifications/mark-all-read'),
+  delete: (id) => api.delete(`/notifications/${id}`),
+};

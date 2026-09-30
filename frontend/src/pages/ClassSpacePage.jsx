@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import Layout from '../components/Layout';
 import { classSpaceAPI, resolveUploadUrl } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { usePageState } from '../context/PageStateContext';
 import toast from 'react-hot-toast';
 import {
   BookOpen, Bell, FileText, Users, Plus, Upload,
@@ -12,6 +14,7 @@ import {
 import CreateAnnouncementModal from '../components/CreateAnnouncementModal';
 import UploadMaterialModal from '../components/UploadMaterialModal';
 import EnrollModal from '../components/EnrollModal';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 /* Fields are denormalised onto the ClassSpace, so read subject/faculty/section
    directly and fall back to the populated schedule only for time/room. */
@@ -60,6 +63,14 @@ const CARD_COLORS = [
 
 const ClassSpacePage = () => {
   const { user } = useAuth();
+  const { getPageState, savePageState } = usePageState();
+  
+  // Get saved state or use defaults
+  const savedState = getPageState('classSpaces', {
+    searchTerm: '',
+    filterSection: 'all'
+  });
+
   const [classSpaces, setClassSpaces] = useState([]);
   const [notEnrolled, setNotEnrolled] = useState(false); // student has no sectionCode yet
   const [selectedClass, setSelectedClass] = useState(null); // null = grid view
@@ -69,7 +80,9 @@ const ClassSpacePage = () => {
   const [showMaterialModal, setShowMaterialModal] = useState(false);
   const [showEnrollModal, setShowEnrollModal] = useState(false);
   const [editingAnnouncement, setEditingAnnouncement] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(savedState.searchTerm);
+  const [filterSection, setFilterSection] = useState(savedState.filterSection);
+  
   // Whether the server says the current user may post in the open class
   const [canPostHere, setCanPostHere] = useState(false);
   const [studentType, setStudentType] = useState('regular');
@@ -84,6 +97,14 @@ const ClassSpacePage = () => {
   useEffect(() => {
     loadClassSpaces();
   }, []);
+
+  // Save filter/search state when they change
+  useEffect(() => {
+    savePageState('classSpaces', {
+      searchTerm,
+      filterSection
+    });
+  }, [searchTerm, filterSection]); // Removed savePageState from dependencies
 
   const loadClassSpaces = async () => {
     try {
@@ -174,36 +195,161 @@ const ClassSpacePage = () => {
     else if (shouldRefresh) refreshSelectedClass();
   };
 
-  const handleDeleteAnnouncement = async (announcementId) => {
-    if (!window.confirm('Delete this announcement?')) return;
+  const handleDeleteAnnouncement = async (announcement) => {
+    // Create a custom toast with confirm/cancel buttons
+    toast((t) => (
+      <div className="flex flex-col gap-3 p-2">
+        <div className="flex items-start gap-3">
+          <div className="flex-shrink-0 w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/50 flex items-center justify-center">
+            <Trash2 className="w-5 h-5 text-red-600 dark:text-red-400" />
+          </div>
+          <div className="flex-1">
+            <h3 className="font-bold text-gray-900 dark:text-white mb-1">Delete Announcement</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
+              Are you sure you want to delete "{announcement.title}"?
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">This action cannot be undone.</p>
+          </div>
+        </div>
+        <div className="flex gap-2 justify-end">
+          <button
+            onClick={() => toast.dismiss(t.id)}
+            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={async () => {
+              toast.dismiss(t.id);
+              try {
+                const announcementId = announcement._id || announcement;
+                await classSpaceAPI.deleteAnnouncement(selectedClass._id, announcementId);
+                toast.success('Announcement deleted successfully');
+                refreshSelectedClass();
+              } catch (error) {
+                console.error('Delete announcement error:', error);
+                toast.error(error.response?.data?.message || 'Failed to delete announcement');
+              }
+            }}
+            className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700 rounded-lg transition-colors"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    ), {
+      duration: 10000,
+      position: 'top-center',
+      style: {
+        minWidth: '400px',
+        maxWidth: '500px',
+        background: 'rgb(254, 254, 255)', // dark:bg-gray-800
+        color: 'white',
+        borderRadius: '1rem',
+        padding: '0.5rem',
+      },
+    });
+  };
+
+  const handleDownloadMaterial = async (material) => {
     try {
-      await classSpaceAPI.deleteAnnouncement(selectedClass._id, announcementId);
-      toast.success('Announcement deleted');
-      refreshSelectedClass();
-    } catch {
-      toast.error('Failed to delete announcement');
+      const fileUrl = resolveUploadUrl(material.fileUrl);
+      const fileName = material.fileName || material.title || 'download';
+      
+      // Fetch the file as a blob
+      const response = await fetch(fileUrl);
+      const blob = await response.blob();
+      
+      // Create a temporary download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      
+      // Cleanup
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      toast.success('Download started');
+    } catch (error) {
+      console.error('Download error:', error);
+      toast.error('Failed to download file');
     }
   };
 
-  const handleDeleteMaterial = async (materialId) => {
-    if (!window.confirm('Delete this material?')) return;
-    try {
-      await classSpaceAPI.deleteMaterial(selectedClass._id, materialId);
-      toast.success('Material deleted');
-      refreshSelectedClass();
-    } catch {
-      toast.error('Failed to delete material');
-    }
+  const handleDeleteMaterial = async (material) => {
+    // Create a custom toast with confirm/cancel buttons
+    toast((t) => (
+      <div className="flex flex-col gap-3 p-2">
+        <div className="flex items-start gap-3">
+          <div className="flex-shrink-0 w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/50 flex items-center justify-center">
+            <Trash2 className="w-5 h-5 text-red-600 dark:text-red-400" />
+          </div>
+          <div className="flex-1">
+            <h3 className="font-bold text-gray-900 dark:text-white mb-1">Delete Material</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
+              Are you sure you want to delete "{material.title || material.fileName}"?
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">This action cannot be undone.</p>
+          </div>
+        </div>
+        <div className="flex gap-2 justify-end">
+          <button
+            onClick={() => toast.dismiss(t.id)}
+            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={async () => {
+              toast.dismiss(t.id);
+              try {
+                const materialId = material._id || material;
+                await classSpaceAPI.deleteMaterial(selectedClass._id, materialId);
+                toast.success('Material deleted successfully');
+                refreshSelectedClass();
+              } catch (error) {
+                console.error('Delete material error:', error);
+                toast.error(error.response?.data?.message || 'Failed to delete material');
+              }
+            }}
+            className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700 rounded-lg transition-colors"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    ), {
+      duration: 10000,
+      position: 'top-center',
+      style: {
+        minWidth: '400px',
+        maxWidth: '500px',
+        background: 'rgb(241, 244, 249)', // dark:bg-gray-800
+        color: 'white',
+        borderRadius: '1rem',
+        padding: '0.5rem',
+      },
+    });
   };
+
+  // Get unique sections for filter
+  const uniqueSections = ['all', ...new Set(classSpaces.map(cs => cs.sectionCode).filter(Boolean))].sort();
 
   const filteredClasses = classSpaces.filter(cs => {
     const q = searchTerm.toLowerCase();
-    return (
+    const searchMatch = (
       subjectCodeOf(cs).toLowerCase().includes(q) ||
       subjectNameOf(cs).toLowerCase().includes(q) ||
       (cs.sectionCode || '').toLowerCase().includes(q) ||
       (facultyNameOf(cs) || '').toLowerCase().includes(q)
     );
+
+    const sectionMatch = filterSection === 'all' || cs.sectionCode === filterSection;
+
+    return searchMatch && sectionMatch;
   });
 
   const sortedAnnouncements = selectedClass?.announcements
@@ -439,7 +585,16 @@ const ClassSpacePage = () => {
                                     <button onClick={() => { setEditingAnnouncement(item.data); setShowAnnouncementModal(true); }} className="p-1.5 text-gray-400 hover:text-blue-600 rounded transition-colors">
                                       <Edit2 className="w-4 h-4" />
                                     </button>
-                                    <button onClick={() => handleDeleteAnnouncement(item.data._id)} className="p-1.5 text-gray-400 hover:text-red-600 rounded transition-colors">
+                                    <button 
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        console.log('Delete announcement clicked', item.data);
+                                        handleDeleteAnnouncement(item.data);
+                                      }} 
+                                      className="p-1.5 text-gray-400 hover:text-red-600 rounded transition-colors cursor-pointer"
+                                      type="button"
+                                    >
                                       <Trash2 className="w-4 h-4" />
                                     </button>
                                   </div>
@@ -460,19 +615,24 @@ const ClassSpacePage = () => {
                                   <p className="text-sm text-gray-500 mb-2">{item.data.description}</p>
                                 )}
                                 <div className="flex items-center gap-3">
-                                  {/* Absolute URL: uploads are served by the API, not the frontend origin */}
-                                  <a
-                                    href={resolveUploadUrl(item.data.fileUrl)}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    download={item.data.fileName}
+                                  <button
+                                    onClick={() => handleDownloadMaterial(item.data)}
                                     className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg transition-colors"
                                   >
                                     <Download className="w-3.5 h-3.5" /> Download
-                                  </a>
+                                  </button>
                                   <span className="text-xs text-gray-400">{fmtSize(item.data.fileSize)}</span>
                                   {canManage && (
-                                    <button onClick={() => handleDeleteMaterial(item.data._id)} className="ml-auto p-1.5 text-gray-400 hover:text-red-600 rounded transition-colors">
+                                    <button 
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        console.log('Delete button clicked', item.data);
+                                        handleDeleteMaterial(item.data);
+                                      }} 
+                                      className="ml-auto p-1.5 text-gray-400 hover:text-red-600 rounded transition-colors cursor-pointer"
+                                      type="button"
+                                    >
                                       <Trash2 className="w-4 h-4" />
                                     </button>
                                   )}
@@ -516,17 +676,24 @@ const ClassSpacePage = () => {
                               </p>
                             </div>
                             <div className="flex items-center gap-2">
-                              <a
-                                href={resolveUploadUrl(mat.fileUrl)}
-                                target="_blank"
-                                rel="noreferrer"
-                                download={mat.fileName}
+                              <button
+                                onClick={() => handleDownloadMaterial(mat)}
                                 className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900 rounded-lg transition-colors"
+                                title="Download"
                               >
                                 <Download className="w-4 h-4" />
-                              </a>
+                              </button>
                               {canManage && (
-                                <button onClick={() => handleDeleteMaterial(mat._id)} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900 rounded-lg transition-colors">
+                                <button 
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    console.log('Delete button clicked (materials tab)', mat);
+                                    handleDeleteMaterial(mat);
+                                  }} 
+                                  className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900 rounded-lg transition-colors cursor-pointer"
+                                  type="button"
+                                >
                                   <Trash2 className="w-4 h-4" />
                                 </button>
                               )}
@@ -546,10 +713,18 @@ const ClassSpacePage = () => {
                       <div>
                         <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Instructor</h3>
                         <div className="flex items-center gap-3 p-3 rounded-xl bg-blue-50 dark:bg-blue-900/20">
-                          <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
-                            <span className="text-white font-bold text-sm">
-                              {facultyName[0]}
-                            </span>
+                          <div className="w-10 h-10 rounded-full flex items-center justify-center overflow-hidden bg-blue-600">
+                            {selectedClass.faculty?.user?.profilePicture ? (
+                              <img
+                                src={`${process.env.REACT_APP_API_URL?.replace('/api', '')}${selectedClass.faculty.user.profilePicture}`}
+                                alt={facultyName}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <span className="text-white font-bold text-sm">
+                                {facultyName[0]}
+                              </span>
+                            )}
                           </div>
                           <div>
                             <p className="font-semibold text-gray-900 dark:text-white">{facultyName}</p>
@@ -586,12 +761,21 @@ const ClassSpacePage = () => {
                             const u = student?.user;
                             const firstName = u?.firstName || '?';
                             const lastName = u?.lastName || '';
+                            const profilePicture = u?.profilePicture;
                             return (
                               <div key={i} className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                                <div className="w-9 h-9 bg-gray-300 dark:bg-gray-600 rounded-full flex items-center justify-center flex-shrink-0">
-                                  <span className="text-gray-700 dark:text-gray-300 font-semibold text-sm">
-                                    {firstName[0]}{lastName[0] || ''}
-                                  </span>
+                                <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden bg-gray-300 dark:bg-gray-600">
+                                  {profilePicture ? (
+                                    <img
+                                      src={`${process.env.REACT_APP_API_URL?.replace('/api', '')}${profilePicture}`}
+                                      alt={`${firstName} ${lastName}`}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    <span className="text-gray-700 dark:text-gray-300 font-semibold text-sm">
+                                      {firstName[0]}{lastName[0] || ''}
+                                    </span>
+                                  )}
                                 </div>
                                 <div className="min-w-0">
                                   <p className="text-gray-900 dark:text-white text-sm font-medium truncate">
@@ -680,6 +864,45 @@ const ClassSpacePage = () => {
           </div>
         </div>
 
+        {/* Section Filter */}
+        {classSpaces.length > 0 && (
+          <div className="flex flex-wrap items-center gap-3 mb-5">
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Section:
+              </label>
+              <select
+                value={filterSection}
+                onChange={e => setFilterSection(e.target.value)}
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer hover:border-gray-400 dark:hover:border-gray-500 transition-colors"
+              >
+                <option value="all">All Sections</option>
+                {uniqueSections
+                  .filter(section => section !== 'all')
+                  .map(section => {
+                    const count = classSpaces.filter(cs => cs.sectionCode === section).length;
+                    return (
+                      <option key={section} value={section}>
+                        {section} ({count})
+                      </option>
+                    );
+                  })}
+              </select>
+            </div>
+
+            {/* Clear Filter Button - only show when filter is active */}
+            {filterSection !== 'all' && (
+              <button
+                onClick={() => setFilterSection('all')}
+                className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700 rounded-xl transition-colors"
+              >
+                <X className="w-4 h-4" />
+                Clear Filter
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Empty state */}
         {filteredClasses.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center">
@@ -742,6 +965,7 @@ const ClassSpacePage = () => {
               const code = subjectCodeOf(cs);
               const name = subjectNameOf(cs);
               const facultyName = facultyNameOf(cs);
+              const profilePicture = cs?.faculty?.user?.profilePicture;
               const initials = facultyName
                 ? facultyName.split(' ').filter(Boolean).map(p => p[0]).slice(0, 2).join('')
                 : null;
@@ -765,8 +989,14 @@ const ClassSpacePage = () => {
                       )}
                     </div>
                     {/* Instructor avatar */}
-                    <div className="absolute bottom-3 right-3 w-10 h-10 bg-white/20 rounded-full flex items-center justify-center border-2 border-white/40">
-                      {initials ? (
+                    <div className="absolute bottom-3 right-3 w-10 h-10 bg-white/20 rounded-full flex items-center justify-center border-2 border-white/40 overflow-hidden">
+                      {profilePicture ? (
+                        <img
+                          src={`${process.env.REACT_APP_API_URL?.replace('/api', '')}${profilePicture}`}
+                          alt={facultyName || 'Instructor'}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : initials ? (
                         <span className="text-white font-bold text-sm">{initials}</span>
                       ) : (
                         <User className="w-5 h-5 text-white/70" />

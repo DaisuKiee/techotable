@@ -58,9 +58,10 @@ router.get('/:id/workload', getFacultyWorkload);
 
 // Admin/Scheduling Officer/Program Manager only routes
 router.post('/', authorize('admin', 'scheduling_officer', 'program_manager'), createFacultyValidation, createFaculty);
-router.put('/:id', authorize('admin', 'scheduling_officer', 'program_manager'), updateFaculty);
+// Faculty can update their own profile, others need admin/scheduling_officer/program_manager role
+router.put('/:id', authorize('admin', 'scheduling_officer', 'program_manager', 'faculty'), updateFaculty);
 router.delete('/:id', authorize('admin', 'scheduling_officer', 'program_manager'), deleteFaculty);
-router.post('/:id/qualifications', authorize('admin', 'scheduling_officer', 'program_manager'), addQualification);
+router.post('/:id/qualifications', authorize('admin', 'scheduling_officer', 'program_manager', 'faculty'), addQualification);
 router.post('/:id/teaching-history', authorize('admin', 'scheduling_officer', 'program_manager'), addTeachingHistory);
 router.put('/:id/load', authorize('admin', 'scheduling_officer', 'program_manager'), updateFacultyLoad);
 

@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Schedule = require('../models/Schedule.model');
 const Faculty = require('../models/Faculty.model');
 const Subject = require('../models/Subject.model');
@@ -14,6 +15,7 @@ const {
   loadRoomsByRawValues,
   labelFor,
 } = require('../utils/roomLabel');
+const { notifyScheduleChange } = require('../services/emailNotification.service');
 // One subject for one section in one term is ONE Schedule document holding all
 // of its meeting times, so it maps to exactly one class space.
 const {
@@ -378,6 +380,17 @@ exports.updateSchedule = async (req, res) => {
       { path: 'faculty', populate: { path: 'user', select: 'firstName lastName' } }
     ]);
 
+    // Send email notifications for schedule updates (async, don't wait)
+    if (schedule.status === 'published') {
+      notifyScheduleChange(schedule._id, 'updated')
+        .then(result => {
+          console.log(`📧 Schedule update notifications sent: ${result.total.sent}/${result.total.recipients}`);
+        })
+        .catch(err => {
+          console.error('❌ Failed to send schedule update notifications:', err.message);
+        });
+    }
+
     res.status(200).json({
       success: true,
       message: 'Schedule updated successfully',
@@ -653,12 +666,44 @@ exports.getFacultySchedule = async (req, res) => {
 
     const schedules = await Schedule.find(query)
       .populate('subject', 'subjectCode subjectName units')
+      .populate('faculty', 'firstName lastName department')
       .sort({ 'timeSlots.day': 1 });
+
+    // Manually lookup rooms since room is stored as a string (ObjectId or room code)
+    const roomIds = [...new Set(schedules.map(s => s.room).filter(Boolean))];
+    const rooms = await Room.find({ 
+      $or: [
+        { _id: { $in: roomIds.filter(id => mongoose.Types.ObjectId.isValid(id)) } },
+        { roomCode: { $in: roomIds } }
+      ]
+    });
+    
+    // Create a map for quick lookup
+    const roomMap = {};
+    rooms.forEach(room => {
+      roomMap[room._id.toString()] = room;
+      roomMap[room.roomCode] = room;
+    });
+
+    // Attach room data to schedules
+    const schedulesWithRooms = schedules.map(schedule => {
+      const scheduleObj = schedule.toObject();
+      const roomData = roomMap[scheduleObj.room];
+      if (roomData) {
+        scheduleObj.roomData = {
+          _id: roomData._id,
+          roomCode: roomData.roomCode,
+          roomName: roomData.roomName,
+          building: roomData.building
+        };
+      }
+      return scheduleObj;
+    });
 
     res.status(200).json({
       success: true,
-      count: schedules.length,
-      data: schedules
+      count: schedulesWithRooms.length,
+      data: schedulesWithRooms
     });
 
   } catch (error) {
@@ -834,6 +879,15 @@ exports.publishSchedule = async (req, res) => {
     schedule.status = 'published';
     await schedule.save();
 
+    // Send email notifications when schedule is published (async, don't wait)
+    notifyScheduleChange(schedule._id, 'published')
+      .then(result => {
+        console.log(`📧 Schedule publish notifications sent: ${result.total.sent}/${result.total.recipients}`);
+      })
+      .catch(err => {
+        console.error('❌ Failed to send schedule publish notifications:', err.message);
+      });
+
     res.status(200).json({
       success: true,
       message: 'Schedule published successfully',
@@ -864,6 +918,16 @@ exports.batchPublishSchedules = async (req, res) => {
       });
     }
 
+    // Get all schedules that will be published
+    const schedulesToPublish = await Schedule.find({
+      program,
+      yearLevel,
+      semester,
+      academicYear,
+      isActive: true,
+      status: { $ne: 'published' } // Only unpublished schedules
+    }).select('_id');
+
     // Update all matching schedules to published
     const result = await Schedule.updateMany(
       {
@@ -877,6 +941,23 @@ exports.batchPublishSchedules = async (req, res) => {
         $set: { status: 'published' }
       }
     );
+
+    // Send notifications for all newly published schedules (async, don't wait)
+    if (schedulesToPublish.length > 0) {
+      console.log(`📧 Sending notifications for ${schedulesToPublish.length} published schedules...`);
+      
+      // Send notifications in batches to avoid overwhelming the email service
+      Promise.allSettled(
+        schedulesToPublish.map(schedule => 
+          notifyScheduleChange(schedule._id, 'published')
+        )
+      ).then(results => {
+        const successful = results.filter(r => r.status === 'fulfilled').length;
+        console.log(`✅ Batch publish notifications: ${successful}/${schedulesToPublish.length} schedules notified`);
+      }).catch(err => {
+        console.error('❌ Batch notification error:', err.message);
+      });
+    }
 
     res.status(200).json({
       success: true,
@@ -1502,6 +1583,38 @@ exports.bulkCreateSchedules = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error saving schedules',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get schedule conflicts
+// @route   GET /api/schedules/conflicts
+// @access  Private (Admin/Scheduling Officer only)
+exports.getConflicts = async (req, res) => {
+  try {
+    const { detectAllConflicts, getConflictSummary } = require('../services/conflictDetection.service');
+    
+    const { summary } = req.query;
+    
+    if (summary === 'true') {
+      const conflictSummary = await getConflictSummary();
+      return res.json({
+        success: true,
+        data: conflictSummary
+      });
+    }
+    
+    const conflicts = await detectAllConflicts();
+    res.json({
+      success: true,
+      data: conflicts
+    });
+  } catch (error) {
+    console.error('Get conflicts error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to detect conflicts',
       error: error.message
     });
   }

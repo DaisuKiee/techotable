@@ -56,6 +56,42 @@ const FacultySchema = new mongoose.Schema({
     institution: String,
     yearObtained: Number
   }],
+  // Academic qualifications from Excel import
+  bachelorsDegree: {
+    degree: String,
+    major: String,
+    minor: String
+  },
+  mastersDegree: {
+    degree: String,
+    major: String,
+    minor: String
+  },
+  doctoralDegree: {
+    degree: String,
+    major: String,
+    minor: String
+  },
+  specialTraining: {
+    type: String,
+    trim: true
+  },
+  administrativeDesignation: {
+    type: String,
+    trim: true
+  },
+  researchInvolvement: {
+    type: String,
+    trim: true
+  },
+  extensionInvolvement: {
+    type: String,
+    trim: true
+  },
+  productionInvolvement: {
+    type: String,
+    trim: true
+  },
   specializations: [{
     type: String,
     trim: true
@@ -74,6 +110,24 @@ const FacultySchema = new mongoose.Schema({
       type: Number,
       min: 0,
       max: 5
+    }
+  }],
+  experiencedSubjects: [{
+    subjectCode: {
+      type: String,
+      required: true
+    },
+    frequency: String, // e.g., "3x", "5x"
+    period: String, // e.g., "this year", "3 years ago"
+    semestersTaught: {
+      type: Number,
+      default: 0
+    },
+    rating: {
+      type: Number,
+      min: 0,
+      max: 5,
+      default: 0
     }
   }],
   maxTeachingHours: {

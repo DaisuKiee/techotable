@@ -86,6 +86,13 @@ if (process.env.NODE_ENV === 'development') {
 const connectDB = require('./config/database');
 connectDB();
 
+// Activity logger middleware - logs all authenticated actions
+const { activityLoggerMiddleware } = require('./services/activityLogger.service');
+app.use('/api/', activityLoggerMiddleware({
+  logReads: false, // Don't log GET requests to reduce noise
+  excludePaths: ['/api/health', '/api/auth/me', '/api/activity-logs']
+}));
+
 // Routes
 app.use('/api/auth', require('./routes/auth.routes'));
 app.use('/api/users', require('./routes/user.routes'));
@@ -98,6 +105,7 @@ app.use('/api/students', require('./routes/student.routes'));
 app.use('/api/sections', require('./routes/section.routes'));
 app.use('/api/programs', require('./routes/program.routes'));
 app.use('/api/activity-logs', require('./routes/activityLog.routes'));
+app.use('/api/notifications', require('./routes/notification.routes'));
 app.use('/api/ai', require('./routes/ai.routes'));
 app.use('/api/ai', require('./routes/aiChat.routes'));
 app.use('/api/import', require('./routes/import.routes'));

@@ -6,11 +6,11 @@ import {
   Plus, Search, Edit2, Trash2, Eye, X,
   User, Mail, Phone, BookOpen, Award, FileText,
   Users, UserCheck, TrendingUp, AlertCircle,
-  Grid3x3, List, GraduationCap, Briefcase, Star, Layers, Clock
+  Grid3x3, List, GraduationCap, Briefcase, Star, Layers, Clock, Download, RefreshCw
 } from 'lucide-react';
 import FacultyModal from '../components/FacultyModal';
 import FacultyDetailsModal from '../components/FacultyDetailsModal';
-import ExcelImportModal from '../components/ExcelImportModal';
+import ConfirmDialog from '../components/ConfirmDialog';
 import { useAuth } from '../context/AuthContext';
 import { usePrograms } from '../hooks/usePrograms';
 import { summarizeAllSubjects, describeRecency } from '../utils/teachingExperience';
@@ -73,9 +73,17 @@ const FacultyPage = () => {
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
   const [showModal, setShowModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
-  const [showExcelImportModal, setShowExcelImportModal] = useState(false);
   const [selectedFaculty, setSelectedFaculty] = useState(null);
   const [modalMode, setModalMode] = useState('create'); // 'create' or 'edit'
+  
+  // Confirm dialog state
+  const [confirmDialog, setConfirmDialog] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    itemName: '',
+    onConfirm: null
+  });
 
   // Program managers are locked to their own program
   useEffect(() => {
@@ -95,6 +103,9 @@ const FacultyPage = () => {
       // Only load active faculty (excluding soft-deleted ones)
       const params = { isActive: true };
       if (filterProgram) params.program = filterProgram;
+      
+      // Add timestamp to prevent caching
+      params._t = Date.now();
 
       const response = await facultyAPI.getAll(params);
       setFaculty(response.data.data || []);
@@ -123,24 +134,31 @@ const FacultyPage = () => {
     setShowDetailsModal(true);
   };
 
-  const handleDelete = async (id) => {
-    const confirmed = window.confirm('Are you sure you want to delete this faculty member?');
-    if (!confirmed) return;
-
-    try {
-      await facultyAPI.delete(id);
-      toast.success('Faculty member deleted successfully');
-      loadFaculty();
-    } catch (error) {
-      console.error('Delete error:', error);
-      
-      // Show specific error message from backend
-      if (error.response?.status === 403) {
-        toast.error(error.response?.data?.message || 'You do not have permission to delete this faculty member');
-      } else {
-        toast.error(error.response?.data?.message || 'Failed to delete faculty member');
+  const handleDelete = async (facultyMember) => {
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Delete Faculty Member',
+      message: 'Are you sure you want to delete this faculty member? This action cannot be undone.',
+      itemName: `${facultyMember.user?.firstName} ${facultyMember.user?.lastName}`,
+      onConfirm: async () => {
+        try {
+          await facultyAPI.delete(facultyMember._id);
+          toast.success('Faculty member deleted successfully');
+          loadFaculty();
+          setConfirmDialog({ ...confirmDialog, isOpen: false });
+        } catch (error) {
+          console.error('Delete error:', error);
+          
+          // Show specific error message from backend
+          if (error.response?.status === 403) {
+            toast.error(error.response?.data?.message || 'You do not have permission to delete this faculty member');
+          } else {
+            toast.error(error.response?.data?.message || 'Failed to delete faculty member');
+          }
+          setConfirmDialog({ ...confirmDialog, isOpen: false });
+        }
       }
-    }
+    });
   };
 
   const handleModalClose = (shouldRefresh) => {
@@ -151,9 +169,58 @@ const FacultyPage = () => {
     }
   };
 
-  const handleExcelImportComplete = () => {
-    setShowExcelImportModal(false);
-    loadFaculty();
+  const exportToExcel = () => {
+    // Prepare data for Excel export
+    const exportData = faculty.map(f => ({
+      'Employee ID': f.employeeId || '',
+      'First Name': f.user?.firstName || '',
+      'Last Name': f.user?.lastName || '',
+      'Email': f.user?.email || '',
+      'Contact Number': f.user?.contactNumber || '',
+      'Position': f.position || '',
+      'Employment Type': f.employmentType || '',
+      'Programs': getPrograms(f).join(', ') || '',
+      'Specializations': getSpecializations(f).join(', ') || '',
+      'Max Teaching Hours': getMaxLoad(f) || '',
+      'Current Load': getCurrentLoad(f) || '',
+      'Position Load': getPositionHours(f) || '',
+      'Total Hours': getTotalHours(f) || '',
+      'Status': f.isActive ? 'Active' : 'Inactive',
+      'Highest Qualification': getTopQualification(f) || ''
+    }));
+
+    if (exportData.length === 0) {
+      toast.error('No faculty to export');
+      return;
+    }
+
+    const headers = Object.keys(exportData[0]);
+    const csvContent = [
+      headers.join(','),
+      ...exportData.map(row => 
+        headers.map(header => {
+          const value = row[header] || '';
+          // Escape commas and quotes in values
+          return `"${String(value).replace(/"/g, '""')}"`;
+        }).join(',')
+      )
+    ].join('\n');
+
+    // Create and download file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    
+    // Generate filename with timestamp
+    const timestamp = new Date().toISOString().split('T')[0];
+    const programFilter = filterProgram ? `_${filterProgram}` : '';
+    link.download = `faculty${programFilter}_${timestamp}.csv`;
+    
+    link.click();
+    window.URL.revokeObjectURL(url);
+    
+    toast.success(`Exported ${exportData.length} faculty members to Excel`);
   };
 
   // Filter faculty based on search and specialization
@@ -200,15 +267,28 @@ const FacultyPage = () => {
             </h1>
             <div className="flex gap-2">
               <button
-                onClick={() => setShowExcelImportModal(true)}
-                className="flex items-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors shadow-md hover:shadow-lg text-sm"
+                onClick={() => {
+                  loadFaculty();
+                  toast.success('Faculty data refreshed');
+                }}
+                className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-md hover:shadow-lg text-sm"
+                title="Refresh faculty data"
+                disabled={loading}
               >
-                <FileText className="w-4 h-4" />
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">Refresh</span>
+              </button>
+              <button
+                onClick={exportToExcel}
+                className="flex items-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors shadow-md hover:shadow-lg text-sm"
+                title="Download faculty data as Excel file"
+              >
+                <Download className="w-4 h-4" />
                 <span className="hidden sm:inline">Excel</span>
               </button>
               <button
                 onClick={handleCreate}
-                className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition-colors shadow-md hover:shadow-lg text-sm"
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors shadow-md hover:shadow-lg text-sm"
               >
                 <Plus className="w-5 h-5" />
                 <span className="hidden sm:inline">Add Faculty</span>
@@ -222,7 +302,7 @@ const FacultyPage = () => {
 
         {/* Statistics Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
-          <div className="bg-teal-600 text-white rounded-xl p-4 shadow-md">
+          <div className="bg-indigo-600 text-white rounded-xl p-4 shadow-md">
             <div className="flex items-center justify-between mb-2">
               <Users className="w-5 h-5 opacity-80" />
               <span className="text-xs font-medium opacity-80">TOTAL</span>
@@ -249,7 +329,7 @@ const FacultyPage = () => {
             <div className="text-xs opacity-80 mt-1">Hours/Week</div>
           </div>
 
-          <div className="bg-red-600 text-white rounded-xl p-4 shadow-md">
+          <div className="bg-orange-600 text-white rounded-xl p-4 shadow-md">
             <div className="flex items-center justify-between mb-2">
               <AlertCircle className="w-5 h-5 opacity-80" />
               <span className="text-xs font-medium opacity-80">OVERLOAD</span>
@@ -270,7 +350,7 @@ const FacultyPage = () => {
                 placeholder="Search by name, email, or employee ID..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white transition-all"
+                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white transition-all"
               />
             </div>
 
@@ -281,7 +361,7 @@ const FacultyPage = () => {
                 onChange={(e) => setFilterProgram(e.target.value)}
                 disabled={isProgramManager}
                 title={isProgramManager ? `You manage ${user.program}` : 'Filter by program'}
-                className="px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm transition-all disabled:bg-gray-100 dark:disabled:bg-gray-600"
+                className="px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm transition-all disabled:bg-gray-100 dark:disabled:bg-gray-600"
               >
                 {isProgramManager ? (
                   <option value={user.program}>{user.program}</option>
@@ -298,7 +378,7 @@ const FacultyPage = () => {
               <select
                 value={filterSpecialization}
                 onChange={(e) => setFilterSpecialization(e.target.value)}
-                className="px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm transition-all"
+                className="px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm transition-all"
               >
                 <option value="">All Specializations</option>
                 {allSpecializations.map((spec) => (
@@ -312,7 +392,7 @@ const FacultyPage = () => {
                   onClick={() => setViewMode('grid')}
                   className={`px-3 py-2 transition-colors ${
                     viewMode === 'grid' 
-                      ? 'bg-teal-600 text-white' 
+                      ? 'bg-indigo-600 text-white' 
                       : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600'
                   }`}
                   title="Grid View"
@@ -323,7 +403,7 @@ const FacultyPage = () => {
                   onClick={() => setViewMode('list')}
                   className={`px-3 py-2 border-l border-gray-300 dark:border-gray-600 transition-colors ${
                     viewMode === 'list' 
-                      ? 'bg-teal-600 text-white' 
+                      ? 'bg-indigo-600 text-white' 
                       : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600'
                   }`}
                   title="List View"
@@ -340,28 +420,28 @@ const FacultyPage = () => {
               <span className="text-sm text-gray-600 dark:text-gray-400">Active filters:</span>
               <div className="flex flex-wrap gap-2">
                 {searchTerm && (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-teal-100 dark:bg-teal-900 text-teal-700 dark:text-teal-300 text-xs rounded-md">
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 text-xs rounded-md">
                     Search: {searchTerm}
                     <X 
-                      className="w-3 h-3 cursor-pointer hover:text-teal-900 dark:hover:text-teal-100" 
+                      className="w-3 h-3 cursor-pointer hover:text-indigo-900 dark:hover:text-indigo-100" 
                       onClick={() => setSearchTerm('')}
                     />
                   </span>
                 )}
                 {filterProgram && !isProgramManager && (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-teal-100 dark:bg-teal-900 text-teal-700 dark:text-teal-300 text-xs rounded-md">
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 text-xs rounded-md">
                     Program: {filterProgram}
                     <X 
-                      className="w-3 h-3 cursor-pointer hover:text-teal-900 dark:hover:text-teal-100" 
+                      className="w-3 h-3 cursor-pointer hover:text-indigo-900 dark:hover:text-indigo-100" 
                       onClick={() => setFilterProgram('')}
                     />
                   </span>
                 )}
                 {filterSpecialization && (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-teal-100 dark:bg-teal-900 text-teal-700 dark:text-teal-300 text-xs rounded-md">
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 text-xs rounded-md">
                     Specialization: {filterSpecialization}
                     <X 
-                      className="w-3 h-3 cursor-pointer hover:text-teal-900 dark:hover:text-teal-100" 
+                      className="w-3 h-3 cursor-pointer hover:text-indigo-900 dark:hover:text-indigo-100" 
                       onClick={() => setFilterSpecialization('')}
                     />
                   </span>
@@ -402,7 +482,7 @@ const FacultyPage = () => {
             {faculty.length === 0 && (
               <button
                 onClick={handleCreate}
-                className="px-6 py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition-colors inline-flex items-center gap-2"
+                className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors inline-flex items-center gap-2"
               >
                 <Plus className="w-5 h-5" />
                 Add First Faculty
@@ -419,9 +499,17 @@ const FacultyPage = () => {
                 {/* Faculty Header */}
                 <div className="flex items-start gap-3 mb-4">
                   <div className="flex-shrink-0">
-                    <div className="h-14 w-14 rounded-full bg-teal-100 dark:bg-teal-900 flex items-center justify-center ring-2 ring-teal-200 dark:ring-teal-800">
-                      <User className="w-7 h-7 text-teal-600 dark:text-teal-400" />
-                    </div>
+                    {facultyMember.user?.profilePicture ? (
+                      <img 
+                        src={`${process.env.REACT_APP_API_URL?.replace('/api', '')}${facultyMember.user.profilePicture}`}
+                        alt={`${facultyMember.user?.firstName} ${facultyMember.user?.lastName}`}
+                        className="h-14 w-14 rounded-full object-cover ring-2 ring-indigo-200 dark:ring-indigo-800"
+                      />
+                    ) : (
+                      <div className="h-14 w-14 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center ring-2 ring-indigo-200 dark:ring-indigo-800">
+                        <User className="w-7 h-7 text-indigo-600 dark:text-indigo-400" />
+                      </div>
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="font-bold text-gray-900 dark:text-white text-base truncate">
@@ -444,7 +532,7 @@ const FacultyPage = () => {
                       </p>
                     )}
                     <div className="flex flex-wrap items-center gap-1 mt-1">
-                      <span className="inline-block px-2 py-0.5 bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-300 text-xs font-bold rounded">
+                      <span className="inline-block px-2 py-0.5 bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300 text-xs font-bold rounded">
                         {facultyMember.employeeId}
                       </span>
                       {facultyMember.employmentType && (
@@ -501,7 +589,7 @@ const FacultyPage = () => {
                       {getSpecializations(facultyMember).slice(0, 3).map((spec, idx) => (
                         <span
                           key={idx}
-                          className="inline-flex items-center px-2 py-1 rounded-md text-xs font-semibold bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300"
+                          className="inline-flex items-center px-2 py-1 rounded-md text-xs font-semibold bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300"
                         >
                           {spec}
                         </span>
@@ -510,6 +598,57 @@ const FacultyPage = () => {
                         <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-semibold bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300">
                           +{getSpecializations(facultyMember).length - 3}
                         </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Educational Background */}
+                {(facultyMember.bachelorsDegree?.degree || facultyMember.mastersDegree?.degree || facultyMember.doctoralDegree?.degree) && (
+                  <div className="mb-3">
+                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1">
+                      <GraduationCap className="w-3 h-3" />
+                      Education
+                    </p>
+                    <div className="space-y-1">
+                      {facultyMember.bachelorsDegree?.degree && (
+                        <div className="flex items-start gap-2 text-xs">
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded font-bold bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 flex-shrink-0">
+                            BS
+                          </span>
+                          <span className="text-gray-700 dark:text-gray-300 flex-1">
+                            {facultyMember.bachelorsDegree.major || facultyMember.bachelorsDegree.degree}
+                            {facultyMember.bachelorsDegree.minor && (
+                              <span className="text-gray-500 dark:text-gray-400 text-xs ml-1">(Minor: {facultyMember.bachelorsDegree.minor})</span>
+                            )}
+                          </span>
+                        </div>
+                      )}
+                      {facultyMember.mastersDegree?.degree && (
+                        <div className="flex items-start gap-2 text-xs">
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded font-bold bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300 flex-shrink-0">
+                            MS
+                          </span>
+                          <span className="text-gray-700 dark:text-gray-300 flex-1">
+                            {facultyMember.mastersDegree.major || facultyMember.mastersDegree.degree}
+                            {facultyMember.mastersDegree.minor && (
+                              <span className="text-gray-500 dark:text-gray-400 text-xs ml-1">(Minor: {facultyMember.mastersDegree.minor})</span>
+                            )}
+                          </span>
+                        </div>
+                      )}
+                      {facultyMember.doctoralDegree?.degree && (
+                        <div className="flex items-start gap-2 text-xs">
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded font-bold bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300 flex-shrink-0">
+                            PhD
+                          </span>
+                          <span className="text-gray-700 dark:text-gray-300 flex-1">
+                            {facultyMember.doctoralDegree.major || facultyMember.doctoralDegree.degree}
+                            {facultyMember.doctoralDegree.minor && (
+                              <span className="text-gray-500 dark:text-gray-400 text-xs ml-1">(Minor: {facultyMember.doctoralDegree.minor})</span>
+                            )}
+                          </span>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -538,34 +677,69 @@ const FacultyPage = () => {
                 </div>
 
                 {/* Strongest subject experience, recency-weighted */}
-                {summarizeAllSubjects(facultyMember).length > 0 && (
+                {(facultyMember.experiencedSubjects?.length > 0 || summarizeAllSubjects(facultyMember).length > 0) && (
                   <div className="mb-3">
                     <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1">
                       <TrendingUp className="w-3 h-3" />
                       Most Experienced In
                     </p>
                     <div className="space-y-1">
-                      {summarizeAllSubjects(facultyMember).slice(0, 2).map((s) => (
-                        <div
-                          key={s.key}
-                          className="flex items-center justify-between gap-2 text-xs"
-                        >
-                          <span className="font-medium text-gray-800 dark:text-gray-200 truncate">
-                            {s.subjectCode || s.subjectName}
-                          </span>
-                          <span
-                            className={`flex-shrink-0 px-1.5 py-0.5 rounded font-medium ${
-                              s.isStale
-                                ? 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300'
-                                : s.lastTaughtYearsAgo <= 1
-                                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
-                                : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
-                            }`}
+                      {/* Prioritize experiencedSubjects (faculty-edited) over teachingHistory (auto-generated) */}
+                      {facultyMember.experiencedSubjects?.length > 0 ? (
+                        // Display faculty-edited experienced subjects
+                        facultyMember.experiencedSubjects.slice(0, 2).map((exp, idx) => {
+                          // Build display parts
+                          const parts = [];
+                          if (exp.semestersTaught && exp.semestersTaught > 0) {
+                            parts.push(`${exp.semestersTaught} sem`);
+                          }
+                          if (exp.rating && exp.rating > 0) {
+                            parts.push(`⭐${exp.rating}/5`);
+                          }
+                          if (exp.frequency && exp.period) {
+                            parts.push(`${exp.frequency}x · ${exp.period}`);
+                          }
+                          
+                          return (
+                            <div
+                              key={idx}
+                              className="flex items-center justify-between gap-2 text-xs"
+                            >
+                              <span className="font-medium text-gray-800 dark:text-gray-200 truncate">
+                                {exp.subjectCode}
+                              </span>
+                              {parts.length > 0 && (
+                                <span className="flex-shrink-0 px-1.5 py-0.5 rounded font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">
+                                  {parts.join(' · ')}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })
+                      ) : (
+                        // Fallback to auto-generated summary from teachingHistory
+                        summarizeAllSubjects(facultyMember).slice(0, 2).map((s) => (
+                          <div
+                            key={s.key}
+                            className="flex items-center justify-between gap-2 text-xs"
                           >
-                            {s.timesTaught}x · {describeRecency(s.lastTaughtYearsAgo)}
-                          </span>
-                        </div>
-                      ))}
+                            <span className="font-medium text-gray-800 dark:text-gray-200 truncate">
+                              {s.subjectCode || s.subjectName}
+                            </span>
+                            <span
+                              className={`flex-shrink-0 px-1.5 py-0.5 rounded font-medium ${
+                                s.isStale
+                                  ? 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300'
+                                  : s.lastTaughtYearsAgo <= 1
+                                  ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+                                  : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                              }`}
+                            >
+                              {s.timesTaught}x · {describeRecency(s.lastTaughtYearsAgo)}
+                            </span>
+                          </div>
+                        ))
+                      )}
                     </div>
                   </div>
                 )}
@@ -620,7 +794,7 @@ const FacultyPage = () => {
                 <div className="flex gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
                   <button
                     onClick={() => handleView(facultyMember)}
-                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all shadow-sm hover:shadow-md font-medium"
+                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all shadow-sm hover:shadow-md font-medium"
                     title="View Details"
                   >
                     <Eye className="w-4 h-4" />
@@ -628,14 +802,14 @@ const FacultyPage = () => {
                   </button>
                   <button
                     onClick={() => handleEdit(facultyMember)}
-                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-sm bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition-all shadow-sm hover:shadow-md font-medium"
+                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all shadow-sm hover:shadow-md font-medium"
                     title="Edit"
                   >
                     <Edit2 className="w-4 h-4" />
                     Edit
                   </button>
                   <button
-                    onClick={() => handleDelete(facultyMember._id)}
+                    onClick={() => handleDelete(facultyMember)}
                     className="px-3 py-2.5 text-sm bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all shadow-sm hover:shadow-md font-medium"
                     title="Delete"
                   >
@@ -664,6 +838,9 @@ const FacultyPage = () => {
                       Specialization
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                      Education
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                       Workload
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
@@ -682,9 +859,17 @@ const FacultyPage = () => {
                     >
                       <td className="px-4 py-4 whitespace-nowrap">
                         <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10 bg-teal-100 dark:bg-teal-900 rounded-full flex items-center justify-center">
-                            <User className="w-5 h-5 text-teal-600 dark:text-teal-400" />
-                          </div>
+                          {facultyMember.user?.profilePicture ? (
+                            <img 
+                              src={`${process.env.REACT_APP_API_URL?.replace('/api', '')}${facultyMember.user.profilePicture}`}
+                              alt={`${facultyMember.user?.firstName} ${facultyMember.user?.lastName}`}
+                              className="flex-shrink-0 h-10 w-10 rounded-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex-shrink-0 h-10 w-10 bg-teal-100 dark:bg-teal-900 rounded-full flex items-center justify-center">
+                              <User className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+                            </div>
+                          )}
                           <div className="ml-4">
                             <div className="text-sm font-medium text-gray-900 dark:text-white">
                               {facultyMember.user?.firstName} {facultyMember.user?.lastName}
@@ -728,7 +913,7 @@ const FacultyPage = () => {
                           {getSpecializations(facultyMember).slice(0, 2).map((spec, idx) => (
                             <span
                               key={idx}
-                              className="inline-flex items-center px-2 py-1 rounded-md text-xs font-semibold bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300"
+                              className="inline-flex items-center px-2 py-1 rounded-md text-xs font-semibold bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300"
                             >
                               {spec}
                             </span>
@@ -737,6 +922,44 @@ const FacultyPage = () => {
                             <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-semibold bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300">
                               +{getSpecializations(facultyMember).length - 2}
                             </span>
+                          )}
+                        </div>
+                      </td>
+                      {/* Education Column */}
+                      <td className="px-4 py-4">
+                        <div className="space-y-1">
+                          {facultyMember.bachelorsDegree?.degree && (
+                            <div className="flex items-center gap-1">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300">
+                                BS
+                              </span>
+                              <span className="text-xs text-gray-700 dark:text-gray-300 truncate max-w-[120px]" title={`${facultyMember.bachelorsDegree.degree}${facultyMember.bachelorsDegree.major ? ` (${facultyMember.bachelorsDegree.major})` : ''}`}>
+                                {facultyMember.bachelorsDegree.major || facultyMember.bachelorsDegree.degree}
+                              </span>
+                            </div>
+                          )}
+                          {facultyMember.mastersDegree?.degree && (
+                            <div className="flex items-center gap-1">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300">
+                                MS
+                              </span>
+                              <span className="text-xs text-gray-700 dark:text-gray-300 truncate max-w-[120px]" title={`${facultyMember.mastersDegree.degree}${facultyMember.mastersDegree.major ? ` (${facultyMember.mastersDegree.major})` : ''}`}>
+                                {facultyMember.mastersDegree.major || facultyMember.mastersDegree.degree}
+                              </span>
+                            </div>
+                          )}
+                          {facultyMember.doctoralDegree?.degree && (
+                            <div className="flex items-center gap-1">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">
+                                PhD
+                              </span>
+                              <span className="text-xs text-gray-700 dark:text-gray-300 truncate max-w-[120px]" title={`${facultyMember.doctoralDegree.degree}${facultyMember.doctoralDegree.major ? ` (${facultyMember.doctoralDegree.major})` : ''}`}>
+                                {facultyMember.doctoralDegree.major || facultyMember.doctoralDegree.degree}
+                              </span>
+                            </div>
+                          )}
+                          {!facultyMember.bachelorsDegree?.degree && !facultyMember.mastersDegree?.degree && !facultyMember.doctoralDegree?.degree && (
+                            <span className="text-xs text-gray-400 dark:text-gray-500 italic">Not specified</span>
                           )}
                         </div>
                       </td>
@@ -793,7 +1016,7 @@ const FacultyPage = () => {
                             <Edit2 className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => handleDelete(facultyMember._id)}
+                            onClick={() => handleDelete(facultyMember)}
                             className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900 rounded-lg transition-colors"
                             title="Delete"
                           >
@@ -834,14 +1057,15 @@ const FacultyPage = () => {
         />
       )}
 
-      {/* Excel Import Modal */}
-      {showExcelImportModal && (
-        <ExcelImportModal
-          type="faculty"
-          onClose={() => setShowExcelImportModal(false)}
-          onComplete={handleExcelImportComplete}
-        />
-      )}
+      {/* Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        onClose={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
+        onConfirm={confirmDialog.onConfirm}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        itemName={confirmDialog.itemName}
+      />
     </Layout>
   );
 };

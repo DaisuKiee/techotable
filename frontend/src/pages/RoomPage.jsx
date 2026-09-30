@@ -8,6 +8,7 @@ import {
   Layers, TrendingUp, CheckCircle
 } from 'lucide-react';
 import RoomModal from '../components/RoomModal';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 const ROOM_TYPES = ['Lecture Room', 'Laboratory', 'Computer Lab', 'Workshop', 'Auditorium', 'Conference Room'];
 
@@ -25,6 +26,15 @@ const RoomPage = () => {
     active: 0,
     totalCapacity: 0,
     avgCapacity: 0
+  });
+
+  // Confirm dialog state
+  const [confirmDialog, setConfirmDialog] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    itemName: '',
+    onConfirm: null
   });
 
   useEffect(() => {
@@ -71,24 +81,29 @@ const RoomPage = () => {
     setShowModal(true);
   };
 
-  const handleDelete = async (id) => {
-    const confirmed = window.confirm('Are you sure you want to delete this room?');
-    if (!confirmed) return;
-
-    try {
-      await roomAPI.delete(id);
-      toast.success('Room deleted successfully');
-      loadRooms();
-    } catch (error) {
-      console.error('Delete error:', error);
-      
-      // Show specific error message from backend
-      if (error.response?.status === 403) {
-        toast.error(error.response?.data?.message || 'You do not have permission to delete this room');
-      } else {
-        toast.error(error.response?.data?.message || 'Failed to delete room');
+  const handleDelete = async (room) => {
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Delete Room',
+      message: 'Are you sure you want to delete this room? This action cannot be undone.',
+      itemName: `${room.roomNumber} - ${room.building} (Capacity: ${room.capacity})`,
+      onConfirm: async () => {
+        try {
+          await roomAPI.delete(room._id);
+          toast.success('Room deleted successfully');
+          loadRooms();
+        } catch (error) {
+          console.error('Delete error:', error);
+          
+          // Show specific error message from backend
+          if (error.response?.status === 403) {
+            toast.error(error.response?.data?.message || 'You do not have permission to delete this room');
+          } else {
+            toast.error(error.response?.data?.message || 'Failed to delete room');
+          }
+        }
       }
-    }
+    });
   };
 
   const handleModalClose = (shouldRefresh) => {
@@ -177,7 +192,7 @@ const RoomPage = () => {
             </h1>
             <button
               onClick={handleCreate}
-              className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors shadow-md hover:shadow-lg"
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors shadow-md hover:shadow-lg"
             >
               <Plus className="w-5 h-5" />
               <span className="hidden sm:inline">Add Room</span>
@@ -190,7 +205,7 @@ const RoomPage = () => {
 
         {/* Statistics Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
-          <div className="bg-purple-600 text-white rounded-xl p-4 shadow-md">
+          <div className="bg-indigo-600 text-white rounded-xl p-4 shadow-md">
             <div className="flex items-center justify-between mb-2">
               <DoorOpen className="w-5 h-5 opacity-80" />
               <span className="text-xs font-medium opacity-80">TOTAL</span>
@@ -217,7 +232,7 @@ const RoomPage = () => {
             <div className="text-xs opacity-80 mt-1">Total Seats</div>
           </div>
 
-          <div className="bg-indigo-600 text-white rounded-xl p-4 shadow-md">
+          <div className="bg-orange-600 text-white rounded-xl p-4 shadow-md">
             <div className="flex items-center justify-between mb-2">
               <TrendingUp className="w-5 h-5 opacity-80" />
               <span className="text-xs font-medium opacity-80">AVERAGE</span>
@@ -238,7 +253,7 @@ const RoomPage = () => {
                 placeholder="Search by room number, name, or building..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white transition-all"
+                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white transition-all"
               />
             </div>
 
@@ -247,7 +262,7 @@ const RoomPage = () => {
               <select
                 value={filterType}
                 onChange={(e) => setFilterType(e.target.value)}
-                className="px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm transition-all"
+                className="px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm transition-all"
               >
                 <option value="">All Room Types</option>
                 {ROOM_TYPES.map(type => (
@@ -261,7 +276,7 @@ const RoomPage = () => {
                   onClick={() => setViewMode('grid')}
                   className={`px-3 py-2 transition-colors ${
                     viewMode === 'grid' 
-                      ? 'bg-purple-600 text-white' 
+                      ? 'bg-indigo-600 text-white' 
                       : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600'
                   }`}
                   title="Grid View"
@@ -272,7 +287,7 @@ const RoomPage = () => {
                   onClick={() => setViewMode('list')}
                   className={`px-3 py-2 border-l border-gray-300 dark:border-gray-600 transition-colors ${
                     viewMode === 'list' 
-                      ? 'bg-purple-600 text-white' 
+                      ? 'bg-indigo-600 text-white' 
                       : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600'
                   }`}
                   title="List View"
@@ -289,19 +304,19 @@ const RoomPage = () => {
               <span className="text-sm text-gray-600 dark:text-gray-400">Active filters:</span>
               <div className="flex flex-wrap gap-2">
                 {searchTerm && (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 text-xs rounded-md">
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 text-xs rounded-md">
                     Search: {searchTerm}
                     <X 
-                      className="w-3 h-3 cursor-pointer hover:text-purple-900 dark:hover:text-purple-100" 
+                      className="w-3 h-3 cursor-pointer hover:text-indigo-900 dark:hover:text-indigo-100" 
                       onClick={() => setSearchTerm('')}
                     />
                   </span>
                 )}
                 {filterType && (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 text-xs rounded-md">
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 text-xs rounded-md">
                     Type: {filterType}
                     <X 
-                      className="w-3 h-3 cursor-pointer hover:text-purple-900 dark:hover:text-purple-100" 
+                      className="w-3 h-3 cursor-pointer hover:text-indigo-900 dark:hover:text-indigo-100" 
                       onClick={() => setFilterType('')}
                     />
                   </span>
@@ -341,7 +356,7 @@ const RoomPage = () => {
             {rooms.length === 0 && (
               <button
                 onClick={handleCreate}
-                className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors inline-flex items-center gap-2"
+                className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors inline-flex items-center gap-2"
               >
                 <Plus className="w-5 h-5" />
                 Create First Room
@@ -353,7 +368,7 @@ const RoomPage = () => {
             {Object.keys(roomsByBuilding).sort().map((building) => (
               <div key={building} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
                 {/* Building Header */}
-                <div className="bg-purple-600 px-6 py-4">
+                <div className="bg-indigo-600 px-6 py-4">
                   <div className="flex items-center text-white">
                     <Building className="w-6 h-6 mr-3" />
                     <div>
@@ -375,7 +390,7 @@ const RoomPage = () => {
                       {/* Room Header */}
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex items-center gap-3 flex-1">
-                          <div className="p-2.5 bg-purple-100 dark:bg-purple-900 rounded-lg">
+                          <div className="p-2.5 bg-indigo-100 dark:bg-indigo-900 rounded-lg">
                             {getRoomTypeIcon(getRoomType(room))}
                           </div>
                           <div className="flex-1 min-w-0">
@@ -446,13 +461,13 @@ const RoomPage = () => {
                       <div className="flex gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
                         <button
                           onClick={() => handleEdit(room)}
-                          className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-all shadow-sm hover:shadow-md font-medium"
+                          className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all shadow-sm hover:shadow-md font-medium"
                         >
                           <Edit2 className="w-4 h-4" />
                           Edit
                         </button>
                         <button
-                          onClick={() => handleDelete(room._id)}
+                          onClick={() => handleDelete(room)}
                           className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-sm bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all shadow-sm hover:shadow-md font-medium"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -502,7 +517,7 @@ const RoomPage = () => {
                     >
                       <td className="px-4 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-2">
-                          <div className="p-1.5 bg-purple-100 dark:bg-purple-900 rounded">
+                          <div className="p-1.5 bg-indigo-100 dark:bg-indigo-900 rounded">
                             {getRoomTypeIcon(getRoomType(room))}
                           </div>
                           <div>
@@ -552,13 +567,13 @@ const RoomPage = () => {
                         <div className="flex items-center justify-end gap-2">
                           <button
                             onClick={() => handleEdit(room)}
-                            className="p-2 text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900 rounded-lg transition-colors"
+                            className="p-2 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900 rounded-lg transition-colors"
                             title="Edit"
                           >
                             <Edit2 className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => handleDelete(room._id)}
+                            onClick={() => handleDelete(room)}
                             className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900 rounded-lg transition-colors"
                             title="Delete"
                           >
@@ -583,6 +598,16 @@ const RoomPage = () => {
           onClose={handleModalClose}
         />
       )}
+
+      {/* Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        onClose={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
+        onConfirm={confirmDialog.onConfirm}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        itemName={confirmDialog.itemName}
+      />
     </Layout>
   );
 };

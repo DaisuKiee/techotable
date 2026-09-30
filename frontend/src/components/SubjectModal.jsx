@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { subjectAPI } from '../services/api';
 import toast from 'react-hot-toast';
-import { X, BookOpen, GraduationCap, Layers, CheckSquare } from 'lucide-react';
+import { BookOpen, GraduationCap, Layers, CheckSquare } from 'lucide-react';
 import { usePrograms } from '../hooks/usePrograms';
+import BaseModal from './BaseModal';
 
 const SEMESTERS = [1, 2];
 const YEAR_LEVELS = [1, 2, 3, 4];
@@ -123,37 +124,47 @@ const SubjectModal = ({ mode, subject, onClose }) => {
   );
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] animate-fadeIn">
-      <div className="flex items-center justify-center min-h-screen p-4">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl relative z-[10000] animate-slideUp">
-          {/* Modal Header - Sticky */}
-          <div className="bg-green-600 px-6 py-5 flex items-center justify-between flex-shrink-0 shadow-lg rounded-t-2xl">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-                <BookOpen className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-white">
-                  {mode === 'create' ? 'Add New Subject' : 'Edit Subject'}
-                </h2>
-                <p className="text-green-100 text-sm">
-                  {mode === 'create' ? 'Create a new subject for curriculum' : 'Update subject information'}
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={() => onClose(false)}
-              className="p-2 hover:bg-white/20 rounded-lg transition-colors"
-            >
-              <X className="w-5 h-5 text-white" />
-            </button>
-          </div>
-
-          {/* Modal Body - Scrollable */}
-          <div className="overflow-y-auto flex-1 bg-gray-50 dark:bg-gray-900">
+    <BaseModal
+      isOpen={true}
+      onClose={() => onClose(false)}
+      title={mode === 'create' ? 'Add New Subject' : 'Edit Subject'}
+      subtitle={mode === 'create' ? 'Create a new subject for curriculum' : 'Update subject information'}
+      icon={BookOpen}
+      size="large"
+      footerContent={
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={() => onClose(false)}
+            className="flex-1 px-5 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 font-medium transition-all"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            form="subject-form"
+            disabled={loading}
+            className="flex-1 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {loading ? (
+              <>
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                <span>{mode === 'create' ? 'Creating...' : 'Updating...'}</span>
+              </>
+            ) : (
+              <>
+                <CheckSquare className="w-5 h-5" />
+                <span>{mode === 'create' ? 'Create Subject' : 'Update Subject'}</span>
+              </>
+            )}
+          </button>
+        </div>
+      }
+    >
+      <div className="bg-gray-50 dark:bg-gray-900">
             <form onSubmit={handleSubmit} className="p-6" id="subject-form">
               {/* Subject Preview Card */}
-              <div className="bg-green-600 text-white rounded-xl p-4 mb-6">
+              <div className="bg-gradient-to-br from-blue-600 to-indigo-600 text-white rounded-xl p-4 mb-6 shadow-lg">
                 <div className="text-sm font-medium opacity-90 mb-1">Subject Preview</div>
                 <div className="text-2xl font-bold">
                   {formData.subjectCode || 'Subject Code'} - {formData.subjectName || 'Subject Name'}
@@ -164,11 +175,14 @@ const SubjectModal = ({ mode, subject, onClose }) => {
               </div>
 
               {/* Basic Information */}
-              <div className="bg-white dark:bg-gray-800 rounded-xl p-5 mb-4 border border-gray-200 dark:border-gray-700">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                  <BookOpen className="w-5 h-5 text-green-600" />
-                  Basic Information
-                </h3>
+              <div className="bg-white dark:bg-gray-800 rounded-xl p-5 mb-4 border-2 border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                    <BookOpen className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                    Basic Information
+                  </h3>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">* Required</span>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Subject Code */}
                   <div>
@@ -182,7 +196,7 @@ const SubjectModal = ({ mode, subject, onClose }) => {
                       onChange={handleChange}
                       required
                       placeholder="e.g., IT311"
-                      className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white transition-all"
+                      className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
                     />
                   </div>
 
@@ -199,7 +213,7 @@ const SubjectModal = ({ mode, subject, onClose }) => {
                       required
                       min="1"
                       max="6"
-                      className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white transition-all"
+                      className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
                     />
                   </div>
 
@@ -215,7 +229,7 @@ const SubjectModal = ({ mode, subject, onClose }) => {
                       onChange={handleChange}
                       required
                       placeholder="e.g., Web Development"
-                      className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white transition-all"
+                      className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
                     />
                   </div>
 
@@ -230,7 +244,7 @@ const SubjectModal = ({ mode, subject, onClose }) => {
                       onChange={handleChange}
                       rows="3"
                       placeholder="Brief description of the subject..."
-                      className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white transition-all resize-none"
+                      className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all resize-none"
                     />
                   </div>
 
@@ -247,7 +261,7 @@ const SubjectModal = ({ mode, subject, onClose }) => {
                           onClick={() => setFormData({ ...formData, type })}
                           className={`px-3 py-2.5 rounded-lg font-semibold text-sm transition-all ${
                             formData.type === type
-                              ? 'bg-green-600 text-white shadow-md scale-105'
+                              ? 'bg-blue-600 text-white shadow-md scale-105'
                               : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                           }`}
                         >
@@ -264,7 +278,7 @@ const SubjectModal = ({ mode, subject, onClose }) => {
                       name="isActive"
                       checked={formData.isActive}
                       onChange={handleChange}
-                      className="h-5 w-5 text-green-600 focus:ring-green-500 border-gray-300 rounded transition-all"
+                      className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded transition-all"
                     />
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                       Active (available for scheduling)
@@ -274,11 +288,14 @@ const SubjectModal = ({ mode, subject, onClose }) => {
               </div>
 
               {/* Curriculum Information */}
-              <div className="bg-white dark:bg-gray-800 rounded-xl p-5 mb-4 border border-gray-200 dark:border-gray-700">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                  <GraduationCap className="w-5 h-5 text-blue-600" />
-                  Curriculum Information
-                </h3>
+              <div className="bg-white dark:bg-gray-800 rounded-xl p-5 mb-4 border-2 border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                    <GraduationCap className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                    Curriculum Information
+                  </h3>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">* Required</span>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {/* Program */}
                   <div>
@@ -290,7 +307,7 @@ const SubjectModal = ({ mode, subject, onClose }) => {
                       value={formData.program}
                       onChange={handleChange}
                       required
-                      className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white transition-all"
+                      className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
                     >
                       {PROGRAMS.map(prog => (
                         <option key={prog} value={prog}>{prog}</option>
@@ -308,7 +325,7 @@ const SubjectModal = ({ mode, subject, onClose }) => {
                       value={formData.yearLevel}
                       onChange={handleChange}
                       required
-                      className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white transition-all"
+                      className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
                     >
                       {YEAR_LEVELS.map(year => (
                         <option key={year} value={year}>Year {year}</option>
@@ -329,7 +346,7 @@ const SubjectModal = ({ mode, subject, onClose }) => {
                           onClick={() => setFormData({ ...formData, semester: sem })}
                           className={`px-3 py-2.5 rounded-lg font-semibold transition-all ${
                             formData.semester === sem
-                              ? 'bg-purple-600 text-white shadow-md scale-105'
+                              ? 'bg-blue-600 text-white shadow-md scale-105'
                               : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                           }`}
                         >
@@ -350,16 +367,16 @@ const SubjectModal = ({ mode, subject, onClose }) => {
                       value={formData.requiredQualification}
                       onChange={handleChange}
                       placeholder="e.g., Master's in Computer Science"
-                      className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white transition-all"
+                      className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
                     />
                   </div>
                 </div>
               </div>
 
               {/* Prerequisites */}
-              <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
+              <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border-2 border-gray-200 dark:border-gray-700">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                  <Layers className="w-5 h-5 text-orange-600" />
+                  <Layers className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                   Prerequisites
                 </h3>
                 {availablePrerequisites.length === 0 ? (
@@ -377,7 +394,7 @@ const SubjectModal = ({ mode, subject, onClose }) => {
                           type="checkbox"
                           checked={formData.prerequisites.includes(prereq._id)}
                           onChange={() => handlePrerequisiteToggle(prereq._id)}
-                          className="h-5 w-5 text-green-600 focus:ring-green-500 border-gray-300 rounded mt-0.5 transition-all"
+                          className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mt-0.5 transition-all"
                         />
                         <div className="ml-3 flex-1">
                           <div className="text-sm font-semibold text-gray-900 dark:text-white">
@@ -394,38 +411,7 @@ const SubjectModal = ({ mode, subject, onClose }) => {
               </div>
             </form>
           </div>
-
-          {/* Modal Footer - Sticky */}
-          <div className="flex gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex-shrink-0 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] rounded-b-2xl">
-            <button
-              type="button"
-              onClick={() => onClose(false)}
-              className="flex-1 px-6 py-3 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all font-semibold"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              form="subject-form"
-              disabled={loading}
-              className="flex-1 px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-all flex items-center justify-center gap-2 font-semibold shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? (
-                <>
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                  {mode === 'create' ? 'Creating...' : 'Updating...'}
-                </>
-              ) : (
-                <>
-                  <CheckSquare className="w-5 h-5" />
-                  {mode === 'create' ? 'Create Subject' : 'Update Subject'}
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+        </BaseModal>
   );
 };
 

@@ -11,14 +11,14 @@ const { protect, authorize } = require('../middleware/auth.middleware');
 // All routes require authentication
 router.use(protect);
 
-// Statistics endpoint
-router.get('/stats', authorize('admin', 'scheduling_officer'), getStats);
+// Statistics endpoint - accessible to management roles
+router.get('/stats', authorize('admin', 'scheduling_officer', 'program_manager'), getStats);
 
 // User summary (users can view their own, admins can view any)
 router.get('/user/:userId', getUserSummary);
 
-// Admin only routes
-router.get('/', authorize('admin'), getAllLogs);
+// Management routes - accessible to admin, scheduling officer, and program manager
+router.get('/', authorize('admin', 'scheduling_officer', 'program_manager'), getAllLogs);
 router.delete('/cleanup', authorize('admin'), cleanupLogs);
 
 module.exports = router;

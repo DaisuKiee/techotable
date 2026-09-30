@@ -1,7 +1,11 @@
 import { useState, useEffect } from 'react';
+import BaseModal from './BaseModal';
 import { scheduleAPI, facultyAPI, subjectAPI, roomAPI } from '../services/api';
 import toast from 'react-hot-toast';
-import { X, Plus, Trash2 } from 'lucide-react';
+import { 
+  Calendar, Plus, Trash2, Check, BookOpen, 
+  Users, DoorOpen, GraduationCap, Clock 
+} from 'lucide-react';
 import { usePrograms } from '../hooks/usePrograms';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -138,320 +142,395 @@ const ScheduleModal = ({ mode, schedule, subjects: propSubjects, sections: propS
 
   const handleDelete = async () => {
     if (mode === 'edit' && schedule) {
-      await onDelete(schedule._id); // Wait for delete to complete
-      onClose(true); // Then close and refresh
+      const confirmed = window.confirm('Are you sure you want to delete this schedule?');
+      if (!confirmed) return;
+      await onDelete(schedule._id);
+      onClose(true);
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-        <div
-          className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
+  const footerContent = (
+    <div className="flex gap-3">
+      {mode === 'edit' && (
+        <button
+          type="button"
+          onClick={handleDelete}
+          className="px-5 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all font-semibold"
+        >
+          Delete
+        </button>
+      )}
+      <div className="flex gap-3 ml-auto w-full">
+        <button
+          type="button"
           onClick={() => onClose(false)}
-        ></div>
-
-        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
-          {/* Header */}
-          <div className="bg-blue-600 px-6 py-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-medium text-white">
-                {mode === 'create' ? 'Add Schedule Entry' : 'Edit Schedule Entry'}
-              </h3>
-              <button onClick={() => onClose(false)} className="text-white hover:text-gray-200">
-                <X size={24} />
-              </button>
-            </div>
-          </div>
-
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="p-6 max-h-[calc(100vh-200px)] overflow-y-auto">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Subject */}
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Subject *
-                </label>
-                <select
-                  name="subject"
-                  value={formData.subject}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Select subject...</option>
-                  {subjects.map(subj => (
-                    <option key={subj._id} value={subj._id}>
-                      {subj.subjectCode} - {subj.subjectName} ({subj.program})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Faculty */}
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Faculty *
-                </label>
-                <select
-                  name="faculty"
-                  value={formData.faculty}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Select faculty...</option>
-                  {faculty.map(fac => (
-                    <option key={fac._id} value={fac._id}>
-                      {fac.user?.firstName} {fac.user?.lastName} - {fac.employeeId}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Room */}
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Room *
-                </label>
-                <select
-                  name="room"
-                  value={formData.room}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Select room...</option>
-                  {rooms.map(room => (
-                    <option key={room._id} value={room._id}>
-                      {room.roomCode || room.roomNumber} — {room.roomName || room.building} (Cap: {room.capacity})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Program */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Program *</label>
-                <select
-                  name="program"
-                  value={formData.program}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                >
-                  {PROGRAMS.map(prog => (
-                    <option key={prog} value={prog}>{prog}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Year Level */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Year Level *</label>
-                <select
-                  name="yearLevel"
-                  value={formData.yearLevel}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                >
-                  {[1, 2, 3, 4].map(year => (
-                    <option key={year} value={year}>Year {year}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Section */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Section *</label>
-                <input
-                  type="text"
-                  name="section"
-                  value={formData.section}
-                  onChange={handleChange}
-                  required
-                  placeholder="e.g., A, B, C"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              {/* Shift */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Shift/Schedule *</label>
-                <select
-                  name="shift"
-                  value={formData.shift}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="Day">Day Schedule (7:00 AM - 4:00 PM)</option>
-                  <option value="Night">Night Schedule (4:00 PM - 10:00 PM)</option>
-                </select>
-              </div>
-
-              {/* Semester */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Semester *</label>
-                <select
-                  name="semester"
-                  value={formData.semester}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value={1}>Semester 1</option>
-                  <option value={2}>Semester 2</option>
-                </select>
-              </div>
-
-              {/* Academic Year */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Academic Year *</label>
-                <input
-                  type="text"
-                  name="academicYear"
-                  value={formData.academicYear}
-                  onChange={handleChange}
-                  required
-                  placeholder="e.g., 2024-2025"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              {/* Max Students */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Max Students *</label>
-                <input
-                  type="number"
-                  name="maxStudents"
-                  value={formData.maxStudents}
-                  onChange={handleChange}
-                  required
-                  min="1"
-                  max="200"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              {/* Time Slots */}
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Time Slots *
-                </label>
-                {formData.timeSlots.map((slot, index) => (
-                  <div key={index} className="border border-gray-200 rounded-lg p-3 mb-2 bg-gray-50">
-                    <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
-                      <select
-                        value={slot.day}
-                        onChange={(e) => updateTimeSlot(index, 'day', e.target.value)}
-                        className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                      >
-                        {DAYS.map(day => (
-                          <option key={day} value={day}>{day}</option>
-                        ))}
-                      </select>
-                      <input
-                        type="time"
-                        value={slot.startTime}
-                        onChange={(e) => updateTimeSlot(index, 'startTime', e.target.value)}
-                        className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                      />
-                      <input
-                        type="time"
-                        value={slot.endTime}
-                        onChange={(e) => updateTimeSlot(index, 'endTime', e.target.value)}
-                        className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                      />
-                      <select
-                        value={slot.type}
-                        onChange={(e) => updateTimeSlot(index, 'type', e.target.value)}
-                        className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                      >
-                        <option value="Lecture">Lecture</option>
-                        <option value="Laboratory">Laboratory</option>
-                      </select>
-                      <button
-                        type="button"
-                        onClick={() => removeTimeSlot(index)}
-                        disabled={formData.timeSlots.length === 1}
-                        className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  onClick={addTimeSlot}
-                  className="flex items-center text-sm text-blue-600 hover:text-blue-700"
-                >
-                  <Plus size={16} className="mr-1" />
-                  Add Time Slot
-                </button>
-              </div>
-
-              {/* Checkboxes */}
-              <div className="md:col-span-2 space-y-2">
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    name="isPublished"
-                    checked={formData.isPublished}
-                    onChange={handleChange}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  />
-                  <span className="ml-2 text-sm text-gray-700">Published (visible to students)</span>
-                </label>
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    name="isActive"
-                    checked={formData.isActive}
-                    onChange={handleChange}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  />
-                  <span className="ml-2 text-sm text-gray-700">Active</span>
-                </label>
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="mt-6 flex justify-between">
-              <div>
-                {mode === 'edit' && (
-                  <button
-                    type="button"
-                    onClick={handleDelete}
-                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-                  >
-                    Delete
-                  </button>
-                )}
-              </div>
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => onClose(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                >
-                  {loading ? 'Saving...' : mode === 'create' ? 'Create Schedule' : 'Update Schedule'}
-                </button>
-              </div>
-            </div>
-          </form>
-        </div>
+          className="flex-1 px-5 py-2.5 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all font-semibold"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          form="schedule-form"
+          disabled={loading}
+          className="flex-1 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all flex items-center justify-center gap-2 font-semibold shadow-lg hover:shadow-xl disabled:opacity-50"
+        >
+          {loading ? (
+            'Saving...'
+          ) : (
+            <>
+              <Check className="w-5 h-5" />
+              {mode === 'create' ? 'Create Schedule' : 'Update Schedule'}
+            </>
+          )}
+        </button>
       </div>
     </div>
+  );
+
+  return (
+    <BaseModal
+      isOpen={true}
+      onClose={() => onClose(false)}
+      title={mode === 'create' ? 'Add Schedule Entry' : 'Edit Schedule Entry'}
+      subtitle={mode === 'create' ? 'Create a new schedule for the timetable' : 'Update schedule information'}
+      icon={Calendar}
+      size="xl"
+      formId="schedule-form"
+      footerContent={footerContent}
+    >
+      <form onSubmit={handleSubmit} id="schedule-form" className="space-y-6">
+        {/* Basic Assignment Section */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border-2 border-gray-200 dark:border-gray-700">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+            <BookOpen className="w-5 h-5 text-blue-600" />
+            Assignment Details
+          </h3>
+          <div className="space-y-4">
+            {/* Subject */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                Subject <span className="text-red-500">*</span>
+              </label>
+              <select
+                name="subject"
+                value={formData.subject}
+                onChange={handleChange}
+                required
+                className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
+              >
+                <option value="">Select subject...</option>
+                {subjects.map(subj => (
+                  <option key={subj._id} value={subj._id}>
+                    {subj.subjectCode} - {subj.subjectName} ({subj.program})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Faculty */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                Faculty <span className="text-red-500">*</span>
+              </label>
+              <select
+                name="faculty"
+                value={formData.faculty}
+                onChange={handleChange}
+                required
+                className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
+              >
+                <option value="">Select faculty...</option>
+                {faculty.map(fac => (
+                  <option key={fac._id} value={fac._id}>
+                    {fac.user?.firstName} {fac.user?.lastName} - {fac.employeeId}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Room */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                Room <span className="text-red-500">*</span>
+              </label>
+              <select
+                name="room"
+                value={formData.room}
+                onChange={handleChange}
+                required
+                className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
+              >
+                <option value="">Select room...</option>
+                {rooms.map(room => (
+                  <option key={room._id} value={room._id}>
+                    {room.roomCode || room.roomNumber} — {room.roomName || room.building} (Cap: {room.capacity})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Section Information */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border-2 border-gray-200 dark:border-gray-700">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+            <GraduationCap className="w-5 h-5 text-blue-600" />
+            Section Information
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Program */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                Program <span className="text-red-500">*</span>
+              </label>
+              <select
+                name="program"
+                value={formData.program}
+                onChange={handleChange}
+                required
+                className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
+              >
+                {PROGRAMS.map(prog => (
+                  <option key={prog} value={prog}>{prog}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Year Level */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                Year Level <span className="text-red-500">*</span>
+              </label>
+              <select
+                name="yearLevel"
+                value={formData.yearLevel}
+                onChange={handleChange}
+                required
+                className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
+              >
+                {[1, 2, 3, 4].map(year => (
+                  <option key={year} value={year}>Year {year}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Section */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                Section <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                name="section"
+                value={formData.section}
+                onChange={handleChange}
+                required
+                placeholder="e.g., A, B, C"
+                className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
+              />
+            </div>
+
+            {/* Shift */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                Shift/Schedule <span className="text-red-500">*</span>
+              </label>
+              <select
+                name="shift"
+                value={formData.shift}
+                onChange={handleChange}
+                required
+                className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
+              >
+                <option value="Day">Day Schedule (7:00 AM - 4:00 PM)</option>
+                <option value="Night">Night Schedule (4:00 PM - 10:00 PM)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Academic Period */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border-2 border-gray-200 dark:border-gray-700">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+            <Calendar className="w-5 h-5 text-blue-600" />
+            Academic Period
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Semester */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                Semester <span className="text-red-500">*</span>
+              </label>
+              <select
+                name="semester"
+                value={formData.semester}
+                onChange={handleChange}
+                required
+                className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
+              >
+                <option value={1}>Semester 1</option>
+                <option value={2}>Semester 2</option>
+              </select>
+            </div>
+
+            {/* Academic Year */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                Academic Year <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                name="academicYear"
+                value={formData.academicYear}
+                onChange={handleChange}
+                required
+                placeholder="e.g., 2024-2025"
+                className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
+              />
+            </div>
+
+            {/* Max Students */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                Max Students <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                name="maxStudents"
+                value={formData.maxStudents}
+                onChange={handleChange}
+                required
+                min="1"
+                max="200"
+                className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Time Slots Section */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border-2 border-gray-200 dark:border-gray-700">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+            <Clock className="w-5 h-5 text-blue-600" />
+            Time Slots
+          </h3>
+          <div className="space-y-3">
+            {formData.timeSlots.map((slot, index) => (
+              <div key={index} className="border-2 border-gray-200 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-gray-700/50">
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
+                      Day
+                    </label>
+                    <select
+                      value={slot.day}
+                      onChange={(e) => updateTimeSlot(index, 'day', e.target.value)}
+                      className="w-full px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                    >
+                      {DAYS.map(day => (
+                        <option key={day} value={day}>{day}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
+                      Start Time
+                    </label>
+                    <input
+                      type="time"
+                      value={slot.startTime}
+                      onChange={(e) => updateTimeSlot(index, 'startTime', e.target.value)}
+                      className="w-full px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
+                      End Time
+                    </label>
+                    <input
+                      type="time"
+                      value={slot.endTime}
+                      onChange={(e) => updateTimeSlot(index, 'endTime', e.target.value)}
+                      className="w-full px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
+                      Type
+                    </label>
+                    <select
+                      value={slot.type}
+                      onChange={(e) => updateTimeSlot(index, 'type', e.target.value)}
+                      className="w-full px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                    >
+                      <option value="Lecture">Lecture</option>
+                      <option value="Laboratory">Laboratory</option>
+                    </select>
+                  </div>
+                  <div className="flex items-end">
+                    <button
+                      type="button"
+                      onClick={() => removeTimeSlot(index)}
+                      disabled={formData.timeSlots.length === 1}
+                      className="w-full px-3 py-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg disabled:opacity-50 transition-all font-semibold text-sm flex items-center justify-center gap-1"
+                    >
+                      <Trash2 size={16} />
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={addTimeSlot}
+            className="mt-3 flex items-center gap-2 px-4 py-2 text-sm text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg font-semibold transition-all"
+          >
+            <Plus size={18} />
+            Add Time Slot
+          </button>
+        </div>
+
+        {/* Settings Section */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border-2 border-gray-200 dark:border-gray-700">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+            <Users className="w-5 h-5 text-blue-600" />
+            Schedule Settings
+          </h3>
+          <div className="space-y-3">
+            <label className="flex items-center p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer">
+              <input
+                type="checkbox"
+                name="isPublished"
+                checked={formData.isPublished}
+                onChange={handleChange}
+                className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-2 border-gray-300 rounded"
+              />
+              <span className="ml-3 text-sm text-gray-700 dark:text-gray-300 font-medium">
+                Published <span className="text-gray-500 font-normal">(visible to students)</span>
+              </span>
+            </label>
+            <label className="flex items-center p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer">
+              <input
+                type="checkbox"
+                name="isActive"
+                checked={formData.isActive}
+                onChange={handleChange}
+                className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-2 border-gray-300 rounded"
+              />
+              <span className="ml-3 text-sm text-gray-700 dark:text-gray-300 font-medium">
+                Active <span className="text-gray-500 font-normal">(schedule is currently in use)</span>
+              </span>
+            </label>
+          </div>
+        </div>
+
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          <span className="text-red-500">*</span> Required fields
+        </p>
+      </form>
+    </BaseModal>
   );
 };
 

@@ -216,6 +216,9 @@ exports.updateFaculty = async (req, res) => {
       position,
       qualifications,
       specializations,
+      programs,
+      experiencedSubjects,
+      maxTeachingHours,
       maxTeachingLoad,
       preferredTimeSlots,
       unavailableTimeSlots,
@@ -230,6 +233,17 @@ exports.updateFaculty = async (req, res) => {
         success: false,
         message: 'Faculty member not found'
       });
+    }
+
+    // If user is faculty role, they can only update their own profile
+    if (req.user.role === 'faculty') {
+      const userFacultyId = req.user.facultyProfile?._id || req.user.facultyProfile;
+      if (userFacultyId.toString() !== req.params.id) {
+        return res.status(403).json({
+          success: false,
+          message: 'You can only update your own profile'
+        });
+      }
     }
 
     // Check if new employee ID conflicts
@@ -249,6 +263,9 @@ exports.updateFaculty = async (req, res) => {
     if (position) faculty.position = position;
     if (qualifications) faculty.qualifications = qualifications;
     if (specializations) faculty.specializations = specializations;
+    if (programs) faculty.programs = programs;
+    if (experiencedSubjects) faculty.experiencedSubjects = experiencedSubjects;
+    if (maxTeachingHours !== undefined) faculty.maxTeachingHours = maxTeachingHours;
     if (maxTeachingLoad !== undefined) faculty.maxTeachingLoad = maxTeachingLoad;
     if (preferredTimeSlots) faculty.preferredTimeSlots = preferredTimeSlots;
     if (unavailableTimeSlots) faculty.unavailableTimeSlots = unavailableTimeSlots;

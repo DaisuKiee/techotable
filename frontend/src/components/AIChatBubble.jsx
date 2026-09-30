@@ -210,7 +210,7 @@ const AIChatBubble = () => {
       {isOpen && (
         <div className="fixed bottom-24 right-6 w-96 h-[32rem] bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col z-[99999] animate-slide-up">
           {/* Header */}
-          <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-4 py-3 rounded-t-2xl flex items-center justify-between">
+          <div className="bg-purple-600 px-4 py-3 rounded-t-2xl flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="relative">
                 <Sparkles className="text-white" size={24} />
@@ -318,7 +318,7 @@ const AIChatBubble = () => {
       {/* Floating Button */}
       <button
         onClick={toggleChat}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-300 flex items-center justify-center z-[99999] group"
+        className="fixed bottom-6 right-6 w-14 h-14 bg-purple-600 text-white rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-300 flex items-center justify-center z-[99999] group"
         title="Open AI Assistant"
       >
         {isOpen ? (

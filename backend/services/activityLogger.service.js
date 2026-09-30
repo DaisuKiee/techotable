@@ -89,7 +89,7 @@ async function getActivityLogs(filters = {}) {
 
     // Execute query
     const logs = await ActivityLog.find(query)
-      .populate('user', 'firstName lastName email role')
+      .populate('user', 'firstName lastName email role profilePicture')
       .sort(sort)
       .limit(limit)
       .skip(skip)
@@ -186,7 +186,7 @@ async function getActivityStats(filters = {}) {
       
       // Recent activities
       ActivityLog.find(baseQuery)
-        .populate('user', 'firstName lastName email')
+        .populate('user', 'firstName lastName email profilePicture')
         .sort('-createdAt')
         .limit(20)
         .lean()
@@ -214,8 +214,25 @@ async function getActivityStats(filters = {}) {
       { $sort: { _id: 1 } }
     ]);
 
+    // Format status counts
+    const statusCounts = {
+      success: 0,
+      failure: 0,
+      warning: 0
+    };
+    
+    activitiesByStatus.forEach(item => {
+      if (item._id && statusCounts.hasOwnProperty(item._id)) {
+        statusCounts[item._id] = item.count;
+      }
+    });
+
     return {
       totalActivities,
+      successCount: statusCounts.success,
+      failureCount: statusCounts.failure,
+      warningCount: statusCounts.warning,
+      uniqueUsers: activitiesByUser.length,
       activitiesByAction,
       activitiesByResource,
       activitiesByStatus,
@@ -258,6 +275,8 @@ async function cleanupOldLogs(daysToKeep = 90) {
  */
 async function getUserActivitySummary(userId) {
   try {
+    const mongoose = require('mongoose');
+    
     const [
       totalActivities,
       lastLogin,

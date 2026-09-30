@@ -156,12 +156,6 @@ const AvatarUpload = ({ user, onUpdate }) => {
           </button>
         )}
       </div>
-
-      {/* Help text */}
-      <p className="text-xs text-gray-500 text-center">
-        Recommended: Square image, at least 200x200px<br />
-        Max file size: 2MB (JPG, PNG, GIF)
-      </p>
     </div>
   );
 };

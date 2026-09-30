@@ -3,8 +3,7 @@ import Layout from '../components/Layout';
 import { studentAPI } from '../services/api';
 import toast from 'react-hot-toast';
 import StudentModal from '../components/StudentModal';
-import BulkImportModal from '../components/BulkImportModal';
-import ExcelImportModal from '../components/ExcelImportModal';
+import ConfirmDialog from '../components/ConfirmDialog';
 import { 
   Plus, Upload, Edit2, Trash2, Search, X, 
   Users, GraduationCap, UserCheck, TrendingUp, 
@@ -19,8 +18,6 @@ const StudentPage = () => {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [showImportModal, setShowImportModal] = useState(false);
-  const [showExcelImportModal, setShowExcelImportModal] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
   const [filters, setFilters] = useState({
@@ -31,6 +28,15 @@ const StudentPage = () => {
     studentType: ''
   });
   const [stats, setStats] = useState(null);
+
+  // Confirm dialog state
+  const [confirmDialog, setConfirmDialog] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    itemName: '',
+    onConfirm: null
+  });
 
   // Auto-set program filter for program managers
   useEffect(() => {
@@ -75,30 +81,35 @@ const StudentPage = () => {
     setShowModal(true);
   };
 
-  const handleDelete = async (id) => {
-    const confirmed = window.confirm('Are you sure you want to delete this student?');
-    if (!confirmed) return;
-
-    try {
-      await studentAPI.delete(id);
-      toast.success('Student deleted successfully');
-      fetchStudents();
-      fetchStats();
-    } catch (error) {
-      console.error('Delete error:', error);
-      
-      // Show specific error message from backend
-      if (error.response?.status === 403) {
-        const errorMessage = error.response?.data?.message;
-        if (errorMessage?.includes('program')) {
-          toast.error(errorMessage);
-        } else {
-          toast.error('You do not have permission to delete this student');
+  const handleDelete = async (student) => {
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Delete Student',
+      message: 'Are you sure you want to delete this student? All associated data will be removed.',
+      itemName: `${student.user?.firstName} ${student.user?.lastName} (${student.studentId})`,
+      onConfirm: async () => {
+        try {
+          await studentAPI.delete(student._id);
+          toast.success('Student deleted successfully');
+          fetchStudents();
+          fetchStats();
+        } catch (error) {
+          console.error('Delete error:', error);
+          
+          // Show specific error message from backend
+          if (error.response?.status === 403) {
+            const errorMessage = error.response?.data?.message;
+            if (errorMessage?.includes('program')) {
+              toast.error(errorMessage);
+            } else {
+              toast.error('You do not have permission to delete this student');
+            }
+          } else {
+            toast.error(error.response?.data?.message || 'Failed to delete student');
+          }
         }
-      } else {
-        toast.error(error.response?.data?.message || 'Failed to delete student');
       }
-    }
+    });
   };
 
   const handleModalClose = (refresh) => {
@@ -110,16 +121,57 @@ const StudentPage = () => {
     }
   };
 
-  const handleImportComplete = () => {
-    setShowImportModal(false);
-    fetchStudents();
-    fetchStats();
-  };
+  const exportToExcel = () => {
+    // Prepare data for Excel export
+    const exportData = students.map(student => ({
+      'Student ID': student.studentId || '',
+      'First Name': student.user?.firstName || '',
+      'Last Name': student.user?.lastName || '',
+      'Middle Name': student.user?.middleName || '',
+      'Email': student.user?.email || '',
+      'Program': student.program || '',
+      'Year Level': student.yearLevel || '',
+      'Section': student.sectionCode || '',
+      'Student Type': student.studentType || '',
+      'Academic Year': student.academicYear || '',
+      'Semester': student.semester || '',
+      'Contact Number': student.user?.contactNumber || '',
+      'Enrollment Status': student.enrollmentStatus || ''
+    }));
 
-  const handleExcelImportComplete = () => {
-    setShowExcelImportModal(false);
-    fetchStudents();
-    fetchStats();
+    // Convert to CSV format
+    if (exportData.length === 0) {
+      toast.error('No students to export');
+      return;
+    }
+
+    const headers = Object.keys(exportData[0]);
+    const csvContent = [
+      headers.join(','),
+      ...exportData.map(row => 
+        headers.map(header => {
+          const value = row[header] || '';
+          // Escape commas and quotes in values
+          return `"${String(value).replace(/"/g, '""')}"`;
+        }).join(',')
+      )
+    ].join('\n');
+
+    // Create and download file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    
+    // Generate filename with timestamp
+    const timestamp = new Date().toISOString().split('T')[0];
+    const programFilter = filters.program ? `_${filters.program}` : '';
+    link.download = `students${programFilter}_${timestamp}.csv`;
+    
+    link.click();
+    window.URL.revokeObjectURL(url);
+    
+    toast.success(`Exported ${exportData.length} students to Excel`);
   };
 
   const handleFilterChange = (field, value) => {
@@ -181,33 +233,12 @@ const StudentPage = () => {
             </h1>
             <div className="flex gap-2">
               <button
-                onClick={downloadTemplate}
-                className="flex items-center gap-2 px-3 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm text-sm"
-                title="Download CSV Template"
+                onClick={exportToExcel}
+                className="flex items-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors shadow-md hover:shadow-lg text-sm"
+                title="Download student data as Excel file"
               >
                 <Download className="w-4 h-4" />
-                <span className="hidden sm:inline">Template</span>
-              </button>
-              <button
-                onClick={() => setShowImportModal(true)}
-                className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-md hover:shadow-lg text-sm"
-              >
-                <Upload className="w-4 h-4" />
-                <span className="hidden sm:inline">CSV</span>
-              </button>
-              <button
-                onClick={() => setShowExcelImportModal(true)}
-                className="flex items-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors shadow-md hover:shadow-lg text-sm"
-              >
-                <FileText className="w-4 h-4" />
                 <span className="hidden sm:inline">Excel</span>
-              </button>
-              <button
-                onClick={handleCreate}
-                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors shadow-md hover:shadow-lg text-sm"
-              >
-                <Plus className="w-5 h-5" />
-                <span className="hidden sm:inline">Add Student</span>
               </button>
             </div>
           </div>
@@ -504,7 +535,7 @@ const StudentPage = () => {
                     Edit
                   </button>
                   <button
-                    onClick={() => handleDelete(student._id)}
+                    onClick={() => handleDelete(student)}
                     className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-sm bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all shadow-sm hover:shadow-md font-medium"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -613,7 +644,7 @@ const StudentPage = () => {
                             <Edit2 className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => handleDelete(student._id)}
+                            onClick={() => handleDelete(student)}
                             className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900 rounded-lg transition-colors"
                             title="Delete"
                           >
@@ -638,20 +669,15 @@ const StudentPage = () => {
         />
       )}
 
-      {showImportModal && (
-        <BulkImportModal
-          onClose={() => setShowImportModal(false)}
-          onComplete={handleImportComplete}
-        />
-      )}
-
-      {showExcelImportModal && (
-        <ExcelImportModal
-          type="students"
-          onClose={() => setShowExcelImportModal(false)}
-          onComplete={handleExcelImportComplete}
-        />
-      )}
+      {/* Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        onClose={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
+        onConfirm={confirmDialog.onConfirm}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        itemName={confirmDialog.itemName}
+      />
     </Layout>
   );
 };

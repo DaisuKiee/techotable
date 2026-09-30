@@ -6,6 +6,11 @@ const Subject = require('../models/Subject.model');
 const { validationResult } = require('express-validator');
 const fs = require('fs').promises;
 const path = require('path');
+const { notifyAnnouncement, notifyMaterial } = require('../services/emailNotification.service');
+const { 
+  notifyAnnouncementCreated, 
+  notifyMaterialUploaded 
+} = require('../services/inAppNotification.service');
 
 /* ------------------------------------------------------------------ *
  * Helpers
@@ -14,7 +19,7 @@ const path = require('path');
 /** Populate spec used wherever a class space is returned to the client. */
 const CLASS_POPULATE = [
   { path: 'subject', select: 'subjectCode subjectName units description' },
-  { path: 'faculty', select: 'employeeId', populate: { path: 'user', select: 'firstName lastName email' } },
+  { path: 'faculty', select: 'employeeId', populate: { path: 'user', select: 'firstName lastName email profilePicture' } },
   { path: 'schedule', select: 'timeSlots room shift academicYear semester status' },
 ];
 
@@ -25,7 +30,7 @@ const DETAIL_POPULATE = [
   {
     path: 'enrolledStudents.student',
     select: 'studentId studentType sectionCode',
-    populate: { path: 'user', select: 'firstName lastName email' },
+    populate: { path: 'user', select: 'firstName lastName email profilePicture' },
   },
 ];
 
@@ -65,10 +70,16 @@ const resolveAccess = async (user, classSpace) => {
 
   // Faculty may post only in the classes they teach
   if (user.role === 'faculty') {
+    // user.facultyProfile might be populated (object with _id) or just an ObjectId
+    const userFacultyId = user.facultyProfile?._id || user.facultyProfile;
+    // classSpace.faculty might also be populated or just an ObjectId
+    const classFacultyId = classSpace.faculty?._id || classSpace.faculty;
+    
     const owns =
-      user.facultyProfile &&
-      classSpace.faculty &&
-      classSpace.faculty.toString() === user.facultyProfile.toString();
+      userFacultyId &&
+      classFacultyId &&
+      userFacultyId.toString() === classFacultyId.toString();
+    
     return {
       canRead: true,
       canPost: !!owns,
@@ -621,10 +632,30 @@ exports.postAnnouncement = async (req, res) => {
     await classSpace.save();
     await classSpace.populate('announcements.postedBy', 'firstName lastName role');
 
+    const newAnnouncement = classSpace.announcements[classSpace.announcements.length - 1];
+
+    // Send email notifications to enrolled students (async, don't wait)
+    notifyAnnouncement(classSpace._id, newAnnouncement._id)
+      .then(result => {
+        console.log(`📧 Announcement email notifications sent: ${result.sent}/${result.total}`);
+      })
+      .catch(err => {
+        console.error('❌ Failed to send announcement email notifications:', err.message);
+      });
+
+    // Create in-app notifications (async, don't wait)
+    notifyAnnouncementCreated(classSpace._id, newAnnouncement._id)
+      .then(result => {
+        console.log(`🔔 Announcement in-app notifications created: ${result.recipients} users`);
+      })
+      .catch(err => {
+        console.error('❌ Failed to create announcement in-app notifications:', err.message);
+      });
+
     res.status(201).json({
       success: true,
       message: 'Announcement posted',
-      data: classSpace.announcements[classSpace.announcements.length - 1],
+      data: newAnnouncement,
     });
   } catch (error) {
     console.error('Post announcement error:', error);
@@ -758,10 +789,30 @@ exports.uploadMaterial = async (req, res) => {
     await classSpace.save();
     await classSpace.populate('materials.uploadedBy', 'firstName lastName role');
 
+    const newMaterial = classSpace.materials[classSpace.materials.length - 1];
+
+    // Send email notifications to enrolled students (async, don't wait)
+    notifyMaterial(classSpace._id, newMaterial._id)
+      .then(result => {
+        console.log(`📧 Material email notifications sent: ${result.sent}/${result.total}`);
+      })
+      .catch(err => {
+        console.error('❌ Failed to send material email notifications:', err.message);
+      });
+
+    // Create in-app notifications (async, don't wait)
+    notifyMaterialUploaded(classSpace._id, newMaterial._id)
+      .then(result => {
+        console.log(`🔔 Material in-app notifications created: ${result.recipients} users`);
+      })
+      .catch(err => {
+        console.error('❌ Failed to create material in-app notifications:', err.message);
+      });
+
     res.status(201).json({
       success: true,
       message: 'Material uploaded',
-      data: classSpace.materials[classSpace.materials.length - 1],
+      data: newMaterial,
     });
   } catch (error) {
     console.error('Upload material error:', error);

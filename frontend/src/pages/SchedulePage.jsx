@@ -11,11 +11,13 @@ import {
 import ScheduleModal from '../components/ScheduleModal';
 import GenerateScheduleModal from '../components/GenerateScheduleModal';
 import ConflictWarning from '../components/ConflictWarning';
+import ConfirmDialog from '../components/ConfirmDialog';
 import ScheduleBuilder from '../components/ScheduleBuilder';
 import TimetableGrid from '../components/TimetableGrid';
 import { exportToCSV, exportToOfficialPDF, exportToPrintableHTML, exportWeeklyTimetable } from '../utils/scheduleExport';
 import { useAuth } from '../context/AuthContext';
 import StudentSchedule from '../components/StudentSchedule';
+import FacultySchedule from '../components/FacultySchedule';
 import { usePrograms } from '../hooks/usePrograms';
 
 const YEAR_LEVELS = [1, 2, 3, 4];
@@ -56,13 +58,22 @@ const SchedulePage = () => {
   const [timetableView, setTimetableView] = useState('week'); // 'week', 'day'
   const [selectedSection, setSelectedSection] = useState(null); // for program manager section picker
   const [selectedSchedules, setSelectedSchedules] = useState([]); // checkbox selection
+  
+  // Confirm dialog state
+  const [confirmDialog, setConfirmDialog] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    itemName: '',
+    onConfirm: null
+  });
 
   // Permission checks
   const canEditSchedules = user?.role === 'admin' || user?.role === 'scheduling_officer' || user?.role === 'program_manager';
   const isStudent = user?.role === 'student';
+  const isFaculty = user?.role === 'faculty';
   const isProgramManager = user?.role === 'program_manager';
 
-  // Auto-set filters based on user role
   useEffect(() => {
     if (isStudent && user) {
       setFilters({
@@ -74,8 +85,11 @@ const SchedulePage = () => {
       });
     } else if (isProgramManager && user?.program) {
       setFilters(prev => ({ ...prev, program: user.program }));
+    } else if (isFaculty && user?.program) {
+      // Faculty should also see their program filter
+      setFilters(prev => ({ ...prev, program: user.program }));
     }
-  }, [isStudent, isProgramManager, user]);
+  }, [isStudent, isProgramManager, isFaculty, user]);
 
   useEffect(() => {
     // Students render <StudentSchedule />, which loads its own data from
@@ -86,7 +100,7 @@ const SchedulePage = () => {
       return;
     }
     loadAllData();
-  }, [filters, isStudent, selectedSection?.sectionCode]);
+  }, [filters, isStudent, isFaculty, selectedSection?.sectionCode]);
 
   const loadAllData = async () => {
     setLoading(true);
@@ -108,6 +122,11 @@ const SchedulePage = () => {
       if (filters.semester) params.semester = filters.semester;
       if (filters.shift) params.shift = filters.shift;
       if (filters.academicYear) params.academicYear = filters.academicYear;
+
+      // Faculty should only see their own schedules - use the faculty field
+      if (isFaculty && user?.facultyId) {
+        params.faculty = user.facultyId;
+      }
 
       // Scope to the chosen section. Without this the calendar and list showed
       // every section of the program at once, so different sections' classes
@@ -238,28 +257,40 @@ const SchedulePage = () => {
     setShowScheduleModal(true);
   };
 
-  const handleDelete = async (id) => {
-    const confirmed = window.confirm('Are you sure you want to delete this schedule?');
-    if (!confirmed) return;
-
-    try {
-      await scheduleAPI.delete(id);
-      toast.success('Schedule deleted successfully');
-      loadAllData();
-    } catch (error) {
-      console.error('Delete error:', error);
-      
-      if (error.response?.status === 403) {
-        const errorMessage = error.response?.data?.message;
-        if (errorMessage?.includes('program')) {
-          toast.error(errorMessage);
-        } else {
-          toast.error('You do not have permission to delete this schedule');
+  const handleDelete = async (schedule) => {
+    // Build a readable identifier for the schedule
+    const subjectCode = schedule.subject?.subjectCode || schedule.subjectCode || 'Unknown';
+    const sectionCode = schedule.section?.sectionCode || schedule.sectionCode || 'Unknown';
+    const itemName = `${subjectCode} - ${sectionCode}`;
+    
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Delete Schedule',
+      message: 'Are you sure you want to delete this schedule? This action cannot be undone.',
+      itemName: itemName,
+      onConfirm: async () => {
+        try {
+          await scheduleAPI.delete(schedule._id);
+          toast.success('Schedule deleted successfully');
+          loadAllData();
+          setConfirmDialog({ ...confirmDialog, isOpen: false });
+        } catch (error) {
+          console.error('Delete error:', error);
+          
+          if (error.response?.status === 403) {
+            const errorMessage = error.response?.data?.message;
+            if (errorMessage?.includes('program')) {
+              toast.error(errorMessage);
+            } else {
+              toast.error('You do not have permission to delete this schedule');
+            }
+          } else {
+            toast.error(error.response?.data?.message || 'Failed to delete schedule');
+          }
+          setConfirmDialog({ ...confirmDialog, isOpen: false });
         }
-      } else {
-        toast.error(error.response?.data?.message || 'Failed to delete schedule');
       }
-    }
+    });
   };
 
   const handleSelectAll = () => {
@@ -278,18 +309,26 @@ const SchedulePage = () => {
 
   const handleBatchDeleteSelected = async () => {
     if (selectedSchedules.length === 0) return;
-    const confirmed = window.confirm(`Are you sure you want to delete ${selectedSchedules.length} selected schedule(s)?`);
-    if (!confirmed) return;
-
-    try {
-      const res = await scheduleAPI.batchDelete(selectedSchedules);
-      toast.success(res.data.message || `Deleted ${selectedSchedules.length} schedule(s)`);
-      setSelectedSchedules([]);
-      loadAllData();
-    } catch (error) {
-      console.error('Batch delete error:', error);
-      toast.error(error.response?.data?.message || 'Failed to delete selected schedules');
-    }
+    
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Delete Multiple Schedules',
+      message: 'Are you sure you want to delete the selected schedules? This action cannot be undone.',
+      itemName: `${selectedSchedules.length} schedule(s)`,
+      onConfirm: async () => {
+        try {
+          const res = await scheduleAPI.batchDelete(selectedSchedules);
+          toast.success(res.data.message || `Deleted ${selectedSchedules.length} schedule(s)`);
+          setSelectedSchedules([]);
+          loadAllData();
+          setConfirmDialog({ ...confirmDialog, isOpen: false });
+        } catch (error) {
+          console.error('Batch delete error:', error);
+          toast.error(error.response?.data?.message || 'Failed to delete selected schedules');
+          setConfirmDialog({ ...confirmDialog, isOpen: false });
+        }
+      }
+    });
   };
 
   const handleBatchPublishSelected = async () => {
@@ -493,6 +532,25 @@ const SchedulePage = () => {
             </p>
           </div>
           <StudentSchedule />
+        </div>
+      </Layout>
+    );
+  }
+
+  // Faculty get their own teaching schedule view similar to students
+  if (isFaculty) {
+    return (
+      <Layout>
+        <div className="p-4 md:p-6 max-w-7xl mx-auto">
+          <div className="mb-6">
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">
+              My Schedule
+            </h1>
+            <p className="text-gray-600 dark:text-gray-400 text-sm md:text-base">
+              Your teaching assignments and weekly timetable
+            </p>
+          </div>
+          <FacultySchedule />
         </div>
       </Layout>
     );
@@ -1146,7 +1204,7 @@ const SchedulePage = () => {
                                 <Edit2 className="w-4 h-4" />
                               </button>
                               <button
-                                onClick={() => handleDelete(schedule._id)}
+                                onClick={() => handleDelete(schedule)}
                                 className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900 rounded-lg transition-colors"
                                 title="Delete"
                               >
@@ -1204,6 +1262,16 @@ const SchedulePage = () => {
           onDismiss={() => setShowConflictWarning(false)}
         />
       )}
+
+      {/* Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        onClose={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
+        onConfirm={confirmDialog.onConfirm}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        itemName={confirmDialog.itemName}
+      />
     </Layout>
   );
 };

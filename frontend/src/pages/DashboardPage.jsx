@@ -36,6 +36,8 @@ const DashboardPage = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [selectedPeriod, setSelectedPeriod] = useState('month'); // 'month' or 'quarter'
   const [pageReady, setPageReady] = useState(false);
+  const [conflicts, setConflicts] = useState(null);
+  const [loadingConflicts, setLoadingConflicts] = useState(false);
 
   // Page entrance zoom animation
   useEffect(() => {
@@ -79,9 +81,19 @@ const DashboardPage = () => {
       const studentData = studentRes.data.data || [];
       const subjectData = subjectRes.data.data || [];
 
-      // Calculate year level distribution
+      // Calculate year level distribution from sectionCode
       const yearDistribution = studentData.reduce((acc, student) => {
-        const year = student.yearLevel || 'Unknown';
+        let year = 'Unknown';
+        
+        // Extract year from sectionCode
+        // Formats: "BSIT-4A", "BSIT-4A-D", "BSIT-3B-N", etc.
+        if (student.sectionCode) {
+          const match = student.sectionCode.match(/-(\d+)[A-Z]/);
+          if (match) {
+            year = match[1]; // Extract the year number
+          }
+        }
+        
         acc[year] = (acc[year] || 0) + 1;
         return acc;
       }, {});
@@ -108,7 +120,10 @@ const DashboardPage = () => {
         programStudents: studentData.length,
         programSubjects: subjectData.length,
         programSchedules: scheduleData.length,
-        programByYear: Object.entries(yearDistribution).map(([year, count]) => ({ year, count })),
+        programByYear: Object.entries(yearDistribution)
+          .filter(([year]) => year !== 'Unknown') // Filter out unknown years
+          .map(([year, count]) => ({ year, count }))
+          .sort((a, b) => parseInt(a.year) - parseInt(b.year)), // Sort by year
         programBySemester: Object.entries(semesterDistribution).map(([semester, count]) => ({ semester, count }))
       });
     } catch (error) {
@@ -118,6 +133,27 @@ const DashboardPage = () => {
       setLoading(false);
     }
   };
+
+  const loadConflicts = async () => {
+    if (user?.role !== 'admin' && user?.role !== 'scheduling_officer') return;
+    
+    try {
+      setLoadingConflicts(true);
+      const response = await scheduleAPI.getConflicts(true); // Get summary
+      setConflicts(response.data.data);
+    } catch (error) {
+      console.error('Failed to load conflicts:', error);
+    } finally {
+      setLoadingConflicts(false);
+    }
+  };
+
+  // Load conflicts for admin/scheduling officer
+  useEffect(() => {
+    if (user?.role === 'admin' || user?.role === 'scheduling_officer') {
+      loadConflicts();
+    }
+  }, [user?.role]);
 
   const formatDate = () => {
     return currentTime.toLocaleDateString('en-US', { 
@@ -137,7 +173,7 @@ const DashboardPage = () => {
   };
 
   const ModernStatCard = ({ icon: Icon, label, value, sublabel, iconColor, iconBg }) => (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow dark:bg-gray-800 dark:border-gray-700">
+    <div className="bg-gray-50 rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow dark:bg-gray-800 dark:border-gray-700">
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <p className="text-sm font-medium text-gray-600 mb-1 dark:text-gray-400">{label}</p>
@@ -225,6 +261,79 @@ const DashboardPage = () => {
         </div>
 
       </div>
+
+      {/* Schedule Conflict Warning Banner */}
+      {(user?.role === 'admin' || user?.role === 'scheduling_officer') && conflicts?.hasConflicts && (
+        <div className="mb-6 bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 border-2 border-red-500 dark:border-red-600 rounded-xl p-6 shadow-lg animate-pulse">
+          <div className="flex items-start gap-4">
+            <div className="flex-shrink-0">
+              <div className="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center animate-bounce">
+                <AlertTriangle className="w-7 h-7 text-white" />
+              </div>
+            </div>
+            <div className="flex-1">
+              <h3 className="text-xl font-bold text-red-900 dark:text-red-100 mb-2 flex items-center gap-2">
+                <span className="inline-block w-3 h-3 bg-red-500 rounded-full animate-ping"></span>
+                Schedule Conflicts Detected - Immediate Action Required!
+              </h3>
+              <p className="text-red-800 dark:text-red-200 mb-4">
+                There {conflicts.totalConflicts === 1 ? 'is' : 'are'} <span className="font-bold text-2xl">{conflicts.totalConflicts}</span> scheduling conflict{conflicts.totalConflicts !== 1 ? 's' : ''} that need to be resolved immediately.
+                {conflicts.highSeverity > 0 && (
+                  <span className="ml-2 px-2 py-1 bg-red-600 text-white text-xs font-bold rounded">
+                    {conflicts.highSeverity} HIGH PRIORITY
+                  </span>
+                )}
+              </p>
+              
+              {/* Critical Conflicts Preview */}
+              {conflicts.criticalConflicts && conflicts.criticalConflicts.length > 0 && (
+                <div className="space-y-2 mb-4">
+                  {conflicts.criticalConflicts.slice(0, 3).map((conflict, index) => (
+                    <div key={index} className="bg-white dark:bg-gray-800 border border-red-300 dark:border-red-700 rounded-lg p-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="px-2 py-0.5 bg-red-600 text-white text-xs font-bold rounded">
+                          {conflict.type.replace(/_/g, ' ')}
+                        </span>
+                        <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                          {conflict.day} • {conflict.timeRange}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-700 dark:text-gray-300">
+                        {conflict.type === 'FACULTY_DOUBLE_BOOKING' && (
+                          <>Faculty <span className="font-semibold">{conflict.faculty?.name}</span> is assigned to multiple classes</>
+                        )}
+                        {conflict.type === 'ROOM_DOUBLE_BOOKING' && (
+                          <>Room <span className="font-semibold">{conflict.room}</span> is double-booked</>
+                        )}
+                        {conflict.type === 'SECTION_DOUBLE_BOOKING' && (
+                          <>Section <span className="font-semibold">{conflict.section}</span> has overlapping classes</>
+                        )}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => window.location.href = '/schedules'}
+                  className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
+                >
+                  <AlertTriangle className="w-5 h-5" />
+                  View & Fix Conflicts Now
+                </button>
+                <button
+                  onClick={loadConflicts}
+                  disabled={loadingConflicts}
+                  className="px-4 py-3 bg-white dark:bg-gray-700 border-2 border-red-500 dark:border-red-600 text-red-700 dark:text-red-300 font-semibold rounded-lg hover:bg-red-50 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
+                >
+                  {loadingConflicts ? 'Checking...' : 'Refresh Check'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Admin/Scheduler Dashboard */}
       {(user?.role === 'admin' || user?.role === 'scheduling_officer') && (
@@ -336,103 +445,6 @@ const DashboardPage = () => {
               iconBg="bg-red-50"
             />
           </div>
-
-          {/* Quick Actions & Recent Activity */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Quick Actions */}
-            <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 p-6 dark:bg-gray-800 dark:border-gray-700">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 dark:text-gray-100">Quick Actions</h2>
-              <div className="grid grid-cols-2 gap-4">
-                <button
-                  onClick={() => window.location.href = '/faculty'}
-                  className="flex items-center gap-3 p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg hover:from-blue-100 hover:to-blue-200 transition-all group dark:from-blue-900 dark:to-blue-800 dark:hover:from-blue-800 dark:hover:to-blue-700"
-                >
-                  <div className="p-2 bg-blue-500 rounded-lg group-hover:scale-110 transition-transform">
-                    <Users className="w-5 h-5 text-white" />
-                  </div>
-                  <div className="text-left">
-                    <p className="font-medium text-gray-900 text-sm dark:text-gray-100">Manage Faculty</p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400">View all faculty</p>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => window.location.href = '/schedules'}
-                  className="flex items-center gap-3 p-4 bg-gradient-to-br from-green-50 to-green-100 rounded-lg hover:from-green-100 hover:to-green-200 transition-all group dark:from-green-900 dark:to-green-800 dark:hover:from-green-800 dark:hover:to-green-700"
-                >
-                  <div className="p-2 bg-green-500 rounded-lg group-hover:scale-110 transition-transform">
-                    <Calendar className="w-5 h-5 text-white" />
-                  </div>
-                  <div className="text-left">
-                    <p className="font-medium text-gray-900 text-sm dark:text-gray-100">Schedules</p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400">Generate & assign</p>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => window.location.href = '/subjects'}
-                  className="flex items-center gap-3 p-4 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg hover:from-purple-100 hover:to-purple-200 transition-all group dark:from-purple-900 dark:to-purple-800 dark:hover:from-purple-800 dark:hover:to-purple-700"
-                >
-                  <div className="p-2 bg-purple-500 rounded-lg group-hover:scale-110 transition-transform">
-                    <BookOpen className="w-5 h-5 text-white" />
-                  </div>
-                  <div className="text-left">
-                    <p className="font-medium text-gray-900 text-sm dark:text-gray-100">Subjects</p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400">Manage curriculum</p>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => window.location.href = '/rooms'}
-                  className="flex items-center gap-3 p-4 bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg hover:from-orange-100 hover:to-orange-200 transition-all group dark:from-orange-900 dark:to-orange-800 dark:hover:from-orange-800 dark:hover:to-orange-700"
-                >
-                  <div className="p-2 bg-orange-500 rounded-lg group-hover:scale-110 transition-transform">
-                    <DoorOpen className="w-5 h-5 text-white" />
-                  </div>
-                  <div className="text-left">
-                    <p className="font-medium text-gray-900 text-sm dark:text-gray-100">Rooms</p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400">Manage facilities</p>
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            {/* Recent Activity */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 dark:bg-gray-800 dark:border-gray-700">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 dark:text-gray-100">System Status</h2>
-              <div className="space-y-4">
-                <div className="flex items-start gap-3">
-                  <div className="p-2 bg-green-100 rounded-lg dark:bg-green-900">
-                    <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">All Systems Online</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Last checked: {formatTime()}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <div className="p-2 bg-blue-100 rounded-lg dark:bg-blue-900">
-                    <Clock className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Ready for Operations</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">AI scheduling available</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <div className="p-2 bg-orange-100 rounded-lg dark:bg-orange-900">
-                    <Info className="w-4 h-4 text-orange-600 dark:text-orange-400" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Data Entry Needed</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Complete faculty profiles</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
         </>
       )}
 
@@ -475,227 +487,9 @@ const DashboardPage = () => {
             />
           </div>
 
-          {/* Row 2: Distribution Analytics */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-            {/* Students by Year Level */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 dark:bg-gray-800 dark:border-gray-700">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2 dark:text-gray-100">
-                <TrendingUp className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                Students by Year Level
-              </h3>
-              {loading ? (
-                <div className="space-y-3">
-                  {[1, 2, 3, 4].map(i => (
-                    <div key={i} className="animate-pulse h-12 bg-gray-200 rounded dark:bg-gray-700"></div>
-                  ))}
-                </div>
-              ) : stats.programByYear.length > 0 ? (
-                <div className="space-y-3">
-                  {stats.programByYear
-                    .sort((a, b) => parseInt(a.year) - parseInt(b.year))
-                    .map((item) => {
-                      const percentage = stats.programStudents > 0 
-                        ? (item.count / stats.programStudents * 100).toFixed(1)
-                        : 0;
-                      return (
-                        <div key={item.year} className="flex items-center gap-3">
-                          <div className="w-20 text-sm font-medium text-gray-700 dark:text-gray-300">
-                            Year {item.year}
-                          </div>
-                          <div className="flex-1 bg-gray-100 rounded-full h-8 relative overflow-hidden dark:bg-gray-700">
-                            <div
-                              className="h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full flex items-center justify-end px-3 transition-all duration-500"
-                              style={{ width: `${percentage}%` }}
-                            >
-                              {percentage > 15 && (
-                                <span className="text-xs font-semibold text-white">
-                                  {item.count}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="w-16 text-right">
-                            <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">{item.count}</span>
-                            <span className="text-xs text-gray-500 ml-1 dark:text-gray-400">({percentage}%)</span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                  <Users className="w-12 h-12 mx-auto mb-2 text-gray-300 dark:text-gray-600" />
-                  <p>No student data available</p>
-                </div>
-              )}
-            </div>
-
-            {/* Students by Semester */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 dark:bg-gray-800 dark:border-gray-700">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2 dark:text-gray-100">
-                <Clock className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                Students by Semester
-              </h3>
-              {loading ? (
-                <div className="space-y-3">
-                  {[1, 2].map(i => (
-                    <div key={i} className="animate-pulse h-12 bg-gray-200 rounded dark:bg-gray-700"></div>
-                  ))}
-                </div>
-              ) : stats.programBySemester.length > 0 ? (
-                <div className="space-y-3">
-                  {stats.programBySemester
-                    .sort((a, b) => parseInt(a.semester) - parseInt(b.semester))
-                    .map((item) => {
-                      const percentage = stats.programStudents > 0
-                        ? (item.count / stats.programStudents * 100).toFixed(1)
-                        : 0;
-                      const semesterName = item.semester === '1' ? '1st Semester' : '2nd Semester';
-                      return (
-                        <div key={item.semester} className="flex items-center gap-3">
-                          <div className="w-28 text-sm font-medium text-gray-700 dark:text-gray-300">
-                            {semesterName}
-                          </div>
-                          <div className="flex-1 bg-gray-100 rounded-full h-8 relative overflow-hidden dark:bg-gray-700">
-                            <div
-                              className="h-full bg-gradient-to-r from-purple-500 to-purple-600 rounded-full flex items-center justify-end px-3 transition-all duration-500"
-                              style={{ width: `${percentage}%` }}
-                            >
-                              {percentage > 15 && (
-                                <span className="text-xs font-semibold text-white">
-                                  {item.count}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="w-16 text-right">
-                            <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">{item.count}</span>
-                            <span className="text-xs text-gray-500 ml-1 dark:text-gray-400">({percentage}%)</span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                  <Clock className="w-12 h-12 mx-auto mb-2 text-gray-300 dark:text-gray-600" />
-                  <p>No semester data available</p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Quick Actions for Program Manager */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-            <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 p-6 dark:bg-gray-800 dark:border-gray-700">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 dark:text-gray-100">Quick Actions</h2>
-              <div className="grid grid-cols-2 gap-4">
-                <button
-                  onClick={() => window.location.href = '/students'}
-                  className="flex items-center gap-3 p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg hover:from-blue-100 hover:to-blue-200 transition-all group dark:from-blue-900 dark:to-blue-800 dark:hover:from-blue-800 dark:hover:to-blue-700"
-                >
-                  <div className="p-2 bg-blue-500 rounded-lg group-hover:scale-110 transition-transform">
-                    <Users className="w-5 h-5 text-white" />
-                  </div>
-                  <div className="text-left">
-                    <p className="font-medium text-gray-900 text-sm dark:text-gray-100">Manage Students</p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400">{stats.programStudents} students</p>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => window.location.href = '/subjects'}
-                  className="flex items-center gap-3 p-4 bg-gradient-to-br from-green-50 to-green-100 rounded-lg hover:from-green-100 hover:to-green-200 transition-all group dark:from-green-900 dark:to-green-800 dark:hover:from-green-800 dark:hover:to-green-700"
-                >
-                  <div className="p-2 bg-green-500 rounded-lg group-hover:scale-110 transition-transform">
-                    <BookOpen className="w-5 h-5 text-white" />
-                  </div>
-                  <div className="text-left">
-                    <p className="font-medium text-gray-900 text-sm dark:text-gray-100">Program Subjects</p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400">{stats.programSubjects} subjects</p>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => window.location.href = '/schedules'}
-                  className="flex items-center gap-3 p-4 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg hover:from-purple-100 hover:to-purple-200 transition-all group dark:from-purple-900 dark:to-purple-800 dark:hover:from-purple-800 dark:hover:to-purple-700"
-                >
-                  <div className="p-2 bg-purple-500 rounded-lg group-hover:scale-110 transition-transform">
-                    <Calendar className="w-5 h-5 text-white" />
-                  </div>
-                  <div className="text-left">
-                    <p className="font-medium text-gray-900 text-sm dark:text-gray-100">Schedules</p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400">{stats.programSchedules} schedules</p>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => window.location.href = '/rooms'}
-                  className="flex items-center gap-3 p-4 bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg hover:from-orange-100 hover:to-orange-200 transition-all group dark:from-orange-900 dark:to-orange-800 dark:hover:from-orange-800 dark:hover:to-orange-700"
-                >
-                  <div className="p-2 bg-orange-500 rounded-lg group-hover:scale-110 transition-transform">
-                    <DoorOpen className="w-5 h-5 text-white" />
-                  </div>
-                  <div className="text-left">
-                    <p className="font-medium text-gray-900 text-sm dark:text-gray-100">Rooms</p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400">Available facilities</p>
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            {/* Program Status */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 dark:bg-gray-800 dark:border-gray-700">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 dark:text-gray-100">Program Status</h2>
-              <div className="space-y-4">
-                <div className="flex items-start gap-3">
-                  <div className="p-2 bg-green-100 rounded-lg dark:bg-green-900">
-                    <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Program Active</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{user?.program} operations normal</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <div className="p-2 bg-blue-100 rounded-lg dark:bg-blue-900">
-                    <Users className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{stats.programStudents} Enrolled</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Active this semester</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <div className="p-2 bg-purple-100 rounded-lg dark:bg-purple-900">
-                    <Calendar className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Schedule Ready</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{stats.programSchedules} schedules created</p>
-                  </div>
-                </div>
-
-                {stats.programStudents === 0 && (
-                  <div className="flex items-start gap-3">
-                    <div className="p-2 bg-orange-100 rounded-lg dark:bg-orange-900">
-                      <AlertTriangle className="w-4 h-4 text-orange-600 dark:text-orange-400" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Add Students</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">No students enrolled yet</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
           {/* Additional Stats Row */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <div className="bg-gray-50 rounded-xl shadow-sm border border-gray-200 p-6">
               <div className="flex items-center gap-3 mb-3">
                 <div className="p-2 bg-indigo-100 rounded-lg">
                   <TrendingUp className="w-5 h-5 text-indigo-600" />
@@ -710,7 +504,7 @@ const DashboardPage = () => {
               </div>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <div className="bg-gray-50 rounded-xl shadow-sm border border-gray-200 p-6">
               <div className="flex items-center gap-3 mb-3">
                 <div className="p-2 bg-teal-100 rounded-lg">
                   <BookOpen className="w-5 h-5 text-teal-600" />
@@ -725,7 +519,7 @@ const DashboardPage = () => {
               </div>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <div className="bg-gray-50 rounded-xl shadow-sm border border-gray-200 p-6">
               <div className="flex items-center gap-3 mb-3">
                 <div className="p-2 bg-rose-100 rounded-lg">
                   <Calendar className="w-5 h-5 text-rose-600" />
@@ -745,23 +539,7 @@ const DashboardPage = () => {
 
       {/* Faculty Dashboard */}
       {user?.role === 'faculty' && (
-        <div className="space-y-6">
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">My Teaching Schedule</h2>
-            <p className="text-gray-600">Your schedule will appear here once classes are assigned.</p>
-          </div>
-          
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">My Classes</h2>
-            <p className="text-gray-600">View and manage your class spaces.</p>
-            <button
-              onClick={() => window.location.href = '/classes'}
-              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-            >
-              View My Classes
-            </button>
-          </div>
-        </div>
+        <FacultyDashboard user={user} loading={loading} />
       )}
 
       {/* Student Dashboard.
@@ -776,7 +554,413 @@ const DashboardPage = () => {
   );
 };
 
-export default DashboardPage;
+// Faculty Dashboard Component
+const FacultyDashboard = ({ user, loading: parentLoading }) => {
+  const [facultyData, setFacultyData] = useState(null);
+  const [todaySchedule, setTodaySchedule] = useState([]);
+  const [allSchedules, setAllSchedules] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [classes, setClasses] = useState([]);
+
+  useEffect(() => {
+    loadFacultyData();
+  }, []);
+
+  const loadFacultyData = async () => {
+    try {
+      // Get faculty profile from user data
+      const facultyId = user?.facultyProfile?._id || user?.facultyProfile;
+      
+      if (!facultyId) {
+        console.error('No faculty profile found for user');
+        setLoading(false);
+        return;
+      }
+
+      // Fetch faculty profile, schedule and classes
+      const [facultyRes, scheduleRes, classesRes] = await Promise.all([
+        facultyAPI.getById(facultyId).catch(() => ({ data: { data: null } })),
+        scheduleAPI.getFacultySchedule(facultyId).catch(() => ({ data: { data: [] } })),
+        classSpaceAPI.getMyClasses().catch(() => ({ data: { data: [] } }))
+      ]);
+
+      const faculty = facultyRes.data.data;
+      const schedules = scheduleRes.data.data || [];
+      
+      // Debug logging
+      console.log('Faculty Data:', faculty);
+      console.log('Schedules Data:', schedules);
+      console.log('Sample schedule room:', schedules[0]?.room);
+      
+      setFacultyData(faculty);
+      setAllSchedules(schedules);
+      setClasses(classesRes.data.data || []);
+
+      // Filter today's schedule
+      const today = new Date();
+      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const todayName = dayNames[today.getDay()];
+
+      const todayClasses = schedules
+        .filter(schedule => {
+          return schedule.timeSlots?.some(slot => slot.day === todayName);
+        })
+        .map(schedule => ({
+          ...schedule,
+          todaySlots: schedule.timeSlots.filter(slot => slot.day === todayName)
+        }))
+        .sort((a, b) => {
+          const timeA = a.todaySlots[0]?.startTime || '00:00';
+          const timeB = b.todaySlots[0]?.startTime || '00:00';
+          return timeA.localeCompare(timeB);
+        });
+
+      setTodaySchedule(todayClasses);
+    } catch (error) {
+      console.error('Failed to load faculty data:', error);
+      toast.error('Failed to load your teaching schedule');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatTime = (time) => {
+    if (!time) return '';
+    // Convert 24h to 12h format
+    const [hours, minutes] = time.split(':');
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const hour12 = hour % 12 || 12;
+    return `${hour12}:${minutes} ${ampm}`;
+  };
+
+  const getCurrentDay = () => {
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    return days[new Date().getDay()];
+  };
+
+  if (loading || parentLoading) {
+    return (
+      <div className="space-y-6 animate-pulse">
+        <div className="bg-gray-200 rounded-lg h-48"></div>
+        <div className="bg-gray-200 rounded-lg h-64"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Welcome Card */}
+      <div className="bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-700 rounded-xl shadow-xl p-6 text-white">
+        <div className="flex items-start gap-5 mb-4">
+          {/* Profile Picture */}
+          <div className="flex-shrink-0">
+            {user?.profilePicture ? (
+              <>
+                <img
+                  src={`${process.env.REACT_APP_API_URL?.replace('/api', '')}${user.profilePicture}`}
+                  alt={`${user.firstName} ${user.lastName}`}
+                  className="w-20 h-20 rounded-full object-cover ring-4 ring-white/30 shadow-xl"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                    e.target.nextElementSibling.style.display = 'flex';
+                  }}
+                />
+                <div 
+                  className="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center ring-4 ring-white/30 shadow-xl"
+                  style={{ display: 'none' }}
+                >
+                  <Users className="w-10 h-10" />
+                </div>
+              </>
+            ) : (
+              <div className="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center ring-4 ring-white/30 shadow-xl">
+                <Users className="w-10 h-10" />
+              </div>
+            )}
+          </div>
+
+          {/* Profile Info */}
+          <div className="flex-1 min-w-0">
+            <h2 className="text-2xl font-bold mb-1">Welcome back, {user?.firstName}!</h2>
+            <p className="text-indigo-100 text-sm font-medium mb-2">
+              Faculty ID: {facultyData?.employeeId || 'Loading...'}
+            </p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-xs font-semibold">
+                {facultyData?.position || 'Faculty'}
+              </span>
+              {facultyData?.employmentType && (
+                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                  facultyData.employmentType === 'Regular'
+                    ? 'bg-green-500 text-white'
+                    : 'bg-purple-500 text-white'
+                }`}>
+                  {facultyData.employmentType}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-5 border border-white/20 hover:bg-white/15 transition-all shadow-lg">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-indigo-100 text-sm font-semibold">Department</p>
+              <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+                <BookOpen className="w-4 h-4" />
+              </div>
+            </div>
+            <p className="text-2xl font-bold">{facultyData?.department || 'Loading...'}</p>
+          </div>
+          
+          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-5 border border-white/20 hover:bg-white/15 transition-all shadow-lg">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-indigo-100 text-sm font-semibold">Total Classes</p>
+              <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+                <Users className="w-4 h-4" />
+              </div>
+            </div>
+            <p className="text-2xl font-bold">{classes.length}</p>
+          </div>
+
+          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-5 border border-white/20 hover:bg-white/15 transition-all shadow-lg">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-indigo-100 text-sm font-semibold">Today's Classes</p>
+              <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+                <Calendar className="w-4 h-4" />
+              </div>
+            </div>
+            <p className="text-2xl font-bold">{todaySchedule.length}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Today's Schedule */}
+      <div className="bg-gray-50 rounded-xl shadow-sm border border-gray-200 p-6 dark:bg-gray-800 dark:border-gray-700">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-indigo-100 rounded-lg dark:bg-indigo-900">
+              <Calendar className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+            </div>
+            <div>
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                Your Schedule for Today
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                {getCurrentDay()}, {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => window.location.href = '/my-schedule'}
+            className="px-4 py-2 text-indigo-600 border border-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors text-sm font-medium dark:text-indigo-400 dark:border-indigo-400 dark:hover:bg-indigo-900/20"
+          >
+            View Full Schedule
+          </button>
+        </div>
+
+        {todaySchedule.length === 0 ? (
+          <div className="text-center py-12 text-gray-500">
+            <Calendar className="w-16 h-16 mx-auto mb-3 text-gray-300" />
+            <p className="text-lg font-medium">No classes scheduled for today</p>
+            <p className="text-sm mt-1">Enjoy your free day!</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {todaySchedule.map((schedule, index) => (
+              <div
+                key={schedule._id || index}
+                className="bg-white border border-gray-200 rounded-lg p-4 hover:border-indigo-400 hover:shadow-md transition-all dark:bg-gray-800 dark:border-gray-700 dark:hover:border-indigo-400"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    {/* Subject Info */}
+                    <div className="flex items-start gap-3 mb-3">
+                      <div className="p-2 bg-indigo-50 rounded-lg dark:bg-indigo-900/30">
+                        <BookOpen className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-gray-900 text-lg dark:text-gray-100">
+                          {schedule.subject?.subjectCode || 'N/A'}
+                        </h4>
+                        <p className="text-gray-600 dark:text-gray-400">
+                          {schedule.subject?.subjectName || 'Subject name not available'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Schedule Details Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
+                      {/* Time */}
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-gray-400" />
+                        <div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Time</p>
+                          <p className="font-medium text-gray-900 dark:text-gray-100">
+                            {schedule.todaySlots.map(slot => 
+                              `${formatTime(slot.startTime)}-${formatTime(slot.endTime)}`
+                            ).join(', ')}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Room */}
+                      <div className="flex items-center gap-2">
+                        <DoorOpen className="w-4 h-4 text-gray-400" />
+                        <div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Room</p>
+                          <p className="font-medium text-gray-900 dark:text-gray-100">
+                            {schedule.roomData?.roomName || schedule.roomData?.roomCode || schedule.room || 'TBA'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Section */}
+                      <div className="flex items-center gap-2">
+                        <Users className="w-4 h-4 text-gray-400" />
+                        <div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Section</p>
+                          <p className="font-medium text-gray-900 dark:text-gray-100">
+                            {schedule.sectionCode || schedule.section || 'N/A'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Year & Program */}
+                      <div className="flex items-center gap-2">
+                        <GraduationCap className="w-4 h-4 text-gray-400" />
+                        <div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Year & Program</p>
+                          <p className="font-medium text-gray-900 dark:text-gray-100">
+                            {schedule.yearLevel || 'N/A'} - {schedule.program || 'N/A'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Additional Info */}
+                    <div className="flex items-center gap-4 mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+                      <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full dark:bg-blue-900/30 dark:text-blue-400">
+                        {schedule.subject?.units || 0} units
+                      </span>
+                      <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full dark:bg-green-900/30 dark:text-green-400">
+                        Semester {schedule.semester || 1}
+                      </span>
+                      <span className="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded-full dark:bg-purple-900/30 dark:text-purple-400">
+                        AY {schedule.academicYear || 'N/A'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Quick Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-gray-50 rounded-xl shadow-sm border border-gray-200 p-6 dark:bg-gray-800 dark:border-gray-700">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="p-2 bg-blue-100 rounded-lg dark:bg-blue-900/30">
+              <Calendar className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+            </div>
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100">Total Schedules</h3>
+          </div>
+          <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">{allSchedules.length}</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Active teaching schedules</p>
+        </div>
+
+        <div className="bg-gray-50 rounded-xl shadow-sm border border-gray-200 p-6 dark:bg-gray-800 dark:border-gray-700">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="p-2 bg-green-100 rounded-lg dark:bg-green-900/30">
+              <Users className="w-5 h-5 text-green-600 dark:text-green-400" />
+            </div>
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100">Class Spaces</h3>
+          </div>
+          <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">{classes.length}</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Active class spaces</p>
+          <button
+            onClick={() => window.location.href = '/classes'}
+            className="mt-3 text-sm text-green-600 hover:text-green-700 font-medium dark:text-green-400"
+          >
+            Manage Classes →
+          </button>
+        </div>
+
+        <div className="bg-gray-50 rounded-xl shadow-sm border border-gray-200 p-6 dark:bg-gray-800 dark:border-gray-700">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="p-2 bg-orange-100 rounded-lg dark:bg-orange-900/30">
+              <Clock className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+            </div>
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100">This Week</h3>
+          </div>
+          <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+            {allSchedules.reduce((total, schedule) => {
+              return total + (schedule.timeSlots?.length || 0);
+            }, 0)}
+          </p>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Total class sessions</p>
+        </div>
+      </div>
+
+      {/* My Classes Section */}
+      <div className="bg-gray-50 rounded-xl shadow-sm border border-gray-200 p-6 dark:bg-gray-800 dark:border-gray-700">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            My Class Spaces
+          </h3>
+          <button
+            onClick={() => window.location.href = '/classes'}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium"
+          >
+            View All Classes
+          </button>
+        </div>
+
+        {classes.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            <Users className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+            <p>No class spaces assigned yet</p>
+            <p className="text-sm mt-1">Class spaces will appear here once schedules are created</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {classes.slice(0, 6).map((classSpace) => (
+              <div
+                key={classSpace._id}
+                onClick={() => window.location.href = '/classes'}
+                className="p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-indigo-400 cursor-pointer transition-all hover:shadow-md dark:bg-gray-700 dark:border-gray-600"
+              >
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex-1">
+                    <p className="font-semibold text-gray-900 dark:text-gray-100">
+                      {classSpace.subject?.subjectCode || classSpace.sectionCode}
+                    </p>
+                    {classSpace.subject?.subjectName && (
+                      <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-1 mt-1">
+                        {classSpace.subject.subjectName}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 mt-3 text-xs">
+                  <span className="px-2 py-1 bg-indigo-100 text-indigo-700 rounded dark:bg-indigo-900/30 dark:text-indigo-400">
+                    {classSpace.sectionCode || 'N/A'}
+                  </span>
+                  <span className="text-gray-500 dark:text-gray-400">
+                    {classSpace.students?.length || 0} students
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
 
 // Student Dashboard Component
@@ -870,7 +1054,7 @@ const StudentDashboard = ({ user, loading: parentLoading }) => {
       </div>
 
       {/* Enrollment Details */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 dark:bg-gray-800 dark:border-gray-700">
+      <div className="bg-gray-50 rounded-xl shadow-sm border border-gray-200 p-6 dark:bg-gray-800 dark:border-gray-700">
         <h3 className="text-lg font-semibold text-gray-900 mb-4 dark:text-gray-100">
           Enrollment Information
         </h3>
@@ -943,7 +1127,7 @@ const StudentDashboard = ({ user, loading: parentLoading }) => {
       <MyClassesEnrollment />
 
       {/* My Classes */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 dark:bg-gray-800 dark:border-gray-700">
+      <div className="bg-gray-50 rounded-xl shadow-sm border border-gray-200 p-6 dark:bg-gray-800 dark:border-gray-700">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             My Classes
@@ -1021,3 +1205,6 @@ const StudentDashboard = ({ user, loading: parentLoading }) => {
     </div>
   );
 };
+
+
+export default DashboardPage;

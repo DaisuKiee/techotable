@@ -1,34 +1,48 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { 
   Users, BookOpen, DoorOpen, Calendar, 
   Brain, GraduationCap, LogOut, Menu, X,
-  ChevronDown, User, Settings, LayoutGrid,
-  FileText, ClipboardList, ChevronRight, HelpCircle,
-  Building2, Layers
+  User, Settings, LayoutGrid,
+  FileText, ClipboardList, HelpCircle,
+  Layers, Home, Activity
 } from 'lucide-react';
 import ctuLogo from '../assets/images/logos/ctulogo.png';
 import AIChatBubble from './AIChatBubble';
+import NotificationBell from './NotificationBell';
 
 const Layout = ({ children }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [sidebarHovered, setSidebarHovered] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
-  const [pageReady, setPageReady] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [sidebarExpanded, setSidebarExpanded] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef(null);
 
-  // Page entrance zoom animation
-  React.useEffect(() => {
-    setPageReady(false);
-    const timer = setTimeout(() => {
-      setPageReady(true);
-    }, 50);
-    return () => clearTimeout(timer);
-  }, [location.pathname]); // Re-trigger on route change
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+        setUserMenuOpen(false);
+      }
+    };
+
+    if (userMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [userMenuOpen]);
+
+  // Collapse sidebar when route changes
+  useEffect(() => {
+    setSidebarExpanded(false);
+    setUserMenuOpen(false);
+  }, [location.pathname]);
 
   // Get avatar URL
   const getAvatarUrl = () => {
@@ -38,458 +52,406 @@ const Layout = ({ children }) => {
     return null;
   };
 
-  // Get user initials
-  const getUserInitials = () => {
-    if (user?.firstName && user?.lastName) {
-      return `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
-    }
-    return '??';
-  };
-
   const avatarUrl = getAvatarUrl();
-
-  // Get user role display name with program badge
-  const getUserRoleDisplay = () => {
-    if (user?.role === 'admin') return 'System Administrator';
-    if (user?.role === 'scheduling_officer') return 'Scheduling Officer';
-    if (user?.role === 'program_manager') {
-      return `${user?.program || ''} Manager`;
-    }
-    if (user?.role === 'faculty') return 'Faculty';
-    if (user?.role === 'student') return 'Student';
-    return 'User';
-  };
 
   const handleLogout = () => {
     logout();
     navigate('/');
   };
 
-  // Handle mouse enter on sidebar
-  const handleSidebarMouseEnter = () => {
-    setSidebarHovered(true);
-  };
-
-  // Handle mouse leave from sidebar
-  const handleSidebarMouseLeave = () => {
-    setSidebarHovered(false);
-  };
-
-  // Determine if sidebar should show expanded content
-  const isExpanded = !sidebarCollapsed || sidebarHovered;
-
-  // Navigation items based on role with groupings
+  // Navigation items based on role
   const getNavItems = () => {
-    const baseItems = {
-      overview: {
-        title: 'OVERVIEW',
-        items: [
-          { name: 'Dashboard', path: '/dashboard', icon: LayoutGrid }
-        ]
-      }
-    };
-
     if (user?.role === 'admin' || user?.role === 'scheduling_officer' || user?.role === 'program_manager') {
-      return {
-        ...baseItems,
-        operations: {
-          title: 'OPERATIONS',
-          items: [
-            { name: 'Faculty', path: '/faculty', icon: Users },
-            { name: 'Students', path: '/students', icon: GraduationCap },
-            { name: 'Subjects', path: '/subjects', icon: BookOpen },
-            { name: 'Rooms', path: '/rooms', icon: DoorOpen },
-            { name: 'Sections', path: '/sections', icon: Layers },
-            { name: 'Schedules', path: '/schedules', icon: Calendar },
-            { name: 'Class Spaces', path: '/classes', icon: FileText },
-            { name: 'AI Insights', path: '/ai', icon: Brain }
-          ]
-        },
-        management: {
-          title: 'MANAGEMENT',
-          items: user?.role === 'admin' ? [
-            { name: 'Users', path: '/users', icon: Settings },
-            { name: 'Reports', path: '/reports', icon: ClipboardList }
-          ] : [
-            { name: 'Reports', path: '/reports', icon: ClipboardList }
-          ]
-        }
-      };
+      return [
+        { name: 'Dashboard', path: '/dashboard', icon: Home },
+        { name: 'Faculty', path: '/faculty', icon: Users },
+        { name: 'Students', path: '/students', icon: GraduationCap },
+        { name: 'Subjects', path: '/subjects', icon: BookOpen },
+        { name: 'Rooms', path: '/rooms', icon: DoorOpen },
+        { name: 'Sections', path: '/sections', icon: Layers },
+        { name: 'Schedules', path: '/schedules', icon: Calendar },
+        { name: 'Class Spaces', path: '/classes', icon: FileText },
+        { name: 'AI Insights', path: '/ai', icon: Brain },
+        { name: 'Activity Log', path: '/activity', icon: Activity }
+      ];
     }
 
     if (user?.role === 'faculty') {
-      return {
-        ...baseItems,
-        academic: {
-          title: 'ACADEMIC',
-          items: [
-            { name: 'My Classes', path: '/classes', icon: GraduationCap },
-            { name: 'My Schedule', path: '/schedules', icon: Calendar }
-          ]
-        }
-      };
+      return [
+        { name: 'Dashboard', path: '/dashboard', icon: Home },
+        { name: 'My Classes', path: '/classes', icon: GraduationCap },
+        { name: 'My Schedule', path: '/schedules', icon: Calendar }
+      ];
     }
 
     if (user?.role === 'student') {
-      return {
-        ...baseItems,
-        academic: {
-          title: 'ACADEMIC',
-          items: [
-            { name: 'My Classes', path: '/classes', icon: GraduationCap },
-            { name: 'My Schedule', path: '/schedules', icon: Calendar }
-          ]
-        }
-      };
+      return [
+        { name: 'Dashboard', path: '/dashboard', icon: Home },
+        { name: 'My Classes', path: '/classes', icon: GraduationCap },
+        { name: 'My Schedule', path: '/schedules', icon: Calendar }
+      ];
     }
 
-    return baseItems;
+    return [{ name: 'Dashboard', path: '/dashboard', icon: Home }];
   };
 
-  const navGroups = getNavItems();
-
+  const navItems = getNavItems();
   const isActive = (path) => location.pathname === path;
+  const currentPage = navItems.find(item => isActive(item.path))?.name || 'Dashboard';
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Top Navigation - Minimal for mobile */}
-      <nav className="bg-[#1e3a8a] border-b border-blue-900 fixed w-full z-30 top-0 lg:hidden">
-        <div className="px-4 py-3">
-          <div className="flex items-center justify-between">
-            {/* Mobile menu button */}
-            <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-2 text-white rounded-lg hover:bg-blue-800"
-            >
-              {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
-            </button>
-            
-            {/* Mobile Logo */}
-            <div className="flex items-center gap-2">
-              <img src={ctuLogo} alt="CTU Logo" className="w-8 h-8 object-contain" />
-              <div className="flex flex-col">
-                <span className="text-white font-semibold text-sm">CTU Daanbantayan</span>
-                {user?.role === 'program_manager' && user?.program && (
-                  <span className="text-yellow-400 text-xs font-medium">{user.program} Manager</span>
-                )}
-              </div>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      {/* Mobile Header */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between px-4 py-3">
+          <button
+            onClick={() => setMobileSidebarOpen(true)}
+            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          >
+            <Menu className="w-6 h-6 text-gray-700 dark:text-gray-300" />
+          </button>
+          
+          <div className="flex items-center gap-3">
+            <img src={ctuLogo} alt="CTU" className="w-8 h-8" />
+            <div>
+              <h1 className="text-sm font-bold text-gray-900 dark:text-white">CTU Daanbantayan</h1>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Timetable System</p>
             </div>
+          </div>
 
-            {/* Mobile User */}
-            <button
-              onClick={() => setProfileOpen(!profileOpen)}
-              className="p-1 text-white rounded-full hover:bg-blue-800 overflow-hidden"
-            >
+          <div className="flex items-center gap-2">
+            {/* Notification Bell for Mobile */}
+            <NotificationBell />
+            
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center overflow-hidden">
               {avatarUrl ? (
-                <img
-                  src={avatarUrl}
-                  alt="User"
-                  className="w-8 h-8 rounded-full object-cover"
-                />
+                <img src={avatarUrl} alt="User" className="w-full h-full object-cover" />
               ) : (
-                <div className="w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center">
-                  <User size={16} className="text-blue-900" />
-                </div>
+                <User className="w-5 h-5 text-white" />
               )}
-            </button>
+            </div>
           </div>
         </div>
-      </nav>
+      </div>
 
-      {/* Sidebar */}
+      {/* Desktop Sidebar */}
       <aside
-        onMouseEnter={handleSidebarMouseEnter}
-        onMouseLeave={handleSidebarMouseLeave}
-        className={`fixed top-0 left-0 z-40 h-screen transition-all duration-300 ${
-          isExpanded ? 'w-72' : 'w-20'
-        } ${
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        } bg-[#1e3a8a] lg:translate-x-0`}
+        onMouseEnter={() => setSidebarExpanded(true)}
+        onMouseLeave={() => setSidebarExpanded(false)}
+        className={`hidden lg:flex fixed top-0 left-0 h-full bg-gradient-to-b from-blue-600 via-blue-700 to-blue-800 shadow-2xl z-40 flex-col transition-all duration-300 ease-in-out ${
+          sidebarExpanded ? 'w-64' : 'w-20'
+        }`}
       >
         {/* Logo Section */}
-        <div className={`flex items-center gap-3 px-6 py-6 ${isExpanded ? '' : 'justify-center px-4'}`}>
-          <img 
-            src={ctuLogo} 
-            alt="CTU Logo" 
-            className={`${isExpanded ? 'w-12 h-12' : 'w-10 h-10'} object-contain flex-shrink-0`}
-          />
-          {isExpanded && (
-            <div>
-              <h1 className="text-white font-semibold text-lg leading-tight">CTU Daanbantayan</h1>
-              <p className="text-blue-300 text-xs">
-                {user?.role === 'program_manager' && user?.program 
-                  ? `${user.program} Management` 
-                  : 'Management System'}
-              </p>
+        <div className="flex items-center justify-center py-6 px-4 border-b border-blue-500/30">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center backdrop-blur-sm">
+              <img src={ctuLogo} alt="CTU" className="w-8 h-8" />
             </div>
-          )}
+            <div className={`overflow-hidden transition-all duration-300 ${
+              sidebarExpanded ? 'w-auto opacity-100' : 'w-0 opacity-0'
+            }`}>
+              <h1 className="text-white font-bold text-base whitespace-nowrap">CTU Daanbantayan</h1>
+              <p className="text-blue-200 text-xs whitespace-nowrap">Timetable System</p>
+            </div>
+          </div>
         </div>
-
-        {/* Collapse Toggle Button - Desktop only */}
-        <button
-          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-          className="hidden lg:flex absolute -right-3 top-8 w-6 h-6 bg-white border-2 border-blue-600 rounded-full items-center justify-center hover:bg-blue-50 transition-colors shadow-lg z-50"
-          title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        >
-          <ChevronRight size={14} className={`text-blue-600 transition-transform ${sidebarCollapsed ? '' : 'rotate-180'}`} />
-        </button>
 
         {/* Navigation */}
-        <div className="h-[calc(100vh-120px)] px-4 pb-4 overflow-y-auto custom-scrollbar">
-          <nav className="space-y-6">
-            {Object.entries(navGroups).map(([groupKey, group]) => (
-              <div key={groupKey}>
-                {/* Section Title */}
-                {isExpanded && (
-                  <div className="px-3 mb-3">
-                    <h3 className="text-xs font-semibold text-blue-300 tracking-wider">
-                      {group.title}
-                    </h3>
-                  </div>
+        <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto custom-scrollbar">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const active = isActive(item.path);
+            
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                className={`flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all duration-200 group relative ${
+                  active
+                    ? 'bg-yellow-400 text-blue-900 shadow-lg shadow-yellow-500/30'
+                    : 'text-blue-100 hover:bg-white/10'
+                }`}
+              >
+                <Icon 
+                  className={`w-5 h-5 flex-shrink-0 transition-transform duration-200 ${
+                    active ? 'scale-110' : 'group-hover:scale-110'
+                  }`}
+                />
+                <span className={`font-medium text-sm whitespace-nowrap overflow-hidden transition-all duration-300 ${
+                  sidebarExpanded ? 'w-auto opacity-100' : 'w-0 opacity-0'
+                }`}>
+                  {item.name}
+                </span>
+                
+                {/* Active Indicator */}
+                {active && (
+                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-yellow-500 rounded-r-full" />
                 )}
+              </Link>
+            );
+          })}
+        </nav>
 
-                {/* Navigation Items */}
-                <ul className="space-y-1">
-                  {group.items.map((item) => {
-                    const Icon = item.icon;
-                    const active = isActive(item.path);
-                    
-                    return (
-                      <li key={item.path}>
-                        <Link
-                          to={item.path}
-                          onClick={() => setSidebarOpen(false)}
-                          className={`flex items-center gap-3 ${isExpanded ? 'px-4' : 'justify-center px-3'} py-3 rounded-lg transition-all group relative ${
-                            active
-                              ? 'bg-yellow-400 text-gray-900 font-medium shadow-lg'
-                              : 'text-blue-100 hover:bg-blue-800 hover:text-white'
-                          }`}
-                          title={isExpanded ? '' : item.name}
-                        >
-                          <Icon size={20} className={active ? 'text-gray-900' : 'text-blue-300'} />
-                          {isExpanded && (
-                            <>
-                              <span className="text-sm">{item.name}</span>
-                              {item.badge && (
-                                <span className="ml-auto px-2 py-0.5 text-xs font-medium bg-gray-700 text-white rounded-full">
-                                  {item.badge}
-                                </span>
-                              )}
-                            </>
-                          )}
-                          
-                          {/* Tooltip for collapsed state */}
-                          {!isExpanded && (
-                            <div className="absolute left-full ml-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-50">
-                              {item.name}
-                              <div className="absolute top-1/2 -left-1 -translate-y-1/2 w-2 h-2 bg-gray-900 rotate-45"></div>
-                            </div>
-                          )}
-                        </Link>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            ))}
-          </nav>
-
-          {/* Help Section at Bottom */}
-          {isExpanded && (
-            <div className="mt-8 px-3 py-4 bg-blue-900 rounded-lg">
-              <div className="flex items-start gap-3 mb-2">
-                <HelpCircle className="w-5 h-5 text-blue-300 flex-shrink-0 mt-0.5" />
-                <div>
-                  <h4 className="text-sm font-medium text-white mb-1">Need help?</h4>
-                  <p className="text-xs text-blue-300 leading-relaxed">
-                    Contact IT support for assistance.
-                  </p>
-                </div>
+        {/* Help Card */}
+        <div className={`mx-3 mb-4 transition-all duration-300 overflow-hidden ${
+          sidebarExpanded ? 'max-h-32 opacity-100' : 'max-h-0 opacity-0'
+        }`}>
+          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
+            <div className="flex items-start gap-3">
+              <HelpCircle className="w-5 h-5 text-blue-200 flex-shrink-0 mt-0.5" />
+              <div>
+                <h3 className="text-white font-semibold text-sm mb-1">Need Help?</h3>
+                <p className="text-blue-200 text-xs leading-relaxed">
+                  Contact IT support for assistance
+                </p>
               </div>
             </div>
-          )}
+          </div>
         </div>
 
-        {/* User Profile Section at Bottom */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 bg-blue-900 border-t border-blue-800">
+        {/* User Profile */}
+        <div ref={userMenuRef} className="p-4 border-t border-blue-500/30 relative">
           <button
-            onClick={() => setProfileOpen(!profileOpen)}
-            className={`flex items-center ${isExpanded ? 'justify-between' : 'justify-center'} w-full p-3 rounded-lg hover:bg-blue-800 transition-colors group relative`}
-            title={isExpanded ? '' : `${user?.firstName} ${user?.lastName}`}
+            onClick={() => setUserMenuOpen(!userMenuOpen)}
+            className="flex items-center gap-3 w-full hover:bg-white/10 rounded-xl p-2 transition-colors"
           >
-            <div className={`flex items-center gap-3 ${isExpanded ? '' : 'justify-center'}`}>
-              <div className="w-10 h-10 bg-yellow-400 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden">
-                {avatarUrl ? (
-                  <img
-                    src={avatarUrl}
-                    alt={`${user?.firstName} ${user?.lastName}`}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <User className="w-5 h-5 text-blue-900" />
-                )}
-              </div>
-              {isExpanded && (
-                <div className="text-left">
-                  <p className="text-sm font-medium text-white">
-                    {user?.firstName} {user?.lastName}
-                  </p>
-                  <p className="text-xs text-blue-300 capitalize">
-                    {user?.role?.replace('_', ' ')}
-                  </p>
-                </div>
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-500 flex items-center justify-center overflow-hidden flex-shrink-0 ring-2 ring-white/20">
+              {avatarUrl ? (
+                <img src={avatarUrl} alt="User" className="w-full h-full object-cover" />
+              ) : (
+                <User className="w-5 h-5 text-blue-900" />
               )}
             </div>
-            {isExpanded && (
-              <ChevronDown className={`w-4 h-4 text-blue-300 transition-transform ${profileOpen ? 'rotate-180' : ''}`} />
-            )}
-            
-            {/* Tooltip for collapsed state */}
-            {!isExpanded && (
-              <div className="absolute left-full ml-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-50 bottom-0">
-                <div className="font-medium">{user?.firstName} {user?.lastName}</div>
-                <div className="text-xs text-gray-400 capitalize">{user?.role?.replace('_', ' ')}</div>
-                <div className="absolute top-1/2 -left-1 -translate-y-1/2 w-2 h-2 bg-gray-900 rotate-45"></div>
-              </div>
-            )}
+            <div className={`overflow-hidden transition-all duration-300 flex-1 text-left ${
+              sidebarExpanded ? 'w-auto opacity-100' : 'w-0 opacity-0'
+            }`}>
+              <p className="text-white font-semibold text-sm whitespace-nowrap truncate">
+                {user?.firstName} {user?.lastName}
+              </p>
+              <p className="text-blue-200 text-xs capitalize whitespace-nowrap">
+                {user?.role?.replace('_', ' ')}
+              </p>
+            </div>
           </button>
 
-          {/* Profile Dropdown */}
-          {profileOpen && (
-            <div className={`mt-2 bg-blue-800 rounded-lg overflow-hidden shadow-lg ${
-              isExpanded ? '' : 'absolute bottom-full left-full ml-2 mb-0 w-48'
-            }`}>
-              <Link
-                to="/profile"
-                className="flex items-center gap-3 px-4 py-3 text-sm text-blue-100 hover:bg-blue-700 transition-colors"
-                onClick={() => {
-                  setProfileOpen(false);
-                  setSidebarOpen(false);
-                }}
-              >
-                <User size={16} />
-                <span>My Profile</span>
-              </Link>
-              <Link
-                to="/settings"
-                className="flex items-center gap-3 px-4 py-3 text-sm text-blue-100 hover:bg-blue-700 transition-colors"
-                onClick={() => {
-                  setProfileOpen(false);
-                  setSidebarOpen(false);
-                }}
-              >
-                <Settings size={16} />
-                <span>Settings</span>
-              </Link>
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-3 w-full px-4 py-3 text-sm text-red-300 hover:bg-blue-700 transition-colors border-t border-blue-700"
-              >
-                <LogOut size={16} />
-                <span>Logout</span>
-              </button>
+          {/* Dropdown Menu */}
+          {userMenuOpen && sidebarExpanded && (
+            <div className="absolute bottom-full left-4 right-4 mb-2 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden animate-fadeIn">
+              <div className="py-2">
+                <Link
+                  to="/profile"
+                  onClick={() => setUserMenuOpen(false)}
+                  className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300"
+                >
+                  <User className="w-5 h-5" />
+                  <span className="text-sm font-medium">My Profile</span>
+                </Link>
+                <Link
+                  to="/settings"
+                  onClick={() => setUserMenuOpen(false)}
+                  className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300"
+                >
+                  <Settings className="w-5 h-5" />
+                  <span className="text-sm font-medium">Settings</span>
+                </Link>
+                <div className="h-px bg-gray-200 dark:bg-gray-700 my-2" />
+                <button
+                  onClick={() => {
+                    setUserMenuOpen(false);
+                    handleLogout();
+                  }}
+                  className="flex items-center gap-3 w-full px-4 py-3 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-red-600 dark:text-red-400"
+                >
+                  <LogOut className="w-5 h-5" />
+                  <span className="text-sm font-medium">Logout</span>
+                </button>
+              </div>
             </div>
           )}
         </div>
       </aside>
 
-      {/* Mobile backdrop */}
-      {sidebarOpen && (
+      {/* Mobile Sidebar */}
+      <div
+        className={`lg:hidden fixed inset-0 z-50 transition-opacity duration-300 ${
+          mobileSidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}
+      >
+        {/* Backdrop */}
         <div
-          className="fixed inset-0 z-30 bg-gray-900 bg-opacity-50 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        ></div>
-      )}
+          className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+          onClick={() => setMobileSidebarOpen(false)}
+        />
+        
+        {/* Sidebar */}
+        <aside
+          className={`absolute top-0 left-0 h-full w-80 bg-gradient-to-b from-blue-600 via-blue-700 to-blue-800 shadow-2xl flex flex-col transition-transform duration-300 ${
+            mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between p-4 border-b border-blue-500/30">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center">
+                <img src={ctuLogo} alt="CTU" className="w-7 h-7" />
+              </div>
+              <div>
+                <h1 className="text-white font-bold text-base">CTU Daanbantayan</h1>
+                <p className="text-blue-200 text-xs">Timetable System</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setMobileSidebarOpen(false)}
+              className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+            >
+              <X className="w-5 h-5 text-white" />
+            </button>
+          </div>
 
-      {/* Main content */}
-      <div className={`transition-all duration-300 ${isExpanded ? 'lg:ml-72' : 'lg:ml-20'} min-h-screen`}>
-        {/* Top bar for desktop - minimal */}
-        <div className="hidden lg:block bg-white border-b border-gray-200 px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => navigate(-1)}
-                className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <ChevronRight size={20} className="rotate-180" />
-              </button>
-              <div className="h-6 w-px bg-gray-300"></div>
-              <h2 className="text-lg font-semibold text-gray-900">
-                {navGroups[Object.keys(navGroups).find(key => 
-                  navGroups[key].items?.some(item => isActive(item.path))
-                )]?.items?.find(item => isActive(item.path))?.name || 'Dashboard'}
-              </h2>
+          {/* User Info */}
+          <div className="p-4 bg-white/5">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-500 flex items-center justify-center overflow-hidden ring-2 ring-white/20">
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="User" className="w-full h-full object-cover" />
+                ) : (
+                  <User className="w-6 h-6 text-blue-900" />
+                )}
+              </div>
+              <div>
+                <p className="text-white font-semibold text-sm">
+                  {user?.firstName} {user?.lastName}
+                </p>
+                <p className="text-blue-200 text-xs capitalize">
+                  {user?.role?.replace('_', ' ')}
+                </p>
+                {user?.program && (
+                  <p className="text-yellow-400 text-xs font-medium mt-0.5">
+                    {user.program}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Navigation */}
+          <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const active = isActive(item.path);
+              
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  onClick={() => setMobileSidebarOpen(false)}
+                  className={`flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all duration-200 relative ${
+                    active
+                      ? 'bg-yellow-400 text-blue-900 shadow-lg shadow-yellow-500/30'
+                      : 'text-blue-100 hover:bg-white/10'
+                  }`}
+                >
+                  <Icon className="w-5 h-5 flex-shrink-0" />
+                  <span className="font-medium text-sm">{item.name}</span>
+                  {active && (
+                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-yellow-500 rounded-r-full" />
+                  )}
+                </Link>
+              );
+            })}
+          </nav>
+
+          {/* Bottom Actions */}
+          <div className="p-4 border-t border-blue-500/30 space-y-2">
+            <Link
+              to="/profile"
+              onClick={() => setMobileSidebarOpen(false)}
+              className="flex items-center gap-3 px-4 py-3 rounded-xl text-blue-100 hover:bg-white/10 transition-colors"
+            >
+              <User className="w-5 h-5" />
+              <span className="text-sm font-medium">My Profile</span>
+            </Link>
+            <Link
+              to="/settings"
+              onClick={() => setMobileSidebarOpen(false)}
+              className="flex items-center gap-3 px-4 py-3 rounded-xl text-blue-100 hover:bg-white/10 transition-colors"
+            >
+              <Settings className="w-5 h-5" />
+              <span className="text-sm font-medium">Settings</span>
+            </Link>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-red-300 hover:bg-red-500/10 transition-colors"
+            >
+              <LogOut className="w-5 h-5" />
+              <span className="text-sm font-medium">Logout</span>
+            </button>
+          </div>
+        </aside>
+      </div>
+
+      {/* Main Content */}
+      <main className={`min-h-screen transition-all duration-300 ${
+        sidebarExpanded ? 'lg:ml-64' : 'lg:ml-20'
+      }`}>
+        {/* Page Header - Desktop */}
+        <div className="hidden lg:block sticky top-0 z-30 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 backdrop-blur-sm bg-white/80 dark:bg-gray-800/80">
+          <div className="flex items-center justify-between px-8 py-4">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                {currentPage}
+              </h1>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                {user?.program ? `${user.program} Program` : 'Management System'}
+              </p>
             </div>
             
-            <div className="flex items-center gap-4">
-              {/* Search */}
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Search..."
-                  className="w-64 px-4 py-2 pl-10 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-                <div className="absolute left-3 top-2.5 text-gray-400">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                </div>
-              </div>
-
-              {/* User Info */}
-              <div className="flex items-center gap-3 px-4 py-2 bg-blue-50 rounded-lg">
-                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center overflow-hidden">
-                  {avatarUrl ? (
-                    <img
-                      src={avatarUrl}
-                      alt={`${user?.firstName} ${user?.lastName}`}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <User className="w-4 h-4 text-white" />
-                  )}
-                </div>
-                <div className="text-left">
-                  <p className="text-sm font-medium text-gray-900">
-                    {getUserRoleDisplay()}
-                  </p>
-                  <p className="text-xs text-gray-600 capitalize">
-                    {user?.firstName} {user?.lastName}
-                  </p>
-                </div>
-              </div>
+            {/* Notification Bell */}
+            <div>
+              <NotificationBell />
             </div>
           </div>
         </div>
 
         {/* Page Content */}
-        <div className={`p-6 lg:p-8 mt-16 lg:mt-0 transition-all duration-500 ease-out ${
-          pageReady ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
-        }`}>
+        <div className="p-4 lg:p-8 pt-20 lg:pt-4">
           {children}
         </div>
-      </div>
+      </main>
 
-      {/* AI Chat Bubble - Available on all manager pages */}
+      {/* AI Chat Bubble */}
       {(user?.role === 'admin' || user?.role === 'scheduling_officer' || user?.role === 'program_manager') && (
         <AIChatBubble />
       )}
 
-      {/* Custom Scrollbar Styles */}
+      {/* Custom Scrollbar */}
       <style>{`
         .custom-scrollbar::-webkit-scrollbar {
-          width: 6px;
+          width: 4px;
         }
         .custom-scrollbar::-webkit-scrollbar-track {
-          background: rgba(30, 58, 138, 0.3);
-          border-radius: 10px;
+          background: transparent;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(96, 165, 250, 0.5);
+          background: rgba(255, 255, 255, 0.2);
           border-radius: 10px;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(96, 165, 250, 0.7);
+          background: rgba(255, 255, 255, 0.3);
+        }
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .animate-fadeIn {
+          animation: fadeIn 0.2s ease-out;
         }
       `}</style>
     </div>

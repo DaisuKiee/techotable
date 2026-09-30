@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { studentAPI, sectionAPI } from '../services/api';
 import toast from 'react-hot-toast';
-import { X, Users, Mail, Lock, User, GraduationCap, Phone, MapPin, UserCheck, Save, FileText } from 'lucide-react';
+import { Users, Mail, Lock, User, GraduationCap, Phone, MapPin, UserCheck, FileText } from 'lucide-react';
 import { usePrograms } from '../hooks/usePrograms';
+import BaseModal from './BaseModal';
 
 const StudentModal = ({ student, onClose }) => {
   const { programCodes } = usePrograms();
@@ -193,36 +194,44 @@ const StudentModal = ({ student, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] animate-fadeIn flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-5xl w-full max-h-[85vh] flex flex-col shadow-2xl relative z-[10000] animate-slideUp">
-        {/* Modal Header - Sticky */}
-        <div className="bg-indigo-600 px-6 py-5 flex items-center justify-between flex-shrink-0 shadow-lg rounded-t-2xl">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-              <Users className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-white">
-                {student ? 'Edit Student' : 'Add New Student'}
-              </h2>
-              <p className="text-indigo-100 text-sm">
-                {student ? 'Update student information' : 'Create a new student record'}
-              </p>
-            </div>
-          </div>
+    <BaseModal
+      isOpen={true}
+      onClose={() => onClose(false)}
+      title={student ? 'Edit Student' : 'Add New Student'}
+      subtitle={student ? 'Update student information' : 'Create a new student record'}
+      icon={Users}
+      size="large"
+      footerContent={
+        <div className="flex gap-3">
           <button
+            type="button"
             onClick={() => onClose(false)}
-            className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+            className="flex-1 px-5 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 font-medium transition-all"
           >
-            <X className="w-5 h-5 text-white" />
+            Cancel
+          </button>
+          <button
+            type="submit"
+            form="student-form"
+            disabled={loading}
+            className="flex-1 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {loading ? (
+              <>
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                <span>{student ? 'Updating...' : 'Creating...'}</span>
+              </>
+            ) : (
+              <span>{student ? 'Update Student' : 'Create Student'}</span>
+            )}
           </button>
         </div>
-
-        {/* Modal Body - Scrollable */}
-        <div className="overflow-y-auto flex-1 bg-gray-50 dark:bg-gray-900">
+      }
+    >
+      <div className="bg-gray-50 dark:bg-gray-900">
           <form onSubmit={handleSubmit} className="p-6" id="student-form">
             {/* Student Preview Card */}
-            <div className="bg-indigo-600 text-white rounded-xl p-4 mb-6">
+            <div className="bg-gradient-to-br from-blue-600 to-indigo-600 text-white rounded-xl p-4 mb-6 shadow-lg">
               <div className="text-sm font-medium opacity-90 mb-1">Student Preview</div>
               <div className="text-2xl font-bold">
                 {formData.studentId || 'Student ID'} - {formData.firstName || 'First'} {formData.lastName || 'Last'}
@@ -235,11 +244,14 @@ const StudentModal = ({ student, onClose }) => {
               </div>
             </div>
             {/* Basic Information */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-5 mb-4 border border-gray-200 dark:border-gray-700">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                <User className="w-5 h-5 text-indigo-600" />
-                Basic Information
-              </h3>
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-5 mb-4 border-2 border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                  <User className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  Basic Information
+                </h3>
+                <span className="text-xs text-gray-500 dark:text-gray-400">* Required</span>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
@@ -252,7 +264,7 @@ const StudentModal = ({ student, onClose }) => {
                     onChange={handleChange}
                     disabled={!!student}
                     placeholder="e.g., 2024-00001"
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white transition-all disabled:bg-gray-100 dark:disabled:bg-gray-600"
+                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all disabled:bg-gray-100 dark:disabled:bg-gray-600"
                     required
                   />
                 </div>
@@ -266,7 +278,7 @@ const StudentModal = ({ student, onClose }) => {
                     value={formData.email}
                     onChange={handleChange}
                     placeholder="student@ctu.edu.ph"
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white transition-all"
+                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
                     required
                   />
                 </div>
@@ -281,7 +293,7 @@ const StudentModal = ({ student, onClose }) => {
                       value={formData.password}
                       onChange={handleChange}
                       placeholder="Create a password"
-                      className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white transition-all"
+                      className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
                       required
                     />
                   </div>
@@ -296,7 +308,7 @@ const StudentModal = ({ student, onClose }) => {
                     value={formData.firstName}
                     onChange={handleChange}
                     placeholder="Juan"
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white transition-all"
+                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
                     required
                   />
                 </div>
@@ -310,7 +322,7 @@ const StudentModal = ({ student, onClose }) => {
                     value={formData.lastName}
                     onChange={handleChange}
                     placeholder="Dela Cruz"
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white transition-all"
+                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
                     required
                   />
                 </div>
@@ -324,7 +336,7 @@ const StudentModal = ({ student, onClose }) => {
                     value={formData.middleName}
                     onChange={handleChange}
                     placeholder="Santos"
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white transition-all"
+                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
                   />
                 </div>
                 <div>
@@ -337,18 +349,21 @@ const StudentModal = ({ student, onClose }) => {
                     value={formData.contactNumber}
                     onChange={handleChange}
                     placeholder="09123456789"
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white transition-all"
+                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
                   />
                 </div>
               </div>
             </div>
 
             {/* Academic Information */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-5 mb-4 border border-gray-200 dark:border-gray-700">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                <GraduationCap className="w-5 h-5 text-blue-600" />
-                Academic Information
-              </h3>
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-5 mb-4 border-2 border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                  <GraduationCap className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  Academic Information
+                </h3>
+                <span className="text-xs text-gray-500 dark:text-gray-400">* Required</span>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
@@ -358,7 +373,7 @@ const StudentModal = ({ student, onClose }) => {
                     name="program"
                     value={formData.program}
                     onChange={handleChange}
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white transition-all"
+                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
                     required
                   >
                     {programCodes.map(prog => (
@@ -374,7 +389,7 @@ const StudentModal = ({ student, onClose }) => {
                     name="yearLevel"
                     value={formData.yearLevel}
                     onChange={handleChange}
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white transition-all"
+                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
                     required
                   >
                     <option value={1}>1st Year</option>
@@ -392,7 +407,7 @@ const StudentModal = ({ student, onClose }) => {
                     value={formData.section}
                     onChange={handleChange}
                     disabled={loadingSections || sections.length === 0}
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white transition-all disabled:bg-gray-100 dark:disabled:bg-gray-600 disabled:cursor-not-allowed"
+                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all disabled:bg-gray-100 dark:disabled:bg-gray-600 disabled:cursor-not-allowed"
                     required
                   >
                     {loadingSections ? (
@@ -424,7 +439,7 @@ const StudentModal = ({ student, onClose }) => {
                     name="studentType"
                     value={formData.studentType}
                     onChange={handleChange}
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white transition-all"
+                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
                   >
                     <option value="regular">Regular</option>
                     <option value="irregular">Irregular</option>
@@ -440,7 +455,7 @@ const StudentModal = ({ student, onClose }) => {
                     value={formData.academicYear}
                     readOnly
                     placeholder="Auto-filled from section"
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white transition-all bg-gray-50 dark:bg-gray-600 cursor-not-allowed"
+                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all bg-gray-50 dark:bg-gray-600 cursor-not-allowed"
                     title="This field is automatically filled based on the selected section"
                   />
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -457,7 +472,7 @@ const StudentModal = ({ student, onClose }) => {
                     value={formData.semester === 1 ? '1st Semester' : '2nd Semester'}
                     readOnly
                     placeholder="Auto-filled from section"
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white transition-all bg-gray-50 dark:bg-gray-600 cursor-not-allowed"
+                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all bg-gray-50 dark:bg-gray-600 cursor-not-allowed"
                     title="This field is automatically filled based on the selected section"
                   />
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -472,7 +487,7 @@ const StudentModal = ({ student, onClose }) => {
                     name="enrollmentStatus"
                     value={formData.enrollmentStatus}
                     onChange={handleChange}
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white transition-all"
+                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
                   >
                     <option value="enrolled">Enrolled</option>
                     <option value="not_enrolled">Not Enrolled</option>
@@ -493,16 +508,16 @@ const StudentModal = ({ student, onClose }) => {
                     min="0"
                     max="5"
                     placeholder="1.00"
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white transition-all"
+                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
                   />
                 </div>
               </div>
             </div>
 
             {/* Guardian Information */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-5 mb-4 border border-gray-200 dark:border-gray-700">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-5 mb-4 border-2 border-gray-200 dark:border-gray-700">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                <UserCheck className="w-5 h-5 text-green-600" />
+                <UserCheck className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                 Guardian Information
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -515,7 +530,7 @@ const StudentModal = ({ student, onClose }) => {
                     value={formData.guardianInfo.name}
                     onChange={(e) => handleNestedChange('guardianInfo', 'name', e.target.value)}
                     placeholder="Full name"
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white transition-all"
+                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
                   />
                 </div>
                 <div>
@@ -527,7 +542,7 @@ const StudentModal = ({ student, onClose }) => {
                     value={formData.guardianInfo.relationship}
                     onChange={(e) => handleNestedChange('guardianInfo', 'relationship', e.target.value)}
                     placeholder="e.g., Father, Mother"
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white transition-all"
+                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
                   />
                 </div>
                 <div>
@@ -539,16 +554,16 @@ const StudentModal = ({ student, onClose }) => {
                     value={formData.guardianInfo.contactNumber}
                     onChange={(e) => handleNestedChange('guardianInfo', 'contactNumber', e.target.value)}
                     placeholder="09123456789"
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white transition-all"
+                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
                   />
                 </div>
               </div>
             </div>
 
             {/* Emergency Contact */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-5 mb-4 border border-gray-200 dark:border-gray-700">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-5 mb-4 border-2 border-gray-200 dark:border-gray-700">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                <Phone className="w-5 h-5 text-red-600" />
+                <Phone className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                 Emergency Contact
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -561,7 +576,7 @@ const StudentModal = ({ student, onClose }) => {
                     value={formData.emergencyContact.name}
                     onChange={(e) => handleNestedChange('emergencyContact', 'name', e.target.value)}
                     placeholder="Full name"
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white transition-all"
+                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
                   />
                 </div>
                 <div>
@@ -573,7 +588,7 @@ const StudentModal = ({ student, onClose }) => {
                     value={formData.emergencyContact.relationship}
                     onChange={(e) => handleNestedChange('emergencyContact', 'relationship', e.target.value)}
                     placeholder="e.g., Sibling"
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white transition-all"
+                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
                   />
                 </div>
                 <div>
@@ -585,16 +600,16 @@ const StudentModal = ({ student, onClose }) => {
                     value={formData.emergencyContact.contactNumber}
                     onChange={(e) => handleNestedChange('emergencyContact', 'contactNumber', e.target.value)}
                     placeholder="09123456789"
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white transition-all"
+                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
                   />
                 </div>
               </div>
             </div>
 
             {/* Notes */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border-2 border-gray-200 dark:border-gray-700">
               <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
-                <FileText className="w-4 h-4 text-gray-600" />
+                <FileText className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                 Notes
               </label>
               <textarea
@@ -603,42 +618,12 @@ const StudentModal = ({ student, onClose }) => {
                 onChange={handleChange}
                 rows={3}
                 placeholder="Additional notes about the student..."
-                className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white transition-all resize-none"
+                className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all resize-none"
               />
             </div>
           </form>
         </div>
-
-        {/* Modal Footer - Sticky */}
-        <div className="flex gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex-shrink-0 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] rounded-b-2xl">
-          <button
-            type="button"
-            onClick={() => onClose(false)}
-            className="flex-1 px-6 py-3 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all font-semibold"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            form="student-form"
-            disabled={loading}
-            className="flex-1 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all flex items-center justify-center gap-2 font-semibold shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? (
-              <>
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                {student ? 'Updating...' : 'Creating...'}
-              </>
-            ) : (
-              <>
-                <Save className="w-5 h-5" />
-                {student ? 'Update Student' : 'Create Student'}
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-    </div>
+      </BaseModal>
   );
 };
 

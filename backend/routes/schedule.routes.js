@@ -17,7 +17,8 @@ const {
   previewSchedule,
   savePreviewedSchedules,
   bulkCreateSchedules,
-  checkORToolsStatus
+  checkORToolsStatus,
+  getConflicts
 } = require('../controllers/schedule.controller');
 const { protect, authorize } = require('../middleware/auth.middleware');
 const { checkProgramAccess } = require('../middleware/programAccess.middleware');
@@ -52,6 +53,7 @@ router.post('/check-conflicts', checkConflicts);
 
 // Admin/Scheduling Officer/Program Manager routes
 router.post('/', authorize('admin', 'scheduling_officer', 'program_manager'), createScheduleValidation, createSchedule);
+router.get('/conflicts', protect, authorize('admin', 'scheduling_officer'), getConflicts);
 router.post('/generate', authorize('admin', 'scheduling_officer', 'program_manager'), generateSchedule);
 router.post('/preview', authorize('admin', 'scheduling_officer', 'program_manager'), previewSchedule);
 router.post('/save-preview', authorize('admin', 'scheduling_officer', 'program_manager'), savePreviewedSchedules);

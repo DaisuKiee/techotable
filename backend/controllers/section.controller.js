@@ -85,6 +85,21 @@ exports.createSection = async (req, res) => {
   try {
     const { program, yearLevel, sectionLetter, shift, academicYear, semester, maxStudents, adviser, description } = req.body;
 
+    // Validate that faculty can only have one advisory role
+    if (adviser && adviser !== '') {
+      const existingAdvisory = await Section.findOne({ 
+        adviser: adviser,
+        isActive: true 
+      });
+      
+      if (existingAdvisory) {
+        return res.status(400).json({
+          success: false,
+          message: `This faculty is already assigned as adviser to section ${existingAdvisory.sectionCode}. Each faculty can only advise one section.`
+        });
+      }
+    }
+
     // Auto-generate section code: PROGRAM-YEAR-LETTER-SHIFT
     const sectionCode = `${program}-${yearLevel}${sectionLetter}-${shift.substring(0, 1)}`;
 
@@ -177,6 +192,29 @@ exports.updateSection = async (req, res) => {
     }
 
     const { program, yearLevel, sectionLetter, shift, academicYear, semester, maxStudents, adviser, description, isActive, currentStudents } = req.body;
+
+    // Validate that faculty can only have one advisory role
+    // Only check if adviser is being changed and is not empty
+    if (adviser !== undefined && adviser !== '' && adviser !== null) {
+      // Check if this is a different adviser than the current one
+      const currentAdviserId = section.adviser?.toString();
+      const newAdviserId = adviser.toString();
+      
+      if (currentAdviserId !== newAdviserId) {
+        const existingAdvisory = await Section.findOne({ 
+          adviser: adviser,
+          _id: { $ne: section._id }, // Exclude current section
+          isActive: true 
+        });
+        
+        if (existingAdvisory) {
+          return res.status(400).json({
+            success: false,
+            message: `This faculty is already assigned as adviser to section ${existingAdvisory.sectionCode}. Each faculty can only advise one section.`
+          });
+        }
+      }
+    }
 
     // Update fields
     if (program) section.program = program;

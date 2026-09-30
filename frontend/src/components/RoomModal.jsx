@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { roomAPI } from '../services/api';
 import toast from 'react-hot-toast';
-import { X, Plus, Trash2, DoorOpen, Users, Monitor, Building, Clock } from 'lucide-react';
+import { Plus, Trash2, DoorOpen, Users, Monitor, Building, Clock } from 'lucide-react';
+import BaseModal from './BaseModal';
 
 const ROOM_TYPES = ['Lecture Room', 'Laboratory', 'Computer Lab', 'Workshop', 'Auditorium', 'Conference Room'];
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -145,37 +146,47 @@ const RoomModal = ({ mode, room, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] animate-fadeIn">
-      <div className="flex items-center justify-center min-h-screen p-4">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl relative z-[10000] animate-slideUp">
-          {/* Modal Header - Sticky */}
-          <div className="bg-purple-600 px-6 py-5 flex items-center justify-between flex-shrink-0 shadow-lg rounded-t-2xl">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-                <DoorOpen className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-white">
-                  {mode === 'create' ? 'Add New Room' : 'Edit Room'}
-                </h2>
-                <p className="text-purple-100 text-sm">
-                  {mode === 'create' ? 'Create a new room or facility' : 'Update room information'}
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={() => onClose(false)}
-              className="p-2 hover:bg-white/20 rounded-lg transition-colors"
-            >
-              <X className="w-5 h-5 text-white" />
-            </button>
-          </div>
-
-          {/* Modal Body - Scrollable */}
-          <div className="overflow-y-auto flex-1 bg-gray-50 dark:bg-gray-900">
+    <BaseModal
+      isOpen={true}
+      onClose={() => onClose(false)}
+      title={mode === 'create' ? 'Add New Room' : 'Edit Room'}
+      subtitle={mode === 'create' ? 'Create a new room or facility' : 'Update room information'}
+      icon={DoorOpen}
+      size="large"
+      footerContent={
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={() => onClose(false)}
+            className="flex-1 px-5 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 font-medium transition-all"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            form="room-form"
+            disabled={loading}
+            className="flex-1 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {loading ? (
+              <>
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                <span>{mode === 'create' ? 'Creating...' : 'Updating...'}</span>
+              </>
+            ) : (
+              <>
+                <DoorOpen className="w-5 h-5" />
+                <span>{mode === 'create' ? 'Create Room' : 'Update Room'}</span>
+              </>
+            )}
+          </button>
+        </div>
+      }
+    >
+      <div className="bg-gray-50 dark:bg-gray-900">
           <form onSubmit={handleSubmit} className="p-6" id="room-form">
             {/* Room Preview Card */}
-            <div className="bg-purple-600 text-white rounded-xl p-4 mb-6">
+            <div className="bg-gradient-to-br from-blue-600 to-indigo-600 text-white rounded-xl p-4 mb-6 shadow-lg">
               <div className="text-sm font-medium opacity-90 mb-1">Room Preview</div>
               <div className="text-2xl font-bold">
                 {formData.roomNumber || 'Room Number'} {formData.roomName ? `- ${formData.roomName}` : ''}
@@ -186,11 +197,14 @@ const RoomModal = ({ mode, room, onClose }) => {
             </div>
 
             {/* Basic Information */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-5 mb-4 border border-gray-200 dark:border-gray-700">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                <Building className="w-5 h-5 text-purple-600" />
-                Basic Information
-              </h3>
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-5 mb-4 border-2 border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                  <Building className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  Basic Information
+                </h3>
+                <span className="text-xs text-gray-500 dark:text-gray-400">* Required</span>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Room Number */}
                 <div>
@@ -204,7 +218,7 @@ const RoomModal = ({ mode, room, onClose }) => {
                     onChange={handleChange}
                     required
                     placeholder="e.g., R101, LAB-A"
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white transition-all"
+                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
                   />
                 </div>
 
@@ -219,7 +233,7 @@ const RoomModal = ({ mode, room, onClose }) => {
                     value={formData.roomName}
                     onChange={handleChange}
                     placeholder="e.g., Programming Lab"
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white transition-all"
+                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
                   />
                 </div>
 
@@ -235,7 +249,7 @@ const RoomModal = ({ mode, room, onClose }) => {
                     onChange={handleChange}
                     required
                     placeholder="e.g., Main Building, ICT Building"
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white transition-all"
+                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
                   />
                 </div>
 
@@ -252,7 +266,7 @@ const RoomModal = ({ mode, room, onClose }) => {
                     required
                     min="1"
                     max="500"
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white transition-all"
+                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
                   />
                 </div>
 
@@ -269,7 +283,7 @@ const RoomModal = ({ mode, room, onClose }) => {
                         onClick={() => setFormData({ ...formData, type })}
                         className={`px-3 py-2.5 rounded-lg font-semibold text-sm transition-all ${
                           formData.type === type
-                            ? 'bg-purple-600 text-white shadow-md scale-105'
+                            ? 'bg-blue-600 text-white shadow-md scale-105'
                             : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                         }`}
                       >
@@ -286,7 +300,7 @@ const RoomModal = ({ mode, room, onClose }) => {
                     name="isActive"
                     checked={formData.isActive}
                     onChange={handleChange}
-                    className="h-5 w-5 text-purple-600 focus:ring-purple-500 border-gray-300 rounded transition-all"
+                    className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded transition-all"
                   />
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                     Active (available for scheduling)
@@ -296,9 +310,9 @@ const RoomModal = ({ mode, room, onClose }) => {
             </div>
 
             {/* Equipment & Facilities */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-5 mb-4 border border-gray-200 dark:border-gray-700">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-5 mb-4 border-2 border-gray-200 dark:border-gray-700">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                <Monitor className="w-5 h-5 text-blue-600" />
+                <Monitor className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                 Equipment & Facilities
               </h3>
               <div className="space-y-3">
@@ -309,7 +323,7 @@ const RoomModal = ({ mode, room, onClose }) => {
                       value={equipment.name}
                       onChange={(e) => handleEquipmentChange(index, 'name', e.target.value)}
                       placeholder="Equipment name (e.g., Projector)"
-                      className="flex-1 px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-sm transition-all"
+                      className="flex-1 px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white text-sm transition-all"
                     />
                     <input
                       type="number"
@@ -317,12 +331,12 @@ const RoomModal = ({ mode, room, onClose }) => {
                       onChange={(e) => handleEquipmentChange(index, 'quantity', e.target.value)}
                       placeholder="Qty"
                       min="1"
-                      className="w-20 px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-sm transition-all"
+                      className="w-20 px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white text-sm transition-all"
                     />
                     <select
                       value={equipment.condition}
                       onChange={(e) => handleEquipmentChange(index, 'condition', e.target.value)}
-                      className="w-32 px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-sm transition-all"
+                      className="w-32 px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white text-sm transition-all"
                     >
                       <option value="Excellent">Excellent</option>
                       <option value="Good">Good</option>
@@ -344,7 +358,7 @@ const RoomModal = ({ mode, room, onClose }) => {
                 <button
                   type="button"
                   onClick={addEquipment}
-                  className="flex items-center gap-1 text-sm text-purple-600 hover:text-purple-700 font-medium"
+                  className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium transition-colors"
                 >
                   <Plus className="w-4 h-4" />
                   Add Equipment
@@ -353,9 +367,9 @@ const RoomModal = ({ mode, room, onClose }) => {
             </div>
 
             {/* Unavailable Time Slots */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border-2 border-gray-200 dark:border-gray-700">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                <Clock className="w-5 h-5 text-orange-600" />
+                <Clock className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                 Unavailable Time Slots
               </h3>
               {formData.unavailableSlots.length === 0 ? (
@@ -368,7 +382,7 @@ const RoomModal = ({ mode, room, onClose }) => {
                         <select
                           value={slot.day}
                           onChange={(e) => updateUnavailableSlot(index, 'day', e.target.value)}
-                          className="px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white transition-all"
+                          className="px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white transition-all"
                         >
                           {DAYS.map(day => (
                             <option key={day} value={day}>{day}</option>
@@ -378,13 +392,13 @@ const RoomModal = ({ mode, room, onClose }) => {
                           type="time"
                           value={slot.startTime}
                           onChange={(e) => updateUnavailableSlot(index, 'startTime', e.target.value)}
-                          className="px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white transition-all"
+                          className="px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white transition-all"
                         />
                         <input
                           type="time"
                           value={slot.endTime}
                           onChange={(e) => updateUnavailableSlot(index, 'endTime', e.target.value)}
-                          className="px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white transition-all"
+                          className="px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white transition-all"
                         />
                         <button
                           type="button"
@@ -399,7 +413,7 @@ const RoomModal = ({ mode, room, onClose }) => {
                         value={slot.reason || ''}
                         onChange={(e) => updateUnavailableSlot(index, 'reason', e.target.value)}
                         placeholder="Reason (optional)"
-                        className="w-full px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white transition-all"
+                        className="w-full px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white transition-all"
                       />
                     </div>
                   ))}
@@ -408,7 +422,7 @@ const RoomModal = ({ mode, room, onClose }) => {
               <button
                 type="button"
                 onClick={addUnavailableSlot}
-                className="flex items-center gap-1 text-sm text-purple-600 hover:text-purple-700 font-medium"
+                className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium transition-colors"
               >
                 <Plus className="w-4 h-4" />
                 Add Unavailable Slot
@@ -416,38 +430,7 @@ const RoomModal = ({ mode, room, onClose }) => {
             </div>
           </form>
         </div>
-
-          {/* Modal Footer - Sticky */}
-          <div className="flex gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex-shrink-0 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] rounded-b-2xl">
-            <button
-              type="button"
-              onClick={() => onClose(false)}
-              className="flex-1 px-6 py-3 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all font-semibold"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              form="room-form"
-              disabled={loading}
-              className="flex-1 px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-all flex items-center justify-center gap-2 font-semibold shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? (
-                <>
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                  {mode === 'create' ? 'Creating...' : 'Updating...'}
-                </>
-              ) : (
-                <>
-                  <Users className="w-5 h-5" />
-                  {mode === 'create' ? 'Create Room' : 'Update Room'}
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+      </BaseModal>
   );
 };
 

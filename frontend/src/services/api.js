@@ -282,6 +282,7 @@ export const resolveUploadUrl = (fileUrl) => {
 // ============== SECTION ENDPOINTS ==============
 export const sectionAPI = {
   getAll: (params) => api.get('/sections', { params }),
+  getAllLightweight: () => api.get('/sections', { params: { lightweight: 'true' } }), // Fast, minimal data
   getById: (id) => api.get(`/sections/${id}`),
   create: (data) => api.post('/sections', data),
   update: (id, data) => api.put(`/sections/${id}`, data),
@@ -302,4 +303,10 @@ export const notificationAPI = {
   markAsRead: (id) => api.put(`/notifications/${id}/read`),
   markAllAsRead: () => api.put('/notifications/mark-all-read'),
   delete: (id) => api.delete(`/notifications/${id}`),
+};
+
+
+// ============== DASHBOARD ENDPOINTS ==============
+export const dashboardAPI = {
+  getStats: () => api.get('/dashboard/stats')
 };

@@ -159,7 +159,7 @@ const SchedulePage = () => {
 
   const loadSections = async () => {
     try {
-      const response = await sectionAPI.getAll();
+      const response = await sectionAPI.getAllLightweight(); // Use lightweight mode - much faster!
       let sectionData = response.data.data || [];
       
       if (filters.program) {

@@ -8,7 +8,7 @@ import {
   RefreshCw, Info, UserCheck, UserX, FileClock,
   Banknote, Wallet, TrendingDown, Bell, GraduationCap
 } from 'lucide-react';
-import { facultyAPI, subjectAPI, roomAPI, scheduleAPI, classSpaceAPI, userAPI, studentAPI } from '../services/api';
+import { facultyAPI, subjectAPI, roomAPI, scheduleAPI, classSpaceAPI, userAPI, studentAPI, dashboardAPI } from '../services/api';
 import toast from 'react-hot-toast';
 import ctuBg from '../assets/images/backgrounds/ctu-bg.png';
 
@@ -65,66 +65,28 @@ const DashboardPage = () => {
 
   const loadDashboardStats = async () => {
     try {
-      const [facultyRes, subjectRes, roomRes, scheduleRes, usersRes, classSpaceRes, studentRes] = await Promise.all([
-        facultyAPI.getAll().catch(() => ({ data: { data: [] } })),
-        subjectAPI.getAll().catch(() => ({ data: { data: [] } })),
-        roomAPI.getAll().catch(() => ({ data: { data: [] } })),
-        scheduleAPI.getAll().catch(() => ({ data: { data: [] } })),
-        userAPI.getAll().catch(() => ({ data: { data: [] } })),
-        classSpaceAPI.getAll().catch(() => ({ data: { data: [] } })),
-        studentAPI.getAll().catch(() => ({ data: { data: [] } }))
-      ]);
-
-      const facultyData = facultyRes.data.data || [];
-      const scheduleData = scheduleRes.data.data || [];
-      const usersData = usersRes.data.data || [];
-      const studentData = studentRes.data.data || [];
-      const subjectData = subjectRes.data.data || [];
-
-      // Calculate year level distribution from sectionCode
-      const yearDistribution = studentData.reduce((acc, student) => {
-        let year = 'Unknown';
-        
-        // Extract year from sectionCode
-        // Formats: "BSIT-4A", "BSIT-4A-D", "BSIT-3B-N", etc.
-        if (student.sectionCode) {
-          const match = student.sectionCode.match(/-(\d+)[A-Z]/);
-          if (match) {
-            year = match[1]; // Extract the year number
-          }
-        }
-        
-        acc[year] = (acc[year] || 0) + 1;
-        return acc;
-      }, {});
-
-      // Calculate semester distribution
-      const semesterDistribution = studentData.reduce((acc, student) => {
-        const sem = student.semester || 1;
-        acc[sem] = (acc[sem] || 0) + 1;
-        return acc;
-      }, {});
+      // Use optimized dashboard stats endpoint - much faster!
+      // Instead of fetching 7 full collections, just gets counts
+      const response = await dashboardAPI.getStats();
+      const statsData = response.data.data;
 
       setStats({
-        totalUsers: usersData.length,
-        activeUsers: usersData.filter(u => u.isActive).length,
-        inactiveUsers: usersData.filter(u => !u.isActive).length,
-        totalFaculty: facultyData.length,
-        activeFaculty: facultyData.filter(f => f.isActive).length,
-        totalSubjects: subjectRes.data.count || subjectData.length,
-        totalRooms: roomRes.data.count || (roomRes.data.data || []).length,
-        totalSchedules: scheduleData.length,
-        publishedSchedules: scheduleData.filter(s => s.isPublished || s.status === 'published').length,
-        totalClasses: classSpaceRes.data.count || (classSpaceRes.data.data || []).length,
+        totalUsers: statsData.totalUsers || 0,
+        activeUsers: statsData.activeUsers || 0,
+        inactiveUsers: statsData.inactiveUsers || 0,
+        totalFaculty: statsData.totalFaculty || 0,
+        activeFaculty: statsData.activeFaculty || 0,
+        totalSubjects: statsData.totalSubjects || 0,
+        totalRooms: statsData.totalRooms || 0,
+        totalSchedules: statsData.totalSchedules || 0,
+        publishedSchedules: statsData.publishedSchedules || 0,
+        totalClasses: statsData.totalClasses || 0,
         // Program manager specific
-        programStudents: studentData.length,
-        programSubjects: subjectData.length,
-        programSchedules: scheduleData.length,
-        programByYear: Object.entries(yearDistribution)
-          .filter(([year]) => year !== 'Unknown') // Filter out unknown years
-          .map(([year, count]) => ({ year, count }))
-          .sort((a, b) => parseInt(a.year) - parseInt(b.year)), // Sort by year
-        programBySemester: Object.entries(semesterDistribution).map(([semester, count]) => ({ semester, count }))
+        programStudents: statsData.programStudents || 0,
+        programSubjects: statsData.programSubjects || 0,
+        programSchedules: statsData.programSchedules || 0,
+        programByYear: statsData.programByYear || [],
+        programBySemester: statsData.programBySemester || []
       });
     } catch (error) {
       console.error('Load stats error:', error);
@@ -1171,84 +1133,209 @@ const StudentDashboard = ({ user, loading: parentLoading }) => {
         </>
       )}
 
-      {/* My Classes Enrollment */}
-      <MyClassesEnrollment />
-
-      {/* My Classes */}
+      {/* Today's Schedule */}
       <div className="bg-white rounded-xl shadow-sm border border-blue-200 p-6 dark:bg-gray-800 dark:border-blue-700">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-black dark:text-white">
-            My Classes
-          </h3>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-white rounded-lg dark:bg-gray-700">
+              <Calendar className="w-6 h-6 text-black dark:text-white" />
+            </div>
+            <div>
+              <h3 className="text-xl font-semibold text-black dark:text-white">
+                Today's Schedule
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+              </p>
+            </div>
+          </div>
           <button
             onClick={() => window.location.href = '/classes'}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+            className="px-4 py-2 text-blue-700 border-2 border-blue-700 rounded-lg hover:bg-blue-50 transition-colors text-sm font-semibold dark:text-blue-400 dark:border-blue-400 dark:hover:bg-blue-900/20"
           >
-            Open Classes
+            View All Classes
           </button>
         </div>
 
-        {classes.length === 0 ? (
-          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-            <Calendar className="w-12 h-12 mx-auto mb-2 text-gray-300 dark:text-gray-600" />
-            <p>You have no classes yet</p>
-            <p className="text-sm mt-1">
-              {studentData?.studentType === 'irregular'
-                ? 'Join a subject with a class code from your instructor.'
-                : 'Join your section with the enrollment code from your program manager.'}
-            </p>
-            <button
-              onClick={() => window.location.href = '/classes'}
-              className="mt-4 px-4 py-2 bg-yellow-400 text-blue-900 rounded-lg hover:bg-yellow-500 transition-colors text-sm font-medium"
-            >
-              {studentData?.studentType === 'irregular' ? 'Join a Subject' : 'Join My Section'}
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              You are enrolled in {classes.length} {classes.length === 1 ? 'class' : 'classes'}
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
-              {classes.slice(0, 4).map((cs) => {
+        {(() => {
+          if (classes.length === 0) {
+            return (
+              <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                <Calendar className="w-16 h-16 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
+                <p className="text-lg font-medium text-gray-900 dark:text-white">No classes yet</p>
+                <p className="text-sm mt-1">
+                  {studentData?.studentType === 'irregular'
+                    ? 'Join a subject with a class code from your instructor.'
+                    : 'Join your section with the enrollment code from your program manager.'}
+                </p>
+                <button
+                  onClick={() => window.location.href = '/classes'}
+                  className="mt-4 px-6 py-3 bg-yellow-400 text-blue-900 rounded-lg hover:bg-yellow-500 transition-colors text-sm font-bold shadow-md"
+                >
+                  {studentData?.studentType === 'irregular' ? 'Join a Subject' : 'Join My Section'}
+                </button>
+              </div>
+            );
+          }
+
+          // Filter today's classes
+          const today = new Date();
+          const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+          const todayName = dayNames[today.getDay()];
+
+          const todayClasses = classes
+            .filter(cs => {
+              const slots = cs.schedule?.timeSlots || [];
+              return slots.some(slot => slot.day === todayName);
+            })
+            .map(cs => ({
+              ...cs,
+              todaySlots: (cs.schedule?.timeSlots || []).filter(slot => slot.day === todayName)
+            }))
+            .sort((a, b) => {
+              const timeA = a.todaySlots[0]?.startTime || '00:00';
+              const timeB = b.todaySlots[0]?.startTime || '00:00';
+              return timeA.localeCompare(timeB);
+            });
+
+          if (todayClasses.length === 0) {
+            return (
+              <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                <Calendar className="w-16 h-16 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
+                <p className="text-lg font-medium text-gray-900 dark:text-white">No classes scheduled for today</p>
+                <p className="text-sm mt-1">Enjoy your free day!</p>
+                <button
+                  onClick={() => window.location.href = '/classes'}
+                  className="mt-4 px-6 py-3 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors text-sm font-bold shadow-md"
+                >
+                  View All Classes ({classes.length})
+                </button>
+              </div>
+            );
+          }
+
+          const formatTime = (time) => {
+            if (!time) return '';
+            const [hours, minutes] = time.split(':');
+            const hour = parseInt(hours);
+            const ampm = hour >= 12 ? 'PM' : 'AM';
+            const hour12 = hour % 12 || 12;
+            return `${hour12}:${minutes} ${ampm}`;
+          };
+
+          return (
+            <div className="space-y-4">
+              {todayClasses.map((cs) => {
                 const teacher = cs.faculty?.user
                   ? `${cs.faculty.user.firstName || ''} ${cs.faculty.user.lastName || ''}`.trim()
                   : null;
+                
                 return (
                   <div
                     key={cs._id}
-                    onClick={() => window.location.href = '/classes'}
-                    className="p-3 bg-gray-50 rounded-lg border border-gray-200 hover:border-blue-400 cursor-pointer transition-colors dark:bg-gray-700 dark:border-gray-600"
+                    className="bg-white border-2 border-blue-200 rounded-xl p-5 hover:border-yellow-400 hover:shadow-lg transition-all dark:bg-gray-700 dark:border-blue-700 dark:hover:border-yellow-500"
                   >
-                    <p className="font-medium text-gray-900 dark:text-gray-100">
-                      {cs.subject?.subjectCode || cs.sectionCode}
-                    </p>
-                    {cs.subject?.subjectName && (
-                      <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-1">
-                        {cs.subject.subjectName}
-                      </p>
-                    )}
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      {describeSlots(cs)}
-                    </p>
-                    {teacher && (
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{teacher}</p>
-                    )}
-                    <div className="flex items-center gap-3 mt-2 text-xs text-gray-500 dark:text-gray-400">
-                      <span>{cs.announcements?.length || 0} announcements</span>
-                      <span>{cs.materials?.length || 0} materials</span>
+                    {/* Subject Header */}
+                    <div className="flex items-start gap-4 mb-4">
+                      <div className="p-3 bg-white rounded-xl dark:bg-gray-700 flex-shrink-0">
+                        <BookOpen className="w-6 h-6 text-black dark:text-white" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-bold text-xl text-blue-900 dark:text-white">
+                          {cs.subject?.subjectCode || cs.sectionCode}
+                        </h4>
+                        {cs.subject?.subjectName && (
+                          <p className="text-gray-700 dark:text-gray-300 mt-1">
+                            {cs.subject.subjectName}
+                          </p>
+                        )}
+                        {teacher && (
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 flex items-center gap-2">
+                            <Users className="w-4 h-4" />
+                            <span className="font-medium">{teacher}</span>
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Schedule Details Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg dark:bg-gray-800">
+                      {/* Time */}
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-white rounded-lg dark:bg-gray-700">
+                          <Clock className="w-5 h-5 text-black dark:text-white" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 font-semibold uppercase">Time</p>
+                          <p className="font-bold text-gray-900 dark:text-white">
+                            {cs.todaySlots.map(slot => 
+                              `${formatTime(slot.startTime)} - ${formatTime(slot.endTime)}`
+                            ).join(', ')}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Room */}
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-white rounded-lg dark:bg-gray-700">
+                          <DoorOpen className="w-5 h-5 text-black dark:text-white" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 font-semibold uppercase">Room</p>
+                          <p className="font-bold text-gray-900 dark:text-white">
+                            {cs.schedule?.roomLabel || cs.schedule?.room || 'TBA'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Section */}
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-white rounded-lg dark:bg-gray-700">
+                          <Users className="w-5 h-5 text-black dark:text-white" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 font-semibold uppercase">Section</p>
+                          <p className="font-bold text-gray-900 dark:text-white">
+                            {cs.sectionCode || cs.schedule?.sectionCode || 'N/A'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Additional Info */}
+                    <div className="flex items-center gap-3 mt-4">
+                      <span className="px-3 py-1.5 bg-yellow-100 text-blue-900 rounded-full text-xs font-bold dark:bg-yellow-900/30 dark:text-yellow-300">
+                        {cs.subject?.units || 0} Units
+                      </span>
+                      <span className="px-3 py-1.5 bg-blue-100 text-blue-900 rounded-full text-xs font-bold dark:bg-blue-900/30 dark:text-blue-300">
+                        {cs.announcements?.length || 0} Announcements
+                      </span>
+                      <span className="px-3 py-1.5 bg-green-100 text-green-900 rounded-full text-xs font-bold dark:bg-green-900/30 dark:text-green-300">
+                        {cs.materials?.length || 0} Materials
+                      </span>
                     </div>
                   </div>
                 );
               })}
+
+              {/* Summary Footer */}
+              <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5 text-blue-700 dark:text-blue-400" />
+                  <span className="font-semibold text-blue-900 dark:text-blue-300">
+                    {todayClasses.length} {todayClasses.length === 1 ? 'class' : 'classes'} today
+                  </span>
+                </div>
+                <button
+                  onClick={() => window.location.href = '/classes'}
+                  className="px-4 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors text-sm font-bold shadow-md"
+                >
+                  View All Classes ({classes.length})
+                </button>
+              </div>
             </div>
-            {classes.length > 4 && (
-              <p className="text-sm text-gray-500 text-center mt-3 dark:text-gray-400">
-                +{classes.length - 4} more {classes.length - 4 === 1 ? 'class' : 'classes'}
-              </p>
-            )}
-          </div>
-        )}
+          );
+        })()}
       </div>
     </div>
   );

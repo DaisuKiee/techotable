@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { facultyAPI } from '../services/api';
 import toast from 'react-hot-toast';
-import useCachedData from '../hooks/useCachedData';
-import { useCache } from '../context/CacheContext';
 import { 
   Plus, Search, Edit2, Trash2, Eye, X,
   User, Mail, Phone, BookOpen, Award, FileText,
@@ -67,8 +65,9 @@ const getAverageRating = (f) => {
 const FacultyPage = () => {
   const { user } = useAuth();
   const { programCodes } = usePrograms();
-  const { invalidateCache } = useCache();
   
+  const [faculty, setFaculty] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterProgram, setFilterProgram] = useState('');
   const [filterSpecialization, setFilterSpecialization] = useState('');
@@ -78,34 +77,6 @@ const FacultyPage = () => {
   const [selectedFaculty, setSelectedFaculty] = useState(null);
   const [modalMode, setModalMode] = useState('create'); // 'create' or 'edit'
   
-  // Use cached data for faculty with program filter as dependency
-  const { 
-    data: faculty, 
-    loading, 
-    refetch: reloadFaculty,
-    error 
-  } = useCachedData(
-    () => {
-      const params = { isActive: true };
-      if (filterProgram) params.program = filterProgram;
-      return facultyAPI.getAll(params);
-    },
-    `faculty-list-${filterProgram || 'all'}`, // Different cache key per program filter
-    { 
-      cacheDuration: 5 * 60 * 1000, // 5 minutes
-      dependencies: [filterProgram], // Re-fetch when filter changes
-      onError: (err) => {
-        console.error('Faculty fetch error:', err);
-        toast.error('Failed to load faculty');
-      }
-    }
-  );
-
-  // Debug logging
-  useEffect(() => {
-    console.log('FacultyPage state:', { faculty, loading, error });
-  }, [faculty, loading, error]);
-  
   // Confirm dialog state
   const [confirmDialog, setConfirmDialog] = useState({
     isOpen: false,
@@ -114,6 +85,29 @@ const FacultyPage = () => {
     itemName: '',
     onConfirm: null
   });
+
+  // Load faculty data
+  const loadFaculty = async () => {
+    try {
+      setLoading(true);
+      const params = { isActive: true };
+      if (filterProgram) params.program = filterProgram;
+      
+      const response = await facultyAPI.getAll(params);
+      setFaculty(response.data?.data || response.data || []);
+    } catch (error) {
+      console.error('Error loading faculty:', error);
+      toast.error('Failed to load faculty');
+      setFaculty([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Initial load and reload when filter changes
+  useEffect(() => {
+    loadFaculty();
+  }, [filterProgram]);
 
   // Program managers are locked to their own program
   useEffect(() => {
@@ -150,10 +144,8 @@ const FacultyPage = () => {
           await facultyAPI.delete(facultyMember._id);
           toast.success('Faculty member deleted successfully');
           
-          // Invalidate all program caches since faculty can belong to multiple programs
-          invalidateCache(`faculty-list-${filterProgram || 'all'}`);
-          invalidateCache('faculty-list-all');
-          reloadFaculty();
+          // Reload faculty list
+          loadFaculty();
           
           setConfirmDialog({ ...confirmDialog, isOpen: false });
         } catch (error) {
@@ -176,9 +168,7 @@ const FacultyPage = () => {
     setSelectedFaculty(null);
     if (shouldRefresh) {
       // Invalidate all program caches
-      invalidateCache(`faculty-list-${filterProgram || 'all'}`);
-      invalidateCache('faculty-list-all');
-      reloadFaculty();
+      loadFaculty();
     }
   };
 

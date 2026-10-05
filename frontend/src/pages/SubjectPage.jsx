@@ -433,15 +433,15 @@ const SubjectPage = () => {
           <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600">
             <BookOpen className="w-20 h-20 text-gray-400 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-              {subjects.length === 0 ? 'No subjects created yet' : 'No subjects match your filters'}
+              {(subjects || []).length === 0 ? 'No subjects created yet' : 'No subjects match your filters'}
             </h3>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
-              {subjects.length === 0 
+              {(subjects || []).length === 0 
                 ? 'Get started by creating your first subject'
                 : 'Try adjusting your search or filter criteria'
               }
             </p>
-            {subjects.length === 0 && (
+            {(subjects || []).length === 0 && (
               <button
                 onClick={handleCreate}
                 className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors inline-flex items-center gap-2"

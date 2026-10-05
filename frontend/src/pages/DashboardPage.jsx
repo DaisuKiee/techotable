@@ -215,7 +215,8 @@ const ModernStatCard = ({ icon: Icon, label, value, sublabel }) => (
       <div className={`relative z-10 transition-all duration-700 ease-out ${
         pageReady ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
       }`}>
-      {/* Header Section */}
+      {/* Header Section - Only for staff roles (admin, scheduling_officer, program_manager) */}
+      {canSeeStats && (
      <div className="mb-6 rounded-3xl bg-blue-900 px-8 py-7 text-white shadow-xl ring-1 ring-white/5">
   <div className="flex flex-wrap items-center justify-between gap-4">
     <div className="min-w-0">
@@ -277,6 +278,7 @@ const ModernStatCard = ({ icon: Icon, label, value, sublabel }) => (
     </div>
   </div>
 </div>
+      )}
 
       {/* Schedule Conflict Warning Banner */}
       {(user?.role === 'admin' || user?.role === 'scheduling_officer') && conflicts?.hasConflicts && (
@@ -1032,175 +1034,142 @@ const StudentDashboard = ({ user, loading: parentLoading }) => {
 
   return (
     <div className="space-y-6">
-      {/* Enrollment Card */}
-      <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-blue-800 rounded-xl shadow-lg p-6 text-white">
-        <div className="flex items-start justify-between mb-4">
-          <div>
-            <h2 className="text-2xl font-bold mb-1">Welcome back, {user?.firstName}!</h2>
-            <p className="text-blue-100 text-sm">Student ID: {user?.studentId}</p>
+      {/* Student Header - Simplified */}
+      <div className="mb-6 rounded-3xl bg-blue-900 px-8 py-7 text-white shadow-xl ring-1 ring-white/5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
+            <span className="inline-flex items-center gap-2 rounded-full border border-yellow-400/50 bg-yellow-400/20 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-yellow-100">
+              <GraduationCap size={14} />
+              CTU Daanbantayan Campus
+            </span>
+            <h1 className="mt-3 text-3xl font-bold">
+              Good day, {user?.firstName}
+            </h1>
+            <p className="mt-2 text-sm text-blue-200">
+              Real-time overview • {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+            </p>
           </div>
           <div className="p-3 bg-yellow-400/20 backdrop-blur-sm rounded-lg">
-            <GraduationCap className="w-8 h-8 text-yellow-400" />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/10">
-            <p className="text-blue-100 text-sm mb-1">Program</p>
-            <p className="text-xl font-semibold">{user?.program || studentData?.program || 'Not assigned'}</p>
-          </div>
-          
-          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/10">
-            <p className="text-blue-100 text-sm mb-1">Student Type</p>
-            <p className="text-xl font-semibold capitalize">{studentData?.studentType || 'Not assigned'}</p>
-          </div>
-
-          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/10">
-            <p className="text-blue-100 text-sm mb-1">
-              {studentData?.studentType === 'regular' ? 'Section' : 'Subjects Enrolled'}
-            </p>
-            <p className="text-xl font-semibold">
-              {studentData?.studentType === 'regular' 
-                ? (studentData?.sectionCode || 'Not assigned')
-                : (studentData?.subjectCodes?.length || 0) + ' subjects'
-              }
-            </p>
+            <GraduationCap className="w-10 h-10 text-yellow-400" />
           </div>
         </div>
       </div>
 
-      {/* Stat Cards - Similar to Program Manager Dashboard */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="rounded-2xl border border-blue-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md dark:border-blue-700 dark:bg-gray-800">
-          <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-xl bg-white dark:bg-gray-700">
-            <BookOpen className="h-6 w-6 text-black dark:text-white" />
-          </div>
-          <div className="text-4xl font-extrabold text-black dark:text-white">
-            {classes.length}
-          </div>
-          <p className="mt-2 text-xs font-semibold uppercase tracking-wider text-black dark:text-gray-300">
-            Enrolled Classes
-          </p>
-          <span className="mt-4 inline-block rounded-full bg-yellow-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-blue-700 dark:bg-yellow-500/20 dark:text-yellow-300">
-            This Semester
-          </span>
+      {/* Enrollment Information - Below Header */}
+      {!studentData ? (
+        <div className="text-center py-6 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+          <Users className="w-12 h-12 mx-auto mb-2 text-gray-400 dark:text-gray-500" />
+          <p className="text-gray-900 dark:text-white font-medium">No enrollment record found</p>
+          <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">Please contact your program manager</p>
         </div>
-
-        <div className="rounded-2xl border border-blue-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md dark:border-blue-700 dark:bg-gray-800">
-          <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-xl bg-white dark:bg-gray-700">
-            <Users className="h-6 w-6 text-black dark:text-white" />
-          </div>
-          <div className="text-4xl font-extrabold text-black dark:text-white">
-            {studentData?.subjectCodes?.length || 0}
-          </div>
-          <p className="mt-2 text-xs font-semibold uppercase tracking-wider text-black dark:text-gray-300">
-            Total Subjects
-          </p>
-          <span className="mt-4 inline-block rounded-full bg-yellow-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-blue-700 dark:bg-yellow-500/20 dark:text-yellow-300">
-            Active Enrollment
-          </span>
+      ) : studentData.studentType === 'regular' && !studentData.sectionCode ? (
+        <div className="text-center py-6 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
+          <AlertTriangle className="w-12 h-12 mx-auto mb-2 text-orange-500" />
+          <p className="font-medium text-gray-900 dark:text-white">Section Not Assigned</p>
+          <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">Your program manager will assign you to a section soon</p>
         </div>
-
-        <div className="rounded-2xl border border-blue-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md dark:border-blue-700 dark:bg-gray-800">
-          <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-xl bg-white dark:bg-gray-700">
-            <Calendar className="h-6 w-6 text-black dark:text-white" />
-          </div>
-          <div className="text-4xl font-extrabold text-black dark:text-white">
-            {studentData?.semester || 1}
-          </div>
-          <p className="mt-2 text-xs font-semibold uppercase tracking-wider text-black dark:text-gray-300">
-            Current Semester
-          </p>
-          <span className="mt-4 inline-block rounded-full bg-blue-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-blue-700 dark:bg-blue-500/20 dark:text-blue-300">
-            {studentData?.academicYear || '2024-2025'}
-          </span>
+      ) : studentData.studentType === 'irregular' && (!studentData.subjectCodes || studentData.subjectCodes.length === 0) ? (
+        <div className="text-center py-6 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
+          <AlertTriangle className="w-12 h-12 mx-auto mb-2 text-orange-500" />
+          <p className="font-medium text-gray-900 dark:text-white">No Subjects Enrolled</p>
+          <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">Your program manager will assign your subjects soon</p>
         </div>
-
-        <div className="rounded-2xl border border-blue-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md dark:border-blue-700 dark:bg-gray-800">
-          <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-xl bg-white dark:bg-gray-700">
-            <CheckCircle className="h-6 w-6 text-black dark:text-white" />
-          </div>
-          <div className="text-4xl font-extrabold text-black dark:text-white capitalize">
-            {studentData?.enrollmentStatus || 'N/A'}
-          </div>
-          <p className="mt-2 text-xs font-semibold uppercase tracking-wider text-black dark:text-gray-300">
-            Status
-          </p>
-          <span className="mt-4 inline-block rounded-full bg-yellow-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-blue-700 dark:bg-yellow-500/20 dark:text-yellow-300">
-            {studentData?.studentType || 'Regular'}
-          </span>
-        </div>
-      </div>
-
-      {/* Enrollment Details */}
-      <div className="bg-white rounded-xl shadow-sm border border-blue-200 p-6 dark:bg-gray-800 dark:border-blue-700">
-        <h3 className="text-lg font-semibold text-black mb-4 dark:text-white">
-          Enrollment Information
-        </h3>
-        
-        {!studentData ? (
-          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-            <Users className="w-12 h-12 mx-auto mb-2 text-gray-300 dark:text-gray-600" />
-            <p>No enrollment record found</p>
-            <p className="text-sm mt-1">Please contact your program manager</p>
-          </div>
-        ) : studentData.studentType === 'regular' && !studentData.sectionCode ? (
-          <div className="text-center py-8 text-orange-600 bg-orange-50 rounded-lg dark:bg-orange-900/20 dark:text-orange-400">
-            <AlertTriangle className="w-12 h-12 mx-auto mb-2" />
-            <p className="font-medium">Section Not Assigned</p>
-            <p className="text-sm mt-1">Your program manager will assign you to a section soon</p>
-          </div>
-        ) : studentData.studentType === 'irregular' && (!studentData.subjectCodes || studentData.subjectCodes.length === 0) ? (
-          <div className="text-center py-8 text-orange-600 bg-orange-50 rounded-lg dark:bg-orange-900/20 dark:text-orange-400">
-            <AlertTriangle className="w-12 h-12 mx-auto mb-2" />
-            <p className="font-medium">No Subjects Enrolled</p>
-            <p className="text-sm mt-1">Your program manager will assign your subjects soon</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Academic Year</p>
-                <p className="font-medium text-black dark:text-white">{studentData.academicYear}</p>
+      ) : (
+        <>
+          {/* Stat Cards Grid - Matching Program Manager Dashboard */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* Program Card */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-blue-200 dark:border-blue-700 shadow-sm">
+              <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-xl bg-white dark:bg-gray-700">
+                <BookOpen className="h-7 w-7 text-black dark:text-white" />
               </div>
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Semester</p>
-                <p className="font-medium text-black dark:text-white">
-                  {studentData.semester === 1 ? '1st Semester' : '2nd Semester'}
-                </p>
+              <div className="text-3xl font-bold text-black dark:text-white mb-2">
+                {user?.program || studentData?.program || 'N/A'}
               </div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-400 mb-4">
+                Program
+              </p>
+              <span className="inline-block rounded-full bg-yellow-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-blue-700 dark:bg-yellow-500/20 dark:text-yellow-300">
+                {studentData?.studentType || 'Regular'}
+              </span>
             </div>
 
-            {studentData.studentType === 'irregular' && studentData.subjectCodes?.length > 0 && (
-              <div>
-                <p className="text-sm text-gray-600 mb-2 dark:text-gray-400">Enrolled Subjects:</p>
-                <div className="flex flex-wrap gap-2">
-                  {studentData.subjectCodes.map((code, index) => (
-                    <span
-                      key={index}
-                      className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium dark:bg-blue-500/20 dark:text-blue-300"
-                    >
-                      {code}
-                    </span>
-                  ))}
-                </div>
+            {/* Section/Subjects Card */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-blue-200 dark:border-blue-700 shadow-sm">
+              <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-xl bg-white dark:bg-gray-700">
+                <Users className="h-7 w-7 text-black dark:text-white" />
               </div>
-            )}
+              <div className="text-3xl font-bold text-black dark:text-white mb-2">
+                {studentData?.studentType === 'regular' 
+                  ? (studentData?.sectionCode || 'N/A')
+                  : (studentData?.subjectCodes?.length || 0)
+                }
+              </div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-400 mb-4">
+                {studentData?.studentType === 'regular' ? 'Section' : 'Enrolled Subjects'}
+              </p>
+              <span className="inline-block rounded-full bg-yellow-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-blue-700 dark:bg-yellow-500/20 dark:text-yellow-300">
+                {studentData?.studentType === 'regular' ? 'Regular Student' : `${studentData?.subjectCodes?.length || 0} Subjects`}
+              </span>
+            </div>
 
-            <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-              <p className="text-sm text-gray-600 dark:text-gray-400">Enrollment Status</p>
-              <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium mt-1 ${
-                studentData.enrollmentStatus === 'enrolled' 
+            {/* Academic Year Card */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-blue-200 dark:border-blue-700 shadow-sm">
+              <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-xl bg-white dark:bg-gray-700">
+                <Calendar className="h-7 w-7 text-black dark:text-white" />
+              </div>
+              <div className="text-3xl font-bold text-black dark:text-white mb-2">
+                {studentData.academicYear}
+              </div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-400 mb-4">
+                Academic Year
+              </p>
+              <span className="inline-block rounded-full bg-yellow-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-blue-700 dark:bg-yellow-500/20 dark:text-yellow-300">
+                {studentData.semester === 1 ? '1st Semester' : '2nd Semester'}
+              </span>
+            </div>
+
+            {/* Enrollment Status Card */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-blue-200 dark:border-blue-700 shadow-sm">
+              <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-xl bg-white dark:bg-gray-700">
+                <CheckCircle className="h-7 w-7 text-black dark:text-white" />
+              </div>
+              <div className="text-3xl font-bold text-black dark:text-white mb-2 capitalize">
+                {studentData.enrollmentStatus || 'N/A'}
+              </div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-400 mb-4">
+                Enrollment Status
+              </p>
+              <span className={`inline-block rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${
+                studentData.enrollmentStatus === 'enrolled'
                   ? 'bg-yellow-100 text-blue-700 dark:bg-yellow-500/20 dark:text-yellow-300'
-                  : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                  : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
               }`}>
-                <CheckCircle className="w-4 h-4" />
-                {studentData.enrollmentStatus}
+                {studentData.enrollmentStatus === 'enrolled' ? 'Active' : 'Inactive'}
               </span>
             </div>
           </div>
-        )}
-      </div>
+
+          {/* Enrolled Subjects - For Irregular Students */}
+          {studentData.studentType === 'irregular' && studentData.subjectCodes?.length > 0 && (
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-blue-200 dark:border-blue-700 shadow-sm">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-400 mb-4">
+                Enrolled Subjects
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {studentData.subjectCodes.map((code, index) => (
+                  <span
+                    key={index}
+                    className="px-3 py-1.5 bg-yellow-100 text-blue-700 dark:bg-yellow-500/20 dark:text-yellow-300 rounded-full text-sm font-medium border border-yellow-200 dark:border-yellow-800"
+                  >
+                    {code}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
 
       {/* My Classes Enrollment */}
       <MyClassesEnrollment />

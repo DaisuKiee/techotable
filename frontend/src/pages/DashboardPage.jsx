@@ -8,7 +8,7 @@ import {
   RefreshCw, Info, UserCheck, UserX, FileClock,
   Banknote, Wallet, TrendingDown, Bell, GraduationCap
 } from 'lucide-react';
-import { facultyAPI, subjectAPI, roomAPI, scheduleAPI, classSpaceAPI, userAPI, studentAPI } from '../services/api';
+import { facultyAPI, subjectAPI, roomAPI, scheduleAPI, classSpaceAPI, userAPI, studentAPI, dashboardAPI } from '../services/api';
 import toast from 'react-hot-toast';
 import ctuBg from '../assets/images/backgrounds/ctu-bg.png';
 
@@ -65,66 +65,28 @@ const DashboardPage = () => {
 
   const loadDashboardStats = async () => {
     try {
-      const [facultyRes, subjectRes, roomRes, scheduleRes, usersRes, classSpaceRes, studentRes] = await Promise.all([
-        facultyAPI.getAll().catch(() => ({ data: { data: [] } })),
-        subjectAPI.getAll().catch(() => ({ data: { data: [] } })),
-        roomAPI.getAll().catch(() => ({ data: { data: [] } })),
-        scheduleAPI.getAll().catch(() => ({ data: { data: [] } })),
-        userAPI.getAll().catch(() => ({ data: { data: [] } })),
-        classSpaceAPI.getAll().catch(() => ({ data: { data: [] } })),
-        studentAPI.getAll().catch(() => ({ data: { data: [] } }))
-      ]);
-
-      const facultyData = facultyRes.data.data || [];
-      const scheduleData = scheduleRes.data.data || [];
-      const usersData = usersRes.data.data || [];
-      const studentData = studentRes.data.data || [];
-      const subjectData = subjectRes.data.data || [];
-
-      // Calculate year level distribution from sectionCode
-      const yearDistribution = studentData.reduce((acc, student) => {
-        let year = 'Unknown';
-        
-        // Extract year from sectionCode
-        // Formats: "BSIT-4A", "BSIT-4A-D", "BSIT-3B-N", etc.
-        if (student.sectionCode) {
-          const match = student.sectionCode.match(/-(\d+)[A-Z]/);
-          if (match) {
-            year = match[1]; // Extract the year number
-          }
-        }
-        
-        acc[year] = (acc[year] || 0) + 1;
-        return acc;
-      }, {});
-
-      // Calculate semester distribution
-      const semesterDistribution = studentData.reduce((acc, student) => {
-        const sem = student.semester || 1;
-        acc[sem] = (acc[sem] || 0) + 1;
-        return acc;
-      }, {});
+      // Use optimized dashboard stats endpoint - much faster!
+      // Instead of fetching 7 full collections, just gets counts
+      const response = await dashboardAPI.getStats();
+      const statsData = response.data.data;
 
       setStats({
-        totalUsers: usersData.length,
-        activeUsers: usersData.filter(u => u.isActive).length,
-        inactiveUsers: usersData.filter(u => !u.isActive).length,
-        totalFaculty: facultyData.length,
-        activeFaculty: facultyData.filter(f => f.isActive).length,
-        totalSubjects: subjectRes.data.count || subjectData.length,
-        totalRooms: roomRes.data.count || (roomRes.data.data || []).length,
-        totalSchedules: scheduleData.length,
-        publishedSchedules: scheduleData.filter(s => s.isPublished || s.status === 'published').length,
-        totalClasses: classSpaceRes.data.count || (classSpaceRes.data.data || []).length,
+        totalUsers: statsData.totalUsers || 0,
+        activeUsers: statsData.activeUsers || 0,
+        inactiveUsers: statsData.inactiveUsers || 0,
+        totalFaculty: statsData.totalFaculty || 0,
+        activeFaculty: statsData.activeFaculty || 0,
+        totalSubjects: statsData.totalSubjects || 0,
+        totalRooms: statsData.totalRooms || 0,
+        totalSchedules: statsData.totalSchedules || 0,
+        publishedSchedules: statsData.publishedSchedules || 0,
+        totalClasses: statsData.totalClasses || 0,
         // Program manager specific
-        programStudents: studentData.length,
-        programSubjects: subjectData.length,
-        programSchedules: scheduleData.length,
-        programByYear: Object.entries(yearDistribution)
-          .filter(([year]) => year !== 'Unknown') // Filter out unknown years
-          .map(([year, count]) => ({ year, count }))
-          .sort((a, b) => parseInt(a.year) - parseInt(b.year)), // Sort by year
-        programBySemester: Object.entries(semesterDistribution).map(([semester, count]) => ({ semester, count }))
+        programStudents: statsData.programStudents || 0,
+        programSubjects: statsData.programSubjects || 0,
+        programSchedules: statsData.programSchedules || 0,
+        programByYear: statsData.programByYear || [],
+        programBySemester: statsData.programBySemester || []
       });
     } catch (error) {
       console.error('Load stats error:', error);

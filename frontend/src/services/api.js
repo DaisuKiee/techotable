@@ -303,3 +303,9 @@ export const notificationAPI = {
   markAllAsRead: () => api.put('/notifications/mark-all-read'),
   delete: (id) => api.delete(`/notifications/${id}`),
 };
+
+
+// ============== DASHBOARD ENDPOINTS ==============
+export const dashboardAPI = {
+  getStats: () => api.get('/dashboard/stats')
+};

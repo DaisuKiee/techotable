@@ -1000,7 +1000,7 @@ const StudentDashboard = ({ user, loading: parentLoading }) => {
     <div className="space-y-6">
       {/* Student Header - Simplified */}
       <div className="mb-6 rounded-3xl bg-blue-900 px-4 sm:px-8 py-5 sm:py-7 text-white shadow-xl ring-1 ring-white/5">
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+        <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
             <span className="inline-flex items-center gap-2 rounded-full border border-yellow-400/50 bg-yellow-400/20 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-yellow-100">
               <GraduationCap size={14} />
@@ -1013,7 +1013,7 @@ const StudentDashboard = ({ user, loading: parentLoading }) => {
               Real-time overview • {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
             </p>
           </div>
-          <div className="p-3 bg-yellow-400/20 backdrop-blur-sm rounded-lg self-start">
+          <div className="flex-shrink-0">
             <GraduationCap className="w-8 h-8 sm:w-10 sm:h-10 text-yellow-400" />
           </div>
         </div>

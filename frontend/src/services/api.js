@@ -282,6 +282,7 @@ export const resolveUploadUrl = (fileUrl) => {
 // ============== SECTION ENDPOINTS ==============
 export const sectionAPI = {
   getAll: (params) => api.get('/sections', { params }),
+  getAllLightweight: () => api.get('/sections', { params: { lightweight: 'true' } }), // Fast, minimal data
   getById: (id) => api.get(`/sections/${id}`),
   create: (data) => api.post('/sections', data),
   update: (id, data) => api.put(`/sections/${id}`, data),

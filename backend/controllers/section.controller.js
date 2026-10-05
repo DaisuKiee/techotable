@@ -6,7 +6,7 @@ const ClassSpace = require('../models/ClassSpace.model');
 // @access  Private
 exports.getAllSections = async (req, res) => {
   try {
-    const { program, yearLevel, shift, academicYear, semester, isActive } = req.query;
+    const { program, yearLevel, shift, academicYear, semester, isActive, lightweight } = req.query;
     
     const query = {};
     if (program) query.program = program;
@@ -16,6 +16,22 @@ exports.getAllSections = async (req, res) => {
     if (semester) query.semester = parseInt(semester);
     if (isActive !== undefined) query.isActive = isActive === 'true';
 
+    // Lightweight mode: return only essential fields without population
+    // This is MUCH faster for dropdowns and lists
+    if (lightweight === 'true') {
+      const sections = await Section.find(query)
+        .select('_id sectionCode program yearLevel sectionLetter shift academicYear semester enrollmentCode isActive')
+        .sort({ program: 1, yearLevel: 1, sectionLetter: 1 })
+        .lean(); // Use lean() for faster queries
+
+      return res.status(200).json({
+        success: true,
+        count: sections.length,
+        data: sections
+      });
+    }
+
+    // Full mode: include all populated data
     const sections = await Section.find(query)
       .populate('adviser', 'employeeId user')
       .populate({

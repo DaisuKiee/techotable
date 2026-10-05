@@ -475,15 +475,15 @@ const FacultyPage = () => {
           <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600">
             <Users className="w-20 h-20 text-gray-400 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-              {faculty.length === 0 ? 'No faculty members yet' : 'No faculty found'}
+              {(faculty || []).length === 0 ? 'No faculty members yet' : 'No faculty found'}
             </h3>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
-              {faculty.length === 0 
+              {(faculty || []).length === 0 
                 ? 'Get started by adding your first faculty member'
                 : 'Try adjusting your search or filter criteria'
               }
             </p>
-            {faculty.length === 0 && (
+            {(faculty || []).length === 0 && (
               <button
                 onClick={handleCreate}
                 className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors inline-flex items-center gap-2"

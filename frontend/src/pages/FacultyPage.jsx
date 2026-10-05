@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { facultyAPI } from '../services/api';
 import toast from 'react-hot-toast';
+import useCachedData from '../hooks/useCachedData';
+import { useCache } from '../context/CacheContext';
 import { 
   Plus, Search, Edit2, Trash2, Eye, X,
   User, Mail, Phone, BookOpen, Award, FileText,
@@ -65,8 +67,8 @@ const getAverageRating = (f) => {
 const FacultyPage = () => {
   const { user } = useAuth();
   const { programCodes } = usePrograms();
-  const [faculty, setFaculty] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { invalidateCache } = useCache();
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [filterProgram, setFilterProgram] = useState('');
   const [filterSpecialization, setFilterSpecialization] = useState('');
@@ -75,6 +77,25 @@ const FacultyPage = () => {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedFaculty, setSelectedFaculty] = useState(null);
   const [modalMode, setModalMode] = useState('create'); // 'create' or 'edit'
+  
+  // Use cached data for faculty with program filter as dependency
+  const { 
+    data: faculty, 
+    loading, 
+    refetch: reloadFaculty 
+  } = useCachedData(
+    () => {
+      const params = { isActive: true };
+      if (filterProgram) params.program = filterProgram;
+      return facultyAPI.getAll(params);
+    },
+    `faculty-list-${filterProgram || 'all'}`, // Different cache key per program filter
+    { 
+      cacheDuration: 5 * 60 * 1000, // 5 minutes
+      dependencies: [filterProgram], // Re-fetch when filter changes
+      onError: () => toast.error('Failed to load faculty')
+    }
+  );
   
   // Confirm dialog state
   const [confirmDialog, setConfirmDialog] = useState({
@@ -91,31 +112,6 @@ const FacultyPage = () => {
       setFilterProgram(user.program);
     }
   }, [user]);
-
-  // Program filtering happens server-side, so refetch whenever it changes
-  useEffect(() => {
-    loadFaculty();
-  }, [filterProgram]);
-
-  const loadFaculty = async () => {
-    try {
-      setLoading(true);
-      // Only load active faculty (excluding soft-deleted ones)
-      const params = { isActive: true };
-      if (filterProgram) params.program = filterProgram;
-      
-      // Add timestamp to prevent caching
-      params._t = Date.now();
-
-      const response = await facultyAPI.getAll(params);
-      setFaculty(response.data.data || []);
-    } catch (error) {
-      console.error('Load faculty error:', error);
-      toast.error('Failed to load faculty');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleCreate = () => {
     setSelectedFaculty(null);
@@ -144,7 +140,12 @@ const FacultyPage = () => {
         try {
           await facultyAPI.delete(facultyMember._id);
           toast.success('Faculty member deleted successfully');
-          loadFaculty();
+          
+          // Invalidate all program caches since faculty can belong to multiple programs
+          invalidateCache(`faculty-list-${filterProgram || 'all'}`);
+          invalidateCache('faculty-list-all');
+          reloadFaculty();
+          
           setConfirmDialog({ ...confirmDialog, isOpen: false });
         } catch (error) {
           console.error('Delete error:', error);
@@ -165,13 +166,16 @@ const FacultyPage = () => {
     setShowModal(false);
     setSelectedFaculty(null);
     if (shouldRefresh) {
-      loadFaculty();
+      // Invalidate all program caches
+      invalidateCache(`faculty-list-${filterProgram || 'all'}`);
+      invalidateCache('faculty-list-all');
+      reloadFaculty();
     }
   };
 
   const exportToExcel = () => {
     // Prepare data for Excel export
-    const exportData = faculty.map(f => ({
+    const exportData = (faculty || []).map(f => ({
       'Employee ID': f.employeeId || '',
       'First Name': f.user?.firstName || '',
       'Last Name': f.user?.lastName || '',
@@ -224,7 +228,7 @@ const FacultyPage = () => {
   };
 
   // Filter faculty based on search and specialization
-  const filteredFaculty = faculty.filter((f) => {
+  const filteredFaculty = (faculty || []).filter((f) => {
     const matchesSearch = 
       f.user?.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       f.user?.lastName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -247,13 +251,13 @@ const FacultyPage = () => {
 
   // Calculate statistics
   const stats = {
-    total: faculty.length,
-    active: faculty.filter(f => f.isActive).length,
-    avgLoad: faculty.length > 0 
-      ? Math.round(faculty.reduce((sum, f) => sum + getTotalHours(f), 0) / faculty.length)
+    total: (faculty || []).length,
+    active: (faculty || []).filter(f => f.isActive).length,
+    avgLoad: (faculty || []).length > 0 
+      ? Math.round((faculty || []).reduce((sum, f) => sum + getTotalHours(f), 0) / (faculty || []).length)
       : 0,
-    overloaded: faculty.filter(f => getTotalHours(f) > 40).length,
-    warning: faculty.filter(f => getTotalHours(f) > 36 && getTotalHours(f) <= 40).length
+    overloaded: (faculty || []).filter(f => getTotalHours(f) > 40).length,
+    warning: (faculty || []).filter(f => getTotalHours(f) > 36 && getTotalHours(f) <= 40).length
   };
 
   return (

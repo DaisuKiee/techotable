@@ -1069,6 +1069,69 @@ const StudentDashboard = ({ user, loading: parentLoading }) => {
         </div>
       </div>
 
+      {/* Stat Cards - Similar to Program Manager Dashboard */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="rounded-2xl border border-blue-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md dark:border-blue-700 dark:bg-gray-800">
+          <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-xl bg-white dark:bg-gray-700">
+            <BookOpen className="h-6 w-6 text-black dark:text-white" />
+          </div>
+          <div className="text-4xl font-extrabold text-black dark:text-white">
+            {classes.length}
+          </div>
+          <p className="mt-2 text-xs font-semibold uppercase tracking-wider text-black dark:text-gray-300">
+            Enrolled Classes
+          </p>
+          <span className="mt-4 inline-block rounded-full bg-yellow-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-blue-700 dark:bg-yellow-500/20 dark:text-yellow-300">
+            This Semester
+          </span>
+        </div>
+
+        <div className="rounded-2xl border border-blue-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md dark:border-blue-700 dark:bg-gray-800">
+          <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-xl bg-white dark:bg-gray-700">
+            <Users className="h-6 w-6 text-black dark:text-white" />
+          </div>
+          <div className="text-4xl font-extrabold text-black dark:text-white">
+            {studentData?.subjectCodes?.length || 0}
+          </div>
+          <p className="mt-2 text-xs font-semibold uppercase tracking-wider text-black dark:text-gray-300">
+            Total Subjects
+          </p>
+          <span className="mt-4 inline-block rounded-full bg-yellow-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-blue-700 dark:bg-yellow-500/20 dark:text-yellow-300">
+            Active Enrollment
+          </span>
+        </div>
+
+        <div className="rounded-2xl border border-blue-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md dark:border-blue-700 dark:bg-gray-800">
+          <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-xl bg-white dark:bg-gray-700">
+            <Calendar className="h-6 w-6 text-black dark:text-white" />
+          </div>
+          <div className="text-4xl font-extrabold text-black dark:text-white">
+            {studentData?.semester || 1}
+          </div>
+          <p className="mt-2 text-xs font-semibold uppercase tracking-wider text-black dark:text-gray-300">
+            Current Semester
+          </p>
+          <span className="mt-4 inline-block rounded-full bg-blue-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-blue-700 dark:bg-blue-500/20 dark:text-blue-300">
+            {studentData?.academicYear || '2024-2025'}
+          </span>
+        </div>
+
+        <div className="rounded-2xl border border-blue-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md dark:border-blue-700 dark:bg-gray-800">
+          <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-xl bg-white dark:bg-gray-700">
+            <CheckCircle className="h-6 w-6 text-black dark:text-white" />
+          </div>
+          <div className="text-4xl font-extrabold text-black dark:text-white capitalize">
+            {studentData?.enrollmentStatus || 'N/A'}
+          </div>
+          <p className="mt-2 text-xs font-semibold uppercase tracking-wider text-black dark:text-gray-300">
+            Status
+          </p>
+          <span className="mt-4 inline-block rounded-full bg-yellow-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-blue-700 dark:bg-yellow-500/20 dark:text-yellow-300">
+            {studentData?.studentType || 'Regular'}
+          </span>
+        </div>
+      </div>
+
       {/* Enrollment Details */}
       <div className="bg-white rounded-xl shadow-sm border border-blue-200 p-6 dark:bg-gray-800 dark:border-blue-700">
         <h3 className="text-lg font-semibold text-black mb-4 dark:text-white">

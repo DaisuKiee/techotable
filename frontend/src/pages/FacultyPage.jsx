@@ -243,7 +243,7 @@ const FacultyPage = () => {
   });
 
   // Get unique specializations for filter
-  const allSpecializations = [...new Set(faculty.flatMap(f => f.specializations || []))];
+  const allSpecializations = [...new Set((faculty || []).flatMap(f => f.specializations || []))];
 
   // A program manager's locked program isn't a filter they can clear
   const isProgramManager = user?.role === 'program_manager';

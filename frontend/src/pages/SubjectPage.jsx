@@ -75,6 +75,7 @@ const SubjectPage = () => {
   // PROGRAMS arrives asynchronously, so recompute once it loads
   useEffect(() => {
     calculateStats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subjects, PROGRAMS]);
 
   // // Disable body scroll when modal is open
@@ -90,7 +91,10 @@ const SubjectPage = () => {
   // }, [showModal, showExcelImportModal]);
 
   const calculateStats = () => {
-    if (!subjects) return;
+    if (!subjects || !Array.isArray(subjects)) {
+      // Keep existing stats if subjects not loaded yet
+      return;
+    }
     
     const byProgram = {};
     PROGRAMS.forEach(prog => {

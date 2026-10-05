@@ -1033,29 +1033,29 @@ const StudentDashboard = ({ user, loading: parentLoading }) => {
   return (
     <div className="space-y-6">
       {/* Enrollment Card */}
-      <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl shadow-lg p-6 text-white">
+      <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-blue-800 rounded-xl shadow-lg p-6 text-white">
         <div className="flex items-start justify-between mb-4">
           <div>
             <h2 className="text-2xl font-bold mb-1">Welcome back, {user?.firstName}!</h2>
             <p className="text-blue-100 text-sm">Student ID: {user?.studentId}</p>
           </div>
-          <div className="p-3 bg-white/20 backdrop-blur-sm rounded-lg">
-            <GraduationCap className="w-8 h-8" />
+          <div className="p-3 bg-yellow-400/20 backdrop-blur-sm rounded-lg">
+            <GraduationCap className="w-8 h-8 text-yellow-400" />
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/10">
             <p className="text-blue-100 text-sm mb-1">Program</p>
             <p className="text-xl font-semibold">{user?.program || studentData?.program || 'Not assigned'}</p>
           </div>
           
-          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/10">
             <p className="text-blue-100 text-sm mb-1">Student Type</p>
             <p className="text-xl font-semibold capitalize">{studentData?.studentType || 'Not assigned'}</p>
           </div>
 
-          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/10">
             <p className="text-blue-100 text-sm mb-1">
               {studentData?.studentType === 'regular' ? 'Section' : 'Subjects Enrolled'}
             </p>
@@ -1070,25 +1070,25 @@ const StudentDashboard = ({ user, loading: parentLoading }) => {
       </div>
 
       {/* Enrollment Details */}
-      <div className="bg-gray-50 rounded-xl shadow-sm border border-gray-200 p-6 dark:bg-gray-800 dark:border-gray-700">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4 dark:text-gray-100">
+      <div className="bg-white rounded-xl shadow-sm border border-blue-200 p-6 dark:bg-gray-800 dark:border-blue-700">
+        <h3 className="text-lg font-semibold text-black mb-4 dark:text-white">
           Enrollment Information
         </h3>
         
         {!studentData ? (
-          <div className="text-center py-8 text-gray-500">
-            <Users className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+            <Users className="w-12 h-12 mx-auto mb-2 text-gray-300 dark:text-gray-600" />
             <p>No enrollment record found</p>
             <p className="text-sm mt-1">Please contact your program manager</p>
           </div>
         ) : studentData.studentType === 'regular' && !studentData.sectionCode ? (
-          <div className="text-center py-8 text-orange-600 bg-orange-50 rounded-lg">
+          <div className="text-center py-8 text-orange-600 bg-orange-50 rounded-lg dark:bg-orange-900/20 dark:text-orange-400">
             <AlertTriangle className="w-12 h-12 mx-auto mb-2" />
             <p className="font-medium">Section Not Assigned</p>
             <p className="text-sm mt-1">Your program manager will assign you to a section soon</p>
           </div>
         ) : studentData.studentType === 'irregular' && (!studentData.subjectCodes || studentData.subjectCodes.length === 0) ? (
-          <div className="text-center py-8 text-orange-600 bg-orange-50 rounded-lg">
+          <div className="text-center py-8 text-orange-600 bg-orange-50 rounded-lg dark:bg-orange-900/20 dark:text-orange-400">
             <AlertTriangle className="w-12 h-12 mx-auto mb-2" />
             <p className="font-medium">No Subjects Enrolled</p>
             <p className="text-sm mt-1">Your program manager will assign your subjects soon</p>
@@ -1098,11 +1098,11 @@ const StudentDashboard = ({ user, loading: parentLoading }) => {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">Academic Year</p>
-                <p className="font-medium text-gray-900 dark:text-gray-100">{studentData.academicYear}</p>
+                <p className="font-medium text-black dark:text-white">{studentData.academicYear}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">Semester</p>
-                <p className="font-medium text-gray-900 dark:text-gray-100">
+                <p className="font-medium text-black dark:text-white">
                   {studentData.semester === 1 ? '1st Semester' : '2nd Semester'}
                 </p>
               </div>
@@ -1115,7 +1115,7 @@ const StudentDashboard = ({ user, loading: parentLoading }) => {
                   {studentData.subjectCodes.map((code, index) => (
                     <span
                       key={index}
-                      className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium dark:bg-blue-900 dark:text-blue-300"
+                      className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium dark:bg-blue-500/20 dark:text-blue-300"
                     >
                       {code}
                     </span>
@@ -1128,7 +1128,7 @@ const StudentDashboard = ({ user, loading: parentLoading }) => {
               <p className="text-sm text-gray-600 dark:text-gray-400">Enrollment Status</p>
               <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium mt-1 ${
                 studentData.enrollmentStatus === 'enrolled' 
-                  ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+                  ? 'bg-yellow-100 text-blue-700 dark:bg-yellow-500/20 dark:text-yellow-300'
                   : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
               }`}>
                 <CheckCircle className="w-4 h-4" />
@@ -1143,9 +1143,9 @@ const StudentDashboard = ({ user, loading: parentLoading }) => {
       <MyClassesEnrollment />
 
       {/* My Classes */}
-      <div className="bg-gray-50 rounded-xl shadow-sm border border-gray-200 p-6 dark:bg-gray-800 dark:border-gray-700">
+      <div className="bg-white rounded-xl shadow-sm border border-blue-200 p-6 dark:bg-gray-800 dark:border-blue-700">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+          <h3 className="text-lg font-semibold text-black dark:text-white">
             My Classes
           </h3>
           <button
@@ -1157,8 +1157,8 @@ const StudentDashboard = ({ user, loading: parentLoading }) => {
         </div>
 
         {classes.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            <Calendar className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+            <Calendar className="w-12 h-12 mx-auto mb-2 text-gray-300 dark:text-gray-600" />
             <p>You have no classes yet</p>
             <p className="text-sm mt-1">
               {studentData?.studentType === 'irregular'
@@ -1167,7 +1167,7 @@ const StudentDashboard = ({ user, loading: parentLoading }) => {
             </p>
             <button
               onClick={() => window.location.href = '/classes'}
-              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+              className="mt-4 px-4 py-2 bg-yellow-400 text-blue-900 rounded-lg hover:bg-yellow-500 transition-colors text-sm font-medium"
             >
               {studentData?.studentType === 'irregular' ? 'Join a Subject' : 'Join My Section'}
             </button>

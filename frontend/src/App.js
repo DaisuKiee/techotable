@@ -4,6 +4,7 @@ import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { PageStateProvider } from './context/PageStateContext';
+import { CacheProvider } from './context/CacheContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import './i18n'; // Initialize i18n
 
@@ -38,7 +39,8 @@ function App() {
   return (
     <AuthProvider>
       <ThemeProvider>
-        <PageStateProvider>
+        <CacheProvider>
+          <PageStateProvider>
           <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <div className="min-h-screen bg-gray-50">
             <Toaster 
@@ -191,6 +193,7 @@ function App() {
         </div>
       </Router>
       </PageStateProvider>
+        </CacheProvider>
       </ThemeProvider>
     </AuthProvider>
   );

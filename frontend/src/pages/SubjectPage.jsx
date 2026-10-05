@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { subjectAPI } from '../services/api';
 import toast from 'react-hot-toast';
+import useCachedData from '../hooks/useCachedData';
+import { useCache } from '../context/CacheContext';
 import { 
   Plus, Search, Edit2, Trash2, BookOpen, 
   X, GraduationCap, Clock, FileText, Grid3x3, List,
@@ -20,8 +22,22 @@ const SUBJECT_TYPES = ['Lecture', 'Laboratory', 'Both'];
 const SubjectPage = () => {
   const { user } = useAuth();
   const { programCodes: PROGRAMS } = usePrograms();
-  const [subjects, setSubjects] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { invalidateCache } = useCache();
+  
+  // Use cached data for subjects
+  const { 
+    data: subjects, 
+    loading, 
+    refetch: reloadSubjects 
+  } = useCachedData(
+    () => subjectAPI.getAll({ isActive: true }),
+    'subjects-list',
+    { 
+      cacheDuration: 5 * 60 * 1000, // 5 minutes
+      onError: () => toast.error('Failed to load subjects')
+    }
+  );
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState({
     program: '',
@@ -56,10 +72,6 @@ const SubjectPage = () => {
     }
   }, [user]);
 
-  useEffect(() => {
-    loadSubjects();
-  }, []);
-
   // PROGRAMS arrives asynchronously, so recompute once it loads
   useEffect(() => {
     calculateStats();
@@ -77,21 +89,9 @@ const SubjectPage = () => {
   //   };
   // }, [showModal, showExcelImportModal]);
 
-  const loadSubjects = async () => {
-    try {
-      setLoading(true);
-      // Only load active subjects (excluding soft-deleted ones)
-      const response = await subjectAPI.getAll({ isActive: true });
-      setSubjects(response.data.data || []);
-    } catch (error) {
-      console.error('Load subjects error:', error);
-      toast.error('Failed to load subjects');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const calculateStats = () => {
+    if (!subjects) return;
+    
     const byProgram = {};
     PROGRAMS.forEach(prog => {
       byProgram[prog] = subjects.filter(s => s.program === prog).length;
@@ -126,7 +126,11 @@ const SubjectPage = () => {
         try {
           await subjectAPI.delete(subject._id);
           toast.success('Subject deleted successfully');
-          loadSubjects();
+          
+          // Invalidate cache and refetch
+          invalidateCache('subjects-list');
+          reloadSubjects();
+          
           setConfirmDialog({ ...confirmDialog, isOpen: false });
         } catch (error) {
           console.error('Delete error:', error);
@@ -165,13 +169,17 @@ const SubjectPage = () => {
     setShowModal(false);
     setSelectedSubject(null);
     if (shouldRefresh) {
-      loadSubjects();
+      // Invalidate cache and refetch
+      invalidateCache('subjects-list');
+      reloadSubjects();
     }
   };
 
   const handleExcelImportComplete = () => {
     setShowExcelImportModal(false);
-    loadSubjects();
+    // Invalidate cache and refetch
+    invalidateCache('subjects-list');
+    reloadSubjects();
   };
 
   const clearFilters = () => {
@@ -185,7 +193,7 @@ const SubjectPage = () => {
   };
 
   // Filter subjects
-  const filteredSubjects = subjects.filter((subject) => {
+  const filteredSubjects = (subjects || []).filter((subject) => {
     const matchesSearch = 
       subject.subjectCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       subject.subjectName?.toLowerCase().includes(searchTerm.toLowerCase()) ||

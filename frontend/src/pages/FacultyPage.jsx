@@ -82,7 +82,8 @@ const FacultyPage = () => {
   const { 
     data: faculty, 
     loading, 
-    refetch: reloadFaculty 
+    refetch: reloadFaculty,
+    error 
   } = useCachedData(
     () => {
       const params = { isActive: true };
@@ -93,9 +94,17 @@ const FacultyPage = () => {
     { 
       cacheDuration: 5 * 60 * 1000, // 5 minutes
       dependencies: [filterProgram], // Re-fetch when filter changes
-      onError: () => toast.error('Failed to load faculty')
+      onError: (err) => {
+        console.error('Faculty fetch error:', err);
+        toast.error('Failed to load faculty');
+      }
     }
   );
+
+  // Debug logging
+  useEffect(() => {
+    console.log('FacultyPage state:', { faculty, loading, error });
+  }, [faculty, loading, error]);
   
   // Confirm dialog state
   const [confirmDialog, setConfirmDialog] = useState({

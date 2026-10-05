@@ -172,28 +172,31 @@ const DashboardPage = () => {
     });
   };
 
-  const ModernStatCard = ({ icon: Icon, label, value, sublabel, iconColor, iconBg }) => (
-    <div className="bg-gray-50 rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow dark:bg-gray-800 dark:border-gray-700">
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <p className="text-sm font-medium text-gray-600 mb-1 dark:text-gray-400">{label}</p>
-          <div className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-            {loading ? (
-              <div className="animate-pulse h-9 w-20 bg-gray-200 rounded dark:bg-gray-700"></div>
-            ) : (
-              value
-            )}
-          </div>
-          {sublabel && (
-            <p className="text-xs text-gray-500 mt-2 dark:text-gray-400">{sublabel}</p>
-          )}
-        </div>
-        <div className={`p-3 rounded-xl ${iconBg}`}>
-          <Icon className={`w-6 h-6 ${iconColor}`} />
-        </div>
-      </div>
+const ModernStatCard = ({ icon: Icon, label, value, sublabel }) => (
+  <div className="rounded-2xl border border-blue-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md dark:border-blue-700 dark:bg-gray-800">
+    <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-xl bg-white dark:bg-gray-700">
+      <Icon className="h-6 w-6 text-black dark:text-white" />
     </div>
-  );
+ 
+    <div className="text-4xl font-extrabold text-black dark:text-white">
+      {loading ? (
+        <div className="h-10 w-20 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
+      ) : (
+        value
+      )}
+    </div>
+ 
+    <p className="mt-2 text-xs font-semibold uppercase tracking-wider text-black dark:text-gray-300">
+      {label}
+    </p>
+ 
+    {sublabel && (
+      <span className="mt-4 inline-block rounded-full bg-yellow-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-blue-700 dark:bg-yellow-500/20 dark:text-yellow-300">
+        {sublabel}
+      </span>
+    )}
+  </div>
+);
 
   return (
     <Layout>
@@ -213,54 +216,67 @@ const DashboardPage = () => {
         pageReady ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
       }`}>
       {/* Header Section */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2 dark:text-gray-100">
-              Good day, {user?.role === 'admin' ? 'System Administrator' : user?.firstName}
-            </h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Real-time overview • CTU Daanbantayan Campus • {formatDate()}
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
+     <div className="mb-6 rounded-3xl bg-blue-900 px-8 py-7 text-white shadow-xl ring-1 ring-white/5">
+  <div className="flex flex-wrap items-center justify-between gap-4">
+    <div className="min-w-0">
+      <span className="inline-flex items-center gap-2 rounded-full border border-yellow-400/50 bg-yellow-400/20 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-yellow-100">
+        <GraduationCap size={14} />
+        CTU Daanbantayan Campus
+      </span>
+      <h1 className="mt-3 text-3xl font-bold">
+        Good day, {user?.role === 'admin' ? 'System Administrator' : user?.firstName}
+      </h1>
+      <p className="mt-2 text-sm text-blue-200">
+        Real-time overview • {formatDate()}
+      </p>
+    </div>
+ 
+    <div className="flex items-center gap-3">
             {/* Refresh and the period toggle only drive the staff stats */}
             {canSeeStats && (
-              <>
-                <button
-                  onClick={loadDashboardStats}
-                  disabled={loading}
-                  className="flex items-center gap-2 px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"
-                >
-                  <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
-                  Refresh
-                </button>
-                <button
-                  onClick={() => setSelectedPeriod(selectedPeriod === 'month' ? 'quarter' : 'month')}
-                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                    selectedPeriod === 'month'
-                      ? 'bg-yellow-400 text-gray-900'
-                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700'
-                  }`}
-                >
-                  This Month
-                </button>
-                <button
-                  onClick={() => setSelectedPeriod(selectedPeriod === 'quarter' ? 'month' : 'quarter')}
-                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                    selectedPeriod === 'quarter'
-                      ? 'bg-yellow-400 text-gray-900'
-                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700'
-                  }`}
-                >
-                  This Quarter
-                </button>
-              </>
-            )}
+        <>
+          <button
+            onClick={() => setSelectedPeriod(selectedPeriod === 'month' ? 'quarter' : 'month')}
+            className={`rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${
+              selectedPeriod === 'month'
+                ? 'bg-yellow-400 text-blue-900 shadow-lg shadow-yellow-400/30'
+                : 'border border-white/10 bg-white/5 text-blue-100 hover:bg-white/10'
+            }`}
+          >
+            This Month
+          </button>
+          <button
+            onClick={() => setSelectedPeriod(selectedPeriod === 'quarter' ? 'month' : 'quarter')}
+            className={`rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${
+              selectedPeriod === 'quarter'
+                ? 'bg-yellow-400 text-blue-900 shadow-lg shadow-yellow-400/30'
+                : 'border border-white/10 bg-white/5 text-blue-100 hover:bg-white/10'
+            }`}
+          >
+            This Quarter
+          </button>
+ 
+          {/* Live clock (uses your existing currentTime / formatTime) + Refresh */}
+          <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 py-1.5 pl-4 pr-1.5">
+            <span className="flex items-center gap-2 text-xs">
+              <span className="h-2 w-2 rounded-full bg-yellow-400" />
+              <span className="font-bold text-yellow-400">LIVE</span>
+              <span className="text-blue-200">{formatTime()}</span>
+            </span>
+            <button
+              onClick={loadDashboardStats}
+              disabled={loading}
+              className="inline-flex items-center gap-2 rounded-lg bg-yellow-400/30 px-3 py-2 text-sm font-semibold transition-colors hover:bg-yellow-400/50 disabled:opacity-50"
+            >
+              <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+              Refresh
+            </button>
           </div>
-        </div>
-
-      </div>
+        </>
+      )}
+    </div>
+  </div>
+</div>
 
       {/* Schedule Conflict Warning Banner */}
       {(user?.role === 'admin' || user?.role === 'scheduling_officer') && conflicts?.hasConflicts && (
@@ -489,48 +505,48 @@ const DashboardPage = () => {
 
           {/* Additional Stats Row */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-gray-50 rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="bg-white rounded-xl shadow-sm border border-blue-200 p-6 dark:bg-gray-800 dark:border-blue-700">
               <div className="flex items-center gap-3 mb-3">
-                <div className="p-2 bg-indigo-100 rounded-lg">
-                  <TrendingUp className="w-5 h-5 text-indigo-600" />
+                <div className="p-2 bg-white rounded-lg dark:bg-gray-700">
+                  <TrendingUp className="w-5 h-5 text-black dark:text-white" />
                 </div>
-                <h3 className="font-semibold text-gray-900">Enrollment Trend</h3>
+                <h3 className="font-semibold text-black dark:text-white">Enrollment Trend</h3>
               </div>
-              <p className="text-3xl font-bold text-gray-900 mb-1">{stats.programStudents}</p>
-              <p className="text-sm text-gray-600">Total students enrolled</p>
+              <p className="text-3xl font-bold text-black mb-1 dark:text-white">{stats.programStudents}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Total students enrolled</p>
               <div className="mt-4 flex items-center gap-2 text-xs">
-                <span className="px-2 py-1 bg-green-100 text-green-700 rounded">Active</span>
-                <span className="text-gray-500">Current semester</span>
+                <span className="px-2 py-1 bg-yellow-100 text-blue-700 rounded dark:bg-yellow-500/20 dark:text-yellow-300">Active</span>
+                <span className="text-gray-500 dark:text-gray-400">Current semester</span>
               </div>
             </div>
 
-            <div className="bg-gray-50 rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="bg-white rounded-xl shadow-sm border border-blue-200 p-6 dark:bg-gray-800 dark:border-blue-700">
               <div className="flex items-center gap-3 mb-3">
-                <div className="p-2 bg-teal-100 rounded-lg">
-                  <BookOpen className="w-5 h-5 text-teal-600" />
+                <div className="p-2 bg-white rounded-lg dark:bg-gray-700">
+                  <BookOpen className="w-5 h-5 text-black dark:text-white" />
                 </div>
-                <h3 className="font-semibold text-gray-900">Curriculum Load</h3>
+                <h3 className="font-semibold text-black dark:text-white">Curriculum Load</h3>
               </div>
-              <p className="text-3xl font-bold text-gray-900 mb-1">{stats.programSubjects}</p>
-              <p className="text-sm text-gray-600">Subjects in curriculum</p>
+              <p className="text-3xl font-bold text-black mb-1 dark:text-white">{stats.programSubjects}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Subjects in curriculum</p>
               <div className="mt-4 flex items-center gap-2 text-xs">
-                <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded">Updated</span>
-                <span className="text-gray-500">Latest curriculum</span>
+                <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded dark:bg-blue-500/20 dark:text-blue-300">Updated</span>
+                <span className="text-gray-500 dark:text-gray-400">Latest curriculum</span>
               </div>
             </div>
 
-            <div className="bg-gray-50 rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="bg-white rounded-xl shadow-sm border border-blue-200 p-6 dark:bg-gray-800 dark:border-blue-700">
               <div className="flex items-center gap-3 mb-3">
-                <div className="p-2 bg-rose-100 rounded-lg">
-                  <Calendar className="w-5 h-5 text-rose-600" />
+                <div className="p-2 bg-white rounded-lg dark:bg-gray-700">
+                  <Calendar className="w-5 h-5 text-black dark:text-white" />
                 </div>
-                <h3 className="font-semibold text-gray-900">Schedule Status</h3>
+                <h3 className="font-semibold text-black dark:text-white">Schedule Status</h3>
               </div>
-              <p className="text-3xl font-bold text-gray-900 mb-1">{stats.publishedSchedules}</p>
-              <p className="text-sm text-gray-600">Published schedules</p>
+              <p className="text-3xl font-bold text-black mb-1 dark:text-white">{stats.publishedSchedules}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Published schedules</p>
               <div className="mt-4 flex items-center gap-2 text-xs">
-                <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded">Live</span>
-                <span className="text-gray-500">of {stats.programSchedules} total</span>
+                <span className="px-2 py-1 bg-yellow-100 text-blue-700 rounded dark:bg-yellow-500/20 dark:text-yellow-300">Live</span>
+                <span className="text-gray-500 dark:text-gray-400">of {stats.programSchedules} total</span>
               </div>
             </div>
           </div>
@@ -651,7 +667,7 @@ const FacultyDashboard = ({ user, loading: parentLoading }) => {
   return (
     <div className="space-y-6">
       {/* Welcome Card */}
-      <div className="bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-700 rounded-xl shadow-xl p-6 text-white">
+      <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-blue-800 rounded-xl shadow-xl p-6 text-white">
         <div className="flex items-start gap-5 mb-4">
           {/* Profile Picture */}
           <div className="flex-shrink-0">
@@ -660,22 +676,22 @@ const FacultyDashboard = ({ user, loading: parentLoading }) => {
                 <img
                   src={`${process.env.REACT_APP_API_URL?.replace('/api', '')}${user.profilePicture}`}
                   alt={`${user.firstName} ${user.lastName}`}
-                  className="w-20 h-20 rounded-full object-cover ring-4 ring-white/30 shadow-xl"
+                  className="w-20 h-20 rounded-full object-cover ring-4 ring-yellow-400/50 shadow-xl"
                   onError={(e) => {
                     e.target.style.display = 'none';
                     e.target.nextElementSibling.style.display = 'flex';
                   }}
                 />
                 <div 
-                  className="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center ring-4 ring-white/30 shadow-xl"
+                  className="w-20 h-20 bg-yellow-400/20 backdrop-blur-sm rounded-full flex items-center justify-center ring-4 ring-yellow-400/50 shadow-xl"
                   style={{ display: 'none' }}
                 >
-                  <Users className="w-10 h-10" />
+                  <Users className="w-10 h-10 text-yellow-400" />
                 </div>
               </>
             ) : (
-              <div className="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center ring-4 ring-white/30 shadow-xl">
-                <Users className="w-10 h-10" />
+              <div className="w-20 h-20 bg-yellow-400/20 backdrop-blur-sm rounded-full flex items-center justify-center ring-4 ring-yellow-400/50 shadow-xl">
+                <Users className="w-10 h-10 text-yellow-400" />
               </div>
             )}
           </div>
@@ -683,18 +699,18 @@ const FacultyDashboard = ({ user, loading: parentLoading }) => {
           {/* Profile Info */}
           <div className="flex-1 min-w-0">
             <h2 className="text-2xl font-bold mb-1">Welcome back, {user?.firstName}!</h2>
-            <p className="text-indigo-100 text-sm font-medium mb-2">
+            <p className="text-blue-100 text-sm font-medium mb-2">
               Faculty ID: {facultyData?.employeeId || 'Loading...'}
             </p>
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-xs font-semibold">
+              <span className="px-3 py-1 bg-yellow-400/20 backdrop-blur-sm rounded-full text-xs font-semibold text-yellow-100">
                 {facultyData?.position || 'Faculty'}
               </span>
               {facultyData?.employmentType && (
                 <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
                   facultyData.employmentType === 'Regular'
-                    ? 'bg-green-500 text-white'
-                    : 'bg-purple-500 text-white'
+                    ? 'bg-yellow-400 text-blue-900'
+                    : 'bg-white/20 text-white'
                 }`}>
                   {facultyData.employmentType}
                 </span>

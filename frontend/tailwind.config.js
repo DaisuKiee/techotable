@@ -17,9 +17,21 @@ module.exports = {
         cote: {
           blue: '#0369a1',
           orange: '#f97316',
+        },
+        // Custom dark mode colors with blue tint
+        dark: {
+          bg: '#0f1729', // Dark blue-tinted background
+          card: '#1a2332', // Dark blue-tinted card
+          hover: '#232d3f', // Dark blue-tinted hover
         }
+      },
+      backgroundColor: {
+        // Override default dark mode backgrounds
+        'dark-main': '#0f1729',
+        'dark-card': '#1a2332',
       }
     },
   },
   plugins: [],
 }
+

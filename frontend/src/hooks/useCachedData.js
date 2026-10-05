@@ -30,6 +30,7 @@ const useCachedData = (fetchFunction, cacheKey, options = {}) => {
   
   const isMountedRef = useRef(true);
   const fetchInProgressRef = useRef(false);
+  const timeoutRef = useRef(null);
 
   // Get cache storage key
   const getCacheKey = useCallback(() => {
@@ -79,8 +80,12 @@ const useCachedData = (fetchFunction, cacheKey, options = {}) => {
 
   // Fetch fresh data
   const fetchData = useCallback(async (showLoadingSpinner = true) => {
-    if (fetchInProgressRef.current) return;
+    if (fetchInProgressRef.current) {
+      console.log('Fetch already in progress, skipping');
+      return;
+    }
     
+    console.log(`[useCachedData] Starting fetch for key: ${cacheKey}, showLoading: ${showLoadingSpinner}`);
     fetchInProgressRef.current = true;
     
     if (showLoadingSpinner) {
@@ -88,11 +93,29 @@ const useCachedData = (fetchFunction, cacheKey, options = {}) => {
     }
     setError(null);
 
+    // Safety timeout: if fetch takes more than 30 seconds, stop loading
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    timeoutRef.current = setTimeout(() => {
+      console.error(`[useCachedData] Fetch timeout for ${cacheKey}`);
+      if (isMountedRef.current) {
+        setLoading(false);
+        setError(new Error('Request timeout'));
+        if (onError) {
+          onError(new Error('Request timeout'));
+        }
+      }
+      fetchInProgressRef.current = false;
+    }, 30000);
+
     try {
       const response = await fetchFunction();
+      console.log(`[useCachedData] Fetch response for ${cacheKey}:`, response);
       const newData = response.data?.data || response.data || response;
 
       if (isMountedRef.current) {
+        console.log(`[useCachedData] Setting data for ${cacheKey}:`, newData);
         setData(newData);
         setIsFromCache(false);
         saveToCache(newData);
@@ -102,41 +125,53 @@ const useCachedData = (fetchFunction, cacheKey, options = {}) => {
         }
       }
     } catch (err) {
+      console.error(`[useCachedData] Fetch error for ${cacheKey}:`, err);
       if (isMountedRef.current) {
         setError(err);
         if (onError) {
           onError(err);
         }
       }
-      console.error('Fetch error:', err);
     } finally {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
       if (isMountedRef.current) {
+        console.log(`[useCachedData] Setting loading to false for ${cacheKey}`);
         setLoading(false);
       }
       fetchInProgressRef.current = false;
     }
-  }, [fetchFunction, saveToCache, onSuccess, onError]);
+  }, [fetchFunction, saveToCache, onSuccess, onError, cacheKey]);
 
   // Smart load: cache first, then background refresh
   const smartLoad = useCallback(async () => {
-    if (!enabled) return;
+    if (!enabled) {
+      console.log(`[useCachedData] Disabled for ${cacheKey}`);
+      return;
+    }
+
+    console.log(`[useCachedData] Starting smartLoad for ${cacheKey}`);
 
     // Try to load from cache first
     const cachedData = loadFromCache();
 
     if (cachedData) {
+      console.log(`[useCachedData] Found cached data for ${cacheKey}`);
       // Show cached data immediately (no loading spinner)
       setLoading(false);
       
       // Then fetch fresh data in background (silent refresh)
       setTimeout(() => {
+        console.log(`[useCachedData] Starting background refresh for ${cacheKey}`);
         fetchData(false); // false = no loading spinner
       }, 100);
     } else {
+      console.log(`[useCachedData] No cache found for ${cacheKey}, fetching with spinner`);
       // No cache, show loading spinner and fetch
       fetchData(true);
     }
-  }, [enabled, loadFromCache, fetchData]);
+  }, [enabled, loadFromCache, fetchData, cacheKey]);
 
   // Manual refetch (always shows loading)
   const refetch = useCallback(() => {
@@ -156,6 +191,9 @@ const useCachedData = (fetchFunction, cacheKey, options = {}) => {
 
     return () => {
       isMountedRef.current = false;
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
     };
   }, [cacheKey, ...dependencies]); // eslint-disable-line react-hooks/exhaustive-deps
 

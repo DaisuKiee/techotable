@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { facultyAPI } from '../services/api';
 import toast from 'react-hot-toast';
-import useCachedData from '../hooks/useCachedData';
-import { useCache } from '../context/CacheContext';
 import { 
   Plus, Search, Edit2, Trash2, Eye, X,
   User, Mail, Phone, BookOpen, Award, FileText,
@@ -67,8 +65,9 @@ const getAverageRating = (f) => {
 const FacultyPage = () => {
   const { user } = useAuth();
   const { programCodes } = usePrograms();
-  const { invalidateCache } = useCache();
   
+  const [faculty, setFaculty] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterProgram, setFilterProgram] = useState('');
   const [filterSpecialization, setFilterSpecialization] = useState('');
@@ -78,25 +77,6 @@ const FacultyPage = () => {
   const [selectedFaculty, setSelectedFaculty] = useState(null);
   const [modalMode, setModalMode] = useState('create'); // 'create' or 'edit'
   
-  // Use cached data for faculty with program filter as dependency
-  const { 
-    data: faculty, 
-    loading, 
-    refetch: reloadFaculty 
-  } = useCachedData(
-    () => {
-      const params = { isActive: true };
-      if (filterProgram) params.program = filterProgram;
-      return facultyAPI.getAll(params);
-    },
-    `faculty-list-${filterProgram || 'all'}`, // Different cache key per program filter
-    { 
-      cacheDuration: 5 * 60 * 1000, // 5 minutes
-      dependencies: [filterProgram], // Re-fetch when filter changes
-      onError: () => toast.error('Failed to load faculty')
-    }
-  );
-  
   // Confirm dialog state
   const [confirmDialog, setConfirmDialog] = useState({
     isOpen: false,
@@ -105,6 +85,29 @@ const FacultyPage = () => {
     itemName: '',
     onConfirm: null
   });
+
+  // Load faculty data
+  const loadFaculty = async () => {
+    try {
+      setLoading(true);
+      const params = { isActive: true };
+      if (filterProgram) params.program = filterProgram;
+      
+      const response = await facultyAPI.getAll(params);
+      setFaculty(response.data?.data || response.data || []);
+    } catch (error) {
+      console.error('Error loading faculty:', error);
+      toast.error('Failed to load faculty');
+      setFaculty([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Initial load and reload when filter changes
+  useEffect(() => {
+    loadFaculty();
+  }, [filterProgram]);
 
   // Program managers are locked to their own program
   useEffect(() => {
@@ -141,10 +144,8 @@ const FacultyPage = () => {
           await facultyAPI.delete(facultyMember._id);
           toast.success('Faculty member deleted successfully');
           
-          // Invalidate all program caches since faculty can belong to multiple programs
-          invalidateCache(`faculty-list-${filterProgram || 'all'}`);
-          invalidateCache('faculty-list-all');
-          reloadFaculty();
+          // Reload faculty list
+          loadFaculty();
           
           setConfirmDialog({ ...confirmDialog, isOpen: false });
         } catch (error) {
@@ -167,9 +168,7 @@ const FacultyPage = () => {
     setSelectedFaculty(null);
     if (shouldRefresh) {
       // Invalidate all program caches
-      invalidateCache(`faculty-list-${filterProgram || 'all'}`);
-      invalidateCache('faculty-list-all');
-      reloadFaculty();
+      loadFaculty();
     }
   };
 
@@ -475,15 +474,15 @@ const FacultyPage = () => {
           <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600">
             <Users className="w-20 h-20 text-gray-400 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-              {faculty.length === 0 ? 'No faculty members yet' : 'No faculty found'}
+              {(faculty || []).length === 0 ? 'No faculty members yet' : 'No faculty found'}
             </h3>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
-              {faculty.length === 0 
+              {(faculty || []).length === 0 
                 ? 'Get started by adding your first faculty member'
                 : 'Try adjusting your search or filter criteria'
               }
             </p>
-            {faculty.length === 0 && (
+            {(faculty || []).length === 0 && (
               <button
                 onClick={handleCreate}
                 className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors inline-flex items-center gap-2"

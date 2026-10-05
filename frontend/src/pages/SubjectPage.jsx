@@ -2,8 +2,6 @@ import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { subjectAPI } from '../services/api';
 import toast from 'react-hot-toast';
-import useCachedData from '../hooks/useCachedData';
-import { useCache } from '../context/CacheContext';
 import { 
   Plus, Search, Edit2, Trash2, BookOpen, 
   X, GraduationCap, Clock, FileText, Grid3x3, List,
@@ -22,22 +20,9 @@ const SUBJECT_TYPES = ['Lecture', 'Laboratory', 'Both'];
 const SubjectPage = () => {
   const { user } = useAuth();
   const { programCodes: PROGRAMS } = usePrograms();
-  const { invalidateCache } = useCache();
   
-  // Use cached data for subjects
-  const { 
-    data: subjects, 
-    loading, 
-    refetch: reloadSubjects 
-  } = useCachedData(
-    () => subjectAPI.getAll({ isActive: true }),
-    'subjects-list',
-    { 
-      cacheDuration: 5 * 60 * 1000, // 5 minutes
-      onError: () => toast.error('Failed to load subjects')
-    }
-  );
-  
+  const [subjects, setSubjects] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState({
     program: '',
@@ -64,6 +49,26 @@ const SubjectPage = () => {
     itemName: '',
     onConfirm: null
   });
+
+  // Load subjects data
+  const loadSubjects = async () => {
+    try {
+      setLoading(true);
+      const response = await subjectAPI.getAll({ isActive: true });
+      setSubjects(response.data?.data || response.data || []);
+    } catch (error) {
+      console.error('Error loading subjects:', error);
+      toast.error('Failed to load subjects');
+      setSubjects([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Initial load
+  useEffect(() => {
+    loadSubjects();
+  }, []);
 
   // Auto-set program filter for program managers
   useEffect(() => {
@@ -131,9 +136,8 @@ const SubjectPage = () => {
           await subjectAPI.delete(subject._id);
           toast.success('Subject deleted successfully');
           
-          // Invalidate cache and refetch
-          invalidateCache('subjects-list');
-          reloadSubjects();
+          // Reload subjects list
+          loadSubjects();
           
           setConfirmDialog({ ...confirmDialog, isOpen: false });
         } catch (error) {
@@ -173,17 +177,15 @@ const SubjectPage = () => {
     setShowModal(false);
     setSelectedSubject(null);
     if (shouldRefresh) {
-      // Invalidate cache and refetch
-      invalidateCache('subjects-list');
-      reloadSubjects();
+      // Reload subjects list
+      loadSubjects();
     }
   };
 
   const handleExcelImportComplete = () => {
     setShowExcelImportModal(false);
-    // Invalidate cache and refetch
-    invalidateCache('subjects-list');
-    reloadSubjects();
+    // Reload subjects list
+    loadSubjects();
   };
 
   const clearFilters = () => {

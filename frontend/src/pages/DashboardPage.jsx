@@ -179,28 +179,30 @@ const ModernStatCard = ({ icon: Icon, label, value, sublabel }) => (
       }`}>
       {/* Header Section - Only for staff roles (admin, scheduling_officer, program_manager) */}
       {canSeeStats && (
-     <div className="mb-6 rounded-3xl bg-blue-900 px-8 py-7 text-white shadow-xl ring-1 ring-white/5">
-  <div className="flex flex-wrap items-center justify-between gap-4">
+     <div className="mb-6 rounded-3xl bg-blue-900 px-4 sm:px-8 py-5 sm:py-7 text-white shadow-xl ring-1 ring-white/5">
+  <div className="flex flex-col gap-4">
+    {/* Top Section - Title and Badge */}
     <div className="min-w-0">
       <span className="inline-flex items-center gap-2 rounded-full border border-yellow-400/50 bg-yellow-400/20 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-yellow-100">
         <GraduationCap size={14} />
         CTU Daanbantayan Campus
       </span>
-      <h1 className="mt-3 text-3xl font-bold">
+      <h1 className="mt-3 text-2xl sm:text-3xl font-bold">
         Good day, {user?.role === 'admin' ? 'System Administrator' : user?.firstName}
       </h1>
-      <p className="mt-2 text-sm text-blue-200">
+      <p className="mt-2 text-xs sm:text-sm text-blue-200">
         Real-time overview • {formatDate()}
       </p>
     </div>
  
-    <div className="flex items-center gap-3">
-            {/* Refresh and the period toggle only drive the staff stats */}
-            {canSeeStats && (
-        <>
+    {/* Bottom Section - Controls */}
+    {canSeeStats && (
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
+        {/* Period Toggle Buttons */}
+        <div className="flex gap-2 flex-1 sm:flex-initial">
           <button
             onClick={() => setSelectedPeriod(selectedPeriod === 'month' ? 'quarter' : 'month')}
-            className={`rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${
+            className={`flex-1 sm:flex-initial rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold transition-colors ${
               selectedPeriod === 'month'
                 ? 'bg-yellow-400 text-blue-900 shadow-lg shadow-yellow-400/30'
                 : 'border border-white/10 bg-white/5 text-blue-100 hover:bg-white/10'
@@ -210,7 +212,7 @@ const ModernStatCard = ({ icon: Icon, label, value, sublabel }) => (
           </button>
           <button
             onClick={() => setSelectedPeriod(selectedPeriod === 'quarter' ? 'month' : 'quarter')}
-            className={`rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${
+            className={`flex-1 sm:flex-initial rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold transition-colors ${
               selectedPeriod === 'quarter'
                 ? 'bg-yellow-400 text-blue-900 shadow-lg shadow-yellow-400/30'
                 : 'border border-white/10 bg-white/5 text-blue-100 hover:bg-white/10'
@@ -218,26 +220,26 @@ const ModernStatCard = ({ icon: Icon, label, value, sublabel }) => (
           >
             This Quarter
           </button>
- 
-          {/* Live clock (uses your existing currentTime / formatTime) + Refresh */}
-          <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 py-1.5 pl-4 pr-1.5">
-            <span className="flex items-center gap-2 text-xs">
-              <span className="h-2 w-2 rounded-full bg-yellow-400" />
-              <span className="font-bold text-yellow-400">LIVE</span>
-              <span className="text-blue-200">{formatTime()}</span>
-            </span>
-            <button
-              onClick={loadDashboardStats}
-              disabled={loading}
-              className="inline-flex items-center gap-2 rounded-lg bg-yellow-400/30 px-3 py-2 text-sm font-semibold transition-colors hover:bg-yellow-400/50 disabled:opacity-50"
-            >
-              <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-              Refresh
-            </button>
-          </div>
-        </>
-      )}
-    </div>
+        </div>
+
+        {/* Live Clock + Refresh Button */}
+        <div className="flex items-center gap-2 sm:gap-3 rounded-xl border border-white/10 bg-white/5 py-2 px-3">
+          <span className="flex items-center gap-2 text-xs flex-1">
+            <span className="h-2 w-2 rounded-full bg-yellow-400 flex-shrink-0" />
+            <span className="font-bold text-yellow-400">LIVE</span>
+            <span className="text-blue-200">{formatTime()}</span>
+          </span>
+          <button
+            onClick={loadDashboardStats}
+            disabled={loading}
+            className="inline-flex items-center gap-2 rounded-lg bg-yellow-400/30 px-3 py-2 text-xs sm:text-sm font-semibold transition-colors hover:bg-yellow-400/50 disabled:opacity-50 flex-shrink-0"
+          >
+            <RefreshCw size={16} className={loading ? 'animate-spin' : 'transition-transform hover:rotate-180 duration-300'} />
+            <span className="hidden sm:inline">Refresh</span>
+          </button>
+        </div>
+      </div>
+    )}
   </div>
 </div>
       )}
@@ -997,22 +999,22 @@ const StudentDashboard = ({ user, loading: parentLoading }) => {
   return (
     <div className="space-y-6">
       {/* Student Header - Simplified */}
-      <div className="mb-6 rounded-3xl bg-blue-900 px-8 py-7 text-white shadow-xl ring-1 ring-white/5">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0">
+      <div className="mb-6 rounded-3xl bg-blue-900 px-4 sm:px-8 py-5 sm:py-7 text-white shadow-xl ring-1 ring-white/5">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+          <div className="min-w-0 flex-1">
             <span className="inline-flex items-center gap-2 rounded-full border border-yellow-400/50 bg-yellow-400/20 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-yellow-100">
               <GraduationCap size={14} />
               CTU Daanbantayan Campus
             </span>
-            <h1 className="mt-3 text-3xl font-bold">
+            <h1 className="mt-3 text-2xl sm:text-3xl font-bold">
               Good day, {user?.firstName}
             </h1>
-            <p className="mt-2 text-sm text-blue-200">
+            <p className="mt-2 text-xs sm:text-sm text-blue-200">
               Real-time overview • {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
             </p>
           </div>
-          <div className="p-3 bg-yellow-400/20 backdrop-blur-sm rounded-lg">
-            <GraduationCap className="w-10 h-10 text-yellow-400" />
+          <div className="p-3 bg-yellow-400/20 backdrop-blur-sm rounded-lg self-start">
+            <GraduationCap className="w-8 h-8 sm:w-10 sm:h-10 text-yellow-400" />
           </div>
         </div>
       </div>
@@ -1039,70 +1041,70 @@ const StudentDashboard = ({ user, loading: parentLoading }) => {
       ) : (
         <>
           {/* Stat Cards Grid - Matching Program Manager Dashboard */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
             {/* Program Card */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-blue-200 dark:border-blue-700 shadow-sm">
-              <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-xl bg-white dark:bg-gray-700">
-                <BookOpen className="h-7 w-7 text-black dark:text-white" />
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 border border-blue-200 dark:border-blue-700 shadow-sm">
+              <div className="mb-3 sm:mb-5 flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-xl bg-white dark:bg-gray-700">
+                <BookOpen className="h-6 w-6 sm:h-7 sm:w-7 text-black dark:text-white" />
               </div>
-              <div className="text-3xl font-bold text-black dark:text-white mb-2">
+              <div className="text-2xl sm:text-3xl font-bold text-black dark:text-white mb-2 truncate">
                 {user?.program || studentData?.program || 'N/A'}
               </div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-400 mb-4">
+              <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-400 mb-3 sm:mb-4">
                 Program
               </p>
-              <span className="inline-block rounded-full bg-yellow-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-blue-700 dark:bg-yellow-500/20 dark:text-yellow-300">
+              <span className="inline-block rounded-full bg-yellow-100 px-2 sm:px-3 py-1 text-[10px] sm:text-[11px] font-semibold uppercase tracking-wide text-blue-700 dark:bg-yellow-500/20 dark:text-yellow-300">
                 {studentData?.studentType || 'Regular'}
               </span>
             </div>
 
             {/* Section/Subjects Card */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-blue-200 dark:border-blue-700 shadow-sm">
-              <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-xl bg-white dark:bg-gray-700">
-                <Users className="h-7 w-7 text-black dark:text-white" />
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 border border-blue-200 dark:border-blue-700 shadow-sm">
+              <div className="mb-3 sm:mb-5 flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-xl bg-white dark:bg-gray-700">
+                <Users className="h-6 w-6 sm:h-7 sm:w-7 text-black dark:text-white" />
               </div>
-              <div className="text-3xl font-bold text-black dark:text-white mb-2">
+              <div className="text-2xl sm:text-3xl font-bold text-black dark:text-white mb-2 truncate">
                 {studentData?.studentType === 'regular' 
                   ? (studentData?.sectionCode || 'N/A')
                   : (studentData?.subjectCodes?.length || 0)
                 }
               </div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-400 mb-4">
+              <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-400 mb-3 sm:mb-4">
                 {studentData?.studentType === 'regular' ? 'Section' : 'Enrolled Subjects'}
               </p>
-              <span className="inline-block rounded-full bg-yellow-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-blue-700 dark:bg-yellow-500/20 dark:text-yellow-300">
+              <span className="inline-block rounded-full bg-yellow-100 px-2 sm:px-3 py-1 text-[10px] sm:text-[11px] font-semibold uppercase tracking-wide text-blue-700 dark:bg-yellow-500/20 dark:text-yellow-300 truncate max-w-full">
                 {studentData?.studentType === 'regular' ? 'Regular Student' : `${studentData?.subjectCodes?.length || 0} Subjects`}
               </span>
             </div>
 
             {/* Academic Year Card */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-blue-200 dark:border-blue-700 shadow-sm">
-              <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-xl bg-white dark:bg-gray-700">
-                <Calendar className="h-7 w-7 text-black dark:text-white" />
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 border border-blue-200 dark:border-blue-700 shadow-sm">
+              <div className="mb-3 sm:mb-5 flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-xl bg-white dark:bg-gray-700">
+                <Calendar className="h-6 w-6 sm:h-7 sm:w-7 text-black dark:text-white" />
               </div>
-              <div className="text-3xl font-bold text-black dark:text-white mb-2">
+              <div className="text-2xl sm:text-3xl font-bold text-black dark:text-white mb-2">
                 {studentData.academicYear}
               </div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-400 mb-4">
+              <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-400 mb-3 sm:mb-4">
                 Academic Year
               </p>
-              <span className="inline-block rounded-full bg-yellow-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-blue-700 dark:bg-yellow-500/20 dark:text-yellow-300">
+              <span className="inline-block rounded-full bg-yellow-100 px-2 sm:px-3 py-1 text-[10px] sm:text-[11px] font-semibold uppercase tracking-wide text-blue-700 dark:bg-yellow-500/20 dark:text-yellow-300">
                 {studentData.semester === 1 ? '1st Semester' : '2nd Semester'}
               </span>
             </div>
 
             {/* Enrollment Status Card */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-blue-200 dark:border-blue-700 shadow-sm">
-              <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-xl bg-white dark:bg-gray-700">
-                <CheckCircle className="h-7 w-7 text-black dark:text-white" />
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 border border-blue-200 dark:border-blue-700 shadow-sm">
+              <div className="mb-3 sm:mb-5 flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-xl bg-white dark:bg-gray-700">
+                <CheckCircle className="h-6 w-6 sm:h-7 sm:w-7 text-black dark:text-white" />
               </div>
-              <div className="text-3xl font-bold text-black dark:text-white mb-2 capitalize">
+              <div className="text-2xl sm:text-3xl font-bold text-black dark:text-white mb-2 capitalize truncate">
                 {studentData.enrollmentStatus || 'N/A'}
               </div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-400 mb-4">
+              <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-400 mb-3 sm:mb-4">
                 Enrollment Status
               </p>
-              <span className={`inline-block rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${
+              <span className={`inline-block rounded-full px-2 sm:px-3 py-1 text-[10px] sm:text-[11px] font-semibold uppercase tracking-wide ${
                 studentData.enrollmentStatus === 'enrolled'
                   ? 'bg-yellow-100 text-blue-700 dark:bg-yellow-500/20 dark:text-yellow-300'
                   : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
@@ -1114,15 +1116,15 @@ const StudentDashboard = ({ user, loading: parentLoading }) => {
 
           {/* Enrolled Subjects - For Irregular Students */}
           {studentData.studentType === 'irregular' && studentData.subjectCodes?.length > 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-blue-200 dark:border-blue-700 shadow-sm">
-              <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-400 mb-4">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 border border-blue-200 dark:border-blue-700 shadow-sm">
+              <h3 className="text-xs sm:text-sm font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-400 mb-3 sm:mb-4">
                 Enrolled Subjects
               </h3>
               <div className="flex flex-wrap gap-2">
                 {studentData.subjectCodes.map((code, index) => (
                   <span
                     key={index}
-                    className="px-3 py-1.5 bg-yellow-100 text-blue-700 dark:bg-yellow-500/20 dark:text-yellow-300 rounded-full text-sm font-medium border border-yellow-200 dark:border-yellow-800"
+                    className="px-2 sm:px-3 py-1 sm:py-1.5 bg-yellow-100 text-blue-700 dark:bg-yellow-500/20 dark:text-yellow-300 rounded-full text-xs sm:text-sm font-medium border border-yellow-200 dark:border-yellow-800"
                   >
                     {code}
                   </span>
@@ -1135,23 +1137,23 @@ const StudentDashboard = ({ user, loading: parentLoading }) => {
 
       {/* Today's Schedule */}
       <div className="bg-white rounded-xl shadow-sm border border-blue-200 p-6 dark:bg-gray-800 dark:border-blue-700">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-white rounded-lg dark:bg-gray-700">
-              <Calendar className="w-6 h-6 text-black dark:text-white" />
+            <div className="p-2 bg-white rounded-lg dark:bg-gray-700 flex-shrink-0">
+              <Calendar className="w-5 h-5 sm:w-6 sm:h-6 text-black dark:text-white" />
             </div>
-            <div>
-              <h3 className="text-xl font-semibold text-black dark:text-white">
+            <div className="min-w-0">
+              <h3 className="text-lg sm:text-xl font-semibold text-black dark:text-white">
                 Today's Schedule
               </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                 {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
               </p>
             </div>
           </div>
           <button
             onClick={() => window.location.href = '/classes'}
-            className="px-4 py-2 text-blue-700 border-2 border-blue-700 rounded-lg hover:bg-blue-50 transition-colors text-sm font-semibold dark:text-blue-400 dark:border-blue-400 dark:hover:bg-blue-900/20"
+            className="px-4 py-2 text-sm sm:text-base text-blue-700 border-2 border-blue-700 rounded-lg hover:bg-blue-50 transition-colors font-semibold dark:text-blue-400 dark:border-blue-400 dark:hover:bg-blue-900/20 w-full sm:w-auto"
           >
             View All Classes
           </button>
@@ -1236,38 +1238,38 @@ const StudentDashboard = ({ user, loading: parentLoading }) => {
                     className="bg-white border-2 border-blue-200 rounded-xl p-5 hover:border-yellow-400 hover:shadow-lg transition-all dark:bg-gray-700 dark:border-blue-700 dark:hover:border-yellow-500"
                   >
                     {/* Subject Header */}
-                    <div className="flex items-start gap-4 mb-4">
-                      <div className="p-3 bg-white rounded-xl dark:bg-gray-700 flex-shrink-0">
-                        <BookOpen className="w-6 h-6 text-black dark:text-white" />
+                    <div className="flex items-start gap-3 sm:gap-4 mb-4">
+                      <div className="p-2 sm:p-3 bg-white rounded-xl dark:bg-gray-700 flex-shrink-0">
+                        <BookOpen className="w-5 h-5 sm:w-6 sm:h-6 text-black dark:text-white" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-bold text-xl text-blue-900 dark:text-white">
+                        <h4 className="font-bold text-lg sm:text-xl text-blue-900 dark:text-white">
                           {cs.subject?.subjectCode || cs.sectionCode}
                         </h4>
                         {cs.subject?.subjectName && (
-                          <p className="text-gray-700 dark:text-gray-300 mt-1">
+                          <p className="text-sm sm:text-base text-gray-700 dark:text-gray-300 mt-1">
                             {cs.subject.subjectName}
                           </p>
                         )}
                         {teacher && (
-                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 flex items-center gap-2">
-                            <Users className="w-4 h-4" />
-                            <span className="font-medium">{teacher}</span>
+                          <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1 flex items-center gap-2">
+                            <Users className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                            <span className="font-medium truncate">{teacher}</span>
                           </p>
                         )}
                       </div>
                     </div>
 
                     {/* Schedule Details Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg dark:bg-gray-800">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 p-3 sm:p-4 bg-gray-50 rounded-lg dark:bg-gray-800">
                       {/* Time */}
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-white rounded-lg dark:bg-gray-700">
-                          <Clock className="w-5 h-5 text-black dark:text-white" />
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        <div className="p-1.5 sm:p-2 bg-white rounded-lg dark:bg-gray-700 flex-shrink-0">
+                          <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-black dark:text-white" />
                         </div>
-                        <div>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 font-semibold uppercase">Time</p>
-                          <p className="font-bold text-gray-900 dark:text-white">
+                        <div className="min-w-0">
+                          <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 font-semibold uppercase">Time</p>
+                          <p className="font-bold text-sm sm:text-base text-gray-900 dark:text-white truncate">
                             {cs.todaySlots.map(slot => 
                               `${formatTime(slot.startTime)} - ${formatTime(slot.endTime)}`
                             ).join(', ')}
@@ -1276,26 +1278,26 @@ const StudentDashboard = ({ user, loading: parentLoading }) => {
                       </div>
 
                       {/* Room */}
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-white rounded-lg dark:bg-gray-700">
-                          <DoorOpen className="w-5 h-5 text-black dark:text-white" />
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        <div className="p-1.5 sm:p-2 bg-white rounded-lg dark:bg-gray-700 flex-shrink-0">
+                          <DoorOpen className="w-4 h-4 sm:w-5 sm:h-5 text-black dark:text-white" />
                         </div>
-                        <div>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 font-semibold uppercase">Room</p>
-                          <p className="font-bold text-gray-900 dark:text-white">
+                        <div className="min-w-0">
+                          <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 font-semibold uppercase">Room</p>
+                          <p className="font-bold text-sm sm:text-base text-gray-900 dark:text-white truncate">
                             {cs.schedule?.roomLabel || cs.schedule?.room || 'TBA'}
                           </p>
                         </div>
                       </div>
 
                       {/* Section */}
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-white rounded-lg dark:bg-gray-700">
-                          <Users className="w-5 h-5 text-black dark:text-white" />
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        <div className="p-1.5 sm:p-2 bg-white rounded-lg dark:bg-gray-700 flex-shrink-0">
+                          <Users className="w-4 h-4 sm:w-5 sm:h-5 text-black dark:text-white" />
                         </div>
-                        <div>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 font-semibold uppercase">Section</p>
-                          <p className="font-bold text-gray-900 dark:text-white">
+                        <div className="min-w-0">
+                          <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 font-semibold uppercase">Section</p>
+                          <p className="font-bold text-sm sm:text-base text-gray-900 dark:text-white truncate">
                             {cs.sectionCode || cs.schedule?.sectionCode || 'N/A'}
                           </p>
                         </div>
@@ -1303,14 +1305,14 @@ const StudentDashboard = ({ user, loading: parentLoading }) => {
                     </div>
 
                     {/* Additional Info */}
-                    <div className="flex items-center gap-3 mt-4">
-                      <span className="px-3 py-1.5 bg-yellow-100 text-blue-900 rounded-full text-xs font-bold dark:bg-yellow-900/30 dark:text-yellow-300">
+                    <div className="flex items-center flex-wrap gap-2 sm:gap-3 mt-4">
+                      <span className="px-2 sm:px-3 py-1 sm:py-1.5 bg-yellow-100 text-blue-900 rounded-full text-[10px] sm:text-xs font-bold dark:bg-yellow-900/30 dark:text-yellow-300">
                         {cs.subject?.units || 0} Units
                       </span>
-                      <span className="px-3 py-1.5 bg-blue-100 text-blue-900 rounded-full text-xs font-bold dark:bg-blue-900/30 dark:text-blue-300">
+                      <span className="px-2 sm:px-3 py-1 sm:py-1.5 bg-blue-100 text-blue-900 rounded-full text-[10px] sm:text-xs font-bold dark:bg-blue-900/30 dark:text-blue-300">
                         {cs.announcements?.length || 0} Announcements
                       </span>
-                      <span className="px-3 py-1.5 bg-green-100 text-green-900 rounded-full text-xs font-bold dark:bg-green-900/30 dark:text-green-300">
+                      <span className="px-2 sm:px-3 py-1 sm:py-1.5 bg-green-100 text-green-900 rounded-full text-[10px] sm:text-xs font-bold dark:bg-green-900/30 dark:text-green-300">
                         {cs.materials?.length || 0} Materials
                       </span>
                     </div>
@@ -1319,16 +1321,16 @@ const StudentDashboard = ({ user, loading: parentLoading }) => {
               })}
 
               {/* Summary Footer */}
-              <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 p-3 sm:p-4 bg-blue-50 rounded-lg dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
                 <div className="flex items-center gap-2">
-                  <CheckCircle className="w-5 h-5 text-blue-700 dark:text-blue-400" />
-                  <span className="font-semibold text-blue-900 dark:text-blue-300">
+                  <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-blue-700 dark:text-blue-400 flex-shrink-0" />
+                  <span className="text-sm sm:text-base font-semibold text-blue-900 dark:text-blue-300">
                     {todayClasses.length} {todayClasses.length === 1 ? 'class' : 'classes'} today
                   </span>
                 </div>
                 <button
                   onClick={() => window.location.href = '/classes'}
-                  className="px-4 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors text-sm font-bold shadow-md"
+                  className="px-4 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors text-xs sm:text-sm font-bold shadow-md w-full sm:w-auto"
                 >
                   View All Classes ({classes.length})
                 </button>

@@ -3,6 +3,12 @@ import { classSpaceAPI } from '../services/api';
 import toast from 'react-hot-toast';
 import { Calendar, Clock, MapPin, User, BookOpen, UserPlus, List, Grid3x3 } from 'lucide-react';
 
+// Import background images (same as ClassSpacePage)
+import bg1 from '../assets/images/class-spaces-bg/GOOGLE-BLUES.jpe';
+import bg2 from '../assets/images/class-spaces-bg/Google-Green.jpe';
+import bg3 from '../assets/images/class-spaces-bg/Google-Red.jpe';
+import bg4 from '../assets/images/class-spaces-bg/Google-Yellows.jpe';
+
 /**
  * A student's own timetable, built from the classes they are enrolled in.
  *
@@ -30,17 +36,20 @@ const fmt12 = (t) => {
   return `${h12}:${String(min).padStart(2, '0')} ${period}`;
 };
 
-const BLOCK_COLORS = [
-  'bg-blue-500', 'bg-emerald-500', 'bg-purple-500', 'bg-amber-500',
-  'bg-rose-500', 'bg-cyan-500', 'bg-indigo-500', 'bg-teal-500',
-];
+// Background images array (same as ClassSpacePage for consistency)
+const CARD_BACKGROUNDS = [bg1, bg2, bg3, bg4];
 
-const colorFor = (key) => {
+/**
+ * Maps a subject code to a consistent background image.
+ * Uses the same hashing algorithm as ClassSpacePage to ensure the same subject
+ * displays the same background image in both class space cards and schedule blocks.
+ */
+const backgroundFor = (key) => {
   let hash = 0;
   for (let i = 0; i < String(key).length; i++) {
     hash = String(key).charCodeAt(i) + ((hash << 5) - hash);
   }
-  return BLOCK_COLORS[Math.abs(hash) % BLOCK_COLORS.length];
+  return CARD_BACKGROUNDS[Math.abs(hash) % CARD_BACKGROUNDS.length];
 };
 
 const StudentSchedule = () => {
@@ -296,7 +305,12 @@ const StudentSchedule = () => {
                         }}
                       >
                         <div
-                          className={`${colorFor(m.subjectCode)} h-full w-full overflow-hidden rounded-lg px-2 py-1.5 text-white cursor-pointer hover:opacity-90 transition-opacity`}
+                          className="h-full w-full overflow-hidden rounded-lg px-2 py-1.5 text-white cursor-pointer hover:opacity-90 transition-opacity"
+                          style={{
+                            backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3)), url(${backgroundFor(m.subjectCode)})`,
+                            backgroundSize: 'cover',
+                            backgroundPosition: 'center'
+                          }}
                           onClick={() => (window.location.href = '/classes')}
                           title={`${m.subjectCode}${m.subjectName ? ` - ${m.subjectName}` : ''}\n${fmt12(m.startTime)} - ${fmt12(m.endTime)}${m.room ? `\n${m.room}` : ''}`}
                         >
@@ -342,7 +356,14 @@ const StudentSchedule = () => {
                       onClick={() => (window.location.href = '/classes')}
                       className="flex items-start gap-3 p-4 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors"
                     >
-                      <div className={`${colorFor(m.subjectCode)} w-1.5 self-stretch rounded-full`} />
+                      <div 
+                        className="w-1.5 self-stretch rounded-full"
+                        style={{
+                          backgroundImage: `url(${backgroundFor(m.subjectCode)})`,
+                          backgroundSize: 'cover',
+                          backgroundPosition: 'center'
+                        }}
+                      />
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-gray-900 dark:text-white">
                           {m.subjectCode}

@@ -961,8 +961,26 @@ const StudentDashboard = ({ user, loading: parentLoading }) => {
     }
   );
 
-  const studentData = studentResponse?.profile || null;
-  const classes = studentResponse?.data || [];
+  // Handle both old and new API response formats
+  // Old format: {profile: {...}, data: [...]}
+  // New format: Just an array of classes
+  let studentData, classes;
+  
+  if (Array.isArray(studentResponse)) {
+    // New format: direct array of classes
+    console.log('📦 New API format detected (array)');
+    classes = studentResponse;
+    studentData = null; // No profile in new format
+  } else if (studentResponse && typeof studentResponse === 'object') {
+    // Old format: object with profile and data
+    console.log('📦 Old API format detected (object)');
+    studentData = studentResponse.profile || null;
+    classes = studentResponse.data || [];
+  } else {
+    // No data
+    studentData = null;
+    classes = [];
+  }
 
   // Debug logging
   console.log('📊 Student Response:', studentResponse);

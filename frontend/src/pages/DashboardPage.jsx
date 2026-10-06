@@ -1142,7 +1142,7 @@ const StudentDashboard = ({ user, loading: parentLoading }) => {
             </div>
           )}
         </>
-      )}
+      ) : null}
 
       {/* Today's Schedule */}
       <div className="bg-white rounded-xl shadow-sm border border-blue-200 p-6 dark:bg-gray-800 dark:border-blue-700">

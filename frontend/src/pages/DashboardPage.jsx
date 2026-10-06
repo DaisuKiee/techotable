@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+]mport { useCache } from '../context/CacheContext';
+import useCachedData from '../hooks/useCachedData';
 import Layout from '../components/Layout';
 import MyClassesEnrollment from '../components/MyClassesEnrollment';
 import { 
@@ -14,30 +16,10 @@ import ctuBg from '../assets/images/backgrounds/ctu-bg.png';
 
 const DashboardPage = () => {
   const { user, setAuth, token } = useAuth();
-  const [stats, setStats] = useState({
-    totalUsers: 0,
-    activeUsers: 0,
-    inactiveUsers: 0,
-    totalFaculty: 0,
-    activeFaculty: 0,
-    totalSubjects: 0,
-    totalRooms: 0,
-    totalSchedules: 0,
-    publishedSchedules: 0,
-    totalClasses: 0,
-    // Program manager specific
-    programStudents: 0,
-    programSubjects: 0,
-    programSchedules: 0,
-    programByYear: [],
-    programBySemester: []
-  });
-  const [loading, setLoading] = useState(true);
+  const { invalidateCache } = useCache();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [selectedPeriod, setSelectedPeriod] = useState('month'); // 'month' or 'quarter'
   const [pageReady, setPageReady] = useState(false);
-  const [conflicts, setConflicts] = useState(null);
-  const [loadingConflicts, setLoadingConflicts] = useState(false);
 
   // Page entrance zoom animation
   useEffect(() => {
@@ -53,69 +35,71 @@ const DashboardPage = () => {
   const STAFF_ROLES = ['admin', 'scheduling_officer', 'program_manager'];
   const canSeeStats = STAFF_ROLES.includes(user?.role);
 
-  useEffect(() => {
-    if (canSeeStats) {
-      loadDashboardStats();
-    } else {
-      setLoading(false);
+  // ✅ CACHE: Dashboard stats with stale-while-revalidate
+  const {
+    data: stats,
+    loading,
+    error: statsError,
+    refetch: refetchStats,
+    isFromCache: statsFromCache
+  } = useCachedData(
+    () => dashboardAPI.getStats(),
+    'dashboard-stats',
+    {
+      cacheDuration: 5 * 60 * 1000, // 5 minutes
+      enabled: canSeeStats, // Only fetch if user can see stats
+      onSuccess: (data) => {
+        console.log('✅ Dashboard stats loaded:', statsFromCache ? '📦 from cache' : '🌐 fresh fetch');
+      },
+      onError: (err) => {
+        console.error('❌ Failed to load dashboard stats:', err);
+        toast.error('Failed to load dashboard statistics');
+      }
     }
-    const timer = setInterval(() => setCurrentTime(new Date()), 60000); // Update every minute
+  );
+
+  // Normalize stats data (handle undefined)
+  const statsData = stats || {
+    totalUsers: 0,
+    activeUsers: 0,
+    inactiveUsers: 0,
+    totalFaculty: 0,
+    activeFaculty: 0,
+    totalSubjects: 0,
+    totalRooms: 0,
+    totalSchedules: 0,
+    publishedSchedules: 0,
+    totalClasses: 0,
+    programStudents: 0,
+    programSubjects: 0,
+    programSchedules: 0,
+    programByYear: [],
+    programBySemester: []
+  };
+
+  // ✅ CACHE: Schedule conflicts with shorter cache (conflicts change frequently)
+  const {
+    data: conflicts,
+    loading: loadingConflicts,
+    refetch: refetchConflicts,
+    isFromCache: conflictsFromCache
+  } = useCachedData(
+    () => scheduleAPI.getConflicts(true),
+    'schedule-conflicts',
+    {
+      cacheDuration: 3 * 60 * 1000, // 3 minutes (conflicts are urgent)
+      enabled: user?.role === 'admin' || user?.role === 'scheduling_officer',
+      onSuccess: (data) => {
+        console.log('✅ Conflicts loaded:', conflictsFromCache ? '📦 from cache' : '🌐 fresh fetch');
+      }
+    }
+  );
+
+  // Update clock every minute
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(timer);
-  }, [canSeeStats]);
-
-  const loadDashboardStats = async () => {
-    try {
-      // Use optimized dashboard stats endpoint - much faster!
-      // Instead of fetching 7 full collections, just gets counts
-      const response = await dashboardAPI.getStats();
-      const statsData = response.data.data;
-
-      setStats({
-        totalUsers: statsData.totalUsers || 0,
-        activeUsers: statsData.activeUsers || 0,
-        inactiveUsers: statsData.inactiveUsers || 0,
-        totalFaculty: statsData.totalFaculty || 0,
-        activeFaculty: statsData.activeFaculty || 0,
-        totalSubjects: statsData.totalSubjects || 0,
-        totalRooms: statsData.totalRooms || 0,
-        totalSchedules: statsData.totalSchedules || 0,
-        publishedSchedules: statsData.publishedSchedules || 0,
-        totalClasses: statsData.totalClasses || 0,
-        // Program manager specific
-        programStudents: statsData.programStudents || 0,
-        programSubjects: statsData.programSubjects || 0,
-        programSchedules: statsData.programSchedules || 0,
-        programByYear: statsData.programByYear || [],
-        programBySemester: statsData.programBySemester || []
-      });
-    } catch (error) {
-      console.error('Load stats error:', error);
-      toast.error('Failed to load dashboard statistics');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadConflicts = async () => {
-    if (user?.role !== 'admin' && user?.role !== 'scheduling_officer') return;
-    
-    try {
-      setLoadingConflicts(true);
-      const response = await scheduleAPI.getConflicts(true); // Get summary
-      setConflicts(response.data.data);
-    } catch (error) {
-      console.error('Failed to load conflicts:', error);
-    } finally {
-      setLoadingConflicts(false);
-    }
-  };
-
-  // Load conflicts for admin/scheduling officer
-  useEffect(() => {
-    if (user?.role === 'admin' || user?.role === 'scheduling_officer') {
-      loadConflicts();
-    }
-  }, [user?.role]);
+  }, []);
 
   const formatDate = () => {
     return currentTime.toLocaleDateString('en-US', { 
@@ -230,9 +214,10 @@ const ModernStatCard = ({ icon: Icon, label, value, sublabel }) => (
             <span className="text-blue-200">{formatTime()}</span>
           </span>
           <button
-            onClick={loadDashboardStats}
+            onClick={refetchStats}
             disabled={loading}
             className="inline-flex items-center gap-2 rounded-lg bg-yellow-400/30 px-3 py-2 text-xs sm:text-sm font-semibold transition-colors hover:bg-yellow-400/50 disabled:opacity-50 flex-shrink-0"
+            title={statsFromCache ? '📦 Showing cached data - Click to refresh' : '🌐 Fresh data loaded'}
           >
             <RefreshCw size={16} className={loading ? 'animate-spin' : 'transition-transform hover:rotate-180 duration-300'} />
             <span className="hidden sm:inline">Refresh</span>
@@ -305,7 +290,7 @@ const ModernStatCard = ({ icon: Icon, label, value, sublabel }) => (
                   View & Fix Conflicts Now
                 </button>
                 <button
-                  onClick={loadConflicts}
+                  onClick={refetchConflicts}
                   disabled={loadingConflicts}
                   className="px-4 py-3 bg-white dark:bg-gray-700 border-2 border-red-500 dark:border-red-600 text-red-700 dark:text-red-300 font-semibold rounded-lg hover:bg-red-50 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
                 >
@@ -325,7 +310,7 @@ const ModernStatCard = ({ icon: Icon, label, value, sublabel }) => (
             <ModernStatCard
               icon={Users}
               label="Total Users"
-              value={stats.totalUsers}
+              value={statsData.totalUsers}
               sublabel="Real data"
               iconColor="text-blue-600"
               iconBg="bg-blue-50"
@@ -333,7 +318,7 @@ const ModernStatCard = ({ icon: Icon, label, value, sublabel }) => (
             <ModernStatCard
               icon={UserCheck}
               label="Active Users"
-              value={stats.activeUsers}
+              value={statsData.activeUsers}
               sublabel="Currently active"
               iconColor="text-green-600"
               iconBg="bg-green-50"
@@ -341,7 +326,7 @@ const ModernStatCard = ({ icon: Icon, label, value, sublabel }) => (
             <ModernStatCard
               icon={UserX}
               label="Inactive Users"
-              value={stats.inactiveUsers}
+              value={statsData.inactiveUsers}
               sublabel="Suspended or archived"
               iconColor="text-orange-600"
               iconBg="bg-orange-50"
@@ -361,15 +346,15 @@ const ModernStatCard = ({ icon: Icon, label, value, sublabel }) => (
             <ModernStatCard
               icon={Users}
               label="Total Faculty"
-              value={stats.activeFaculty}
-              sublabel={`${stats.totalFaculty} total registered`}
+              value={statsData.activeFaculty}
+              sublabel={`${statsData.totalFaculty} total registered`}
               iconColor="text-indigo-600"
               iconBg="bg-indigo-50"
             />
             <ModernStatCard
               icon={BookOpen}
               label="Total Subjects"
-              value={stats.totalSubjects}
+              value={statsData.totalSubjects}
               sublabel="Across all programs"
               iconColor="text-green-600"
               iconBg="bg-green-50"
@@ -377,7 +362,7 @@ const ModernStatCard = ({ icon: Icon, label, value, sublabel }) => (
             <ModernStatCard
               icon={DoorOpen}
               label="Total Rooms"
-              value={stats.totalRooms}
+              value={statsData.totalRooms}
               sublabel="Available facilities"
               iconColor="text-purple-600"
               iconBg="bg-purple-50"
@@ -385,8 +370,8 @@ const ModernStatCard = ({ icon: Icon, label, value, sublabel }) => (
             <ModernStatCard
               icon={Calendar}
               label="Active Schedules"
-              value={stats.totalSchedules}
-              sublabel={`${stats.publishedSchedules} published`}
+              value={statsData.totalSchedules}
+              sublabel={`${statsData.publishedSchedules} published`}
               iconColor="text-orange-600"
               iconBg="bg-orange-50"
             />
@@ -397,7 +382,7 @@ const ModernStatCard = ({ icon: Icon, label, value, sublabel }) => (
             <ModernStatCard
               icon={Wallet}
               label="Class Spaces"
-              value={stats.totalClasses}
+              value={statsData.totalClasses}
               sublabel="Active class spaces"
               iconColor="text-teal-600"
               iconBg="bg-teal-50"
@@ -405,7 +390,7 @@ const ModernStatCard = ({ icon: Icon, label, value, sublabel }) => (
             <ModernStatCard
               icon={Banknote}
               label="Enrolled Students"
-              value={stats.activeUsers}
+              value={statsData.activeUsers}
               sublabel="Current semester"
               iconColor="text-green-600"
               iconBg="bg-green-50"
@@ -438,7 +423,7 @@ const ModernStatCard = ({ icon: Icon, label, value, sublabel }) => (
             <ModernStatCard
               icon={Users}
               label="Program Students"
-              value={stats.programStudents}
+              value={statsData.programStudents}
               sublabel={`Enrolled in ${user?.program}`}
               iconColor="text-blue-600"
               iconBg="bg-blue-50"
@@ -446,7 +431,7 @@ const ModernStatCard = ({ icon: Icon, label, value, sublabel }) => (
             <ModernStatCard
               icon={BookOpen}
               label="Program Subjects"
-              value={stats.programSubjects}
+              value={statsData.programSubjects}
               sublabel="Active curriculum"
               iconColor="text-green-600"
               iconBg="bg-green-50"
@@ -454,15 +439,15 @@ const ModernStatCard = ({ icon: Icon, label, value, sublabel }) => (
             <ModernStatCard
               icon={Calendar}
               label="Program Schedules"
-              value={stats.programSchedules}
-              sublabel={`${stats.publishedSchedules} published`}
+              value={statsData.programSchedules}
+              sublabel={`${statsData.publishedSchedules} published`}
               iconColor="text-purple-600"
               iconBg="bg-purple-50"
             />
             <ModernStatCard
               icon={CheckCircle}
               label="Active Classes"
-              value={stats.totalClasses}
+              value={statsData.totalClasses}
               sublabel="Running this semester"
               iconColor="text-orange-600"
               iconBg="bg-orange-50"
@@ -478,7 +463,7 @@ const ModernStatCard = ({ icon: Icon, label, value, sublabel }) => (
                 </div>
                 <h3 className="font-semibold text-black dark:text-white">Enrollment Trend</h3>
               </div>
-              <p className="text-3xl font-bold text-black mb-1 dark:text-white">{stats.programStudents}</p>
+              <p className="text-3xl font-bold text-black mb-1 dark:text-white">{statsData.programStudents}</p>
               <p className="text-sm text-gray-600 dark:text-gray-400">Total students enrolled</p>
               <div className="mt-4 flex items-center gap-2 text-xs">
                 <span className="px-2 py-1 bg-yellow-100 text-blue-700 rounded dark:bg-yellow-500/20 dark:text-yellow-300">Active</span>
@@ -493,7 +478,7 @@ const ModernStatCard = ({ icon: Icon, label, value, sublabel }) => (
                 </div>
                 <h3 className="font-semibold text-black dark:text-white">Curriculum Load</h3>
               </div>
-              <p className="text-3xl font-bold text-black mb-1 dark:text-white">{stats.programSubjects}</p>
+              <p className="text-3xl font-bold text-black mb-1 dark:text-white">{statsData.programSubjects}</p>
               <p className="text-sm text-gray-600 dark:text-gray-400">Subjects in curriculum</p>
               <div className="mt-4 flex items-center gap-2 text-xs">
                 <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded dark:bg-blue-500/20 dark:text-blue-300">Updated</span>
@@ -508,11 +493,11 @@ const ModernStatCard = ({ icon: Icon, label, value, sublabel }) => (
                 </div>
                 <h3 className="font-semibold text-black dark:text-white">Schedule Status</h3>
               </div>
-              <p className="text-3xl font-bold text-black mb-1 dark:text-white">{stats.publishedSchedules}</p>
+              <p className="text-3xl font-bold text-black mb-1 dark:text-white">{statsData.publishedSchedules}</p>
               <p className="text-sm text-gray-600 dark:text-gray-400">Published schedules</p>
               <div className="mt-4 flex items-center gap-2 text-xs">
                 <span className="px-2 py-1 bg-yellow-100 text-blue-700 rounded dark:bg-yellow-500/20 dark:text-yellow-300">Live</span>
-                <span className="text-gray-500 dark:text-gray-400">of {stats.programSchedules} total</span>
+                <span className="text-gray-500 dark:text-gray-400">of {statsData.programSchedules} total</span>
               </div>
             </div>
           </div>
@@ -538,73 +523,77 @@ const ModernStatCard = ({ icon: Icon, label, value, sublabel }) => (
 
 // Faculty Dashboard Component
 const FacultyDashboard = ({ user, loading: parentLoading }) => {
-  const [facultyData, setFacultyData] = useState(null);
-  const [todaySchedule, setTodaySchedule] = useState([]);
-  const [allSchedules, setAllSchedules] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [classes, setClasses] = useState([]);
+  const { invalidateCache } = useCache();
 
-  useEffect(() => {
-    loadFacultyData();
-  }, []);
-
-  const loadFacultyData = async () => {
-    try {
-      // Get faculty profile from user data
-      const facultyId = user?.facultyProfile?._id || user?.facultyProfile;
-      
-      if (!facultyId) {
-        console.error('No faculty profile found for user');
-        setLoading(false);
-        return;
+  // ✅ CACHE: Faculty schedule with 3-minute cache (schedules change frequently)
+  const facultyId = user?.facultyProfile?._id || user?.facultyProfile;
+  
+  const {
+    data: facultyData,
+    loading: loadingFaculty,
+    error: facultyError
+  } = useCachedData(
+    () => facultyAPI.getById(facultyId),
+    `faculty-profile-${facultyId}`,
+    {
+      cacheDuration: 10 * 60 * 1000, // 10 minutes (profile changes rarely)
+      enabled: !!facultyId,
+      onError: (err) => {
+        console.error('Failed to load faculty profile:', err);
+        toast.error('Failed to load your profile');
       }
-
-      // Fetch faculty profile, schedule and classes
-      const [facultyRes, scheduleRes, classesRes] = await Promise.all([
-        facultyAPI.getById(facultyId).catch(() => ({ data: { data: null } })),
-        scheduleAPI.getFacultySchedule(facultyId).catch(() => ({ data: { data: [] } })),
-        classSpaceAPI.getMyClasses().catch(() => ({ data: { data: [] } }))
-      ]);
-
-      const faculty = facultyRes.data.data;
-      const schedules = scheduleRes.data.data || [];
-      
-      // Debug logging
-      console.log('Faculty Data:', faculty);
-      console.log('Schedules Data:', schedules);
-      console.log('Sample schedule room:', schedules[0]?.room);
-      
-      setFacultyData(faculty);
-      setAllSchedules(schedules);
-      setClasses(classesRes.data.data || []);
-
-      // Filter today's schedule
-      const today = new Date();
-      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-      const todayName = dayNames[today.getDay()];
-
-      const todayClasses = schedules
-        .filter(schedule => {
-          return schedule.timeSlots?.some(slot => slot.day === todayName);
-        })
-        .map(schedule => ({
-          ...schedule,
-          todaySlots: schedule.timeSlots.filter(slot => slot.day === todayName)
-        }))
-        .sort((a, b) => {
-          const timeA = a.todaySlots[0]?.startTime || '00:00';
-          const timeB = b.todaySlots[0]?.startTime || '00:00';
-          return timeA.localeCompare(timeB);
-        });
-
-      setTodaySchedule(todayClasses);
-    } catch (error) {
-      console.error('Failed to load faculty data:', error);
-      toast.error('Failed to load your teaching schedule');
-    } finally {
-      setLoading(false);
     }
-  };
+  );
+
+  const {
+    data: schedules,
+    loading: loadingSchedules,
+    refetch: refetchSchedules
+  } = useCachedData(
+    () => scheduleAPI.getFacultySchedule(facultyId),
+    `faculty-schedule-${facultyId}`,
+    {
+      cacheDuration: 3 * 60 * 1000, // 3 minutes
+      enabled: !!facultyId
+    }
+  );
+
+  const {
+    data: classes,
+    loading: loadingClasses
+  } = useCachedData(
+    () => classSpaceAPI.getMyClasses(),
+    `faculty-classes-${user?._id}`,
+    {
+      cacheDuration: 5 * 60 * 1000, // 5 minutes
+      enabled: !!user?._id
+    }
+  );
+
+  const loading = loadingFaculty || loadingSchedules || loadingClasses;
+  const allSchedules = schedules || [];
+  const classList = classes || [];
+
+  // Filter today's schedule
+  const todaySchedule = React.useMemo(() => {
+    const today = new Date();
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const todayName = dayNames[today.getDay()];
+
+    return allSchedules
+      .filter(schedule => {
+        return schedule.timeSlots?.some(slot => slot.day === todayName);
+      })
+      .map(schedule => ({
+        ...schedule,
+        todaySlots: schedule.timeSlots.filter(slot => slot.day === todayName)
+      }))
+      .sort((a, b) => {
+        const timeA = a.todaySlots[0]?.startTime || '00:00';
+        const timeB = b.todaySlots[0]?.startTime || '00:00';
+        return timeA.localeCompare(timeB);
+      });
+  }, [allSchedules]);
 
   const formatTime = (time) => {
     if (!time) return '';
@@ -947,37 +936,29 @@ const FacultyDashboard = ({ user, loading: parentLoading }) => {
 
 // Student Dashboard Component
 const StudentDashboard = ({ user, loading: parentLoading }) => {
-  const [studentData, setStudentData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [classes, setClasses] = useState([]);
-
-  useEffect(() => {
-    loadStudentData();
-  }, []);
-
-  const loadStudentData = async () => {
-    try {
-      // One call. /my-classes returns the student's own profile plus the class
-      // spaces they're enrolled in, each with its populated schedule.
-      //
-      // The previous version fetched EVERY student record and picked itself out
-      // client-side, then matched `schedule.section` ("A") against
-      // `sectionCode` ("BSIT-4A-D") - which never matched, so the schedule was
-      // always empty.
-      const response = await classSpaceAPI.getMyClasses();
-      const payload = response.data;
-
-      setStudentData(payload.profile || null);
-      setClasses(payload.data || []);
-    } catch (error) {
-      console.error('Failed to load student data:', error);
-      toast.error(
-        error.response?.data?.message || 'Failed to load your enrollment information'
-      );
-    } finally {
-      setLoading(false);
+  // ✅ CACHE: Student classes with 5-minute cache
+  const {
+    data: studentResponse,
+    loading,
+    error,
+    refetch: refetchStudentData
+  } = useCachedData(
+    () => classSpaceAPI.getMyClasses(),
+    `student-classes-${user?._id}`,
+    {
+      cacheDuration: 5 * 60 * 1000, // 5 minutes
+      enabled: !!user?._id,
+      onError: (err) => {
+        console.error('Failed to load student data:', err);
+        toast.error(
+          err.response?.data?.message || 'Failed to load your enrollment information'
+        );
+      }
     }
-  };
+  );
+
+  const studentData = studentResponse?.profile || null;
+  const classes = studentResponse?.data || [];
 
   /** "Monday 08:00-09:00" for the first meeting of a class. */
   const describeSlots = (cs) => {

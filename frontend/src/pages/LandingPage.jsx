@@ -22,7 +22,7 @@ const LandingPage = () => {
   const handleNavigateToLogin = () => {
     setNavigating(true);
     setTimeout(() => {
-      navigate('/login');
+      navigate('/signup');
     }, 800);
   };
 

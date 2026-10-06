@@ -124,20 +124,21 @@ const useCachedData = (fetchFunction, cacheKey, options = {}) => {
       console.log(`[useCachedData] Fetch response for ${cacheKey}:`, response);
       const newData = response.data?.data || response.data || response;
 
+      // Always save to cache, even if component unmounted (localStorage is safe)
+      console.log(`[useCachedData] About to save cache for ${cacheKey}`);
+      saveToCache(newData);
+      console.log(`[useCachedData] Cache save completed for ${cacheKey}`);
+
       if (isMountedRef.current) {
         console.log(`[useCachedData] Setting data for ${cacheKey}:`, newData);
         setData(newData);
         setIsFromCache(false);
         
-        console.log(`[useCachedData] About to save cache for ${cacheKey}`);
-        saveToCache(newData);
-        console.log(`[useCachedData] Cache save completed for ${cacheKey}`);
-        
         if (onSuccess) {
           onSuccess(newData);
         }
       } else {
-        console.warn(`[useCachedData] Component unmounted, skipping cache save for ${cacheKey}`);
+        console.warn(`[useCachedData] Component unmounted, but cache was saved for ${cacheKey}`);
       }
     } catch (err) {
       console.error(`[useCachedData] Fetch error for ${cacheKey}:`, err);
@@ -202,6 +203,7 @@ const useCachedData = (fetchFunction, cacheKey, options = {}) => {
 
   // Initial load
   useEffect(() => {
+    isMountedRef.current = true; // Reset mounted status on each mount
     smartLoad();
 
     return () => {

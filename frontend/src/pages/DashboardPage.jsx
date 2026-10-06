@@ -13,6 +13,7 @@ import {
 import { facultyAPI, subjectAPI, roomAPI, scheduleAPI, classSpaceAPI, userAPI, studentAPI, dashboardAPI } from '../services/api';
 import toast from 'react-hot-toast';
 import ctuBg from '../assets/images/backgrounds/ctu-bg.png';
+import dashboardBg from '../assets/images/backgrounds/bg.jpg';
 
 const DashboardPage = () => {
   const { user, setAuth, token } = useAuth();
@@ -175,7 +176,12 @@ const ModernStatCard = ({ icon: Icon, label, value, sublabel }) => (
       }`}>
       {/* Header Section - Only for staff roles (admin, scheduling_officer, program_manager) */}
       {canSeeStats && (
-     <div className="mb-6 rounded-3xl bg-blue-900 px-4 sm:px-8 py-5 sm:py-7 text-white shadow-xl ring-1 ring-white/5">
+     <div 
+       className="mb-6 rounded-3xl px-4 sm:px-8 py-5 sm:py-7 text-white shadow-xl ring-1 ring-white/5 bg-cover bg-center relative overflow-hidden"
+       style={{
+         backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.7)), url(${dashboardBg})`
+       }}
+     >
   <div className="flex flex-col gap-4">
     {/* Top Section - Title and Badge */}
     <div className="min-w-0">
@@ -634,7 +640,12 @@ const FacultyDashboard = ({ user, loading: parentLoading }) => {
   return (
     <div className="space-y-6">
       {/* Welcome Card */}
-      <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-blue-800 rounded-xl shadow-xl p-6 text-white">
+      <div 
+        className="rounded-xl shadow-xl p-6 text-white bg-cover bg-center relative overflow-hidden"
+        style={{
+          backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.7)), url(${dashboardBg})`
+        }}
+      >
         <div className="flex items-start gap-5 mb-4">
           {/* Profile Picture */}
           <div className="flex-shrink-0">
@@ -1031,7 +1042,12 @@ const StudentDashboard = ({ user, loading: parentLoading }) => {
   return (
     <div className="space-y-6">
       {/* Student Header - Simplified */}
-      <div className="mb-6 rounded-3xl bg-blue-900 px-4 sm:px-8 py-5 sm:py-7 text-white shadow-xl ring-1 ring-white/5">
+      <div 
+        className="mb-6 rounded-3xl px-4 sm:px-8 py-5 sm:py-7 text-white shadow-xl ring-1 ring-white/5 bg-cover bg-center relative overflow-hidden"
+        style={{
+          backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.7)), url(${dashboardBg})`
+        }}
+      >
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
             <span className="inline-flex items-center gap-2 rounded-full border border-yellow-400/50 bg-yellow-400/20 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-yellow-100">

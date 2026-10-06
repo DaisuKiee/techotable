@@ -987,8 +987,12 @@ const StudentDashboard = ({ user, loading: parentLoading }) => {
   const classes = Array.isArray(classesResponse) ? classesResponse : (classesResponse?.data || []);
 
   // Debug logging
-  console.log('📊 Student Profile:', studentData);
+  console.log('📊 Student Profile Response:', studentProfile);
+  console.log('📊 Student Profile Data:', studentData);
+  console.log('📚 Classes Response:', classesResponse);
   console.log('📚 Classes:', classes);
+  console.log('❌ Profile Error:', profileError);
+  console.log('❌ Classes Error:', classesError);
 
   const loading = profileLoading || classesLoading;
 
@@ -1032,11 +1036,17 @@ const StudentDashboard = ({ user, loading: parentLoading }) => {
         </div>
       </div>
 
-      {/* Enrollment Information - Only show if we have studentData (old API format) */}
-      {studentData && !studentData.studentType ? (
+      {/* Enrollment Information */}
+      {!studentData && profileError ? (
         <div className="text-center py-6 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
           <Users className="w-12 h-12 mx-auto mb-2 text-gray-400 dark:text-gray-500" />
           <p className="text-gray-900 dark:text-white font-medium">No enrollment record found</p>
+          <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">Please contact your program manager to complete your enrollment</p>
+        </div>
+      ) : studentData && !studentData.studentType ? (
+        <div className="text-center py-6 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+          <Users className="w-12 h-12 mx-auto mb-2 text-gray-400 dark:text-gray-500" />
+          <p className="text-gray-900 dark:text-white font-medium">Incomplete enrollment record</p>
           <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">Please contact your program manager</p>
         </div>
       ) : studentData && studentData.studentType === 'regular' && !studentData.sectionCode ? (

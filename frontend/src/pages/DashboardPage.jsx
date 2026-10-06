@@ -1374,22 +1374,6 @@ const StudentDashboard = ({ user, loading: parentLoading }) => {
                   </div>
                 );
               })}
-
-              {/* Summary Footer */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 p-3 sm:p-4 bg-blue-50 rounded-lg dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-blue-700 dark:text-blue-400 flex-shrink-0" />
-                  <span className="text-sm sm:text-base font-semibold text-blue-900 dark:text-blue-300">
-                    {todayClasses.length} {todayClasses.length === 1 ? 'class' : 'classes'} today
-                  </span>
-                </div>
-                <button
-                  onClick={() => window.location.href = '/classes'}
-                  className="px-4 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors text-xs sm:text-sm font-bold shadow-md w-full sm:w-auto"
-                >
-                  View All Classes ({classes.length})
-                </button>
-              </div>
             </div>
           );
         })()}

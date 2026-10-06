@@ -106,22 +106,22 @@ const Layout = ({ children }) => {
   const currentPage = navItems.find(item => isActive(item.path))?.name || 'Dashboard';
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-dark-app">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#060913]">
       {/* Mobile Header */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white dark:bg-dark-main border-b border-gray-200 dark:border-dark-border-subtle">
         <div className="flex items-center justify-between px-4 py-3">
           <button
             onClick={() => setMobileSidebarOpen(true)}
-            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-hover transition-colors"
           >
-            <Menu className="w-6 h-6 text-gray-700 dark:text-gray-300" />
+            <Menu className="w-6 h-6 text-gray-700 dark:text-dark-text-secondary" />
           </button>
           
           <div className="flex items-center gap-3">
             <img src={ctuLogo} alt="CTU" className="w-8 h-8" />
             <div>
-              <h1 className="text-sm font-bold text-gray-900 dark:text-white">CTU Daanbantayan</h1>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Timetable System</p>
+              <h1 className="text-sm font-bold text-gray-900 dark:text-dark-text-primary">CTU Daanbantayan</h1>
+              <p className="text-xs text-gray-500 dark:text-dark-text-muted">Timetable System</p>
             </div>
           </div>
 
@@ -144,12 +144,12 @@ const Layout = ({ children }) => {
 
               {/* Mobile Dropdown Menu */}
               {mobileUserMenuOpen && (
-                <div className="absolute top-full right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden animate-fadeIn z-50">
+                <div className="absolute top-full right-0 mt-2 w-56 bg-white dark:bg-dark-card rounded-xl shadow-2xl border border-gray-200 dark:border-dark-border-default overflow-hidden animate-fadeIn z-50">
                   <div className="py-2">
                     <Link
                       to="/profile"
                       onClick={() => setMobileUserMenuOpen(false)}
-                      className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300"
+                      className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-dark-hover transition-colors text-gray-700 dark:text-dark-text-secondary"
                     >
                       <User className="w-5 h-5" />
                       <span className="text-sm font-medium">My Profile</span>
@@ -157,18 +157,18 @@ const Layout = ({ children }) => {
                     <Link
                       to="/settings"
                       onClick={() => setMobileUserMenuOpen(false)}
-                      className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300"
+                      className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-dark-hover transition-colors text-gray-700 dark:text-dark-text-secondary"
                     >
                       <Settings className="w-5 h-5" />
                       <span className="text-sm font-medium">Settings</span>
                     </Link>
-                    <div className="h-px bg-gray-200 dark:bg-gray-700 my-2" />
+                    <div className="h-px bg-gray-200 dark:bg-dark-border-default my-2" />
                     <button
                       onClick={() => {
                         setMobileUserMenuOpen(false);
                         handleLogout();
                       }}
-                      className="flex items-center gap-3 w-full px-4 py-3 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-red-600 dark:text-red-400"
+                      className="flex items-center gap-3 w-full px-4 py-3 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-red-600 dark:text-dark-error"
                     >
                       <LogOut className="w-5 h-5" />
                       <span className="text-sm font-medium">Logout</span>
@@ -185,21 +185,21 @@ const Layout = ({ children }) => {
       <aside
         onMouseEnter={() => setSidebarExpanded(true)}
         onMouseLeave={() => setSidebarExpanded(false)}
-        className={`hidden lg:flex fixed top-0 left-0 h-full bg-dark-sidebar dark:bg-dark-sidebar shadow-2xl z-40 flex-col transition-all duration-300 ease-in-out ${
+        className={`hidden lg:flex fixed top-0 left-0 h-full bg-gradient-to-b from-blue-600 via-blue-700 to-blue-800 dark:bg-none dark:bg-[#0B1120] shadow-2xl z-40 flex-col transition-all duration-300 ease-in-out ${
           sidebarExpanded ? 'w-64' : 'w-20'
         }`}
       >
         {/* Logo Section */}
-        <div className="flex items-center justify-center py-6 px-4 border-b border-dark-border-subtle">
+        <div className="flex items-center justify-center py-6 px-4 border-b border-blue-500/30 dark:border-dark-border-subtle">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center">
+            <div className="w-12 h-12 bg-white/10 dark:bg-dark-blue-primary rounded-xl flex items-center justify-center backdrop-blur-sm">
               <img src={ctuLogo} alt="CTU" className="w-8 h-8" />
             </div>
             <div className={`overflow-hidden transition-all duration-300 ${
               sidebarExpanded ? 'w-auto opacity-100' : 'w-0 opacity-0'
             }`}>
-              <h1 className="text-dark-text font-bold text-base whitespace-nowrap">CTU Daanbantayan</h1>
-              <p className="text-dark-text-muted text-xs whitespace-nowrap">Timetable System</p>
+              <h1 className="text-white dark:text-dark-text-primary font-bold text-base whitespace-nowrap">CTU Daanbantayan</h1>
+              <p className="text-blue-200 dark:text-dark-text-muted text-xs whitespace-nowrap">Timetable System</p>
             </div>
           </div>
         </div>
@@ -216,8 +216,8 @@ const Layout = ({ children }) => {
                 to={item.path}
                 className={`flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all duration-200 group relative ${
                   active
-                    ? 'bg-blue-700 text-white shadow-lg'
-                    : 'text-dark-text-secondary hover:bg-dark-sidebar-hover'
+                    ? 'bg-yellow-400 dark:bg-dark-blue-hover text-blue-900 dark:text-white shadow-lg shadow-yellow-500/30 dark:shadow-none'
+                    : 'text-blue-100 dark:text-dark-text-secondary hover:bg-white/10 dark:hover:bg-dark-hover'
                 }`}
               >
                 <Icon 
@@ -233,7 +233,7 @@ const Layout = ({ children }) => {
                 
                 {/* Active Indicator */}
                 {active && (
-                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-blue-500 rounded-r-full" />
+                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-yellow-500 dark:bg-dark-blue-primary rounded-r-full" />
                 )}
               </Link>
             );
@@ -244,12 +244,12 @@ const Layout = ({ children }) => {
         <div className={`mx-3 mb-4 transition-all duration-300 overflow-hidden ${
           sidebarExpanded ? 'max-h-32 opacity-100' : 'max-h-0 opacity-0'
         }`}>
-          <div className="bg-dark-elevated backdrop-blur-sm rounded-xl p-4 border border-dark-border-subtle">
+          <div className="bg-white/10 dark:bg-dark-elevated backdrop-blur-sm rounded-xl p-4 border border-white/20 dark:border-dark-border-subtle">
             <div className="flex items-start gap-3">
-              <HelpCircle className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+              <HelpCircle className="w-5 h-5 text-blue-200 dark:text-dark-blue-info flex-shrink-0 mt-0.5" />
               <div>
-                <h3 className="text-dark-text font-semibold text-sm mb-1">Need Help?</h3>
-                <p className="text-dark-text-muted text-xs leading-relaxed">
+                <h3 className="text-white dark:text-dark-text-primary font-semibold text-sm mb-1">Need Help?</h3>
+                <p className="text-blue-200 dark:text-dark-text-muted text-xs leading-relaxed">
                   Contact IT support for assistance
                 </p>
               </div>
@@ -258,25 +258,25 @@ const Layout = ({ children }) => {
         </div>
 
         {/* User Profile */}
-        <div ref={userMenuRef} className="p-4 border-t border-dark-border-subtle relative">
+        <div ref={userMenuRef} className="p-4 border-t border-blue-500/30 dark:border-dark-border-subtle relative">
           <button
             onClick={() => setUserMenuOpen(!userMenuOpen)}
-            className="flex items-center gap-3 w-full hover:bg-dark-sidebar-hover rounded-xl p-2 transition-colors"
+            className="flex items-center gap-3 w-full hover:bg-white/10 dark:hover:bg-dark-hover rounded-xl p-2 transition-colors"
           >
-            <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center overflow-hidden flex-shrink-0 ring-2 ring-blue-500/30">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-500 dark:bg-dark-blue-primary flex items-center justify-center overflow-hidden flex-shrink-0 ring-2 ring-white/20 dark:ring-dark-blue-primary/30">
               {avatarUrl ? (
                 <img src={avatarUrl} alt="User" className="w-full h-full object-cover" />
               ) : (
-                <User className="w-5 h-5 text-white" />
+                <User className="w-5 h-5 text-blue-900 dark:text-white" />
               )}
             </div>
             <div className={`overflow-hidden transition-all duration-300 flex-1 text-left ${
               sidebarExpanded ? 'w-auto opacity-100' : 'w-0 opacity-0'
             }`}>
-              <p className="text-dark-text font-semibold text-sm whitespace-nowrap truncate">
+              <p className="text-white dark:text-dark-text-primary font-semibold text-sm whitespace-nowrap truncate">
                 {user?.firstName} {user?.lastName}
               </p>
-              <p className="text-dark-text-muted text-xs capitalize whitespace-nowrap">
+              <p className="text-blue-200 dark:text-dark-text-muted text-xs capitalize whitespace-nowrap">
                 {user?.role?.replace('_', ' ')}
               </p>
             </div>
@@ -284,12 +284,12 @@ const Layout = ({ children }) => {
 
           {/* Dropdown Menu */}
           {userMenuOpen && sidebarExpanded && (
-            <div className="absolute bottom-full left-4 right-4 mb-2 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden animate-fadeIn">
+            <div className="absolute bottom-full left-4 right-4 mb-2 bg-white dark:bg-dark-card rounded-xl shadow-2xl border border-gray-200 dark:border-dark-border-default overflow-hidden animate-fadeIn">
               <div className="py-2">
                 <Link
                   to="/profile"
                   onClick={() => setUserMenuOpen(false)}
-                  className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300"
+                  className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-dark-hover transition-colors text-gray-700 dark:text-dark-text-secondary"
                 >
                   <User className="w-5 h-5" />
                   <span className="text-sm font-medium">My Profile</span>
@@ -297,18 +297,18 @@ const Layout = ({ children }) => {
                 <Link
                   to="/settings"
                   onClick={() => setUserMenuOpen(false)}
-                  className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300"
+                  className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-dark-hover transition-colors text-gray-700 dark:text-dark-text-secondary"
                 >
                   <Settings className="w-5 h-5" />
                   <span className="text-sm font-medium">Settings</span>
                 </Link>
-                <div className="h-px bg-gray-200 dark:bg-gray-700 my-2" />
+                <div className="h-px bg-gray-200 dark:bg-dark-border-default my-2" />
                 <button
                   onClick={() => {
                     setUserMenuOpen(false);
                     handleLogout();
                   }}
-                  className="flex items-center gap-3 w-full px-4 py-3 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-red-600 dark:text-red-400"
+                  className="flex items-center gap-3 w-full px-4 py-3 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-red-600 dark:text-dark-error"
                 >
                   <LogOut className="w-5 h-5" />
                   <span className="text-sm font-medium">Logout</span>
@@ -333,44 +333,44 @@ const Layout = ({ children }) => {
         
         {/* Sidebar */}
         <aside
-          className={`absolute top-0 left-0 h-full w-80 bg-dark-sidebar shadow-2xl flex flex-col transition-transform duration-300 ${
+          className={`absolute top-0 left-0 h-full w-80 bg-gradient-to-b from-blue-600 via-blue-700 to-blue-800 dark:bg-none dark:bg-[#0B1120] shadow-2xl flex flex-col transition-transform duration-300 ${
             mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
         >
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-dark-border-subtle">
+          <div className="flex items-center justify-between p-4 border-b border-blue-500/30 dark:border-dark-border-subtle">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
+              <div className="w-10 h-10 bg-white/10 dark:bg-dark-blue-primary rounded-xl flex items-center justify-center">
                 <img src={ctuLogo} alt="CTU" className="w-7 h-7" />
               </div>
               <div>
-                <h1 className="text-dark-text font-bold text-base">CTU Daanbantayan</h1>
-                <p className="text-dark-text-muted text-xs">Timetable System</p>
+                <h1 className="text-white dark:text-dark-text-primary font-bold text-base">CTU Daanbantayan</h1>
+                <p className="text-blue-200 dark:text-dark-text-muted text-xs">Timetable System</p>
               </div>
             </div>
             <button
               onClick={() => setMobileSidebarOpen(false)}
-              className="p-2 rounded-lg hover:bg-dark-sidebar-hover transition-colors"
+              className="p-2 rounded-lg hover:bg-white/10 dark:hover:bg-dark-hover transition-colors"
             >
-              <X className="w-5 h-5 text-dark-text" />
+              <X className="w-5 h-5 text-white dark:text-dark-text-primary" />
             </button>
           </div>
 
           {/* User Info */}
-          <div className="p-4 bg-dark-elevated">
+          <div className="p-4 bg-white/5 dark:bg-dark-elevated">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center overflow-hidden ring-2 ring-blue-500/30">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-500 dark:bg-dark-blue-primary flex items-center justify-center overflow-hidden ring-2 ring-white/20 dark:ring-dark-blue-primary/30">
                 {avatarUrl ? (
                   <img src={avatarUrl} alt="User" className="w-full h-full object-cover" />
                 ) : (
-                  <User className="w-6 h-6 text-white" />
+                  <User className="w-6 h-6 text-blue-900 dark:text-white" />
                 )}
               </div>
               <div>
-                <p className="text-dark-text font-semibold text-sm">
+                <p className="text-white dark:text-dark-text-primary font-semibold text-sm">
                   {user?.firstName} {user?.lastName}
                 </p>
-                <p className="text-dark-text-muted text-xs capitalize">
+                <p className="text-blue-200 dark:text-dark-text-muted text-xs capitalize">
                   {user?.role?.replace('_', ' ')}
                 </p>
                 {user?.program && (
@@ -395,14 +395,14 @@ const Layout = ({ children }) => {
                   onClick={() => setMobileSidebarOpen(false)}
                   className={`flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all duration-200 relative ${
                     active
-                      ? 'bg-blue-700 text-white shadow-lg'
-                      : 'text-dark-text-secondary hover:bg-dark-sidebar-hover'
+                      ? 'bg-yellow-400 dark:bg-dark-blue-hover text-blue-900 dark:text-white shadow-lg shadow-yellow-500/30 dark:shadow-none'
+                      : 'text-blue-100 dark:text-dark-text-secondary hover:bg-white/10 dark:hover:bg-dark-hover'
                   }`}
                 >
                   <Icon className="w-5 h-5 flex-shrink-0" />
                   <span className="font-medium text-sm">{item.name}</span>
                   {active && (
-                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-blue-500 rounded-r-full" />
+                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-yellow-500 dark:bg-dark-blue-primary rounded-r-full" />
                   )}
                 </Link>
               );
@@ -410,11 +410,11 @@ const Layout = ({ children }) => {
           </nav>
 
           {/* Bottom Actions */}
-          <div className="p-4 border-t border-dark-border-subtle space-y-2">
+          <div className="p-4 border-t border-blue-500/30 dark:border-dark-border-subtle space-y-2">
             <Link
               to="/profile"
               onClick={() => setMobileSidebarOpen(false)}
-              className="flex items-center gap-3 px-4 py-3 rounded-xl text-dark-text-secondary hover:bg-dark-sidebar-hover transition-colors"
+              className="flex items-center gap-3 px-4 py-3 rounded-xl text-blue-100 dark:text-dark-text-secondary hover:bg-white/10 dark:hover:bg-dark-hover transition-colors"
             >
               <User className="w-5 h-5" />
               <span className="text-sm font-medium">My Profile</span>
@@ -422,14 +422,14 @@ const Layout = ({ children }) => {
             <Link
               to="/settings"
               onClick={() => setMobileSidebarOpen(false)}
-              className="flex items-center gap-3 px-4 py-3 rounded-xl text-dark-text-secondary hover:bg-dark-sidebar-hover transition-colors"
+              className="flex items-center gap-3 px-4 py-3 rounded-xl text-blue-100 dark:text-dark-text-secondary hover:bg-white/10 dark:hover:bg-dark-hover transition-colors"
             >
               <Settings className="w-5 h-5" />
               <span className="text-sm font-medium">Settings</span>
             </Link>
             <button
               onClick={handleLogout}
-              className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-red-400 hover:bg-red-500/10 transition-colors"
+              className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-red-300 dark:text-dark-error hover:bg-red-500/10 transition-colors"
             >
               <LogOut className="w-5 h-5" />
               <span className="text-sm font-medium">Logout</span>
@@ -443,13 +443,13 @@ const Layout = ({ children }) => {
         sidebarExpanded ? 'lg:ml-64' : 'lg:ml-20'
       }`}>
         {/* Page Header - Desktop */}
-        <div className="hidden lg:block sticky top-0 z-30 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 backdrop-blur-sm bg-white/80 dark:bg-gray-800/80">
+        <div className="hidden lg:block sticky top-0 z-30 bg-white dark:bg-dark-main border-b border-gray-200 dark:border-dark-border-subtle backdrop-blur-sm bg-white/80 dark:bg-dark-main/80">
           <div className="flex items-center justify-between px-8 py-4">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-dark-text-primary">
                 {currentPage}
               </h1>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              <p className="text-sm text-gray-500 dark:text-dark-text-muted mt-1">
                 {user?.program ? `${user.program} Program` : 'Management System'}
               </p>
             </div>

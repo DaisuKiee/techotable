@@ -4,6 +4,22 @@ module.exports = {
   content: [
     "./src/**/*.{js,jsx,ts,tsx}",
   ],
+  safelist: [
+    'dark:bg-dark-app',
+    'dark:bg-dark-main',
+    'dark:bg-dark-card',
+    'dark:bg-dark-elevated',
+    'dark:bg-dark-hover',
+    'dark:text-dark-text-primary',
+    'dark:text-dark-text-secondary',
+    'dark:text-dark-text-muted',
+    'dark:border-dark-border-subtle',
+    'dark:border-dark-border-default',
+    'dark:bg-dark-blue-primary',
+    'dark:bg-dark-blue-hover',
+    'dark:text-dark-blue-info',
+    'dark:text-dark-error',
+  ],
   theme: {
     extend: {
       colors: {
@@ -18,49 +34,46 @@ module.exports = {
           blue: '#0369a1',
           orange: '#f97316',
         },
-        // Refined dark mode color scheme
+        // Dark mode color palette
         dark: {
-          // Background hierarchy
-          app: '#0B1120',      // Deepest background
-          main: '#111827',     // Main containers (gray-900)
-          card: '#1F2937',     // Cards, panels (gray-800)
-          elevated: '#273449', // Raised elements, modals
-          hover: '#334155',    // Interactive hover (slate-700)
-          
-          // Sidebar specific
-          sidebar: '#0F172A',        // Sidebar base (slate-900)
-          'sidebar-surface': '#111827',  // Sidebar surface
-          'sidebar-hover': '#1E293B',    // Sidebar hover (slate-800)
-          'sidebar-active': '#1D4ED8',   // Sidebar active (blue-700)
+          // Backgrounds
+          app: '#0B1120',
+          main: '#111827',
+          card: '#1F2937',
+          elevated: '#273449',
+          hover: '#334155',
           
           // Borders
-          border: '#374151',         // Default border (gray-700)
-          'border-subtle': '#273449', // Subtle border
-          'border-strong': '#4B5563', // Strong border (gray-600)
+          'border-subtle': '#273449',
+          'border-default': '#374151',
+          'border-strong': '#4B5563',
           
-          // Text colors
-          text: '#F9FAFB',           // Primary text (gray-50)
-          'text-emphasis': '#FFFFFF', // Strong emphasis
-          'text-secondary': '#D1D5DB', // Secondary text (gray-300)
-          'text-muted': '#9CA3AF',    // Muted text (gray-400)
-          'text-placeholder': '#6B7280', // Placeholder (gray-500)
-          'text-disabled': '#4B5563',  // Disabled (gray-600)
+          // Text
+          'text-primary': '#F9FAFB',
+          'text-secondary': '#D1D5DB',
+          'text-muted': '#9CA3AF',
+          'text-placeholder': '#6B7280',
+          'text-disabled': '#4B5563',
+          
+          // Primary Blue
+          'blue-info': '#3B82F6',
+          'blue-primary': '#2563EB',
+          'blue-hover': '#1D4ED8',
+          'blue-active': '#1E40AF',
+          'blue-dark-bg': '#1E3A8A',
+          
+          // Gold
+          'gold-accent': '#FBBF24',
+          'gold-warning': '#F59E0B',
+          
+          // Status
+          success: '#10B981',
+          warning: '#F59E0B',
+          error: '#EF4444',
+          info: '#3B82F6',
         }
       },
-      backgroundColor: {
-        // Quick access background utilities
-        'dark-app': '#0B1120',
-        'dark-main': '#111827',
-        'dark-card': '#1F2937',
-        'dark-elevated': '#273449',
-        'dark-hover': '#334155',
-        'dark-sidebar': '#0F172A',
-      },
-      borderColor: {
-        'dark-border': '#374151',
-        'dark-border-subtle': '#273449',
-        'dark-border-strong': '#4B5563',
-      }
+
     },
   },
   plugins: [],

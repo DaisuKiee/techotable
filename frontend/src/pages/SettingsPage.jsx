@@ -184,8 +184,8 @@ const SettingsPage = () => {
               <Settings className="w-8 h-8 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">{t('settings.title')}</h1>
-              <p className="text-sm text-gray-500">
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-dark-text-primary">{t('settings.title')}</h1>
+              <p className="text-sm text-gray-500 dark:text-dark-text-muted">
                 {t('settings.subtitle')}
               </p>
             </div>
@@ -195,7 +195,7 @@ const SettingsPage = () => {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Sidebar Tabs */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-2">
+            <div className="bg-white dark:bg-dark-card rounded-xl shadow-sm border border-gray-100 dark:border-dark-border-subtle p-2">
               {tabs.map((tab) => {
                 const Icon = tab.icon;
                 return (
@@ -205,7 +205,7 @@ const SettingsPage = () => {
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
                       activeTab === tab.id
                         ? 'bg-blue-600 text-white shadow-md'
-                        : 'text-gray-700 hover:bg-gray-100'
+                        : 'text-gray-700 dark:text-dark-text-secondary hover:bg-gray-100 dark:hover:bg-dark-hover'
                     }`}
                   >
                     <Icon className="w-5 h-5" />
@@ -216,12 +216,12 @@ const SettingsPage = () => {
             </div>
 
             {/* Account Info Card */}
-            <div className="mt-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-200 p-4">
+            <div className="mt-4 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl border border-blue-200 dark:border-blue-800 p-4">
               <div className="flex items-center gap-3 mb-2">
-                <CheckCircle className="w-5 h-5 text-green-600" />
-                <h3 className="font-semibold text-gray-900">{t('settings.accountActive')}</h3>
+                <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
+                <h3 className="font-semibold text-gray-900 dark:text-dark-text-primary">{t('settings.accountActive')}</h3>
               </div>
-              <p className="text-sm text-gray-700">
+              <p className="text-sm text-gray-700 dark:text-dark-text-secondary">
                 {t('settings.accountVerified')}
               </p>
             </div>
@@ -229,14 +229,14 @@ const SettingsPage = () => {
 
           {/* Main Content */}
           <div className="lg:col-span-3">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <div className="bg-white dark:bg-dark-card rounded-xl shadow-sm border border-gray-100 dark:border-dark-border-subtle p-6">
               
               {/* Security Tab */}
               {activeTab === 'security' && (
                 <div>
                   <div className="mb-6">
-                    <h2 className="text-2xl font-bold text-gray-900 mb-2">{t('settings.securitySettings')}</h2>
-                    <p className="text-gray-600">{t('settings.securitySubtitle')}</p>
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-dark-text-primary mb-2">{t('settings.securitySettings')}</h2>
+                    <p className="text-gray-600 dark:text-dark-text-muted">{t('settings.securitySubtitle')}</p>
                   </div>
 
                   {/* Change Password */}
@@ -255,7 +255,7 @@ const SettingsPage = () => {
                           value={securityForm.currentPassword}
                           onChange={(e) => setSecurityForm({...securityForm, currentPassword: e.target.value})}
                           required
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="w-full px-4 py-2 border border-gray-300 dark:border-dark-border-default dark:bg-dark-elevated dark:text-dark-text-primary rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                           placeholder={t('settings.currentPassword')}
                         />
                       </div>
@@ -269,7 +269,7 @@ const SettingsPage = () => {
                           onChange={(e) => setSecurityForm({...securityForm, newPassword: e.target.value})}
                           required
                           minLength={6}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="w-full px-4 py-2 border border-gray-300 dark:border-dark-border-default dark:bg-dark-elevated dark:text-dark-text-primary rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                           placeholder={t('settings.newPassword')}
                         />
                       </div>
@@ -283,7 +283,7 @@ const SettingsPage = () => {
                           onChange={(e) => setSecurityForm({...securityForm, confirmPassword: e.target.value})}
                           required
                           minLength={6}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="w-full px-4 py-2 border border-gray-300 dark:border-dark-border-default dark:bg-dark-elevated dark:text-dark-text-primary rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                           placeholder={t('settings.confirmPassword')}
                         />
                       </div>
@@ -299,7 +299,7 @@ const SettingsPage = () => {
                   </div>
 
                   {/* Security Recommendations */}
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
                     <div className="flex items-start gap-3">
                       <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
                       <div>
@@ -450,8 +450,8 @@ const SettingsPage = () => {
                           onClick={() => setAppearance({...appearance, theme: 'light'})}
                           className={`p-4 border-2 rounded-lg transition-all ${
                             appearance.theme === 'light'
-                              ? 'border-blue-600 bg-blue-50'
-                              : 'border-gray-200 hover:border-gray-300'
+                              ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20'
+                              : 'border-gray-200 dark:border-dark-border-default hover:border-gray-300 dark:hover:border-dark-border-strong'
                           }`}
                         >
                           <Sun className="w-8 h-8 mx-auto mb-2 text-yellow-500" />
@@ -461,8 +461,8 @@ const SettingsPage = () => {
                           onClick={() => setAppearance({...appearance, theme: 'dark'})}
                           className={`p-4 border-2 rounded-lg transition-all ${
                             appearance.theme === 'dark'
-                              ? 'border-blue-600 bg-blue-50'
-                              : 'border-gray-200 hover:border-gray-300'
+                              ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20'
+                              : 'border-gray-200 dark:border-dark-border-default hover:border-gray-300 dark:hover:border-dark-border-strong'
                           }`}
                         >
                           <Moon className="w-8 h-8 mx-auto mb-2 text-indigo-600" />
@@ -472,8 +472,8 @@ const SettingsPage = () => {
                           onClick={() => setAppearance({...appearance, theme: 'system'})}
                           className={`p-4 border-2 rounded-lg transition-all ${
                             appearance.theme === 'system'
-                              ? 'border-blue-600 bg-blue-50'
-                              : 'border-gray-200 hover:border-gray-300'
+                              ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20'
+                              : 'border-gray-200 dark:border-dark-border-default hover:border-gray-300 dark:hover:border-dark-border-strong'
                           }`}
                         >
                           <Monitor className="w-8 h-8 mx-auto mb-2 text-gray-600" />

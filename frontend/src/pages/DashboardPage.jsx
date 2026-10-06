@@ -988,7 +988,9 @@ const StudentDashboard = ({ user, loading: parentLoading }) => {
 
   // Debug logging
   console.log('📊 Student Profile Response:', studentProfile);
-  console.log('📊 Student Profile Data:', studentData);
+  console.log('📊 Student Profile .data:', studentProfile?.data);
+  console.log('📊 Student Profile .success:', studentProfile?.success);
+  console.log('👤 Extracted Student Data:', studentData);
   console.log('📚 Classes Response:', classesResponse);
   console.log('📚 Classes:', classes);
   console.log('❌ Profile Error:', profileError);

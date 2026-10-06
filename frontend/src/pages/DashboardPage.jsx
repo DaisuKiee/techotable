@@ -58,28 +58,34 @@ const DashboardPage = () => {
     }
   );
 
-  // Normalize stats data (handle undefined)
-  const statsData = stats || {
-    totalUsers: 0,
-    activeUsers: 0,
-    inactiveUsers: 0,
-    totalFaculty: 0,
-    activeFaculty: 0,
-    totalSubjects: 0,
-    totalRooms: 0,
-    totalSchedules: 0,
-    publishedSchedules: 0,
-    totalClasses: 0,
-    programStudents: 0,
-    programSubjects: 0,
-    programSchedules: 0,
-    programByYear: [],
-    programBySemester: []
-  };
+  // Normalize stats data (handle cached vs fresh response formats)
+  const statsData = React.useMemo(() => {
+    if (!stats) {
+      return {
+        totalUsers: 0,
+        activeUsers: 0,
+        inactiveUsers: 0,
+        totalFaculty: 0,
+        activeFaculty: 0,
+        totalSubjects: 0,
+        totalRooms: 0,
+        totalSchedules: 0,
+        publishedSchedules: 0,
+        totalClasses: 0,
+        programStudents: 0,
+        programSubjects: 0,
+        programSchedules: 0,
+        programByYear: [],
+        programBySemester: []
+      };
+    }
+    // Extract data from response object
+    return stats.data || stats;
+  }, [stats]);
 
   // ✅ CACHE: Schedule conflicts with shorter cache (conflicts change frequently)
   const {
-    data: conflicts,
+    data: conflictsResponse,
     loading: loadingConflicts,
     refetch: refetchConflicts,
     isFromCache: conflictsFromCache
@@ -94,6 +100,12 @@ const DashboardPage = () => {
       }
     }
   );
+
+  // Extract conflicts data (handle cached vs fresh response formats)
+  const conflicts = React.useMemo(() => {
+    if (!conflictsResponse) return null;
+    return conflictsResponse.data || conflictsResponse;
+  }, [conflictsResponse]);
 
   // Update clock every minute
   useEffect(() => {

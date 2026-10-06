@@ -57,6 +57,18 @@ const fmtSize = (bytes) => {
 // Card header background images — randomized for variety like Google Classroom
 const CARD_BACKGROUNDS = [bg1, bg2, bg3, bg4];
 
+/**
+ * Maps a subject code to a consistent background image.
+ * Uses hashing to ensure the same subject always displays the same background.
+ */
+const backgroundFor = (key) => {
+  let hash = 0;
+  for (let i = 0; i < String(key).length; i++) {
+    hash = String(key).charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return CARD_BACKGROUNDS[Math.abs(hash) % CARD_BACKGROUNDS.length];
+};
+
 const ClassSpacePage = () => {
   const { user } = useAuth();
   const { getPageState, savePageState } = usePageState();
@@ -405,9 +417,8 @@ const ClassSpacePage = () => {
 
   // ─── Detail view (class selected) ─────────────────────────────────────────
   if (selectedClass) {
-    const idx = classSpaces.findIndex(cs => cs._id === selectedClass._id);
-    const backgroundImage = CARD_BACKGROUNDS[(idx < 0 ? 0 : idx) % CARD_BACKGROUNDS.length];
     const subjectCode = subjectCodeOf(selectedClass);
+    const backgroundImage = backgroundFor(subjectCode);
     const subjectName = subjectNameOf(selectedClass);
     const facultyName = facultyNameOf(selectedClass);
     const canManage = canPostHere;
@@ -983,8 +994,8 @@ const ClassSpacePage = () => {
           /* Google Classroom-style card grid */
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
             {filteredClasses.map((cs, index) => {
-              const backgroundImage = CARD_BACKGROUNDS[index % CARD_BACKGROUNDS.length];
               const code = subjectCodeOf(cs);
+              const backgroundImage = backgroundFor(code);
               const name = subjectNameOf(cs);
               const facultyName = facultyNameOf(cs);
               const profilePicture = cs?.faculty?.user?.profilePicture;

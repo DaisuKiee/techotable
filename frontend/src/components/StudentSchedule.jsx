@@ -305,23 +305,28 @@ const StudentSchedule = () => {
                         }}
                       >
                         <div
-                          className="h-full w-full overflow-hidden rounded-lg px-2 py-1.5 text-white cursor-pointer hover:opacity-90 transition-opacity"
+                          className="h-full w-full overflow-hidden rounded-lg px-2 py-2 text-white cursor-pointer hover:opacity-90 transition-opacity flex flex-col items-center justify-center text-center"
                           style={{
                             backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3)), url(${backgroundFor(m.subjectCode)})`,
                             backgroundSize: 'cover',
                             backgroundPosition: 'center'
                           }}
                           onClick={() => (window.location.href = '/classes')}
-                          title={`${m.subjectCode}${m.subjectName ? ` - ${m.subjectName}` : ''}\n${fmt12(m.startTime)} - ${fmt12(m.endTime)}${m.room ? `\n${m.room}` : ''}`}
+                          title={`${m.subjectCode}${m.subjectName ? ` - ${m.subjectName}` : ''}\n${fmt12(m.startTime)} - ${fmt12(m.endTime)}${m.teacher ? `\n${m.teacher}` : ''}`}
                         >
-                          <p className="font-bold text-xs leading-tight truncate">
+                          <p className="font-bold text-xs leading-tight truncate w-full">
                             {m.subjectCode}
                           </p>
-                          <p className="text-[10px] opacity-90 leading-tight">
+                          {m.subjectName && (
+                            <p className="text-[10px] opacity-90 leading-tight truncate w-full mt-0.5">
+                              {m.subjectName}
+                            </p>
+                          )}
+                          <p className="text-[10px] opacity-90 leading-tight mt-1">
                             {fmt12(m.startTime)} - {fmt12(m.endTime)}
                           </p>
-                          {m.room && (
-                            <p className="text-[10px] opacity-80 truncate">{m.room}</p>
+                          {m.teacher && (
+                            <p className="text-[10px] opacity-80 truncate w-full mt-0.5">{m.teacher}</p>
                           )}
                         </div>
                       </div>

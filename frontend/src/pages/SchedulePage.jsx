@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Layout from '../components/Layout';
 import { scheduleAPI, subjectAPI, sectionAPI, facultyAPI, roomAPI } from '../services/api';
-import { useCachedData } from '../hooks/useCachedData';
+import useCachedData from '../hooks/useCachedData';
 import toast from 'react-hot-toast';
 import { 
   Calendar as CalendarIcon, Plus, Download, Search, X,
@@ -33,7 +33,6 @@ const SchedulePage = () => {
   const [sections, setSections] = useState([]);
   const [faculty, setFaculty] = useState([]);
   const [rooms, setRooms] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState({
     program: '',
@@ -75,6 +74,60 @@ const SchedulePage = () => {
   const isFaculty = user?.role === 'faculty';
   const isProgramManager = user?.role === 'program_manager';
 
+  // Build cache key based on filters and user role
+  const schedulesCacheKey = useMemo(() => {
+    const parts = ['schedules', user?.role];
+    if (filters.program) parts.push(filters.program);
+    if (filters.yearLevel) parts.push(`y${filters.yearLevel}`);
+    if (filters.semester) parts.push(`s${filters.semester}`);
+    if (filters.shift) parts.push(filters.shift);
+    if (filters.academicYear) parts.push(filters.academicYear);
+    if (isFaculty && user?.facultyId) parts.push(`f${user.facultyId}`);
+    if (selectedSection?.sectionCode) parts.push(selectedSection.sectionCode);
+    return parts.join('-');
+  }, [filters, user?.role, user?.facultyId, isFaculty, selectedSection?.sectionCode]);
+
+  // ✅ CACHE: Schedules with 3-minute cache (stale-while-revalidate)
+  const {
+    data: schedulesResponse,
+    loading: schedulesLoading,
+    error: schedulesError,
+    refetch: reloadSchedulesFromCache,
+    isFromCache: schedulesFromCache
+  } = useCachedData(
+    async () => {
+      const params = { isActive: true };
+      if (filters.program) params.program = filters.program;
+      if (filters.yearLevel) params.yearLevel = filters.yearLevel;
+      if (filters.semester) params.semester = filters.semester;
+      if (filters.shift) params.shift = filters.shift;
+      if (filters.academicYear) params.academicYear = filters.academicYear;
+      if (isFaculty && user?.facultyId) params.faculty = user.facultyId;
+      if (selectedSection?.sectionCode) params.sectionCode = selectedSection.sectionCode;
+      return scheduleAPI.getAll(params);
+    },
+    schedulesCacheKey,
+    {
+      cacheDuration: 3 * 60 * 1000, // 3 minutes (schedules change more frequently)
+      enabled: !isStudent && !!user, // Skip for students, they use StudentSchedule component
+      onSuccess: (data) => {
+        console.log('✅ Schedules loaded:', schedulesFromCache ? '📦 from cache' : '🌐 fresh fetch');
+      },
+      onError: (err) => {
+        console.error('Failed to load schedules:', err);
+        toast.error('Failed to load schedules');
+      }
+    }
+  );
+
+  // Extract schedules and update state
+  useEffect(() => {
+    if (!schedulesResponse) return;
+    const scheduleData = schedulesResponse.data || [];
+    setSchedules(scheduleData);
+    calculateStats(scheduleData);
+  }, [schedulesResponse]);
+
   useEffect(() => {
     if (isStudent && user) {
       setFilters({
@@ -97,52 +150,23 @@ const SchedulePage = () => {
     // /classSpaces/my-classes. Skip the management fetches so a student doesn't
     // fire five staff endpoints (and collect 403s) on every visit.
     if (isStudent) {
-      setLoading(false);
       return;
     }
-    loadAllData();
-  }, [filters, isStudent, isFaculty, selectedSection?.sectionCode]);
+    loadSupportData();
+  }, [filters.program, filters.yearLevel, filters.semester, isStudent]);
 
-  const loadAllData = async () => {
-    setLoading(true);
+  const loadSupportData = async () => {
+    // Schedules are cached separately, just load support data
     await Promise.all([
-      loadSchedules(),
       loadSubjects(),
       loadSections(),
       loadFaculty(),
       loadRooms()
     ]);
-    setLoading(false);
   };
 
-  const loadSchedules = async () => {
-    try {
-      const params = { isActive: true };
-      if (filters.program) params.program = filters.program;
-      if (filters.yearLevel) params.yearLevel = filters.yearLevel;
-      if (filters.semester) params.semester = filters.semester;
-      if (filters.shift) params.shift = filters.shift;
-      if (filters.academicYear) params.academicYear = filters.academicYear;
-
-      // Faculty should only see their own schedules - use the faculty field
-      if (isFaculty && user?.facultyId) {
-        params.faculty = user.facultyId;
-      }
-
-      // Scope to the chosen section. Without this the calendar and list showed
-      // every section of the program at once, so different sections' classes
-      // piled into the same grid cells and looked like one section's timetable.
-      if (selectedSection?.sectionCode) params.sectionCode = selectedSection.sectionCode;
-
-      const response = await scheduleAPI.getAll(params);
-      const scheduleData = response.data.data || [];
-      setSchedules(scheduleData);
-      calculateStats(scheduleData);
-    } catch (error) {
-      console.error('Load schedules error:', error);
-      toast.error('Failed to load schedules');
-    }
-  };
+  // Create a derived loading state
+  const loading = schedulesLoading || (!subjects.length && !sections.length && !faculty.length && !rooms.length && !isStudent);
 
   const loadSubjects = async () => {
     try {
@@ -273,7 +297,7 @@ const SchedulePage = () => {
         try {
           await scheduleAPI.delete(schedule._id);
           toast.success('Schedule deleted successfully');
-          loadAllData();
+          reloadSchedulesFromCache();
           setConfirmDialog({ ...confirmDialog, isOpen: false });
         } catch (error) {
           console.error('Delete error:', error);
@@ -321,7 +345,7 @@ const SchedulePage = () => {
           const res = await scheduleAPI.batchDelete(selectedSchedules);
           toast.success(res.data.message || `Deleted ${selectedSchedules.length} schedule(s)`);
           setSelectedSchedules([]);
-          loadAllData();
+          reloadSchedulesFromCache();
           setConfirmDialog({ ...confirmDialog, isOpen: false });
         } catch (error) {
           console.error('Batch delete error:', error);
@@ -342,7 +366,7 @@ const SchedulePage = () => {
       }
       toast.success(`Published ${count} selected schedule(s)`);
       setSelectedSchedules([]);
-      loadAllData();
+      reloadSchedulesFromCache();
     } catch (error) {
       console.error('Batch publish error:', error);
       toast.error(error.response?.data?.message || 'Failed to publish selected schedules');
@@ -374,7 +398,7 @@ const SchedulePage = () => {
         academicYear: filters.academicYear
       });
       toast.success('Schedule published successfully');
-      loadAllData();
+      reloadSchedulesFromCache();
     } catch (error) {
       console.error('Publish error:', error);
       toast.error(error.response?.data?.message || 'Failed to publish schedule');
@@ -448,7 +472,7 @@ const SchedulePage = () => {
     setShowGenerateModal(false);
     setSelectedSchedule(null);
     if (shouldRefresh) {
-      loadAllData();
+      reloadSchedulesFromCache();
     }
   };
 
@@ -944,9 +968,8 @@ const SchedulePage = () => {
 
         {/* Main Content Area */}
         {/* The builder is checked BEFORE the loading branch on purpose.
-            `onAssignmentChange` triggers loadAllData, which set loading = true and
-            swapped the builder for a spinner - unmounting it and discarding any
-            remaining pending cards, undo history, subject search and scroll
+            `onAssignmentChange` triggers cache reload, which keeps the builder mounted
+            and preserves pending cards, undo history, subject search and scroll position. */}
             position on every single save. It now stays mounted and shows its own
             inline refresh state. */}
         {viewMode === 'builder' && !builderReady ? (
@@ -994,7 +1017,7 @@ const SchedulePage = () => {
             faculty={faculty}
             rooms={rooms}
             selectedSection={selectedSection}
-            onAssignmentChange={loadAllData}
+            onAssignmentChange={reloadSchedulesFromCache}
           />
         ) : loading ? (
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-16 text-center">

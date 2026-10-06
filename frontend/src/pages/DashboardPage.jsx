@@ -1251,22 +1251,12 @@ const StudentDashboard = ({ user, loading: parentLoading }) => {
           const todayClasses = classes
             .filter(cs => {
               const slots = cs.schedule?.timeSlots || [];
-              return slots.some(slot => {
-                if (slot.day !== todayName) return false;
-                // Include if class is currently happening or hasn't started yet
-                const startTime = timeToMinutes(slot.startTime);
-                const endTime = timeToMinutes(slot.endTime);
-                return endTime > currentTime; // Show current and upcoming classes
-              });
+              return slots.some(slot => slot.day === todayName); // Show all classes for today
             })
             .map(cs => ({
               ...cs,
               todaySlots: (cs.schedule?.timeSlots || [])
-                .filter(slot => {
-                  if (slot.day !== todayName) return false;
-                  const endTime = timeToMinutes(slot.endTime);
-                  return endTime > currentTime; // Only upcoming/current slots
-                })
+                .filter(slot => slot.day === todayName) // All slots for today
             }))
             .sort((a, b) => {
               const timeA = a.todaySlots[0]?.startTime || '00:00';

@@ -121,7 +121,9 @@ const ClassSpacePage = () => {
   useEffect(() => {
     if (!classSpacesResponse) return;
     
-    const payload = classSpacesResponse.data || classSpacesResponse;
+    // classSpacesResponse is now response.data (the whole API response object)
+    // It contains: {success, count, data: [...], enrolled?, studentType?, message?}
+    const payload = classSpacesResponse;
 
     if (payload.studentType) setStudentType(payload.studentType);
 

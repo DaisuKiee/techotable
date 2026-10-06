@@ -122,7 +122,9 @@ const useCachedData = (fetchFunction, cacheKey, options = {}) => {
     try {
       const response = await fetchFunction();
       console.log(`[useCachedData] Fetch response for ${cacheKey}:`, response);
-      const newData = response.data?.data || response.data || response;
+      // For Axios responses, extract response.data (which contains {success, data, count, etc.})
+      // Don't extract response.data.data because that loses metadata like 'enrolled', 'studentType'
+      const newData = response.data || response;
 
       // Always save to cache, even if component unmounted (localStorage is safe)
       console.log(`[useCachedData] About to save cache for ${cacheKey}`);

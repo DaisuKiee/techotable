@@ -19,7 +19,9 @@ const Layout = ({ children }) => {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [mobileUserMenuOpen, setMobileUserMenuOpen] = useState(false);
   const userMenuRef = useRef(null);
+  const mobileUserMenuRef = useRef(null);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -27,21 +29,25 @@ const Layout = ({ children }) => {
       if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
         setUserMenuOpen(false);
       }
+      if (mobileUserMenuRef.current && !mobileUserMenuRef.current.contains(event.target)) {
+        setMobileUserMenuOpen(false);
+      }
     };
 
-    if (userMenuOpen) {
+    if (userMenuOpen || mobileUserMenuOpen) {
       document.addEventListener('mousedown', handleClickOutside);
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [userMenuOpen]);
+  }, [userMenuOpen, mobileUserMenuOpen]);
 
   // Collapse sidebar when route changes
   useEffect(() => {
     setSidebarExpanded(false);
     setUserMenuOpen(false);
+    setMobileUserMenuOpen(false);
   }, [location.pathname]);
 
   // Get avatar URL
@@ -123,11 +129,52 @@ const Layout = ({ children }) => {
             {/* Notification Bell for Mobile */}
             <NotificationBell />
             
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center overflow-hidden">
-              {avatarUrl ? (
-                <img src={avatarUrl} alt="User" className="w-full h-full object-cover" />
-              ) : (
-                <User className="w-5 h-5 text-white" />
+            {/* Profile Picture with Dropdown */}
+            <div ref={mobileUserMenuRef} className="relative">
+              <button
+                onClick={() => setMobileUserMenuOpen(!mobileUserMenuOpen)}
+                className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center overflow-hidden hover:ring-2 hover:ring-blue-300 transition-all"
+              >
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="User" className="w-full h-full object-cover" />
+                ) : (
+                  <User className="w-5 h-5 text-white" />
+                )}
+              </button>
+
+              {/* Mobile Dropdown Menu */}
+              {mobileUserMenuOpen && (
+                <div className="absolute top-full right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden animate-fadeIn z-50">
+                  <div className="py-2">
+                    <Link
+                      to="/profile"
+                      onClick={() => setMobileUserMenuOpen(false)}
+                      className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300"
+                    >
+                      <User className="w-5 h-5" />
+                      <span className="text-sm font-medium">My Profile</span>
+                    </Link>
+                    <Link
+                      to="/settings"
+                      onClick={() => setMobileUserMenuOpen(false)}
+                      className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300"
+                    >
+                      <Settings className="w-5 h-5" />
+                      <span className="text-sm font-medium">Settings</span>
+                    </Link>
+                    <div className="h-px bg-gray-200 dark:bg-gray-700 my-2" />
+                    <button
+                      onClick={() => {
+                        setMobileUserMenuOpen(false);
+                        handleLogout();
+                      }}
+                      className="flex items-center gap-3 w-full px-4 py-3 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-red-600 dark:text-red-400"
+                    >
+                      <LogOut className="w-5 h-5" />
+                      <span className="text-sm font-medium">Logout</span>
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
           </div>

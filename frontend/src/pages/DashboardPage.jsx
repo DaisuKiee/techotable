@@ -936,31 +936,30 @@ const FacultyDashboard = ({ user, loading: parentLoading }) => {
 
 // Student Dashboard Component
 const StudentDashboard = ({ user, loading: parentLoading }) => {
-  // ✅ CACHE: Student classes with 5-minute cache
-  const {
-    data: studentResponse,
-    loading,
-    error,
-    refetch: refetchStudentData
-  } = useCachedData(
-    () => classSpaceAPI.getMyClasses(),
-    `student-classes-${user?._id}`,
-    {
-      cacheDuration: 5 * 60 * 1000, // 5 minutes
-      enabled: !!user?._id,
-      onError: (err) => {
-        console.error('Failed to load student data:', err);
-        toast.error(
-          err.response?.data?.message || 'Failed to load your enrollment information'
-        );
-      }
-    }
-  );
+  const [studentData, setStudentData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [classes, setClasses] = useState([]);
 
-  // The API response structure is already parsed by useCachedData
-  // response.data.data is extracted to just the data object
-  const studentData = studentResponse?.profile || null;
-  const classes = studentResponse?.data || [];
+  useEffect(() => {
+    loadStudentData();
+  }, []);
+
+  const loadStudentData = async () => {
+    try {
+      const response = await classSpaceAPI.getMyClasses();
+      const payload = response.data;
+
+      setStudentData(payload.profile || null);
+      setClasses(payload.data || []);
+    } catch (error) {
+      console.error('Failed to load student data:', error);
+      toast.error(
+        error.response?.data?.message || 'Failed to load your enrollment information'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   /** "Monday 08:00-09:00" for the first meeting of a class. */
   const describeSlots = (cs) => {

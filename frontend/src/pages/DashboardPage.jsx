@@ -983,7 +983,8 @@ const StudentDashboard = ({ user, loading: parentLoading }) => {
   );
 
   // Extract the actual data from API responses
-  const studentData = studentProfile?.data || null;
+  // Note: useCachedData returns the raw data object from cache, but Axios response when fresh
+  const studentData = studentProfile?.data || studentProfile || null;
   const classes = Array.isArray(classesResponse) ? classesResponse : (classesResponse?.data || []);
 
   // Debug logging

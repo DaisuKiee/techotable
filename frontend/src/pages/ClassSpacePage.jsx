@@ -17,6 +17,12 @@ import UploadMaterialModal from '../components/UploadMaterialModal';
 import EnrollModal from '../components/EnrollModal';
 import ConfirmDialog from '../components/ConfirmDialog';
 
+// Import background images
+import bg1 from '../assets/images/class-spaces-bg/GOOGLE-BLUES.jpe';
+import bg2 from '../assets/images/class-spaces-bg/Google-Green.jpe';
+import bg3 from '../assets/images/class-spaces-bg/Google-Red.jpe';
+import bg4 from '../assets/images/class-spaces-bg/Google-Yellows.jpe';
+
 /* Fields are denormalised onto the ClassSpace, so read subject/faculty/section
    directly and fall back to the populated schedule only for time/room. */
 const subjectCodeOf = (cs) => cs?.subject?.subjectCode || cs?.sectionCode || 'Class';
@@ -49,13 +55,7 @@ const fmtSize = (bytes) => {
 };
 
 // Card header background images — randomized for variety like Google Classroom
-const CARD_BACKGROUNDS = [
-  '/assets/images/backgrounds/662332107_1498119255017069_2427715418324433071_n.jpg',
-  '/assets/images/backgrounds/680448563_4304916549747910_4856050542134784312_n.jpg',
-  '/assets/images/backgrounds/682398065_803515886114740_8967130645743866506_n.jpg',
-  '/assets/images/backgrounds/685213306_1328240422552832_8939830790887051502_n.jpg',
-  '/assets/images/backgrounds/ctu-bg.png',
-];
+const CARD_BACKGROUNDS = [bg1, bg2, bg3, bg4];
 
 const ClassSpacePage = () => {
   const { user } = useAuth();

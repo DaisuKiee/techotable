@@ -1184,15 +1184,34 @@ const StudentDashboard = ({ user, loading: parentLoading }) => {
           const today = new Date();
           const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
           const todayName = dayNames[today.getDay()];
+          const currentTime = today.getHours() * 60 + today.getMinutes(); // Current time in minutes since midnight
+
+          // Helper to convert "HH:MM" to minutes since midnight
+          const timeToMinutes = (timeStr) => {
+            if (!timeStr) return 0;
+            const [hours, minutes] = timeStr.split(':').map(Number);
+            return hours * 60 + minutes;
+          };
 
           const todayClasses = classes
             .filter(cs => {
               const slots = cs.schedule?.timeSlots || [];
-              return slots.some(slot => slot.day === todayName);
+              return slots.some(slot => {
+                if (slot.day !== todayName) return false;
+                // Include if class is currently happening or hasn't started yet
+                const startTime = timeToMinutes(slot.startTime);
+                const endTime = timeToMinutes(slot.endTime);
+                return endTime > currentTime; // Show current and upcoming classes
+              });
             })
             .map(cs => ({
               ...cs,
-              todaySlots: (cs.schedule?.timeSlots || []).filter(slot => slot.day === todayName)
+              todaySlots: (cs.schedule?.timeSlots || [])
+                .filter(slot => {
+                  if (slot.day !== todayName) return false;
+                  const endTime = timeToMinutes(slot.endTime);
+                  return endTime > currentTime; // Only upcoming/current slots
+                })
             }))
             .sort((a, b) => {
               const timeA = a.todaySlots[0]?.startTime || '00:00';
@@ -1201,11 +1220,21 @@ const StudentDashboard = ({ user, loading: parentLoading }) => {
             });
 
           if (todayClasses.length === 0) {
+            // Check if there were classes today but they've all ended
+            const hadClassesToday = classes.some(cs => {
+              const slots = cs.schedule?.timeSlots || [];
+              return slots.some(slot => slot.day === todayName);
+            });
+
             return (
               <div className="text-center py-12 text-gray-500 dark:text-gray-400">
                 <Calendar className="w-16 h-16 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
-                <p className="text-lg font-medium text-gray-900 dark:text-white">No classes scheduled for today</p>
-                <p className="text-sm mt-1">Enjoy your free day!</p>
+                <p className="text-lg font-medium text-gray-900 dark:text-white">
+                  {hadClassesToday ? 'All classes for today have ended' : 'No classes scheduled for today'}
+                </p>
+                <p className="text-sm mt-1">
+                  {hadClassesToday ? 'Great job! See you tomorrow.' : 'Enjoy your free day!'}
+                </p>
                 <button
                   onClick={() => window.location.href = '/classes'}
                   className="mt-4 px-6 py-3 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors text-sm font-bold shadow-md"
@@ -1225,6 +1254,12 @@ const StudentDashboard = ({ user, loading: parentLoading }) => {
             return `${hour12}:${minutes} ${ampm}`;
           };
 
+          const isClassHappeningNow = (startTime, endTime) => {
+            const start = timeToMinutes(startTime);
+            const end = timeToMinutes(endTime);
+            return currentTime >= start && currentTime < end;
+          };
+
           return (
             <div className="space-y-4">
               {todayClasses.map((cs) => {
@@ -1232,11 +1267,31 @@ const StudentDashboard = ({ user, loading: parentLoading }) => {
                   ? `${cs.faculty.user.firstName || ''} ${cs.faculty.user.lastName || ''}`.trim()
                   : null;
                 
+                const isNow = cs.todaySlots.some(slot => 
+                  isClassHappeningNow(slot.startTime, slot.endTime)
+                );
+                
                 return (
                   <div
                     key={cs._id}
-                    className="bg-white border-2 border-blue-200 rounded-xl p-5 hover:border-yellow-400 hover:shadow-lg transition-all dark:bg-gray-700 dark:border-blue-700 dark:hover:border-yellow-500"
+                    className={`bg-white border-2 rounded-xl p-5 transition-all dark:bg-gray-700 ${
+                      isNow 
+                        ? 'border-green-500 shadow-lg shadow-green-500/20 dark:border-green-400' 
+                        : 'border-blue-200 hover:border-yellow-400 hover:shadow-lg dark:border-blue-700 dark:hover:border-yellow-500'
+                    }`}
                   >
+                    {/* Status Badge */}
+                    {isNow && (
+                      <div className="mb-3 flex items-center gap-2">
+                        <span className="relative flex h-3 w-3">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                        </span>
+                        <span className="text-sm font-bold text-green-600 dark:text-green-400 uppercase">
+                          Happening Now
+                        </span>
+                      </div>
+                    )}
                     {/* Subject Header */}
                     <div className="flex items-start gap-3 sm:gap-4 mb-4">
                       <div className="p-2 sm:p-3 bg-white rounded-xl dark:bg-gray-700 flex-shrink-0">

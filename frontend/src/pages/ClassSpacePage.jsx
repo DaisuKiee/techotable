@@ -48,18 +48,13 @@ const fmtSize = (bytes) => {
     : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 };
 
-// Card header colors — cycles through for variety like Google Classroom
-const CARD_COLORS = [
-  'bg-blue-600',
-  'bg-green-700',
-  'bg-purple-700',
-  'bg-teal-700',
-  'bg-red-700',
-  'bg-orange-600',
-  'bg-indigo-700',
-  'bg-pink-700',
-  'bg-cyan-700',
-  'bg-emerald-700',
+// Card header background images — randomized for variety like Google Classroom
+const CARD_BACKGROUNDS = [
+  '/assets/images/backgrounds/662332107_1498119255017069_2427715418324433071_n.jpg',
+  '/assets/images/backgrounds/680448563_4304916549747910_4856050542134784312_n.jpg',
+  '/assets/images/backgrounds/682398065_803515886114740_8967130645743866506_n.jpg',
+  '/assets/images/backgrounds/685213306_1328240422552832_8939830790887051502_n.jpg',
+  '/assets/images/backgrounds/ctu-bg.png',
 ];
 
 const ClassSpacePage = () => {
@@ -411,7 +406,7 @@ const ClassSpacePage = () => {
   // ─── Detail view (class selected) ─────────────────────────────────────────
   if (selectedClass) {
     const idx = classSpaces.findIndex(cs => cs._id === selectedClass._id);
-    const headerColor = CARD_COLORS[(idx < 0 ? 0 : idx) % CARD_COLORS.length];
+    const backgroundImage = CARD_BACKGROUNDS[(idx < 0 ? 0 : idx) % CARD_BACKGROUNDS.length];
     const subjectCode = subjectCodeOf(selectedClass);
     const subjectName = subjectNameOf(selectedClass);
     const facultyName = facultyNameOf(selectedClass);
@@ -441,7 +436,12 @@ const ClassSpacePage = () => {
 
           <div className="max-w-5xl mx-auto px-4 py-4 sm:py-6 space-y-4">
             {/* Class header banner */}
-            <div className={`${headerColor} rounded-2xl p-5 sm:p-8 text-white relative overflow-hidden`}>
+            <div 
+              className="rounded-2xl p-5 sm:p-8 text-white relative overflow-hidden bg-cover bg-center"
+              style={{
+                backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.6)), url(${backgroundImage})`
+              }}
+            >
               <div className="relative z-10">
                 <p className="text-sm font-medium opacity-80 mb-1">{selectedClass.sectionCode}</p>
                 <h1 className="text-2xl sm:text-3xl font-bold mb-1 break-words">{subjectCode}</h1>
@@ -983,7 +983,7 @@ const ClassSpacePage = () => {
           /* Google Classroom-style card grid */
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
             {filteredClasses.map((cs, index) => {
-              const color = CARD_COLORS[index % CARD_COLORS.length];
+              const backgroundImage = CARD_BACKGROUNDS[index % CARD_BACKGROUNDS.length];
               const code = subjectCodeOf(cs);
               const name = subjectNameOf(cs);
               const facultyName = facultyNameOf(cs);
@@ -999,8 +999,13 @@ const ClassSpacePage = () => {
                   className="bg-white dark:bg-gray-800 rounded-xl shadow-md hover:shadow-lg transition-shadow cursor-pointer overflow-hidden flex flex-col"
                   onClick={() => openClass(cs)}
                 >
-                  {/* Colored header */}
-                  <div className={`${color} p-5 relative h-28 flex flex-col justify-between`}>
+                  {/* Header with background image */}
+                  <div 
+                    className="p-5 relative h-28 flex flex-col justify-between bg-cover bg-center"
+                    style={{
+                      backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.5)), url(${backgroundImage})`
+                    }}
+                  >
                     <div className="pr-12">
                       <h3 className="text-white font-bold text-base leading-tight line-clamp-2">
                         {name || code}

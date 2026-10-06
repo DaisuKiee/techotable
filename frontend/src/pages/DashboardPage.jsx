@@ -1027,27 +1027,28 @@ const StudentDashboard = ({ user, loading: parentLoading }) => {
         </div>
       </div>
 
-      {/* Enrollment Information - Below Header */}
-      {!studentData ? (
+      {/* Enrollment Information - Only show if we have studentData (old API format) */}
+      {studentData && !studentData.studentType ? (
         <div className="text-center py-6 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
           <Users className="w-12 h-12 mx-auto mb-2 text-gray-400 dark:text-gray-500" />
           <p className="text-gray-900 dark:text-white font-medium">No enrollment record found</p>
           <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">Please contact your program manager</p>
         </div>
-      ) : studentData.studentType === 'regular' && !studentData.sectionCode ? (
+      ) : studentData && studentData.studentType === 'regular' && !studentData.sectionCode ? (
         <div className="text-center py-6 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
           <AlertTriangle className="w-12 h-12 mx-auto mb-2 text-orange-500" />
           <p className="font-medium text-gray-900 dark:text-white">Section Not Assigned</p>
           <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">Your program manager will assign you to a section soon</p>
         </div>
-      ) : studentData.studentType === 'irregular' && (!studentData.subjectCodes || studentData.subjectCodes.length === 0) ? (
+      ) : studentData && studentData.studentType === 'irregular' && (!studentData.subjectCodes || studentData.subjectCodes.length === 0) ? (
         <div className="text-center py-6 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
           <AlertTriangle className="w-12 h-12 mx-auto mb-2 text-orange-500" />
           <p className="font-medium text-gray-900 dark:text-white">No Subjects Enrolled</p>
           <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">Your program manager will assign your subjects soon</p>
         </div>
-      ) : (
+      ) : studentData ? (
         <>
+          {/* Enrollment Info - Only shown when studentData exists (old API format) */}
           {/* Stat Cards Grid - Matching Program Manager Dashboard */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
             {/* Program Card */}

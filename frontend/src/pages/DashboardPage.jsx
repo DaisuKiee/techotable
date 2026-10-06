@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-]mport { useCache } from '../context/CacheContext';
+import { useCache } from '../context/CacheContext';
 import useCachedData from '../hooks/useCachedData';
 import Layout from '../components/Layout';
 import MyClassesEnrollment from '../components/MyClassesEnrollment';

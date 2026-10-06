@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { authAPI, facultyAPI } from '../services/api';
-import { useCachedData } from '../hooks/useCachedData';
+import useCachedData from '../hooks/useCachedData';
 import toast from 'react-hot-toast';
 import Layout from '../components/Layout';
 import AvatarUpload from '../components/AvatarUpload';

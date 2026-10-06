@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { subjectAPI } from '../services/api';
-import { useCachedData } from '../hooks/useCachedData';
+import useCachedData from '../hooks/useCachedData';
 import toast from 'react-hot-toast';
 import { 
   Plus, Search, Edit2, Trash2, BookOpen, 

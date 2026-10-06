@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { studentAPI } from '../services/api';
-import { useCachedData } from '../hooks/useCachedData';
+import useCachedData from '../hooks/useCachedData';
 import toast from 'react-hot-toast';
 import StudentModal from '../components/StudentModal';
 import ConfirmDialog from '../components/ConfirmDialog';

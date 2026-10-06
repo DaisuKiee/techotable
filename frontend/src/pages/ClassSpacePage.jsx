@@ -4,7 +4,7 @@ import Layout from '../components/Layout';
 import { classSpaceAPI, resolveUploadUrl } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { usePageState } from '../context/PageStateContext';
-import { useCachedData } from '../hooks/useCachedData';
+import useCachedData from '../hooks/useCachedData';
 import toast from 'react-hot-toast';
 import {
   BookOpen, Bell, FileText, Users, Plus, Upload,
@@ -75,7 +75,6 @@ const ClassSpacePage = () => {
   const [classSpaces, setClassSpaces] = useState([]);
   const [notEnrolled, setNotEnrolled] = useState(false); // student has no sectionCode yet
   const [selectedClass, setSelectedClass] = useState(null); // null = grid view
-  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('stream');
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
   const [showMaterialModal, setShowMaterialModal] = useState(false);
@@ -98,8 +97,8 @@ const ClassSpacePage = () => {
   // ✅ CACHE: Class spaces with 5-minute cache (stale-while-revalidate)
   const {
     data: classSpacesResponse,
-    loading,
-    error,
+    loading: classSpacesLoading,
+    error: classSpacesError,
     refetch: reloadClassSpaces,
     isFromCache
   } = useCachedData(
@@ -394,7 +393,7 @@ const ClassSpacePage = () => {
   }
 
   // ─── Loading ───────────────────────────────────────────────────────────────
-  if (loading) {
+  if (classSpacesLoading) {
     return (
       <Layout>
         <div className="flex items-center justify-center h-screen">

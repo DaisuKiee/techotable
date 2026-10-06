@@ -3,7 +3,7 @@ import Layout from '../components/Layout';
 import SectionModal from '../components/SectionModal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { sectionAPI, facultyAPI } from '../services/api';
-import { useCachedData } from '../hooks/useCachedData';
+import useCachedData from '../hooks/useCachedData';
 import toast from 'react-hot-toast';
 import { 
   Plus, Edit2, Trash2, Search, Sun, Moon, 

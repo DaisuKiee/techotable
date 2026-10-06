@@ -144,8 +144,7 @@ const LandingPage = () => {
               className="group relative px-4 py-2 sm:px-6 sm:py-3 text-sm sm:text-base bg-gradient-to-r from-blue-600 to-blue-700 hover:from-yellow-500 hover:to-yellow-600 rounded-xl font-semibold overflow-hidden hover:shadow-2xl hover:shadow-yellow-500/50 transition-all duration-300"
             >
               <span className="relative z-10 flex items-center gap-1 sm:gap-2">
-                <span className="hidden xs:inline">Get Started</span>
-                <span className="xs:hidden">Login</span>
+                Get Started
                 <ArrowRight size={16} className="sm:w-[18px] sm:h-[18px] group-hover:translate-x-1 transition-transform" />
               </span>
             </button>

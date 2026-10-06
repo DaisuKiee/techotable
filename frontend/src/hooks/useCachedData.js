@@ -128,11 +128,16 @@ const useCachedData = (fetchFunction, cacheKey, options = {}) => {
         console.log(`[useCachedData] Setting data for ${cacheKey}:`, newData);
         setData(newData);
         setIsFromCache(false);
+        
+        console.log(`[useCachedData] About to save cache for ${cacheKey}`);
         saveToCache(newData);
+        console.log(`[useCachedData] Cache save completed for ${cacheKey}`);
         
         if (onSuccess) {
           onSuccess(newData);
         }
+      } else {
+        console.warn(`[useCachedData] Component unmounted, skipping cache save for ${cacheKey}`);
       }
     } catch (err) {
       console.error(`[useCachedData] Fetch error for ${cacheKey}:`, err);

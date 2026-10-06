@@ -101,6 +101,7 @@ export const userAPI = {
 export const studentAPI = {
   getAll: (params) => api.get('/students', { params }),
   getById: (id) => api.get(`/students/${id}`),
+  getMyProfile: () => api.get('/students/profile'), // Get current student's profile
   create: (data) => api.post('/students', data),
   update: (id, data) => api.put(`/students/${id}`, data),
   delete: (id) => api.delete(`/students/${id}`),

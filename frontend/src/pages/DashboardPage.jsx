@@ -936,13 +936,34 @@ const FacultyDashboard = ({ user, loading: parentLoading }) => {
 
 // Student Dashboard Component
 const StudentDashboard = ({ user, loading: parentLoading }) => {
-  // ✅ CACHE: Student classes with 5-minute cache (stale-while-revalidate)
+  // ✅ CACHE 1: Student profile from database (10-minute cache)
   const {
-    data: studentResponse,
-    loading,
-    error,
-    refetch: refetchStudentData,
-    isFromCache
+    data: studentProfile,
+    loading: profileLoading,
+    error: profileError,
+    isFromCache: profileFromCache
+  } = useCachedData(
+    () => studentAPI.getMyProfile(),
+    `student-profile-${user?._id}`,
+    {
+      cacheDuration: 10 * 60 * 1000, // 10 minutes
+      enabled: !!user?._id,
+      onSuccess: (data) => {
+        console.log('✅ Student profile loaded:', profileFromCache ? '📦 from cache' : '🌐 fresh fetch');
+      },
+      onError: (err) => {
+        console.error('Failed to load student profile:', err);
+      }
+    }
+  );
+
+  // ✅ CACHE 2: Student classes (5-minute cache, stale-while-revalidate)
+  const {
+    data: classesResponse,
+    loading: classesLoading,
+    error: classesError,
+    refetch: refetchClasses,
+    isFromCache: classesFromCache
   } = useCachedData(
     () => classSpaceAPI.getMyClasses(),
     `student-classes-${user?._id}`,
@@ -950,42 +971,26 @@ const StudentDashboard = ({ user, loading: parentLoading }) => {
       cacheDuration: 5 * 60 * 1000, // 5 minutes
       enabled: !!user?._id,
       onSuccess: (data) => {
-        console.log('✅ Student data loaded:', isFromCache ? '📦 from cache' : '🌐 fresh fetch');
+        console.log('✅ Student classes loaded:', classesFromCache ? '📦 from cache' : '🌐 fresh fetch');
       },
       onError: (err) => {
-        console.error('Failed to load student data:', err);
+        console.error('Failed to load student classes:', err);
         toast.error(
-          err.response?.data?.message || 'Failed to load your enrollment information'
+          err.response?.data?.message || 'Failed to load your classes'
         );
       }
     }
   );
 
-  // Handle both old and new API response formats
-  // Old format: {profile: {...}, data: [...]}
-  // New format: Just an array of classes
-  let studentData, classes;
-  
-  if (Array.isArray(studentResponse)) {
-    // New format: direct array of classes
-    console.log('📦 New API format detected (array)');
-    classes = studentResponse;
-    studentData = null; // No profile in new format
-  } else if (studentResponse && typeof studentResponse === 'object') {
-    // Old format: object with profile and data
-    console.log('📦 Old API format detected (object)');
-    studentData = studentResponse.profile || null;
-    classes = studentResponse.data || [];
-  } else {
-    // No data
-    studentData = null;
-    classes = [];
-  }
+  // Extract the actual data from API responses
+  const studentData = studentProfile?.data || null;
+  const classes = Array.isArray(classesResponse) ? classesResponse : (classesResponse?.data || []);
 
   // Debug logging
-  console.log('📊 Student Response:', studentResponse);
-  console.log('👤 Student Data:', studentData);
+  console.log('📊 Student Profile:', studentData);
   console.log('📚 Classes:', classes);
+
+  const loading = profileLoading || classesLoading;
 
   /** "Monday 08:00-09:00" for the first meeting of a class. */
   const describeSlots = (cs) => {

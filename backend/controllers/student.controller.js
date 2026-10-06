@@ -52,6 +52,36 @@ exports.getAllStudents = async (req, res) => {
   }
 };
 
+// @desc    Get current student profile
+// @route   GET /api/students/profile
+// @access  Private (Student only)
+exports.getMyProfile = async (req, res) => {
+  try {
+    const student = await Student.findOne({ user: req.user._id })
+      .populate('user', '-password')
+      .populate('enrolledClasses');
+    
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student profile not found'
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      data: student
+    });
+  } catch (error) {
+    console.error('Get my profile error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+};
+
 // @desc    Get student by ID
 // @route   GET /api/students/:id
 // @access  Private

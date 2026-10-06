@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clear Cache</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        button {
+            background: #ef4444;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #dc2626;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 12px;
+            border-radius: 6px;
+        }
+        .success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+    </style>
+</head>
+<body>
+    <h1>Clear Application Cache</h1>
+    <p>This will clear all cached data from localStorage. Use this if you're experiencing infinite loading issues.</p>
+    
+    <button onclick="clearCache()">Clear All Caches</button>
+    
+    <div id="result"></div>
+
+    <script>
+        function clearCache() {
+            const keys = Object.keys(localStorage);
+            const cacheKeys = keys.filter(key => key.startsWith('cache_'));
+            
+            cacheKeys.forEach(key => {
+                localStorage.removeItem(key);
+            });
+            
+            const result = document.getElementById('result');
+            result.className = 'success';
+            result.textContent = `Cleared ${cacheKeys.length} cache entries. Please refresh your application.`;
+            
+            console.log('Cleared cache keys:', cacheKeys);
+        }
+    </script>
+</body>
+</html>

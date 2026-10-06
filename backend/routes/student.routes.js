@@ -4,6 +4,7 @@ const multer = require('multer');
 const {
   getAllStudents,
   getStudentById,
+  getMyProfile,
   createStudent,
   updateStudent,
   deleteStudent,
@@ -27,6 +28,9 @@ const upload = multer({
     }
   }
 });
+
+// Get current student's profile (must be before /:id route)
+router.get('/profile', protect, authorize('student'), getMyProfile);
 
 // Statistics route (with program filtering for program managers)
 router.get('/stats', protect, authorize('admin', 'scheduling_officer', 'program_manager'), checkProgramAccess('Student'), getStats);

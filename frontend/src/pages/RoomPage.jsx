@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { roomAPI } from '../services/api';
+import { useCachedData } from '../hooks/useCachedData';
 import toast from 'react-hot-toast';
 import { 
   Plus, Search, Edit2, Trash2, DoorOpen, 
@@ -13,8 +14,6 @@ import ConfirmDialog from '../components/ConfirmDialog';
 const ROOM_TYPES = ['Lecture Room', 'Laboratory', 'Computer Lab', 'Workshop', 'Auditorium', 'Conference Room'];
 
 const RoomPage = () => {
-  const [rooms, setRooms] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('');
   const [showModal, setShowModal] = useState(false);
@@ -37,29 +36,38 @@ const RoomPage = () => {
     onConfirm: null
   });
 
-  useEffect(() => {
-    loadRooms();
-  }, []);
-
-  useEffect(() => {
-    calculateStats();
-  }, [rooms]);
-
-  const loadRooms = async () => {
-    try {
-      setLoading(true);
-      // Only load active rooms (excluding soft-deleted ones)
-      const response = await roomAPI.getAll({ isActive: true });
-      setRooms(response.data.data || []);
-    } catch (error) {
-      console.error('Load rooms error:', error);
-      toast.error('Failed to load rooms');
-    } finally {
-      setLoading(false);
+  // ✅ CACHE: Rooms with 5-minute cache
+  const {
+    data: roomsResponse,
+    loading,
+    error,
+    refetch: reloadRooms,
+    isFromCache
+  } = useCachedData(
+    () => roomAPI.getAll({ isActive: true }),
+    'rooms-list',
+    {
+      cacheDuration: 5 * 60 * 1000, // 5 minutes
+      enabled: true,
+      onSuccess: (data) => {
+        console.log('✅ Rooms loaded:', isFromCache ? '📦 from cache' : '🌐 fresh fetch');
+      },
+      onError: (err) => {
+        console.error('Failed to load rooms:', err);
+        toast.error('Failed to load rooms');
+      }
     }
-  };
+  );
 
-  const calculateStats = () => {
+  // Extract rooms data
+  const rooms = React.useMemo(() => {
+    if (!roomsResponse) return [];
+    const data = roomsResponse.data || roomsResponse;
+    return data?.data || data || [];
+  }, [roomsResponse]);
+
+  // Calculate stats when rooms change
+  useEffect(() => {
     const totalCapacity = rooms.reduce((sum, room) => sum + (room.capacity || 0), 0);
     setStats({
       total: rooms.length,
@@ -67,7 +75,7 @@ const RoomPage = () => {
       totalCapacity,
       avgCapacity: rooms.length > 0 ? Math.round(totalCapacity / rooms.length) : 0
     });
-  };
+  }, [rooms]);
 
   const handleCreate = () => {
     setSelectedRoom(null);
@@ -91,7 +99,7 @@ const RoomPage = () => {
         try {
           await roomAPI.delete(room._id);
           toast.success('Room deleted successfully');
-          loadRooms();
+          reloadRooms();
         } catch (error) {
           console.error('Delete error:', error);
           
@@ -110,7 +118,7 @@ const RoomPage = () => {
     setShowModal(false);
     setSelectedRoom(null);
     if (shouldRefresh) {
-      loadRooms();
+      reloadRooms();
     }
   };
 

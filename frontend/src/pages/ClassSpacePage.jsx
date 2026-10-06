@@ -4,6 +4,7 @@ import Layout from '../components/Layout';
 import { classSpaceAPI, resolveUploadUrl } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { usePageState } from '../context/PageStateContext';
+import { useCachedData } from '../hooks/useCachedData';
 import toast from 'react-hot-toast';
 import {
   BookOpen, Bell, FileText, Users, Plus, Upload,
@@ -94,9 +95,47 @@ const ClassSpacePage = () => {
   const isManager = user?.role === 'program_manager';
   const isIrregular = isStudent && studentType === 'irregular';
 
+  // ✅ CACHE: Class spaces with 5-minute cache (stale-while-revalidate)
+  const {
+    data: classSpacesResponse,
+    loading,
+    error,
+    refetch: reloadClassSpaces,
+    isFromCache
+  } = useCachedData(
+    () => classSpaceAPI.getMyClasses(),
+    `class-spaces-${user?._id}-${user?.role}`,
+    {
+      cacheDuration: 5 * 60 * 1000, // 5 minutes
+      enabled: !!user,
+      onSuccess: (data) => {
+        console.log('✅ Class spaces loaded:', isFromCache ? '📦 from cache' : '🌐 fresh fetch');
+      },
+      onError: (err) => {
+        console.error('Failed to load class spaces:', err);
+        toast.error(err.response?.data?.message || 'Failed to load classes');
+      }
+    }
+  );
+
+  // Extract data from response (handle both cached and fresh formats)
   useEffect(() => {
-    loadClassSpaces();
-  }, []);
+    if (!classSpacesResponse) return;
+    
+    const payload = classSpacesResponse.data || classSpacesResponse;
+
+    if (payload.studentType) setStudentType(payload.studentType);
+
+    if (payload.enrolled === false) {
+      setNotEnrolled(true);
+      setJoinHint(payload.message || null);
+      setClassSpaces([]);
+    } else {
+      setNotEnrolled(false);
+      setJoinHint(null);
+      setClassSpaces(payload.data || []);
+    }
+  }, [classSpacesResponse]);
 
   // Save filter/search state when they change
   useEffect(() => {
@@ -105,33 +144,6 @@ const ClassSpacePage = () => {
       filterSection
     });
   }, [searchTerm, filterSection]); // Removed savePageState from dependencies
-
-  const loadClassSpaces = async () => {
-    try {
-      setLoading(true);
-      // Everyone uses /my-classes: it resolves per role on the server.
-      // Students are never allowed to list all class spaces.
-      const response = await classSpaceAPI.getMyClasses();
-      const payload = response.data;
-
-      if (payload.studentType) setStudentType(payload.studentType);
-
-      if (payload.enrolled === false) {
-        setNotEnrolled(true);
-        setJoinHint(payload.message || null);
-        setClassSpaces([]);
-      } else {
-        setNotEnrolled(false);
-        setJoinHint(null);
-        setClassSpaces(payload.data || []);
-      }
-    } catch (error) {
-      console.error('Load class spaces error:', error);
-      toast.error(error.response?.data?.message || 'Failed to load classes');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const openClass = async (cs) => {
     setActiveTab('stream');
@@ -180,7 +192,7 @@ const ClassSpacePage = () => {
       await classSpaceAPI.leave(selectedClass._id);
       toast.success('Left the class');
       setSelectedClass(null);
-      loadClassSpaces();
+      reloadClassSpaces();
     } catch (error) {
       toast.error(error.response?.data?.message || 'Could not leave this class');
     }
@@ -191,7 +203,7 @@ const ClassSpacePage = () => {
     setShowMaterialModal(false);
     setShowEnrollModal(false);
     setEditingAnnouncement(null);
-    if (shouldRefresh === 'reload') loadClassSpaces();
+    if (shouldRefresh === 'reload') reloadClassSpaces();
     else if (shouldRefresh) refreshSelectedClass();
   };
 

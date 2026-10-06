@@ -1,6 +1,7 @@
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Layout from '../components/Layout';
 import { scheduleAPI, subjectAPI, sectionAPI, facultyAPI, roomAPI } from '../services/api';
+import { useCachedData } from '../hooks/useCachedData';
 import toast from 'react-hot-toast';
 import { 
   Calendar as CalendarIcon, Plus, Download, Search, X,

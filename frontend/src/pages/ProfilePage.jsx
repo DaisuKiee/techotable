@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { authAPI, facultyAPI } from '../services/api';
+import { useCachedData } from '../hooks/useCachedData';
 import toast from 'react-hot-toast';
 import Layout from '../components/Layout';
 import AvatarUpload from '../components/AvatarUpload';
@@ -130,9 +131,7 @@ const EmptyNote = ({ children }) => (
 
 /* ---------- page ---------- */
 const ProfilePage = () => {
-  const [user, setUser] = useState(null);
   const [facultyData, setFacultyData] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     firstName: '',
@@ -148,53 +147,81 @@ const ProfilePage = () => {
   // Last-saved snapshot, used to detect unsaved changes and to support "Discard"
   const [initial, setInitial] = useState(null);
 
-  const fetchProfile = useCallback(async ({ silent = false } = {}) => {
-    try {
-      if (!silent) setLoading(true);
-      const response = await authAPI.getMe();
-      const userData = response.data.data;
+  // ✅ CACHE: User profile with 10-minute cache
+  const {
+    data: profileResponse,
+    loading,
+    error,
+    refetch: reloadProfile,
+    isFromCache
+  } = useCachedData(
+    () => authAPI.getMe(),
+    'user-profile',
+    {
+      cacheDuration: 10 * 60 * 1000, // 10 minutes
+      enabled: true,
+      onSuccess: (data) => {
+        console.log('✅ Profile loaded:', isFromCache ? '📦 from cache' : '🌐 fresh fetch');
+      },
+      onError: (err) => {
+        console.error('Failed to load profile:', err);
+        toast.error('Could not load your profile. Refresh the page to try again.');
+      }
+    }
+  );
 
+  // Extract user data
+  const user = React.useMemo(() => {
+    if (!profileResponse) return null;
+    const data = profileResponse.data || profileResponse;
+    return data?.data || data || null;
+  }, [profileResponse]);
+
+  // Fetch faculty profile when user data is available and user is faculty
+  useEffect(() => {
+    const loadFacultyProfile = async () => {
+      if (!user) return;
+      
       const form = {
-        firstName: userData.firstName || '',
-        lastName: userData.lastName || '',
-        middleName: userData.middleName || '',
-        email: userData.email || '',
-        phoneNumber: userData.phoneNumber || '',
-        address: userData.address || '',
-        bio: userData.bio || '',
-        displayNameFormat: userData.displayNameFormat || 'full'
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        middleName: user.middleName || '',
+        email: user.email || '',
+        phoneNumber: user.phoneNumber || '',
+        address: user.address || '',
+        bio: user.bio || '',
+        displayNameFormat: user.displayNameFormat || 'full'
       };
+      
+      setFormData(form);
+      
       let facultyForm = defaultFacultyForm;
       let faculty = null;
 
-      if (userData.role === 'faculty' && userData.facultyProfile) {
-        const facultyId = userData.facultyProfile._id || userData.facultyProfile;
-        const facultyResponse = await facultyAPI.getById(facultyId);
-        faculty = facultyResponse.data.data;
-        facultyForm = {
-          specializations: faculty.specializations || [],
-          programs: faculty.programs || [],
-          qualifications: faculty.qualifications || [],
-          maxTeachingHours: faculty.maxTeachingHours || 36,
-          experiencedSubjects: faculty.experiencedSubjects || []
-        };
+      if (user.role === 'faculty' && user.facultyProfile) {
+        try {
+          const facultyId = user.facultyProfile._id || user.facultyProfile;
+          const facultyResponse = await facultyAPI.getById(facultyId);
+          faculty = facultyResponse.data.data;
+          facultyForm = {
+            specializations: faculty.specializations || [],
+            programs: faculty.programs || [],
+            qualifications: faculty.qualifications || [],
+            maxTeachingHours: faculty.maxTeachingHours || 36,
+            experiencedSubjects: faculty.experiencedSubjects || []
+          };
+        } catch (error) {
+          console.error('Error loading faculty profile:', error);
+        }
       }
 
-      setUser(userData);
-      setFormData(form);
       setFacultyData(faculty);
       setFacultyFormData(facultyForm);
       setInitial({ form, faculty: facultyForm });
-    } catch (error) {
-      toast.error('Could not load your profile. Refresh the page to try again.');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    };
 
-  useEffect(() => {
-    fetchProfile();
-  }, [fetchProfile]);
+    loadFacultyProfile();
+  }, [user]);
 
   const isDirty = useMemo(() => {
     if (!initial) return false;
@@ -264,7 +291,7 @@ const ProfilePage = () => {
       }
 
       toast.success('Changes saved');
-      await fetchProfile({ silent: true }); // refresh without flashing the full-page spinner
+      await reloadProfile(); // refresh profile data
     } catch (error) {
       toast.error(error.response?.data?.message || 'Could not save your changes. Try again.');
     } finally {

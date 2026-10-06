@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import SectionModal from '../components/SectionModal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { sectionAPI, facultyAPI } from '../services/api';
+import { useCachedData } from '../hooks/useCachedData';
 import toast from 'react-hot-toast';
 import { 
   Plus, Edit2, Trash2, Search, Sun, Moon, 
@@ -12,9 +13,6 @@ import {
 import { usePrograms } from '../hooks/usePrograms';
 
 const SectionPage = () => {
-  const [sections, setSections] = useState([]);
-  const [faculty, setFaculty] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingSection, setEditingSection] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -38,44 +36,65 @@ const SectionPage = () => {
   const sectionLetters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
   const shifts = ['Day', 'Night'];
 
-  useEffect(() => {
-    loadSections();
-    loadFaculty();
-  }, []);
-
-  // // Disable body scroll when modal is open
-  // useEffect(() => {
-  //   if (showModal) {
-  //     document.body.style.overflow = 'hidden';
-  //   } else {
-  //     document.body.style.overflow = 'unset';
-  //   }
-  //   return () => {
-  //     document.body.style.overflow = 'unset';
-  //   };
-  // }, [showModal]);
-
-  const loadSections = async () => {
-    try {
-      setLoading(true);
-      const response = await sectionAPI.getAll();
-      setSections(response.data.data || []);
-    } catch (error) {
-      console.error('Error loading sections:', error);
-      toast.error('Failed to load sections');
-    } finally {
-      setLoading(false);
+  // ✅ CACHE: Sections with 5-minute cache
+  const {
+    data: sectionsResponse,
+    loading: sectionsLoading,
+    error: sectionsError,
+    refetch: reloadSections,
+    isFromCache: sectionsFromCache
+  } = useCachedData(
+    () => sectionAPI.getAll(),
+    'sections-list',
+    {
+      cacheDuration: 5 * 60 * 1000, // 5 minutes
+      enabled: true,
+      onSuccess: (data) => {
+        console.log('✅ Sections loaded:', sectionsFromCache ? '📦 from cache' : '🌐 fresh fetch');
+      },
+      onError: (err) => {
+        console.error('Failed to load sections:', err);
+        toast.error('Failed to load sections');
+      }
     }
-  };
+  );
 
-  const loadFaculty = async () => {
-    try {
-      const response = await facultyAPI.getAll();
-      setFaculty(response.data.data || []);
-    } catch (error) {
-      console.error('Error loading faculty:', error);
+  // ✅ CACHE: Faculty list with 5-minute cache
+  const {
+    data: facultyResponse,
+    loading: facultyLoading,
+    error: facultyError,
+    refetch: reloadFaculty,
+    isFromCache: facultyFromCache
+  } = useCachedData(
+    () => facultyAPI.getAll({ isActive: true }),
+    'faculty-for-sections',
+    {
+      cacheDuration: 5 * 60 * 1000, // 5 minutes
+      enabled: true,
+      onSuccess: (data) => {
+        console.log('✅ Faculty loaded:', facultyFromCache ? '📦 from cache' : '🌐 fresh fetch');
+      },
+      onError: (err) => {
+        console.error('Failed to load faculty:', err);
+      }
     }
-  };
+  );
+
+  // Extract data from responses
+  const sections = React.useMemo(() => {
+    if (!sectionsResponse) return [];
+    const data = sectionsResponse.data || sectionsResponse;
+    return data?.data || data || [];
+  }, [sectionsResponse]);
+
+  const faculty = React.useMemo(() => {
+    if (!facultyResponse) return [];
+    const data = facultyResponse.data || facultyResponse;
+    return data?.data || data || [];
+  }, [facultyResponse]);
+
+  const loading = sectionsLoading || facultyLoading;
 
   const handleSubmit = async (formData) => {
     try {
@@ -88,7 +107,7 @@ const SectionPage = () => {
       }
       
       handleCloseModal();
-      loadSections();
+      reloadSections();
     } catch (error) {
       console.error('Error saving section:', error);
       toast.error(error.response?.data?.message || 'Failed to save section');
@@ -111,7 +130,7 @@ const SectionPage = () => {
         try {
           await sectionAPI.delete(section._id);
           toast.success('Section deleted successfully!');
-          loadSections();
+          reloadSections();
         } catch (error) {
           console.error('Error deleting section:', error);
           
@@ -149,7 +168,7 @@ const SectionPage = () => {
           setRegeneratingId(section._id);
           await sectionAPI.regenerateEnrollmentCode(section._id);
           toast.success('Enrollment code regenerated successfully!');
-          loadSections();
+          reloadSections();
         } catch (error) {
           console.error('Regenerate code error:', error);
           toast.error(error.response?.data?.message || 'Failed to regenerate enrollment code');

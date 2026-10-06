@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { subjectAPI } from '../services/api';
+import { useCachedData } from '../hooks/useCachedData';
 import toast from 'react-hot-toast';
 import { 
   Plus, Search, Edit2, Trash2, BookOpen, 
@@ -21,8 +22,6 @@ const SubjectPage = () => {
   const { user } = useAuth();
   const { programCodes: PROGRAMS } = usePrograms();
   
-  const [subjects, setSubjects] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState({
     program: '',
@@ -50,25 +49,35 @@ const SubjectPage = () => {
     onConfirm: null
   });
 
-  // Load subjects data
-  const loadSubjects = async () => {
-    try {
-      setLoading(true);
-      const response = await subjectAPI.getAll({ isActive: true });
-      setSubjects(response.data?.data || response.data || []);
-    } catch (error) {
-      console.error('Error loading subjects:', error);
-      toast.error('Failed to load subjects');
-      setSubjects([]);
-    } finally {
-      setLoading(false);
+  // ✅ CACHE: Subjects with 5-minute cache (stale-while-revalidate)
+  const {
+    data: subjectsResponse,
+    loading,
+    error,
+    refetch: reloadSubjects,
+    isFromCache
+  } = useCachedData(
+    () => subjectAPI.getAll({ isActive: true }),
+    'subjects-list',
+    {
+      cacheDuration: 5 * 60 * 1000, // 5 minutes
+      enabled: true,
+      onSuccess: (data) => {
+        console.log('✅ Subjects loaded:', isFromCache ? '📦 from cache' : '🌐 fresh fetch');
+      },
+      onError: (err) => {
+        console.error('Failed to load subjects:', err);
+        toast.error('Failed to load subjects');
+      }
     }
-  };
+  );
 
-  // Initial load
-  useEffect(() => {
-    loadSubjects();
-  }, []);
+  // Extract subjects data (handle both cached and fresh formats)
+  const subjects = React.useMemo(() => {
+    if (!subjectsResponse) return [];
+    const data = subjectsResponse.data || subjectsResponse;
+    return data?.data || data || [];
+  }, [subjectsResponse]);
 
   // Auto-set program filter for program managers
   useEffect(() => {
@@ -137,7 +146,7 @@ const SubjectPage = () => {
           toast.success('Subject deleted successfully');
           
           // Reload subjects list
-          loadSubjects();
+          reloadSubjects();
           
           setConfirmDialog({ ...confirmDialog, isOpen: false });
         } catch (error) {
@@ -178,14 +187,14 @@ const SubjectPage = () => {
     setSelectedSubject(null);
     if (shouldRefresh) {
       // Reload subjects list
-      loadSubjects();
+      reloadSubjects();
     }
   };
 
   const handleExcelImportComplete = () => {
     setShowExcelImportModal(false);
     // Reload subjects list
-    loadSubjects();
+    reloadSubjects();
   };
 
   const clearFilters = () => {

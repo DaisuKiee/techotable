@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { studentAPI } from '../services/api';
+import { useCachedData } from '../hooks/useCachedData';
 import toast from 'react-hot-toast';
 import StudentModal from '../components/StudentModal';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -15,8 +16,6 @@ import { usePrograms } from '../hooks/usePrograms';
 const StudentPage = () => {
   const { user } = useAuth();
   const { programCodes } = usePrograms();
-  const [students, setStudents] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
@@ -27,7 +26,6 @@ const StudentPage = () => {
     search: '',
     studentType: ''
   });
-  const [stats, setStats] = useState(null);
 
   // Confirm dialog state
   const [confirmDialog, setConfirmDialog] = useState({
@@ -45,31 +43,71 @@ const StudentPage = () => {
     }
   }, [user]);
 
+  // ✅ CACHE: Students list with 5-minute cache
+  const {
+    data: studentsResponse,
+    loading: studentsLoading,
+    error: studentsError,
+    refetch: reloadStudents,
+    isFromCache: studentsFromCache
+  } = useCachedData(
+    () => studentAPI.getAll(filters),
+    `students-list-${JSON.stringify(filters)}`,
+    {
+      cacheDuration: 5 * 60 * 1000, // 5 minutes
+      enabled: true,
+      onSuccess: (data) => {
+        console.log('✅ Students loaded:', studentsFromCache ? '📦 from cache' : '🌐 fresh fetch');
+      },
+      onError: (err) => {
+        console.error('Failed to load students:', err);
+        toast.error(err.response?.data?.message || 'Failed to fetch students');
+      }
+    }
+  );
+
+  // ✅ CACHE: Student stats with 5-minute cache
+  const {
+    data: statsResponse,
+    loading: statsLoading,
+    error: statsError,
+    refetch: reloadStats,
+    isFromCache: statsFromCache
+  } = useCachedData(
+    () => studentAPI.getStats(),
+    'student-stats',
+    {
+      cacheDuration: 5 * 60 * 1000, // 5 minutes
+      enabled: true,
+      onSuccess: (data) => {
+        console.log('✅ Student stats loaded:', statsFromCache ? '📦 from cache' : '🌐 fresh fetch');
+      },
+      onError: (err) => {
+        console.error('Failed to fetch stats:', err);
+      }
+    }
+  );
+
+  // Extract data from responses
+  const students = React.useMemo(() => {
+    if (!studentsResponse) return [];
+    const data = studentsResponse.data || studentsResponse;
+    return data?.data || data || [];
+  }, [studentsResponse]);
+
+  const stats = React.useMemo(() => {
+    if (!statsResponse) return null;
+    const data = statsResponse.data || statsResponse;
+    return data?.data || data || null;
+  }, [statsResponse]);
+
+  const loading = studentsLoading || statsLoading;
+
+  // Reload when filters change
   useEffect(() => {
-    fetchStudents();
-    fetchStats();
+    reloadStudents();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters]);
-
-  const fetchStudents = async () => {
-    try {
-      setLoading(true);
-      const response = await studentAPI.getAll(filters);
-      setStudents(response.data.data);
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to fetch students');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchStats = async () => {
-    try {
-      const response = await studentAPI.getStats();
-      setStats(response.data.data);
-    } catch (error) {
-      console.error('Failed to fetch stats:', error);
-    }
-  };
 
   const handleCreate = () => {
     setSelectedStudent(null);
@@ -91,8 +129,8 @@ const StudentPage = () => {
         try {
           await studentAPI.delete(student._id);
           toast.success('Student deleted successfully');
-          fetchStudents();
-          fetchStats();
+          reloadStudents();
+          reloadStats();
         } catch (error) {
           console.error('Delete error:', error);
           
@@ -116,8 +154,8 @@ const StudentPage = () => {
     setShowModal(false);
     setSelectedStudent(null);
     if (refresh) {
-      fetchStudents();
-      fetchStats();
+      reloadStudents();
+      reloadStats();
     }
   };
 

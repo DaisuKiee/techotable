@@ -964,6 +964,11 @@ const StudentDashboard = ({ user, loading: parentLoading }) => {
   const studentData = studentResponse?.profile || null;
   const classes = studentResponse?.data || [];
 
+  // Debug logging
+  console.log('📊 Student Response:', studentResponse);
+  console.log('👤 Student Data:', studentData);
+  console.log('📚 Classes:', classes);
+
   /** "Monday 08:00-09:00" for the first meeting of a class. */
   const describeSlots = (cs) => {
     const slots = cs.schedule?.timeSlots || [];

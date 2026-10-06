@@ -957,6 +957,8 @@ const StudentDashboard = ({ user, loading: parentLoading }) => {
     }
   );
 
+  // The API response structure is already parsed by useCachedData
+  // response.data.data is extracted to just the data object
   const studentData = studentResponse?.profile || null;
   const classes = studentResponse?.data || [];
 

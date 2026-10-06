@@ -71,12 +71,14 @@ const useCachedData = (fetchFunction, cacheKey, options = {}) => {
   // Save to cache
   const saveToCache = useCallback((newData) => {
     try {
+      console.log(`[useCachedData] Saving to cache ${cacheKey}:`, newData);
       localStorage.setItem(getCacheKey(), JSON.stringify(newData));
       localStorage.setItem(getTimestampKey(), Date.now().toString());
+      console.log(`[useCachedData] ✅ Cache saved successfully for ${cacheKey}`);
     } catch (err) {
       console.warn('Cache save error:', err);
     }
-  }, [getCacheKey, getTimestampKey]);
+  }, [getCacheKey, getTimestampKey, cacheKey]);
 
   // Fetch fresh data
   const fetchData = useCallback(async (showLoadingSpinner = true) => {
@@ -195,7 +197,7 @@ const useCachedData = (fetchFunction, cacheKey, options = {}) => {
         clearTimeout(timeoutRef.current);
       }
     };
-  }, [cacheKey, ...dependencies]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cacheKey]); // Only re-run when cacheKey changes, not dependencies
 
   return {
     data,

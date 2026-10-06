@@ -47,17 +47,25 @@ const useCachedData = (fetchFunction, cacheKey, options = {}) => {
       const cached = localStorage.getItem(getCacheKey());
       const timestamp = localStorage.getItem(getTimestampKey());
 
+      console.log(`[useCachedData] Checking cache for ${cacheKey}:`, {
+        hasCached: !!cached,
+        hasTimestamp: !!timestamp,
+        cacheKey: getCacheKey()
+      });
+
       if (cached && timestamp) {
         const age = Date.now() - parseInt(timestamp);
         
         // Cache is still valid
         if (age < cacheDuration) {
           const parsedData = JSON.parse(cached);
+          console.log(`[useCachedData] ✅ Cache valid (age: ${Math.round(age/1000)}s):`, parsedData);
           setData(parsedData);
           setIsFromCache(true);
           return parsedData;
         } else {
           // Cache expired, clear it
+          console.log(`[useCachedData] ❌ Cache expired (age: ${Math.round(age/1000)}s, max: ${cacheDuration/1000}s)`);
           localStorage.removeItem(getCacheKey());
           localStorage.removeItem(getTimestampKey());
         }
@@ -66,7 +74,7 @@ const useCachedData = (fetchFunction, cacheKey, options = {}) => {
       console.warn('Cache load error:', err);
     }
     return null;
-  }, [getCacheKey, getTimestampKey, cacheDuration]);
+  }, [getCacheKey, getTimestampKey, cacheDuration, cacheKey]);
 
   // Save to cache
   const saveToCache = useCallback((newData) => {

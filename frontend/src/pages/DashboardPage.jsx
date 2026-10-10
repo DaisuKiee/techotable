@@ -600,11 +600,12 @@ const FacultyDashboard = ({ user, loading: parentLoading }) => {
 
     return allSchedules
       .filter(schedule => {
-        return schedule.timeSlots?.some(slot => slot.day === todayName);
+        const slots = schedule?.timeSlots;
+        return Array.isArray(slots) && slots.some(slot => slot.day === todayName);
       })
       .map(schedule => ({
         ...schedule,
-        todaySlots: schedule.timeSlots.filter(slot => slot.day === todayName)
+        todaySlots: (schedule?.timeSlots || []).filter(slot => slot.day === todayName)
       }))
       .sort((a, b) => {
         const timeA = a.todaySlots[0]?.startTime || '00:00';
@@ -892,7 +893,8 @@ const FacultyDashboard = ({ user, loading: parentLoading }) => {
           </div>
           <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">
             {allSchedules.reduce((total, schedule) => {
-              return total + (schedule.timeSlots?.length || 0);
+              const slots = schedule?.timeSlots;
+              return total + (Array.isArray(slots) ? slots.length : 0);
             }, 0)}
           </p>
           <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Total class sessions</p>

@@ -4,12 +4,32 @@ import toast from 'react-hot-toast';
 import { Calendar, Clock, MapPin, Users, BookOpen, List, Grid3x3, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
+// Import background images (same as class spaces)
+import bg1 from '../assets/images/class-spaces-bg/GOOGLE-BLUES.jpe';
+import bg2 from '../assets/images/class-spaces-bg/Google-Green.jpe';
+import bg3 from '../assets/images/class-spaces-bg/Google-Red.jpe';
+import bg4 from '../assets/images/class-spaces-bg/Google-Yellows.jpe';
+
 /**
  * A faculty member's teaching schedule - shows only classes they are teaching
  * Similar UI to StudentSchedule but filtered to faculty's assignments
  */
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+const CARD_BACKGROUNDS = [bg1, bg2, bg3, bg4];
+
+/**
+ * Maps a subject code to a consistent background image.
+ * Uses hashing to ensure the same subject always displays the same background.
+ */
+const backgroundFor = (key) => {
+  let hash = 0;
+  for (let i = 0; i < String(key).length; i++) {
+    hash = String(key).charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return CARD_BACKGROUNDS[Math.abs(hash) % CARD_BACKGROUNDS.length];
+};
 
 /** '08:00' -> 8.0, '13:30' -> 13.5 */
 const toHours = (t) => {
@@ -366,36 +386,45 @@ const FacultySchedule = () => {
                             return (
                               <div
                                 key={m.id}
-                                className={`absolute ${color} text-white rounded-lg p-3 overflow-hidden shadow-md hover:shadow-xl transition-all cursor-pointer border-2 ${
+                                className={`absolute text-white rounded-lg overflow-hidden shadow-md hover:shadow-xl transition-all cursor-pointer border-2 ${
                                   isConflicted 
                                     ? 'border-yellow-400 ring-2 ring-red-400/50' 
                                     : 'border-white/20'
                                 } hover:scale-[1.02] z-20`}
                                 style={{
                                   top: `${top}px`,
-                                  height: `${Math.max(height - 4, 40)}px`, // Subtract 4px for padding, min 40px
+                                  height: `${Math.max(height - 4, 40)}px`,
                                   left: `${m.lane * laneWidthPct(layout.laneCount)}%`,
-                                  width: `${laneWidthPct(layout.laneCount) - 2}%`, // Subtract 2% for gap
+                                  width: `${laneWidthPct(layout.laneCount) - 2}%`,
                                   marginLeft: '1%',
+                                  backgroundImage: `url(${backgroundFor(m.subjectCode)})`,
+                                  backgroundSize: 'cover',
+                                  backgroundPosition: 'center',
                                 }}
                                 title={`${m.subjectCode} - ${m.subjectName}\nSection: ${m.section}\nRoom: ${m.room}\n${fmt12(m.startTime)} - ${fmt12(m.endTime)}${
                                   isConflicted ? '\n⚠️ SCHEDULE CONFLICT!' : ''
                                 }`}
                               >
-                                {isConflicted && (
-                                  <div className="absolute top-1 right-1 animate-pulse">
-                                    <AlertTriangle className="w-4 h-4 text-yellow-300" />
+                                {/* Semi-transparent overlay for readability */}
+                                <div className={`absolute inset-0 ${isConflicted ? 'bg-red-900/80' : 'bg-black/40'}`} />
+                                
+                                {/* Content */}
+                                <div className="relative z-10 p-3 h-full flex flex-col">
+                                  {isConflicted && (
+                                    <div className="absolute top-1 right-1 animate-pulse">
+                                      <AlertTriangle className="w-4 h-4 text-yellow-300" />
+                                    </div>
+                                  )}
+                                  <div className="font-bold text-sm truncate">{m.subjectCode}</div>
+                                  <div className="text-xs opacity-90 truncate">{m.section}</div>
+                                  {m.room && <div className="text-xs opacity-75 truncate mt-1 flex items-center gap-1">
+                                    <MapPin className="w-3 h-3 flex-shrink-0" />
+                                    {m.room}
+                                  </div>}
+                                  <div className="text-xs opacity-75 mt-1 flex items-center gap-1">
+                                    <Clock className="w-3 h-3 flex-shrink-0" />
+                                    {fmt12(m.startTime)} - {fmt12(m.endTime)}
                                   </div>
-                                )}
-                                <div className="font-bold text-sm truncate">{m.subjectCode}</div>
-                                <div className="text-xs opacity-90 truncate">{m.section}</div>
-                                {m.room && <div className="text-xs opacity-75 truncate mt-1 flex items-center gap-1">
-                                  <MapPin className="w-3 h-3 flex-shrink-0" />
-                                  {m.room}
-                                </div>}
-                                <div className="text-xs opacity-75 mt-1 flex items-center gap-1">
-                                  <Clock className="w-3 h-3 flex-shrink-0" />
-                                  {fmt12(m.startTime)} - {fmt12(m.endTime)}
                                 </div>
                               </div>
                             );

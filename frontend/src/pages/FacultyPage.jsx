@@ -16,6 +16,26 @@ import { useAuth } from '../context/AuthContext';
 import { usePrograms } from '../hooks/usePrograms';
 import { summarizeAllSubjects, describeRecency } from '../utils/teachingExperience';
 
+// Import background images (same as class spaces)
+import bg1 from '../assets/images/class-spaces-bg/GOOGLE-BLUES.jpe';
+import bg2 from '../assets/images/class-spaces-bg/Google-Green.jpe';
+import bg3 from '../assets/images/class-spaces-bg/Google-Red.jpe';
+import bg4 from '../assets/images/class-spaces-bg/Google-Yellows.jpe';
+
+const CARD_BACKGROUNDS = [bg1, bg2, bg3, bg4];
+
+/**
+ * Maps a faculty ID to a consistent background image.
+ * Uses hashing to ensure the same faculty always displays the same background.
+ */
+const backgroundFor = (key) => {
+  let hash = 0;
+  for (let i = 0; i < String(key).length; i++) {
+    hash = String(key).charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return CARD_BACKGROUNDS[Math.abs(hash) % CARD_BACKGROUNDS.length];
+};
+
 // Accessors for the Faculty schema (backend/models/Faculty.model.js).
 const getMaxLoad = (f) => f.maxTeachingHours || f.maxTeachingLoad || 36;
 const getCurrentLoad = (f) => f.currentTeachingHours || f.currentLoad || 0;
@@ -512,64 +532,78 @@ const FacultyPage = () => {
             {filteredFaculty.map((facultyMember) => (
               <div
                 key={facultyMember._id}
-                className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 hover:shadow-xl hover:border-teal-300 dark:hover:border-teal-700 transition-all duration-200 transform hover:-translate-y-1"
+                className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-xl hover:border-teal-300 dark:hover:border-teal-700 transition-all duration-200 transform hover:-translate-y-1"
               >
-                {/* Faculty Header */}
-                <div className="flex items-start gap-3 mb-4">
-                  <div className="flex-shrink-0">
-                    {facultyMember.user?.profilePicture ? (
-                      <img 
-                        src={`${process.env.REACT_APP_API_URL?.replace('/api', '')}${facultyMember.user.profilePicture}`}
-                        alt={`${facultyMember.user?.firstName} ${facultyMember.user?.lastName}`}
-                        className="h-14 w-14 rounded-full object-cover ring-2 ring-indigo-200 dark:ring-indigo-800"
-                      />
-                    ) : (
-                      <div className="h-14 w-14 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center ring-2 ring-indigo-200 dark:ring-indigo-800">
-                        <User className="w-7 h-7 text-indigo-600 dark:text-indigo-400" />
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-bold text-gray-900 dark:text-white text-base truncate">
-                      {facultyMember.user?.firstName} {facultyMember.user?.lastName}
-                    </h3>
-                    {facultyMember.position && (
-                      <p className="text-xs font-medium text-teal-700 dark:text-teal-400 truncate flex items-center gap-1">
-                        <Briefcase className="w-3 h-3 flex-shrink-0" />
-                        {facultyMember.position}
-                      </p>
-                    )}
-                    <p className="text-xs text-gray-600 dark:text-gray-400 truncate flex items-center gap-1">
-                      <Mail className="w-3 h-3 flex-shrink-0" />
-                      {facultyMember.user?.email}
-                    </p>
-                    {facultyMember.contactNumber && (
-                      <p className="text-xs text-gray-600 dark:text-gray-400 truncate flex items-center gap-1">
-                        <Phone className="w-3 h-3 flex-shrink-0" />
-                        {facultyMember.contactNumber}
-                      </p>
-                    )}
-                    <div className="flex flex-wrap items-center gap-1 mt-1">
-                      <span className="inline-block px-2 py-0.5 bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300 text-xs font-bold rounded">
-                        {facultyMember.employeeId}
-                      </span>
-                      {facultyMember.employmentType && (
-                        <span className={`inline-block px-2 py-0.5 text-xs font-semibold rounded ${
-                          facultyMember.employmentType === 'Part-time'
-                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300'
-                            : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300'
-                        }`}>
-                          {facultyMember.employmentType}
-                        </span>
-                      )}
-                      {facultyMember.department && (
-                        <span className="inline-block px-2 py-0.5 bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 text-xs font-semibold rounded">
-                          {facultyMember.department}
-                        </span>
+                {/* Background Image Header */}
+                <div 
+                  className="h-24 bg-cover bg-center relative"
+                  style={{ 
+                    backgroundImage: `url(${backgroundFor(facultyMember._id)})`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center'
+                  }}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-b from-black/30 to-black/50" />
+                </div>
+
+                {/* Faculty Content */}
+                <div className="p-5 -mt-8 relative">
+                  {/* Faculty Header */}
+                  <div className="flex items-start gap-3 mb-4">
+                    <div className="flex-shrink-0">
+                      {facultyMember.user?.profilePicture ? (
+                        <img 
+                          src={`${process.env.REACT_APP_API_URL?.replace('/api', '')}${facultyMember.user.profilePicture}`}
+                          alt={`${facultyMember.user?.firstName} ${facultyMember.user?.lastName}`}
+                          className="h-16 w-16 rounded-full object-cover ring-4 ring-white dark:ring-gray-800 shadow-lg"
+                        />
+                      ) : (
+                        <div className="h-16 w-16 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center ring-4 ring-white dark:ring-gray-800 shadow-lg">
+                          <User className="w-8 h-8 text-indigo-600 dark:text-indigo-400" />
+                        </div>
                       )}
                     </div>
+                    <div className="flex-1 min-w-0 mt-4">
+                      <h3 className="font-bold text-gray-900 dark:text-white text-base truncate">
+                        {facultyMember.user?.firstName} {facultyMember.user?.lastName}
+                      </h3>
+                      {facultyMember.position && (
+                        <p className="text-xs font-medium text-teal-700 dark:text-teal-400 truncate flex items-center gap-1">
+                          <Briefcase className="w-3 h-3 flex-shrink-0" />
+                          {facultyMember.position}
+                        </p>
+                      )}
+                      <p className="text-xs text-gray-600 dark:text-gray-400 truncate flex items-center gap-1 mt-1">
+                        <Mail className="w-3 h-3 flex-shrink-0" />
+                        {facultyMember.user?.email}
+                      </p>
+                      {facultyMember.contactNumber && (
+                        <p className="text-xs text-gray-600 dark:text-gray-400 truncate flex items-center gap-1">
+                          <Phone className="w-3 h-3 flex-shrink-0" />
+                          {facultyMember.contactNumber}
+                        </p>
+                      )}
+                      <div className="flex flex-wrap items-center gap-1 mt-2">
+                        <span className="inline-block px-2 py-0.5 bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300 text-xs font-bold rounded">
+                          {facultyMember.employeeId}
+                        </span>
+                        {facultyMember.employmentType && (
+                          <span className={`inline-block px-2 py-0.5 text-xs font-semibold rounded ${
+                            facultyMember.employmentType === 'Part-time'
+                              ? 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300'
+                              : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300'
+                          }`}>
+                            {facultyMember.employmentType}
+                          </span>
+                        )}
+                        {facultyMember.department && (
+                          <span className="inline-block px-2 py-0.5 bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 text-xs font-semibold rounded">
+                            {facultyMember.department}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </div>
 
                 {/* Qualified Programs */}
                 <div className="mb-3">
@@ -833,6 +867,7 @@ const FacultyPage = () => {
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
+                </div>
                 </div>
               </div>
             ))}

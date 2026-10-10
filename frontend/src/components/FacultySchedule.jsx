@@ -408,22 +408,22 @@ const FacultySchedule = () => {
                                 {/* Semi-transparent overlay for readability */}
                                 <div className={`absolute inset-0 ${isConflicted ? 'bg-red-900/80' : 'bg-black/40'}`} />
                                 
-                                {/* Content */}
-                                <div className="relative z-10 p-3 h-full flex flex-col">
+                                {/* Content - Centered */}
+                                <div className="relative z-10 h-full flex flex-col items-center justify-center text-center px-2">
                                   {isConflicted && (
                                     <div className="absolute top-1 right-1 animate-pulse">
                                       <AlertTriangle className="w-4 h-4 text-yellow-300" />
                                     </div>
                                   )}
-                                  <div className="font-bold text-sm truncate">{m.subjectCode}</div>
-                                  <div className="text-xs opacity-90 truncate">{m.section}</div>
-                                  {m.room && <div className="text-xs opacity-75 truncate mt-1 flex items-center gap-1">
+                                  <div className="font-bold text-sm truncate w-full">{m.subjectCode}</div>
+                                  <div className="text-xs opacity-90 truncate w-full">{m.section}</div>
+                                  {m.room && <div className="text-xs opacity-75 truncate mt-1 flex items-center justify-center gap-1 w-full">
                                     <MapPin className="w-3 h-3 flex-shrink-0" />
-                                    {m.room}
+                                    <span className="truncate">{m.room}</span>
                                   </div>}
-                                  <div className="text-xs opacity-75 mt-1 flex items-center gap-1">
+                                  <div className="text-xs opacity-75 mt-1 flex items-center justify-center gap-1 w-full">
                                     <Clock className="w-3 h-3 flex-shrink-0" />
-                                    {fmt12(m.startTime)} - {fmt12(m.endTime)}
+                                    <span className="truncate">{fmt12(m.startTime)} - {fmt12(m.endTime)}</span>
                                   </div>
                                 </div>
                               </div>

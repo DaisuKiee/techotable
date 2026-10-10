@@ -546,8 +546,37 @@ const FacultyDashboard = ({ user, loading: parentLoading }) => {
   // ✅ CACHE: Faculty schedule with 3-minute cache (schedules change frequently)
   const facultyId = user?.facultyProfile?._id || user?.facultyProfile;
   
+  console.log('Faculty Dashboard Debug:', {
+    user,
+    facultyId,
+    facultyProfile: user?.facultyProfile
+  });
+
+  // If no faculty profile, show error message
+  if (!facultyId && !loadingFaculty) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center dark:bg-red-900/20 dark:border-red-800">
+          <AlertTriangle className="w-12 h-12 mx-auto mb-3 text-red-500" />
+          <h3 className="text-lg font-semibold text-red-900 dark:text-red-200 mb-2">
+            Faculty Profile Not Found
+          </h3>
+          <p className="text-red-700 dark:text-red-300 mb-4">
+            Your account is not linked to a faculty profile. Please contact the administrator to set up your faculty profile.
+          </p>
+          <button
+            onClick={() => window.location.href = '/profile'}
+            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+          >
+            View Profile
+          </button>
+        </div>
+      </div>
+    );
+  }
+  
   const {
-    data: facultyData,
+    data: facultyResponse,
     loading: loadingFaculty,
     error: facultyError
   } = useCachedData(
@@ -563,8 +592,19 @@ const FacultyDashboard = ({ user, loading: parentLoading }) => {
     }
   );
 
+  // Extract the actual data from the API response structure {success: true, data: {...}}
+  const facultyData = facultyResponse?.data || facultyResponse;
+
+  console.log('Faculty Data Status:', {
+    facultyResponse,
+    facultyData,
+    loadingFaculty,
+    facultyError,
+    enabled: !!facultyId
+  });
+
   const {
-    data: schedules,
+    data: schedulesResponse,
     loading: loadingSchedules,
     refetch: refetchSchedules
   } = useCachedData(
@@ -577,7 +617,7 @@ const FacultyDashboard = ({ user, loading: parentLoading }) => {
   );
 
   const {
-    data: classes,
+    data: classesResponse,
     loading: loadingClasses
   } = useCachedData(
     () => classSpaceAPI.getMyClasses(),
@@ -588,9 +628,13 @@ const FacultyDashboard = ({ user, loading: parentLoading }) => {
     }
   );
 
+  // Extract actual data from API response structure
+  const schedules = schedulesResponse?.data || schedulesResponse;
+  const classes = classesResponse?.data || classesResponse;
+
   const loading = loadingFaculty || loadingSchedules || loadingClasses;
-  const allSchedules = schedules || [];
-  const classList = classes || [];
+  const allSchedules = Array.isArray(schedules) ? schedules : [];
+  const classList = Array.isArray(classes) ? classes : [];
 
   // Filter today's schedule
   const todaySchedule = React.useMemo(() => {
@@ -628,6 +672,20 @@ const FacultyDashboard = ({ user, loading: parentLoading }) => {
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     return days[new Date().getDay()];
   };
+
+  // Get current class happening now
+  const getCurrentClass = () => {
+    const now = new Date();
+    const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    
+    return todaySchedule.find(schedule => {
+      return schedule.todaySlots.some(slot => {
+        return slot.startTime <= currentTime && slot.endTime > currentTime;
+      });
+    });
+  };
+
+  const currentClass = getCurrentClass();
 
   if (loading || parentLoading) {
     return (
@@ -716,7 +774,7 @@ const FacultyDashboard = ({ user, loading: parentLoading }) => {
                 <Users className="w-4 h-4" />
               </div>
             </div>
-            <p className="text-2xl font-bold">{classes.length}</p>
+            <p className="text-2xl font-bold">{classList.length}</p>
           </div>
 
           <div className="bg-white/10 backdrop-blur-sm rounded-xl p-5 border border-white/20 hover:bg-white/15 transition-all shadow-lg">
@@ -730,6 +788,136 @@ const FacultyDashboard = ({ user, loading: parentLoading }) => {
           </div>
         </div>
       </div>
+
+      {/* Happening Now */}
+      {currentClass ? (
+        <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl shadow-lg border-2 border-green-200 dark:border-green-800 p-6 relative overflow-hidden">
+          {/* Animated background pulse */}
+          <div className="absolute top-0 right-0 w-64 h-64 bg-green-400/10 rounded-full blur-3xl animate-pulse"></div>
+          
+          <div className="relative z-10">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="relative">
+                <div className="absolute inset-0 bg-green-500 rounded-full animate-ping opacity-75"></div>
+                <div className="relative p-3 bg-green-500 rounded-full">
+                  <Clock className="w-6 h-6 text-white" />
+                </div>
+              </div>
+              <div>
+                <h3 className="text-2xl font-bold text-green-900 dark:text-green-100">
+                  Happening Now
+                </h3>
+                <p className="text-sm text-green-700 dark:text-green-300">
+                  You have a class in progress
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-5 border border-green-200 dark:border-green-700 shadow-sm">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex-1">
+                  {/* Subject Info */}
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                      <BookOpen className="w-6 h-6 text-green-600 dark:text-green-400" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-xl text-gray-900 dark:text-gray-100">
+                        {currentClass.subject?.subjectCode || 'N/A'}
+                      </h4>
+                      <p className="text-gray-600 dark:text-gray-400">
+                        {currentClass.subject?.subjectName || 'Subject name not available'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Schedule Details */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                    {/* Time */}
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-green-600 dark:text-green-400" />
+                      <div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Time</p>
+                        <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm">
+                          {currentClass.todaySlots.map(slot => 
+                            `${formatTime(slot.startTime)}-${formatTime(slot.endTime)}`
+                          ).join(', ')}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Room */}
+                    <div className="flex items-center gap-2">
+                      <DoorOpen className="w-4 h-4 text-green-600 dark:text-green-400" />
+                      <div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Room</p>
+                        <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm">
+                          {currentClass.roomData?.roomName || currentClass.roomData?.roomCode || currentClass.room || 'TBA'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Section */}
+                    <div className="flex items-center gap-2">
+                      <Users className="w-4 h-4 text-green-600 dark:text-green-400" />
+                      <div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Section</p>
+                        <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm">
+                          {currentClass.sectionCode || currentClass.section || 'N/A'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Year & Program */}
+                    <div className="flex items-center gap-2">
+                      <GraduationCap className="w-4 h-4 text-green-600 dark:text-green-400" />
+                      <div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Year & Program</p>
+                        <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm">
+                          {currentClass.yearLevel || 'N/A'} - {currentClass.program || 'N/A'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Actions */}
+              <div className="flex gap-3 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <button
+                  onClick={() => window.location.href = '/classes'}
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium flex items-center justify-center gap-2"
+                >
+                  <Users className="w-4 h-4" />
+                  Go to Class Space
+                </button>
+                <button
+                  onClick={() => window.location.href = '/my-schedule'}
+                  className="px-4 py-2 border border-green-600 text-green-600 dark:text-green-400 dark:border-green-400 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors text-sm font-medium"
+                >
+                  View Schedule
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : todaySchedule.length > 0 && (
+        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800 p-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+              <Clock className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div>
+              <p className="font-semibold text-blue-900 dark:text-blue-100">
+                No class at the moment
+              </p>
+              <p className="text-sm text-blue-700 dark:text-blue-300">
+                You have {todaySchedule.length} class{todaySchedule.length !== 1 ? 'es' : ''} scheduled for today
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Today's Schedule */}
       <div className="bg-gray-50 rounded-xl shadow-sm border border-gray-200 p-6 dark:bg-gray-800 dark:border-gray-700">
@@ -874,7 +1062,7 @@ const FacultyDashboard = ({ user, loading: parentLoading }) => {
             </div>
             <h3 className="font-semibold text-gray-900 dark:text-gray-100">Class Spaces</h3>
           </div>
-          <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">{classes.length}</p>
+          <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">{classList.length}</p>
           <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Active class spaces</p>
           <button
             onClick={() => window.location.href = '/classes'}
@@ -915,7 +1103,7 @@ const FacultyDashboard = ({ user, loading: parentLoading }) => {
           </button>
         </div>
 
-        {classes.length === 0 ? (
+        {classList.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
             <Users className="w-12 h-12 mx-auto mb-2 text-gray-300" />
             <p>No class spaces assigned yet</p>
@@ -923,7 +1111,7 @@ const FacultyDashboard = ({ user, loading: parentLoading }) => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {classes.slice(0, 6).map((classSpace) => (
+            {classList.slice(0, 6).map((classSpace) => (
               <div
                 key={classSpace._id}
                 onClick={() => window.location.href = '/classes'}

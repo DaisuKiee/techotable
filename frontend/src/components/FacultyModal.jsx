@@ -9,6 +9,13 @@ const FacultyModal = ({ mode, faculty, onClose }) => {
   const [users, setUsers] = useState([]);
   const [programs, setPrograms] = useState([]);
   const [formData, setFormData] = useState({
+    // User account fields (for creation)
+    firstName: '',
+    lastName: '',
+    email: '',
+    password: '',
+    contactNumber: '',
+    // Faculty profile fields
     user: '',
     employeeId: '',
     employmentType: 'Regular',
@@ -35,6 +42,13 @@ const FacultyModal = ({ mode, faculty, onClose }) => {
     loadPrograms();
     if (mode === 'edit' && faculty) {
       setFormData({
+        // User info (for display in edit mode)
+        firstName: faculty.user?.firstName || '',
+        lastName: faculty.user?.lastName || '',
+        email: faculty.user?.email || '',
+        password: '', // Don't populate password in edit mode
+        contactNumber: faculty.user?.contactNumber || '',
+        // Faculty profile
         user: faculty.user?._id || '',
         employeeId: faculty.employeeId || '',
         employmentType: faculty.employmentType || 'Regular',
@@ -140,8 +154,23 @@ const FacultyModal = ({ mode, faculty, onClose }) => {
       };
 
       if (mode === 'create') {
-        await facultyAPI.create(cleanedData);
-        toast.success('Faculty member created successfully');
+        // Create user account first, then faculty profile
+        const userData = {
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          password: formData.password,
+          contactNumber: formData.contactNumber,
+          role: 'faculty'
+        };
+
+        // Call backend endpoint that creates both user and faculty profile
+        await facultyAPI.create({
+          ...cleanedData,
+          ...userData
+        });
+        
+        toast.success('Faculty account created successfully');
       } else {
         await facultyAPI.update(faculty._id, cleanedData);
         toast.success('Faculty member updated successfully');
@@ -263,29 +292,93 @@ const FacultyModal = ({ mode, faculty, onClose }) => {
                   <span className="text-xs text-gray-500 dark:text-gray-400 ml-auto">* Required</span>
                 </div>
 
-                {/* User Selection (Only for create mode) */}
+                {/* User Account Creation (Only for create mode) */}
                 {mode === 'create' && (
-                  <div className="mb-4">
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                      Select User Account <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      name="user"
-                      value={formData.user}
-                      onChange={handleChange}
-                      required
-                      className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
-                    >
-                      <option value="">Choose a user...</option>
-                      {users.map((user) => (
-                        <option key={user._id} value={user._id}>
-                          {user.firstName} {user.lastName} ({user.email})
-                        </option>
-                      ))}
-                    </select>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5 flex items-center gap-1">
-                      <Users className="w-3 h-3" />
-                      Users with role "faculty" who don't have a profile yet
+                  <div className="space-y-4 mb-4 pb-4 border-b-2 border-gray-300 dark:border-gray-600">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* First Name */}
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                          First Name <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          name="firstName"
+                          value={formData.firstName}
+                          onChange={handleChange}
+                          required
+                          placeholder="e.g., John"
+                          className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white placeholder-gray-400 transition-all"
+                        />
+                      </div>
+
+                      {/* Last Name */}
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                          Last Name <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          name="lastName"
+                          value={formData.lastName}
+                          onChange={handleChange}
+                          required
+                          placeholder="e.g., Doe"
+                          className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white placeholder-gray-400 transition-all"
+                        />
+                      </div>
+
+                      {/* Email */}
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                          Email Address <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="email"
+                          name="email"
+                          value={formData.email}
+                          onChange={handleChange}
+                          required
+                          placeholder="e.g., john.doe@ctu.edu.ph"
+                          className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white placeholder-gray-400 transition-all"
+                        />
+                      </div>
+
+                      {/* Password */}
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                          Password <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="password"
+                          name="password"
+                          value={formData.password}
+                          onChange={handleChange}
+                          required
+                          placeholder="Min. 6 characters"
+                          minLength={6}
+                          className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white placeholder-gray-400 transition-all"
+                        />
+                      </div>
+
+                      {/* Contact Number */}
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                          Contact Number
+                        </label>
+                        <input
+                          type="tel"
+                          name="contactNumber"
+                          value={formData.contactNumber}
+                          onChange={handleChange}
+                          placeholder="e.g., +63 912 345 6789"
+                          className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white placeholder-gray-400 transition-all"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                      <Mail className="w-3 h-3" />
+                      A faculty account will be created with these credentials
                     </p>
                   </div>
                 )}

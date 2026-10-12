@@ -3,8 +3,12 @@ import { facultyAPI, userAPI, programAPI } from '../services/api';
 import toast from 'react-hot-toast';
 import { Plus, Trash2, User, Users, Mail, Award, BookOpen, UserCheck, Clock } from 'lucide-react';
 import BaseModal from './BaseModal';
+import { useAuth } from '../context/AuthContext';
 
 const FacultyModal = ({ mode, faculty, onClose }) => {
+  const { user } = useAuth();
+  const isProgramManager = user?.role === 'program_manager';
+  
   const [loading, setLoading] = useState(false);
   const [users, setUsers] = useState([]);
   const [programs, setPrograms] = useState([]);
@@ -72,6 +76,19 @@ const FacultyModal = ({ mode, faculty, onClose }) => {
     }
   }, [mode, faculty]);
 
+  // Auto-select program for program managers in create mode
+  useEffect(() => {
+    if (mode === 'create' && isProgramManager && user?.program && programs.length > 0) {
+      const managerProgram = programs.find(p => p.programCode === user.program);
+      if (managerProgram && !formData.programs.includes(user.program)) {
+        setFormData(prev => ({
+          ...prev,
+          programs: [user.program]
+        }));
+      }
+    }
+  }, [mode, isProgramManager, user?.program, programs, formData.programs]);
+
   // // Disable body scroll when modal is open
   // useEffect(() => {
   //   document.body.style.overflow = 'hidden';
@@ -93,7 +110,14 @@ const FacultyModal = ({ mode, faculty, onClose }) => {
   const loadPrograms = async () => {
     try {
       const response = await programAPI.getAll({ isActive: true });
-      setPrograms(response.data.data || []);
+      let programList = response.data.data || [];
+      
+      // Filter programs for program managers - only show their own program
+      if (isProgramManager && user?.program) {
+        programList = programList.filter(p => p.programCode === user.program);
+      }
+      
+      setPrograms(programList);
     } catch (error) {
       console.error('Load programs error:', error);
       toast.error('Failed to load programs');

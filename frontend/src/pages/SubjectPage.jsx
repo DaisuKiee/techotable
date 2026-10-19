@@ -597,6 +597,12 @@ const SubjectPage = () => {
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                       Units
                     </th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                      Lec
+                    </th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                      Lab
+                    </th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                       Status
                     </th>
@@ -640,6 +646,22 @@ const SubjectPage = () => {
                         </div>
                         <div className="text-xs text-gray-600 dark:text-gray-400">
                           {subject.type}
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-center">
+                        <div className="text-sm font-semibold text-gray-900 dark:text-white">
+                          {subject.lectureHours || 0}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          hrs
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-center">
+                        <div className="text-sm font-semibold text-gray-900 dark:text-white">
+                          {subject.labHours || 0}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          hrs
                         </div>
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">

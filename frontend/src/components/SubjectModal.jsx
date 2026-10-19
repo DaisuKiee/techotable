@@ -22,6 +22,8 @@ const SubjectModal = ({ mode, subject, onClose }) => {
     subjectName: '',
     description: '',
     units: 3,
+    lectureHours: 3,
+    labHours: 0,
     program: initialProgram,
     yearLevel: 1,
     semester: 1,
@@ -37,6 +39,8 @@ const SubjectModal = ({ mode, subject, onClose }) => {
         subjectName: subject.subjectName || '',
         description: subject.description || '',
         units: subject.units || 3,
+        lectureHours: subject.lectureHours || 3,
+        labHours: subject.labHours || 0,
         program: subject.program || initialProgram,
         yearLevel: subject.yearLevel || 1,
         semester: subject.semester || 1,
@@ -84,6 +88,8 @@ const SubjectModal = ({ mode, subject, onClose }) => {
       const submitData = {
         ...formData,
         units: parseInt(formData.units),
+        lectureHours: parseInt(formData.lectureHours) || 0,
+        labHours: parseInt(formData.labHours) || 0,
         yearLevel: parseInt(formData.yearLevel),
         semester: parseInt(formData.semester)
       };
@@ -133,7 +139,7 @@ const SubjectModal = ({ mode, subject, onClose }) => {
 
           {/* Preview Info */}
           <div className="mt-2 text-sm text-white/90">
-            {formData.program} • Year {formData.yearLevel} • Semester {formData.semester} • {formData.units} units
+            {formData.program} • Year {formData.yearLevel} • Semester {formData.semester} • {formData.units} units • Lec: {formData.lectureHours}h • Lab: {formData.labHours}h
           </div>
         </div>
 
@@ -187,7 +193,66 @@ const SubjectModal = ({ mode, subject, onClose }) => {
                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all text-sm"
                       />
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        Max 12 units (for OJT/Practicum courses)
+                        Credit units (max 12 for OJT/Practicum)
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Hours: Lecture and Lab */}
+                  <div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Lecture Hours */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          Lecture Hours <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          name="lectureHours"
+                          value={formData.lectureHours}
+                          onChange={handleChange}
+                          required
+                          min="0"
+                          max="20"
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all text-sm"
+                        />
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          Hours per week for lecture
+                        </p>
+                      </div>
+
+                      {/* Lab Hours */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          Lab Hours
+                        </label>
+                        <input
+                          type="number"
+                          name="labHours"
+                          value={formData.labHours}
+                          onChange={handleChange}
+                          min="0"
+                          max="20"
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all text-sm"
+                        />
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          Hours per week for laboratory
+                        </p>
+                      </div>
+                    </div>
+                    
+                    {/* Total Contact Hours Info */}
+                    <div className="mt-3 p-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-700 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Total Contact Hours per Week:
+                        </span>
+                        <span className="text-lg font-bold text-indigo-700 dark:text-indigo-400">
+                          {(parseInt(formData.lectureHours) || 0) + (parseInt(formData.labHours) || 0)} hours
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                        Used for schedule allocation (Lec + Lab)
                       </p>
                     </div>
                   </div>

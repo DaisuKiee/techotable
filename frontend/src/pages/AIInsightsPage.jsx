@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout';
 import {
-  Brain, TrendingUp, AlertCircle, CheckCircle, Clock,
+  Brain, TrendingUp, AlertCircle, Clock,
   Users, BookOpen, Calendar, DoorOpen, Lightbulb,
   Target, BarChart3, Activity, Zap, RefreshCw,
   ChevronRight, Info, AlertTriangle, Star
 } from 'lucide-react';
 import { scheduleAPI, subjectAPI, studentAPI, facultyAPI, roomAPI } from '../services/api';
 import toast from 'react-hot-toast';
+import AnimatedCheckIcon from '../components/AnimatedCheckIcon';
 
 const AIInsightsPage = () => {
   const { user } = useAuth();
@@ -270,7 +271,7 @@ const AIInsightsPage = () => {
 
   const getInsightIcon = (type) => {
     switch (type) {
-      case 'success': return <CheckCircle className="w-5 h-5 text-green-600" />;
+      case 'success': return <AnimatedCheckIcon className="w-5 h-5" color="#16a34a" />;
       case 'warning': return <AlertTriangle className="w-5 h-5 text-orange-600" />;
       case 'info': return <Info className="w-5 h-5 text-blue-600" />;
       default: return <AlertCircle className="w-5 h-5 text-gray-600" />;
@@ -444,7 +445,7 @@ const AIInsightsPage = () => {
             </div>
           ) : (
             <div className="text-center py-8 text-gray-500">
-              <CheckCircle className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+              <AnimatedCheckIcon className="w-12 h-12 mx-auto mb-2" color="#d1d5db" />
               <p>All schedules are optimized!</p>
             </div>
           )}

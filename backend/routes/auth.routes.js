@@ -14,7 +14,8 @@ const {
   verifyEmail,
   resendVerification,
   forgotPassword,
-  resetPassword
+  resetPassword,
+  facultySignup
 } = require('../controllers/auth.controller');
 const { protect } = require('../middleware/auth.middleware');
 
@@ -51,6 +52,7 @@ const loginValidation = [
 router.post('/register', registerValidation, register);
 router.post('/login', loginValidation, login);
 router.post('/signup', signup); // Student signup with email verification
+router.post('/faculty-signup', facultySignup); // Faculty signup (pending approval)
 router.get('/verify-email/:token', verifyEmail); // Verify email
 router.post('/resend-verification', resendVerification); // Resend verification email
 router.post('/forgot-password', forgotPassword); // Request password reset

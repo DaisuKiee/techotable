@@ -11,7 +11,8 @@ const {
   getSubjectStats,
   bulkImportSubjects,
   getSubjectsByQualification,
-  generateSubjectCode
+  generateSubjectCode,
+  regenerateSubjectCode
 } = require('../controllers/subject.controller');
 const { protect, authorize } = require('../middleware/auth.middleware');
 const { checkProgramAccess } = require('../middleware/programAccess.middleware');
@@ -20,9 +21,8 @@ const { isValidProgramCode } = require('../utils/programValidator');
 // Validation middleware
 const createSubjectValidation = [
   body('subjectCode')
+    .optional()
     .trim()
-    .notEmpty()
-    .withMessage('Subject code is required')
     .isLength({ max: 20 })
     .withMessage('Subject code must be 20 characters or less'),
   body('subjectName')
@@ -30,8 +30,8 @@ const createSubjectValidation = [
     .notEmpty()
     .withMessage('Subject name is required'),
   body('units')
-    .isInt({ min: 0, max: 6 })
-    .withMessage('Units must be between 0 and 6'),
+    .isInt({ min: 0, max: 12 })
+    .withMessage('Units must be between 0 and 12'),
   body('lectureHours')
     .isInt({ min: 0 })
     .withMessage('Lecture hours must be a positive number'),
@@ -64,6 +64,9 @@ router.get('/:id', checkProgramAccess('Subject'), getSubjectById);
 
 // Generate subject code endpoint
 router.post('/generate-code', authorize('admin', 'scheduling_officer', 'program_manager'), generateSubjectCode);
+
+// Regenerate subject enrollment code (for irregular students)
+router.put('/:id/regenerate-code', authorize('admin', 'scheduling_officer', 'program_manager', 'faculty'), regenerateSubjectCode);
 
 // Apply program access control for create/update/delete operations
 // Admin/Scheduling Officer/Program Manager routes

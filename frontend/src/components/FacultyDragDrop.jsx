@@ -3,8 +3,9 @@ import { facultyAPI, scheduleAPI, subjectAPI } from '../services/api';
 import toast from 'react-hot-toast';
 import {
   User, GripVertical, Clock, X, Save, RefreshCw,
-  CheckCircle, AlertCircle, BookOpen, ChevronDown, Search
+  AlertCircle, BookOpen, ChevronDown, Search
 } from 'lucide-react';
+import AnimatedCheckIcon from './AnimatedCheckIcon';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -522,7 +523,7 @@ const FacultyDragDrop = ({ filters, onAssignmentChange }) => {
                 >
                   {saving
                     ? <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    : <CheckCircle className="w-3.5 h-3.5" />}
+                    : <AnimatedCheckIcon className="w-3.5 h-3.5" color="currentColor" />}
                   Save all
                 </button>
               </div>

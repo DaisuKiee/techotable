@@ -599,3 +599,331 @@ exports.updateFacultyLoad = async (req, res) => {
     });
   }
 };
+
+
+// @desc    Analyze faculty background compatibility with subject using AI
+// @route   POST /api/faculty/:id/analyze-subject-compatibility
+// @access  Private (Admin, Scheduling Officer, Program Manager, Faculty)
+exports.analyzeFacultySubjectCompatibility = async (req, res) => {
+  try {
+    const { subjectCode, subjectName, subjectDescription } = req.body;
+
+    if (!subjectCode || !subjectName) {
+      return res.status(400).json({
+        success: false,
+        message: 'Subject code and name are required'
+      });
+    }
+
+    const faculty = await Faculty.findById(req.params.id)
+      .populate('user', 'firstName lastName email');
+
+    if (!faculty) {
+      return res.status(404).json({
+        success: false,
+        message: 'Faculty member not found'
+      });
+    }
+
+    // Use Gemini AI to analyze compatibility
+    const geminiService = require('../services/gemini.service');
+    
+    // Build comprehensive faculty background for AI analysis
+    const facultyBackground = {
+      name: `${faculty.user.firstName} ${faculty.user.lastName}`,
+      position: faculty.position,
+      employmentType: faculty.employmentType,
+      education: {
+        bachelors: faculty.bachelorsDegree,
+        masters: faculty.mastersDegree,
+        doctoral: faculty.doctoralDegree
+      },
+      specializations: faculty.specializations,
+      qualifiedPrograms: faculty.programs,
+      specialTraining: faculty.specialTraining,
+      administrativeDesignation: faculty.administrativeDesignation,
+      researchInvolvement: faculty.researchInvolvement,
+      extensionInvolvement: faculty.extensionInvolvement,
+      productionInvolvement: faculty.productionInvolvement,
+      experiencedSubjects: faculty.experiencedSubjects,
+      teachingHistory: faculty.teachingHistory
+    };
+
+    const subjectInfo = {
+      code: subjectCode,
+      name: subjectName,
+      description: subjectDescription || 'No description provided'
+    };
+
+    // Fetch all subjects from database for RAG context
+    const Subject = require('../models/Subject.model');
+    const allSubjects = await Subject.find({ isActive: true })
+      .select('code name description program yearLevel semester units type')
+      .lean();
+
+    // Call AI analysis with RAG context
+    const analysis = await geminiService.analyzeFacultySubjectCompatibility(
+      facultyBackground,
+      subjectInfo,
+      allSubjects
+    );
+
+    res.status(200).json({
+      success: true,
+      data: {
+        faculty: {
+          id: faculty._id,
+          name: `${faculty.user.firstName} ${faculty.user.lastName}`,
+          employeeId: faculty.employeeId
+        },
+        subject: subjectInfo,
+        analysis
+      }
+    });
+
+  } catch (error) {
+    console.error('Analyze faculty subject compatibility error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error analyzing faculty-subject compatibility',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get AI-powered background summary for faculty
+// @route   GET /api/faculty/:id/background-summary
+// @access  Private (Admin, Scheduling Officer, Program Manager, Faculty)
+exports.getFacultyBackgroundSummary = async (req, res) => {
+  try {
+    const faculty = await Faculty.findById(req.params.id)
+      .populate('user', 'firstName lastName email');
+
+    if (!faculty) {
+      return res.status(404).json({
+        success: false,
+        message: 'Faculty member not found'
+      });
+    }
+
+    // Use Gemini AI to generate comprehensive background summary
+    const geminiService = require('../services/gemini.service');
+    
+    const facultyBackground = {
+      name: `${faculty.user.firstName} ${faculty.user.lastName}`,
+      position: faculty.position,
+      employmentType: faculty.employmentType,
+      education: {
+        bachelors: faculty.bachelorsDegree,
+        masters: faculty.mastersDegree,
+        doctoral: faculty.doctoralDegree
+      },
+      specializations: faculty.specializations,
+      qualifiedPrograms: faculty.programs,
+      specialTraining: faculty.specialTraining,
+      administrativeDesignation: faculty.administrativeDesignation,
+      researchInvolvement: faculty.researchInvolvement,
+      extensionInvolvement: faculty.extensionInvolvement,
+      productionInvolvement: faculty.productionInvolvement,
+      experiencedSubjects: faculty.experiencedSubjects,
+      teachingHistory: faculty.teachingHistory
+    };
+
+    const summary = await geminiService.generateFacultyBackgroundSummary(facultyBackground);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        faculty: {
+          id: faculty._id,
+          name: `${faculty.user.firstName} ${faculty.user.lastName}`,
+          employeeId: faculty.employeeId
+        },
+        summary
+      }
+    });
+
+  } catch (error) {
+    console.error('Get faculty background summary error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error generating faculty background summary',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get all pending faculty accounts
+// @route   GET /api/faculty/pending
+// @access  Private (Admin/Program Manager)
+exports.getPendingFaculty = async (req, res) => {
+  try {
+    const pendingUsers = await User.find({
+      role: 'faculty',
+      isPending: true,
+      isActive: false
+    })
+      .populate('facultyProfile')
+      .select('-password')
+      .sort({ pendingApprovalDate: -1 });
+
+    res.status(200).json({
+      success: true,
+      count: pendingUsers.length,
+      data: pendingUsers
+    });
+
+  } catch (error) {
+    console.error('Get pending faculty error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching pending faculty accounts',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Approve faculty account
+// @route   PUT /api/faculty/:id/approve
+// @access  Private (Admin/Program Manager)
+exports.approveFaculty = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const approverId = req.user._id;
+
+    const user = await User.findById(id).populate('facultyProfile');
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Faculty account not found'
+      });
+    }
+
+    if (!user.isPending) {
+      return res.status(400).json({
+        success: false,
+        message: 'This account is not pending approval'
+      });
+    }
+
+    // Approve user account
+    user.isPending = false;
+    user.isActive = true;
+    user.approvedBy = approverId;
+    user.approvedAt = new Date();
+    await user.save();
+
+    // Activate faculty profile
+    if (user.facultyProfile) {
+      const faculty = await Faculty.findById(user.facultyProfile);
+      if (faculty) {
+        faculty.isActive = true;
+        await faculty.save();
+      }
+    }
+
+    // Log activity
+    try {
+      const ActivityLog = require('../models/ActivityLog.model');
+      await ActivityLog.create({
+        userId: approverId,
+        action: 'approve',
+        resource: 'faculty',
+        resourceId: user._id,
+        details: `Approved faculty account for ${user.fullName} (${user.email})`
+      });
+    } catch (logError) {
+      console.error('Activity log error:', logError);
+      // Don't fail the approval if logging fails
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Faculty account for ${user.fullName} has been approved`,
+      data: user
+    });
+
+  } catch (error) {
+    console.error('Approve faculty error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error approving faculty account',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Reject faculty account
+// @route   PUT /api/faculty/:id/reject
+// @access  Private (Admin/Program Manager)
+exports.rejectFaculty = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+    const rejecterId = req.user._id;
+
+    const user = await User.findById(id).populate('facultyProfile');
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Faculty account not found'
+      });
+    }
+
+    if (!user.isPending) {
+      return res.status(400).json({
+        success: false,
+        message: 'This account is not pending approval'
+      });
+    }
+
+    // Mark as rejected
+    user.isPending = false;
+    user.isActive = false;
+    user.rejectedBy = rejecterId;
+    user.rejectedAt = new Date();
+    user.rejectionReason = reason || 'No reason provided';
+    await user.save();
+
+    // Optionally delete the faculty profile or keep it inactive
+    // For now, we'll keep it but mark as inactive
+    if (user.facultyProfile) {
+      const faculty = await Faculty.findById(user.facultyProfile);
+      if (faculty) {
+        faculty.isActive = false;
+        await faculty.save();
+      }
+    }
+
+    // Log activity
+    try {
+      const ActivityLog = require('../models/ActivityLog.model');
+      await ActivityLog.create({
+        userId: rejecterId,
+        action: 'reject',
+        resource: 'faculty',
+        resourceId: user._id,
+        details: `Rejected faculty account for ${user.fullName} (${user.email}). Reason: ${reason || 'None'}`
+      });
+    } catch (logError) {
+      console.error('Activity log error:', logError);
+      // Don't fail the rejection if logging fails
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Faculty account for ${user.fullName} has been rejected`,
+      data: user
+    });
+
+  } catch (error) {
+    console.error('Reject faculty error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error rejecting faculty account',
+      error: error.message
+    });
+  }
+};

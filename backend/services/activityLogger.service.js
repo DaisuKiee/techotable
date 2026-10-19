@@ -354,7 +354,41 @@ function activityLoggerMiddleware(options = {}) {
       // Extract resource from path
       const pathParts = req.path.split('/').filter(Boolean);
       if (pathParts.length >= 2) {
-        resource = pathParts[1]; // e.g., /api/faculty -> faculty
+        // pathParts[0] = 'api', pathParts[1] = resource type
+        // For paths like /api/subjects/:id/regenerate-code, use pathParts[1]
+        resource = pathParts[1]; // e.g., /api/subjects -> subjects
+        
+        // Normalize plural resource names to singular to match ActivityLog enum
+        const resourceMap = {
+          'classSpaces': 'classSpace',
+          'subjects': 'subject',
+          'faculty': 'faculty',
+          'students': 'student',
+          'rooms': 'room',
+          'schedules': 'schedule',
+          'users': 'user',
+          'announcements': 'announcement',
+          'materials': 'material',
+          'sections': 'section',
+          'programs': 'program'
+        };
+        
+        // Apply mapping if exists
+        if (resourceMap[resource]) {
+          resource = resourceMap[resource];
+        }
+        
+        // Fallback: if resource is not in the allowed enum, default to 'system'
+        const allowedResources = [
+          'user', 'faculty', 'student', 'subject', 'room', 
+          'schedule', 'classSpace', 'announcement', 'material',
+          'system', 'auth', 'analyze-subject-compatibility', 'background-summary', 'section', 'program'
+        ];
+        
+        if (!allowedResources.includes(resource)) {
+          console.warn(`Activity logger: Unknown resource '${resource}' from path '${req.path}', defaulting to 'system'`);
+          resource = 'system';
+        }
       }
 
       // Log activity if user is authenticated

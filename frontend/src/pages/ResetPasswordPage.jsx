@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Lock, Eye, EyeOff, ArrowLeft, CheckCircle, AlertCircle } from 'lucide-react';
+import { Lock, Eye, EyeOff, ArrowLeft, AlertCircle } from 'lucide-react';
 import { authAPI } from '../services/api';
 import ctuLogo from '../assets/images/logos/ctulogo.png';
 import ctuBg from '../assets/images/backgrounds/ctu-bg.png';
+import AnimatedCheckIcon from '../components/AnimatedCheckIcon';
 
 const ResetPasswordPage = () => {
   const navigate = useNavigate();
@@ -100,7 +101,7 @@ const ResetPasswordPage = () => {
             {/* Success Icon */}
             <div className="flex justify-center mb-6 animate-scaleIn">
               <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center">
-                <CheckCircle className="w-12 h-12 text-green-600" />
+                <AnimatedCheckIcon className="w-12 h-12" color="#16a34a" />
               </div>
             </div>
 
@@ -140,7 +141,7 @@ const ResetPasswordPage = () => {
           <div className="relative z-10 flex items-center justify-center p-16 w-full">
             <div className="max-w-xl text-center">
               <div className="w-24 h-24 bg-white/10 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-6">
-                <CheckCircle className="w-12 h-12 text-white" />
+                <AnimatedCheckIcon className="w-12 h-12" color="#ffffff" />
               </div>
               <h2 className="text-4xl font-bold text-white mb-4">
                 All Set!
@@ -348,7 +349,7 @@ const ResetPasswordPage = () => {
 
               <div className="flex items-start gap-4 p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
                 <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-blue-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <CheckCircle className="w-6 h-6 text-white" />
+                  <AnimatedCheckIcon className="w-6 h-6" color="#ffffff" />
                 </div>
                 <div>
                   <h3 className="font-bold text-white mb-1">Easy to Remember</h3>

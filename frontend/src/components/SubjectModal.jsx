@@ -182,7 +182,7 @@ const SubjectModal = ({ mode, subject, onClose }) => {
               <div className="bg-gradient-to-br from-blue-600 to-indigo-600 text-white rounded-xl p-4 mb-6 shadow-lg">
                 <div className="text-sm font-medium opacity-90 mb-1">Subject Preview</div>
                 <div className="text-2xl font-bold">
-                  {formData.subjectCode || 'Subject Code'} - {formData.subjectName || 'Subject Name'}
+                  {formData.subjectCode || '[Auto-generated]'} - {formData.subjectName || 'Subject Name'}
                 </div>
                 <div className="text-sm opacity-90 mt-1">
                   {formData.program} • Year {formData.yearLevel} • Semester {formData.semester} • {formData.units} {formData.units === 1 ? 'unit' : 'units'}
@@ -202,7 +202,7 @@ const SubjectModal = ({ mode, subject, onClose }) => {
                   {/* Subject Code */}
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                      Subject Code <span className="text-red-500">*</span>
+                      Subject Code
                     </label>
                     <div className="flex gap-2">
                       <input
@@ -210,8 +210,7 @@ const SubjectModal = ({ mode, subject, onClose }) => {
                         name="subjectCode"
                         value={formData.subjectCode}
                         onChange={handleChange}
-                        required
-                        placeholder="e.g., IT311"
+                        placeholder="Leave empty to auto-generate"
                         className="flex-1 px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all uppercase"
                         style={{ textTransform: 'uppercase' }}
                       />
@@ -228,7 +227,7 @@ const SubjectModal = ({ mode, subject, onClose }) => {
                       </button>
                     </div>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      Click "Generate" for a random code (e.g., AB1234)
+                      Leave empty to auto-generate or click "Generate" for preview (8 chars, e.g., K3P9X7M2)
                     </p>
                   </div>
 
@@ -244,9 +243,12 @@ const SubjectModal = ({ mode, subject, onClose }) => {
                       onChange={handleChange}
                       required
                       min="1"
-                      max="6"
+                      max="12"
                       className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
                     />
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Max 12 units (for OJT/Practicum courses)
+                    </p>
                   </div>
 
                   {/* Subject Name */}

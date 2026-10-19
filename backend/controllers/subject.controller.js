@@ -104,7 +104,7 @@ exports.createSubject = async (req, res) => {
       });
     }
 
-    const {
+    let {
       subjectCode,
       subjectName,
       description,
@@ -117,6 +117,12 @@ exports.createSubject = async (req, res) => {
       prerequisites,
       requiredQualifications
     } = req.body;
+
+    // If no subject code provided, generate a random one
+    if (!subjectCode || subjectCode.trim() === '') {
+      subjectCode = await Subject.generateUniqueSubjectCode();
+      console.log(`Generated subject code: ${subjectCode}`);
+    }
 
     // Check if subject code already exists
     const existingSubject = await Subject.findOne({ 
@@ -144,6 +150,19 @@ exports.createSubject = async (req, res) => {
       }
     }
 
+    // Generate a unique subject enrollment code for irregular students
+    const subjectEnrollmentCode = Subject.generateSubjectEnrollmentCode();
+    
+    // Verify uniqueness
+    let attempts = 0;
+    let finalEnrollmentCode = subjectEnrollmentCode;
+    while (attempts < 20) {
+      const existing = await Subject.findOne({ subjectEnrollmentCode: finalEnrollmentCode });
+      if (!existing) break;
+      finalEnrollmentCode = Subject.generateSubjectEnrollmentCode();
+      attempts++;
+    }
+
     // Create subject
     const subject = await Subject.create({
       subjectCode: subjectCode.toUpperCase(),
@@ -156,7 +175,8 @@ exports.createSubject = async (req, res) => {
       yearLevel,
       semester,
       prerequisites: prerequisites || [],
-      requiredQualifications: requiredQualifications || []
+      requiredQualifications: requiredQualifications || [],
+      subjectEnrollmentCode: finalEnrollmentCode
     });
 
     await subject.populate('prerequisites', 'subjectCode subjectName');
@@ -520,6 +540,44 @@ exports.generateSubjectCode = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error generating subject code',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Regenerate subject enrollment code
+// @route   PUT /api/subjects/:id/regenerate-code
+// @access  Private (staff only)
+exports.regenerateSubjectCode = async (req, res) => {
+  try {
+    const subject = await Subject.findById(req.params.id);
+    
+    if (!subject) {
+      return res.status(404).json({
+        success: false,
+        message: 'Subject not found'
+      });
+    }
+
+    // Generate new subject enrollment code
+    const newCode = Subject.generateSubjectEnrollmentCode();
+    subject.subjectEnrollmentCode = newCode;
+    await subject.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Subject enrollment code generated successfully',
+      data: {
+        subjectCode: subject.subjectCode,
+        subjectName: subject.subjectName,
+        subjectEnrollmentCode: newCode
+      }
+    });
+  } catch (error) {
+    console.error('Regenerate subject enrollment code error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error regenerating subject enrollment code',
       error: error.message
     });
   }

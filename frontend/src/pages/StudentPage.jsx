@@ -7,9 +7,13 @@ import StudentModal from '../components/StudentModal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { 
   Plus, Upload, Edit2, Trash2, Search, X, 
-  Users, GraduationCap, UserCheck, TrendingUp, 
-  Grid3x3, List, Download, FileText, BookOpen, Award
+  Users, GraduationCap, TrendingUp, 
+  Grid3x3, List, Download, FileText, BookOpen
 } from 'lucide-react';
+import AnimatedUserCheck from '../components/AnimatedUserCheck';
+import AnimatedUsers from '../components/AnimatedUsers';
+import AnimatedGraduationCap from '../components/AnimatedGraduationCap';
+import AnimatedAward from '../components/AnimatedAward';
 import { useAuth } from '../context/AuthContext';
 import { usePrograms } from '../hooks/usePrograms';
 
@@ -289,7 +293,7 @@ const StudentPage = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
           <div className="bg-indigo-600 text-white rounded-xl p-4 shadow-md">
             <div className="flex items-center justify-between mb-2">
-              <Users className="w-5 h-5 opacity-80" />
+              <AnimatedUsers className="w-5 h-5 opacity-80" />
               <span className="text-xs font-medium opacity-80">TOTAL</span>
             </div>
             <div className="text-2xl md:text-3xl font-bold">{calculatedStats.total}</div>
@@ -298,7 +302,7 @@ const StudentPage = () => {
 
           <div className="bg-green-600 text-white rounded-xl p-4 shadow-md">
             <div className="flex items-center justify-between mb-2">
-              <UserCheck className="w-5 h-5 opacity-80" />
+              <AnimatedUserCheck className="w-5 h-5 opacity-80" />
               <span className="text-xs font-medium opacity-80">ENROLLED</span>
             </div>
             <div className="text-2xl md:text-3xl font-bold">{calculatedStats.enrolled}</div>
@@ -307,7 +311,7 @@ const StudentPage = () => {
 
           <div className="bg-blue-600 text-white rounded-xl p-4 shadow-md">
             <div className="flex items-center justify-between mb-2">
-              <GraduationCap className="w-5 h-5 opacity-80" />
+              <AnimatedGraduationCap className="w-5 h-5 opacity-80" />
               <span className="text-xs font-medium opacity-80">REGULAR</span>
             </div>
             <div className="text-2xl md:text-3xl font-bold">{calculatedStats.regular}</div>
@@ -316,7 +320,7 @@ const StudentPage = () => {
 
           <div className="bg-orange-600 text-white rounded-xl p-4 shadow-md">
             <div className="flex items-center justify-between mb-2">
-              <Award className="w-5 h-5 opacity-80" />
+              <AnimatedAward className="w-5 h-5 opacity-80" />
               <span className="text-xs font-medium opacity-80">IRREGULAR</span>
             </div>
             <div className="text-2xl md:text-3xl font-bold">{calculatedStats.irregular}</div>
@@ -552,7 +556,7 @@ const StudentPage = () => {
 
                   <div className="flex items-center gap-2 text-sm">
                     <div className="w-6 h-6 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center flex-shrink-0">
-                      <UserCheck className="w-3.5 h-3.5 text-green-600 dark:text-green-400" />
+                      <AnimatedUserCheck className="w-3.5 h-3.5 text-green-600 dark:text-green-400" />
                     </div>
                     <div className="flex-1">
                       <p className="text-gray-600 dark:text-gray-400 text-xs">Status</p>

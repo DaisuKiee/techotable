@@ -96,6 +96,36 @@ const UserSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  isPending: {
+    type: Boolean,
+    default: false
+  },
+  pendingApprovalDate: {
+    type: Date,
+    default: null
+  },
+  approvedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  approvedAt: {
+    type: Date,
+    default: null
+  },
+  rejectedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  rejectedAt: {
+    type: Date,
+    default: null
+  },
+  rejectionReason: {
+    type: String,
+    default: null
+  },
   facultyProfile: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Faculty',

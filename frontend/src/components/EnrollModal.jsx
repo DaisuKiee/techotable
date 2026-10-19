@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { classSpaceAPI } from '../services/api';
 import toast from 'react-hot-toast';
-import { X, UserPlus, Key, AlertCircle, CheckCircle, BookOpen } from 'lucide-react';
+import { X, UserPlus, Key, AlertCircle, BookOpen } from 'lucide-react';
+import AnimatedCheckIcon from './AnimatedCheckIcon';
 
 /**
  * Join-by-code modal.
@@ -102,7 +103,7 @@ const EnrollModal = ({ studentType = 'regular', onClose }) => {
           {result?.success ? (
             <div className="space-y-4">
               <div className="flex items-start gap-3 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl">
-                <CheckCircle className="w-6 h-6 text-green-600 flex-shrink-0 mt-0.5" />
+                <AnimatedCheckIcon className="w-6 h-6" color="#16a34a" />
                 <div>
                   <p className="font-bold text-green-900 dark:text-green-100">
                     {result.joined === 'subject' ? 'Subject joined' : 'Enrolled in section'}
@@ -222,7 +223,13 @@ const EnrollModal = ({ studentType = 'regular', onClose }) => {
               {result?.success === false && (
                 <div className="flex items-start gap-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
                   <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
-                  <p className="text-sm text-red-700 dark:text-red-300">{result.message}</p>
+                  <div className="text-sm space-y-1">
+                    <p className="text-red-700 dark:text-red-300">{result.message}</p>
+                    <p className="text-xs text-red-600 dark:text-red-400">
+                      💡 Make sure you're using the correct 8-character enrollment code,
+                      not a subject code like "CC 112" or section name.
+                    </p>
+                  </div>
                 </div>
               )}
 

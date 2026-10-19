@@ -803,10 +803,283 @@ const getApiStats = () => {
   };
 };
 
+
+/**
+ * Analyze faculty-subject compatibility using AI
+/**
+ * Analyze faculty background compatibility with a specific subject using RAG
+ * @param {Object} facultyBackground - Comprehensive faculty background
+ * @param {Object} subjectInfo - Subject information
+ * @param {Array} allSubjects - All subjects in database for RAG context
+ * @returns {Promise<Object>} - Compatibility analysis
+ */
+async function analyzeFacultySubjectCompatibility(facultyBackground, subjectInfo, allSubjects = []) {
+  try {
+    // Build RAG context: Subject database catalog
+    let subjectCatalog = '';
+    if (allSubjects && allSubjects.length > 0) {
+      // Group subjects by program for better context
+      const subjectsByProgram = {};
+      allSubjects.forEach(subject => {
+        const program = subject.program || 'General';
+        if (!subjectsByProgram[program]) {
+          subjectsByProgram[program] = [];
+        }
+        subjectsByProgram[program].push(subject);
+      });
+
+      subjectCatalog = '\n\n📚 **COMPLETE SUBJECT DATABASE (RAG Context):**\n';
+      subjectCatalog += `Total subjects in database: ${allSubjects.length}\n\n`;
+
+      Object.entries(subjectsByProgram).forEach(([program, subjects]) => {
+        subjectCatalog += `**${program}** (${subjects.length} subjects):\n`;
+        subjects.forEach(s => {
+          subjectCatalog += `  • ${s.code} - ${s.name}`;
+          if (s.description) subjectCatalog += ` | ${s.description.substring(0, 80)}...`;
+          if (s.yearLevel) subjectCatalog += ` | Year ${s.yearLevel}`;
+          if (s.units) subjectCatalog += ` | ${s.units}u`;
+          subjectCatalog += '\n';
+        });
+        subjectCatalog += '\n';
+      });
+
+      // Find related subjects based on keywords in the target subject
+      const targetKeywords = [
+        ...(subjectInfo.name?.toLowerCase().split(' ') || []),
+        ...(subjectInfo.description?.toLowerCase().split(' ') || []),
+        subjectInfo.code?.toLowerCase()
+      ].filter(k => k && k.length > 3); // Filter out short words
+
+      const relatedSubjects = allSubjects.filter(s => {
+        if (s.code === subjectInfo.code) return false; // Exclude the target subject itself
+        const subjectText = `${s.code} ${s.name} ${s.description || ''}`.toLowerCase();
+        return targetKeywords.some(keyword => subjectText.includes(keyword));
+      }).slice(0, 10); // Limit to 10 most relevant
+
+      if (relatedSubjects.length > 0) {
+        subjectCatalog += `\n🔗 **RELATED SUBJECTS** (similar to ${subjectInfo.code}):\n`;
+        relatedSubjects.forEach(s => {
+          subjectCatalog += `  • ${s.code} - ${s.name}\n`;
+        });
+      }
+    }
+
+    const prompt = `You are an academic advisor AI with access to the COMPLETE SUBJECT DATABASE analyzing if a faculty member is suitable to teach a specific subject.
+
+FACULTY BACKGROUND:
+Name: ${facultyBackground.name}
+Position: ${facultyBackground.position}
+Employment Type: ${facultyBackground.employmentType}
+
+EDUCATION:
+- Bachelor's: ${facultyBackground.education.bachelors?.degree || 'N/A'} (Major: ${facultyBackground.education.bachelors?.major || 'N/A'})
+- Master's: ${facultyBackground.education.masters?.degree || 'N/A'} (Major: ${facultyBackground.education.masters?.major || 'N/A'})
+- Doctoral: ${facultyBackground.education.doctoral?.degree || 'N/A'} (Major: ${facultyBackground.education.doctoral?.major || 'N/A'})
+
+SPECIALIZATIONS: ${facultyBackground.specializations?.join(', ') || 'None listed'}
+
+QUALIFIED PROGRAMS: ${facultyBackground.qualifiedPrograms?.join(', ') || 'None listed'}
+
+SPECIAL TRAINING: ${facultyBackground.specialTraining || 'None listed'}
+
+ADMINISTRATIVE DESIGNATION: ${facultyBackground.administrativeDesignation || 'None'}
+
+RESEARCH INVOLVEMENT: ${facultyBackground.researchInvolvement || 'None listed'}
+
+EXTENSION INVOLVEMENT: ${facultyBackground.extensionInvolvement || 'None listed'}
+
+PRODUCTION INVOLVEMENT: ${facultyBackground.productionInvolvement || 'None listed'}
+
+EXPERIENCED SUBJECTS (${facultyBackground.experiencedSubjects?.length || 0}):
+${facultyBackground.experiencedSubjects?.map(s => `- ${s.subjectCode} (taught ${s.semestersTaught || 0} semesters, rating: ${s.rating || 'N/A'})`).join('\n') || 'None'}
+
+TEACHING HISTORY (${facultyBackground.teachingHistory?.length || 0} entries):
+${facultyBackground.teachingHistory?.slice(0, 10).map(h => `- ${h.subjectCode} - ${h.subjectName} (${h.semester} ${h.academicYear})`).join('\n') || 'None'}
+
+---
+
+SUBJECT TO TEACH:
+Code: ${subjectInfo.code}
+Name: ${subjectInfo.name}
+Description: ${subjectInfo.description}
+
+---
+${subjectCatalog}
+---
+
+🎯 **RAG-ENHANCED ANALYSIS INSTRUCTIONS:**
+
+Use the COMPLETE SUBJECT DATABASE above to enhance your analysis. Consider:
+
+1. **Subject Relationships**: Look for related subjects this faculty has taught. Similar subject names, same program, prerequisite chains, or complementary topics indicate transferable expertise.
+
+2. **Cross-Subject Expertise**: If the faculty taught subjects in the same domain (e.g., programming subjects for a software development course), that experience is highly relevant even if not an exact match.
+
+3. **Program Alignment**: Check if the faculty has experience teaching subjects in the same program (BSIT, BSCS, ACT, etc.) as the target subject.
+
+4. **Progression Understanding**: If teaching a Year 3 subject, experience with Year 1-2 subjects in the same program shows foundational knowledge of student progression.
+
+5. **Curriculum Context**: Use the database to understand where this subject fits in the broader curriculum and assess if the faculty's experience aligns with that context.
+
+ANALYSIS TASK:
+Analyze the faculty member's background using RAG context and determine their compatibility to teach this subject. Provide:
+
+1. **Compatibility Score** (0-100): A numerical score representing overall compatibility
+   - 90-100: Excellent (exact subject match or very closely related)
+   - 75-89: Good (related subjects, strong background alignment)
+   - 60-74: Fair (some relevant experience, needs preparation)
+   - 40-59: Poor (weak alignment, significant gaps)
+   - 0-39: Not Recommended (no relevant experience)
+
+2. **Compatibility Level**: "Excellent", "Good", "Fair", "Poor", or "Not Recommended"
+
+3. **Strengths**: 3-5 specific reasons why this faculty is suitable (reference actual subjects from database, education, specializations, research)
+
+4. **Concerns**: 2-4 potential concerns or gaps in qualifications (be honest but constructive)
+
+5. **Recommendations**: 2-3 actionable suggestions to improve teaching effectiveness for this subject
+
+6. **Teaching Experience**: Specific comments on their experience with this exact subject OR related subjects from the database. Reference actual subject codes and names.
+
+7. **Overall Assessment**: A 2-3 sentence summary of your RAG-enhanced analysis
+
+Format your response as JSON:
+{
+  "compatibilityScore": <number 0-100>,
+  "compatibilityLevel": "<Excellent|Good|Fair|Poor|Not Recommended>",
+  "strengths": ["strength1", "strength2", ...],
+  "concerns": ["concern1", "concern2", ...],
+  "recommendations": ["recommendation1", "recommendation2", ...],
+  "teachingExperience": "<detailed analysis with specific subject references>",
+  "overallAssessment": "<summary>"
+}`;
+
+    // Use key rotation system to get API key and create model
+    const { key, index } = getNextApiKey();
+    console.log(`Analyzing faculty compatibility with API key ${index + 1}/${API_KEYS.length}`);
+
+    const genAI = new GoogleGenerativeAI(key);
+    const model = genAI.getGenerativeModel({ 
+      model: 'gemini-3.6-flash',
+      generationConfig: {
+        temperature: 0.7,
+        topK: 40,
+        topP: 0.95,
+        maxOutputTokens: 2048,
+        responseMimeType: 'text/plain',
+      },
+    });
+
+    const result = await model.generateContent(prompt);
+    const response = result.response;
+    const text = response.text();
+
+    // Parse JSON response
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error('Failed to parse AI response as JSON');
+    }
+
+    const analysis = JSON.parse(jsonMatch[0]);
+    return analysis;
+
+  } catch (error) {
+    console.error('Analyze faculty subject compatibility error:', error);
+    throw new Error(`AI analysis failed: ${error.message}`);
+  }
+}
+
+/**
+ * Generate comprehensive background summary for a faculty member
+ * @param {Object} facultyBackground - Comprehensive faculty background
+ * @returns {Promise<Object>} - Background summary
+ */
+async function generateFacultyBackgroundSummary(facultyBackground) {
+  try {
+    const prompt = `You are an academic profile analyzer. Generate a comprehensive, professional summary of this faculty member's background.
+
+FACULTY INFORMATION:
+Name: ${facultyBackground.name}
+Position: ${facultyBackground.position}
+Employment Type: ${facultyBackground.employmentType}
+
+EDUCATION:
+- Bachelor's: ${facultyBackground.education.bachelors?.degree || 'N/A'} (Major: ${facultyBackground.education.bachelors?.major || 'N/A'}, Minor: ${facultyBackground.education.bachelors?.minor || 'N/A'})
+- Master's: ${facultyBackground.education.masters?.degree || 'N/A'} (Major: ${facultyBackground.education.masters?.major || 'N/A'}, Minor: ${facultyBackground.education.masters?.minor || 'N/A'})
+- Doctoral: ${facultyBackground.education.doctoral?.degree || 'N/A'} (Major: ${facultyBackground.education.doctoral?.major || 'N/A'}, Minor: ${facultyBackground.education.doctoral?.minor || 'N/A'})
+
+SPECIALIZATIONS: ${facultyBackground.specializations?.join(', ') || 'None listed'}
+
+QUALIFIED PROGRAMS: ${facultyBackground.qualifiedPrograms?.join(', ') || 'None listed'}
+
+SPECIAL TRAINING: ${facultyBackground.specialTraining || 'None listed'}
+
+ADMINISTRATIVE DESIGNATION: ${facultyBackground.administrativeDesignation || 'None'}
+
+RESEARCH INVOLVEMENT: ${facultyBackground.researchInvolvement || 'None listed'}
+
+EXTENSION INVOLVEMENT: ${facultyBackground.extensionInvolvement || 'None listed'}
+
+PRODUCTION INVOLVEMENT: ${facultyBackground.productionInvolvement || 'None listed'}
+
+EXPERIENCED SUBJECTS (${facultyBackground.experiencedSubjects?.length || 0}):
+${facultyBackground.experiencedSubjects?.map(s => `- ${s.subjectCode} (${s.semestersTaught || 0} semesters)`).join('\n') || 'None'}
+
+TEACHING HISTORY (${facultyBackground.teachingHistory?.length || 0} records)
+
+---
+
+ANALYSIS TASK:
+Create a professional, comprehensive summary of this faculty member including:
+
+1. **Professional Profile**: A 3-4 sentence overview of their academic standing and expertise
+2. **Educational Background**: Summary of their degrees and academic qualifications
+3. **Areas of Expertise**: Key specializations and subject areas they excel in
+4. **Teaching Experience**: Overview of subjects taught and teaching breadth
+5. **Research & Engagement**: Summary of research, extension, and production activities
+6. **Strengths**: Top 3-4 professional strengths
+7. **Recommended Subjects**: 5-7 subject areas they would be most suitable to teach based on background
+8. **Professional Development**: Suggestions for growth and development
+
+Format your response as JSON:
+{
+  "professionalProfile": "<3-4 sentence overview>",
+  "educationalBackground": "<degree summary>",
+  "areasOfExpertise": ["area1", "area2", ...],
+  "teachingExperience": "<experience summary>",
+  "researchAndEngagement": "<research/extension/production summary>",
+  "strengths": ["strength1", "strength2", ...],
+  "recommendedSubjects": ["subject1", "subject2", ...],
+  "professionalDevelopment": ["suggestion1", "suggestion2", ...],
+  "overallRating": "<Highly Qualified|Well Qualified|Qualified|Developing>"
+}`;
+
+    const result = await model.generateContent(prompt);
+    const response = result.response;
+    const text = response.text();
+
+    // Parse JSON response
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error('Failed to parse AI response as JSON');
+    }
+
+    const summary = JSON.parse(jsonMatch[0]);
+    return summary;
+
+  } catch (error) {
+    console.error('Generate faculty background summary error:', error);
+    throw new Error(`AI summary generation failed: ${error.message}`);
+  }
+}
+
 module.exports = {
   generateChatResponse,
   generateChatResponseStream,
   generateSchedulingRecommendation,
   recommendFacultyForSubject,
   getApiStats,
+  analyzeFacultySubjectCompatibility,
+  generateFacultyBackgroundSummary
 };
+

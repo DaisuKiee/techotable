@@ -25,6 +25,29 @@ const {
   appendSlotsToOffering,
 } = require('../services/scheduleOffering.service');
 
+/**
+ * Calculate total teaching hours from time slots
+ * @param {Array} timeSlots - Array of time slot objects with startTime and endTime
+ * @returns {Number} Total hours
+ */
+function calculateScheduleHours(timeSlots) {
+  if (!Array.isArray(timeSlots) || timeSlots.length === 0) {
+    return 0;
+  }
+  
+  let totalHours = 0;
+  timeSlots.forEach(slot => {
+    if (slot.startTime && slot.endTime) {
+      const startMinutes = timeToMinutes(slot.startTime);
+      const endMinutes = timeToMinutes(slot.endTime);
+      const durationHours = (endMinutes - startMinutes) / 60;
+      totalHours += durationHours;
+    }
+  });
+  
+  return totalHours;
+}
+
 // @desc    Get all schedules
 // @route   GET /api/schedules
 // @access  Private
@@ -84,6 +107,7 @@ exports.getAllSchedules = async (req, res) => {
 
     const schedules = await Schedule.find(query)
       .populate('subject', 'subjectCode subjectName units lectureHours labHours')
+      .populate('section', 'sectionCode program yearLevel semester shift')
       .populate({
         path: 'faculty',
         select: 'employeeId',
@@ -263,8 +287,9 @@ exports.createSchedule = async (req, res) => {
       });
 
       // Update faculty load
+      const totalHours = calculateScheduleHours(timeSlots);
       await Faculty.findByIdAndUpdate(faculty, {
-        $inc: { currentLoad: subjectExists.units }
+        $inc: { currentTeachingHours: totalHours }
       });
     }
 
@@ -346,20 +371,34 @@ exports.updateSchedule = async (req, res) => {
 
     // Update faculty load if faculty changed
     if (faculty && faculty !== schedule.faculty.toString()) {
-      const subjectData = await Subject.findById(schedule.subject);
-      const units = subjectData.units;
+      // Calculate hours from old schedule
+      const oldHours = calculateScheduleHours(schedule.timeSlots);
+      
+      // Calculate hours from new schedule (if timeSlots changed, use new ones)
+      const newHours = calculateScheduleHours(timeSlots || schedule.timeSlots);
 
-      // Decrease old faculty load
+      // Decrease old faculty hours
       await Faculty.findByIdAndUpdate(schedule.faculty, {
-        $inc: { currentLoad: -units }
+        $inc: { currentTeachingHours: -oldHours }
       });
 
-      // Increase new faculty load
+      // Increase new faculty hours
       await Faculty.findByIdAndUpdate(faculty, {
-        $inc: { currentLoad: units }
+        $inc: { currentTeachingHours: newHours }
       });
 
       schedule.faculty = faculty;
+    } else if (timeSlots && timeSlots !== schedule.timeSlots) {
+      // Faculty didn't change but timeSlots did - adjust hours
+      const oldHours = calculateScheduleHours(schedule.timeSlots);
+      const newHours = calculateScheduleHours(timeSlots);
+      const hoursDiff = newHours - oldHours;
+      
+      if (hoursDiff !== 0) {
+        await Faculty.findByIdAndUpdate(schedule.faculty, {
+          $inc: { currentTeachingHours: hoursDiff }
+        });
+      }
     }
 
     // Update other fields
@@ -422,10 +461,15 @@ exports.deleteSchedule = async (req, res) => {
       });
     }
 
-    // Decrease faculty load
-    await Faculty.findByIdAndUpdate(schedule.faculty, {
-      $inc: { currentLoad: -schedule.subject.units }
-    });
+    // Calculate total hours from time slots
+    const totalHours = calculateScheduleHours(schedule.timeSlots);
+
+    // Decrease faculty teaching hours
+    if (schedule.faculty && totalHours > 0) {
+      await Faculty.findByIdAndUpdate(schedule.faculty, {
+        $inc: { currentTeachingHours: -totalHours }
+      });
+    }
 
     // Soft delete
     schedule.isActive = false;
@@ -994,11 +1038,16 @@ exports.batchDeleteSchedules = async (req, res) => {
 
     let deletedCount = 0;
     for (const schedule of schedules) {
-      if (schedule.faculty && schedule.subject?.units) {
+      // Calculate total hours from time slots
+      const totalHours = calculateScheduleHours(schedule.timeSlots);
+      
+      // Decrease faculty teaching hours
+      if (schedule.faculty && totalHours > 0) {
         await Faculty.findByIdAndUpdate(schedule.faculty, {
-          $inc: { currentLoad: -schedule.subject.units }
+          $inc: { currentTeachingHours: -totalHours }
         });
       }
+      
       schedule.isActive = false;
       await schedule.save();
       await deactivateClassSpaceForSchedule(schedule);

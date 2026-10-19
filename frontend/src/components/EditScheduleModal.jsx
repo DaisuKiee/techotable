@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { aiChatAPI } from '../services/api';
-import { X, Save, User, MapPin, Users, BookOpen, Clock, Calendar, CheckCircle, AlertCircle, Sparkles, Star, TrendingUp, Loader, School, Info, Trash2 } from 'lucide-react';
+import { X, Save, User, MapPin, Users, BookOpen, Clock, Calendar, AlertCircle, Sparkles, Star, TrendingUp, Loader, School, Info, Trash2 } from 'lucide-react';
+import AnimatedCheckIcon from './AnimatedCheckIcon';
 
 const SUBJECT_COLORS = [
   'bg-blue-600', 'bg-purple-600', 'bg-teal-600', 'bg-rose-600',
@@ -195,7 +196,7 @@ const EditScheduleModal = ({ schedule, faculty, rooms, onUpdate, onClose, onSave
               : 'bg-amber-50 dark:bg-amber-900/20 border-b border-amber-100 dark:border-amber-800'
           }`}>
             {isReady
-              ? <><CheckCircle className="w-4 h-4 text-green-600" /><span className="text-green-700 dark:text-green-300 font-medium">Ready to save</span></>
+              ? <><AnimatedCheckIcon className="w-4 h-4" color="#16a34a" /><span className="text-green-700 dark:text-green-300 font-medium">Ready to save</span></>
               : <><AlertCircle className="w-4 h-4 text-amber-600" /><span className="text-amber-700 dark:text-amber-300 font-medium">
                   Assign {!schedule.faculty ? 'faculty' : ''}{!schedule.faculty && !schedule.room ? ' and ' : ''}{!schedule.room ? 'room' : ''} to continue
                 </span></>

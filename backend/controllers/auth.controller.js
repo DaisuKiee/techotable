@@ -796,3 +796,93 @@ exports.resetPassword = async (req, res) => {
     });
   }
 };
+
+// @desc    Faculty Signup (Public - Pending Approval)
+// @route   POST /api/auth/faculty-signup
+// @access  Public
+exports.facultySignup = async (req, res) => {
+  try {
+    const { name, email, password, department, qualification, specialization } = req.body;
+
+    // Validate required fields
+    if (!name || !email || !password || !department || !qualification) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide all required fields: name, email, password, department, and qualification'
+      });
+    }
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email: email.toLowerCase() });
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: 'An account with this email already exists'
+      });
+    }
+
+    // Split name into firstName, middleName, lastName
+    const nameParts = name.trim().split(' ');
+    let firstName, middleName, lastName;
+    
+    if (nameParts.length === 1) {
+      firstName = nameParts[0];
+      lastName = nameParts[0]; // Use same as first name if only one name provided
+    } else if (nameParts.length === 2) {
+      firstName = nameParts[0];
+      lastName = nameParts[1];
+    } else {
+      firstName = nameParts[0];
+      lastName = nameParts[nameParts.length - 1];
+      middleName = nameParts.slice(1, -1).join(' ');
+    }
+
+    // Create pending faculty user
+    const user = await User.create({
+      email: email.toLowerCase(),
+      password,
+      role: 'faculty',
+      firstName,
+      lastName,
+      middleName,
+      isPending: true,
+      pendingApprovalDate: new Date(),
+      isActive: false // Inactive until approved
+    });
+
+    // Create Faculty profile (also pending)
+    const Faculty = require('../models/Faculty.model');
+    const facultyProfile = await Faculty.create({
+      userId: user._id,
+      name: name.trim(),
+      email: email.toLowerCase(),
+      department,
+      qualification,
+      specialization: specialization || '',
+      isActive: false // Inactive until approved
+    });
+
+    // Link faculty profile to user
+    user.facultyProfile = facultyProfile._id;
+    await user.save();
+
+    res.status(201).json({
+      success: true,
+      message: 'Faculty registration successful! Your account is pending approval. You will receive an email once approved.',
+      data: {
+        userId: user._id,
+        email: user.email,
+        name: user.fullName,
+        isPending: true
+      }
+    });
+
+  } catch (error) {
+    console.error('Faculty signup error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error registering faculty account',
+      error: error.message
+    });
+  }
+};

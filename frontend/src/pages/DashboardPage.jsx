@@ -1,19 +1,36 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCache } from '../context/CacheContext';
 import useCachedData from '../hooks/useCachedData';
 import Layout from '../components/Layout';
 import MyClassesEnrollment from '../components/MyClassesEnrollment';
 import { 
-  Users, BookOpen, DoorOpen, Calendar, 
-  TrendingUp, Clock, CheckCircle, AlertTriangle,
-  RefreshCw, Info, UserCheck, UserX, FileClock,
-  Banknote, Wallet, TrendingDown, Bell, GraduationCap
+  TrendingUp, AlertTriangle,
+  RefreshCw, Info, GraduationCap, Brain, BookOpen,
+  Users, Calendar, Clock, DoorOpen
 } from 'lucide-react';
 import { facultyAPI, subjectAPI, roomAPI, scheduleAPI, classSpaceAPI, userAPI, studentAPI, dashboardAPI } from '../services/api';
 import toast from 'react-hot-toast';
 import ctuBg from '../assets/images/backgrounds/ctu-bg.png';
 import dashboardBg from '../assets/images/backgrounds/bg.jpg';
+import AnimatedCheckIcon from '../components/AnimatedCheckIcon';
+import AnimatedUserCheck from '../components/AnimatedUserCheck';
+import AnimatedTrendingUp from '../components/AnimatedTrendingUp';
+import AnimatedDoorOpen from '../components/AnimatedDoorOpen';
+import {
+  AnimatedUsers,
+  AnimatedBookOpen,
+  AnimatedCalendar,
+  AnimatedClock,
+  AnimatedUserX,
+  AnimatedFileClock,
+  AnimatedBell,
+  AnimatedFaculty,
+  AnimatedStudents,
+  AnimatedBuilding,
+  AnimatedClassSpace
+} from '../components/AnimatedStatIcons';
 
 const DashboardPage = () => {
   const { user, setAuth, token } = useAuth();
@@ -130,6 +147,16 @@ const DashboardPage = () => {
       hour12: true 
     });
   };
+
+// Wrapper for AnimatedCheckIcon to match icon component pattern
+const AnimatedCheckIconWrapper = ({ className }) => (
+  <AnimatedCheckIcon className={className} color="currentColor" />
+);
+
+// Wrapper for AnimatedUserCheck to match icon component pattern
+const AnimatedUserCheckWrapper = ({ className }) => (
+  <AnimatedUserCheck className={className} loop={true} />
+);
 
 const ModernStatCard = ({ icon: Icon, label, value, sublabel }) => (
   <div className="rounded-2xl border border-blue-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md dark:border-blue-700 dark:bg-gray-800">
@@ -326,7 +353,7 @@ const ModernStatCard = ({ icon: Icon, label, value, sublabel }) => (
           {/* Row 1: User & Faculty Stats */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
             <ModernStatCard
-              icon={Users}
+              icon={AnimatedUsers}
               label="Total Users"
               value={statsData.totalUsers}
               sublabel="Real data"
@@ -334,7 +361,7 @@ const ModernStatCard = ({ icon: Icon, label, value, sublabel }) => (
               iconBg="bg-blue-50"
             />
             <ModernStatCard
-              icon={UserCheck}
+              icon={AnimatedUserCheckWrapper}
               label="Active Users"
               value={statsData.activeUsers}
               sublabel="Currently active"
@@ -342,7 +369,7 @@ const ModernStatCard = ({ icon: Icon, label, value, sublabel }) => (
               iconBg="bg-green-50"
             />
             <ModernStatCard
-              icon={UserX}
+              icon={AnimatedUserX}
               label="Inactive Users"
               value={statsData.inactiveUsers}
               sublabel="Suspended or archived"
@@ -350,7 +377,7 @@ const ModernStatCard = ({ icon: Icon, label, value, sublabel }) => (
               iconBg="bg-orange-50"
             />
             <ModernStatCard
-              icon={FileClock}
+              icon={AnimatedFileClock}
               label="Pending Actions"
               value={0}
               sublabel="Awaiting review"
@@ -362,7 +389,7 @@ const ModernStatCard = ({ icon: Icon, label, value, sublabel }) => (
           {/* Row 2: Academic Stats */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
             <ModernStatCard
-              icon={Users}
+              icon={AnimatedFaculty}
               label="Total Faculty"
               value={statsData.activeFaculty}
               sublabel={`${statsData.totalFaculty} total registered`}
@@ -370,7 +397,7 @@ const ModernStatCard = ({ icon: Icon, label, value, sublabel }) => (
               iconBg="bg-indigo-50"
             />
             <ModernStatCard
-              icon={BookOpen}
+              icon={AnimatedBookOpen}
               label="Total Subjects"
               value={statsData.totalSubjects}
               sublabel="Across all programs"
@@ -378,7 +405,7 @@ const ModernStatCard = ({ icon: Icon, label, value, sublabel }) => (
               iconBg="bg-green-50"
             />
             <ModernStatCard
-              icon={DoorOpen}
+              icon={AnimatedBuilding}
               label="Total Rooms"
               value={statsData.totalRooms}
               sublabel="Available facilities"
@@ -386,7 +413,7 @@ const ModernStatCard = ({ icon: Icon, label, value, sublabel }) => (
               iconBg="bg-purple-50"
             />
             <ModernStatCard
-              icon={Calendar}
+              icon={AnimatedCalendar}
               label="Active Schedules"
               value={statsData.totalSchedules}
               sublabel={`${statsData.publishedSchedules} published`}
@@ -398,7 +425,7 @@ const ModernStatCard = ({ icon: Icon, label, value, sublabel }) => (
           {/* Row 3: Placeholder Stats (Financial/Class Management) */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <ModernStatCard
-              icon={Wallet}
+              icon={AnimatedClassSpace}
               label="Class Spaces"
               value={statsData.totalClasses}
               sublabel="Active class spaces"
@@ -406,7 +433,7 @@ const ModernStatCard = ({ icon: Icon, label, value, sublabel }) => (
               iconBg="bg-teal-50"
             />
             <ModernStatCard
-              icon={Banknote}
+              icon={AnimatedStudents}
               label="Enrolled Students"
               value={statsData.activeUsers}
               sublabel="Current semester"
@@ -414,7 +441,7 @@ const ModernStatCard = ({ icon: Icon, label, value, sublabel }) => (
               iconBg="bg-green-50"
             />
             <ModernStatCard
-              icon={Clock}
+              icon={AnimatedClock}
               label="Time Slots"
               value={0}
               sublabel="Coming soon"
@@ -422,7 +449,7 @@ const ModernStatCard = ({ icon: Icon, label, value, sublabel }) => (
               iconBg="bg-purple-50"
             />
             <ModernStatCard
-              icon={Bell}
+              icon={AnimatedBell}
               label="Announcements"
               value={0}
               sublabel="System-wide alerts"
@@ -439,7 +466,7 @@ const ModernStatCard = ({ icon: Icon, label, value, sublabel }) => (
           {/* Row 1: Program Core Metrics */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
             <ModernStatCard
-              icon={Users}
+              icon={AnimatedStudents}
               label="Program Students"
               value={statsData.programStudents}
               sublabel={`Enrolled in ${user?.program}`}
@@ -447,7 +474,7 @@ const ModernStatCard = ({ icon: Icon, label, value, sublabel }) => (
               iconBg="bg-blue-50"
             />
             <ModernStatCard
-              icon={BookOpen}
+              icon={AnimatedBookOpen}
               label="Program Subjects"
               value={statsData.programSubjects}
               sublabel="Active curriculum"
@@ -455,7 +482,7 @@ const ModernStatCard = ({ icon: Icon, label, value, sublabel }) => (
               iconBg="bg-green-50"
             />
             <ModernStatCard
-              icon={Calendar}
+              icon={AnimatedCalendar}
               label="Program Schedules"
               value={statsData.programSchedules}
               sublabel={`${statsData.publishedSchedules} published`}
@@ -463,7 +490,7 @@ const ModernStatCard = ({ icon: Icon, label, value, sublabel }) => (
               iconBg="bg-purple-50"
             />
             <ModernStatCard
-              icon={CheckCircle}
+              icon={AnimatedCheckIconWrapper}
               label="Active Classes"
               value={statsData.totalClasses}
               sublabel="Running this semester"
@@ -477,7 +504,7 @@ const ModernStatCard = ({ icon: Icon, label, value, sublabel }) => (
             <div className="bg-white rounded-xl shadow-sm border border-blue-200 p-6 dark:bg-gray-800 dark:border-blue-700">
               <div className="flex items-center gap-3 mb-3">
                 <div className="p-2 bg-white rounded-lg dark:bg-gray-700">
-                  <TrendingUp className="w-5 h-5 text-black dark:text-white" />
+                  <AnimatedTrendingUp className="w-5 h-5 text-black dark:text-white" />
                 </div>
                 <h3 className="font-semibold text-black dark:text-white">Enrollment Trend</h3>
               </div>
@@ -492,7 +519,7 @@ const ModernStatCard = ({ icon: Icon, label, value, sublabel }) => (
             <div className="bg-white rounded-xl shadow-sm border border-blue-200 p-6 dark:bg-gray-800 dark:border-blue-700">
               <div className="flex items-center gap-3 mb-3">
                 <div className="p-2 bg-white rounded-lg dark:bg-gray-700">
-                  <BookOpen className="w-5 h-5 text-black dark:text-white" />
+                  <AnimatedBookOpen className="w-5 h-5 text-black dark:text-white" />
                 </div>
                 <h3 className="font-semibold text-black dark:text-white">Curriculum Load</h3>
               </div>
@@ -507,7 +534,7 @@ const ModernStatCard = ({ icon: Icon, label, value, sublabel }) => (
             <div className="bg-white rounded-xl shadow-sm border border-blue-200 p-6 dark:bg-gray-800 dark:border-blue-700">
               <div className="flex items-center gap-3 mb-3">
                 <div className="p-2 bg-white rounded-lg dark:bg-gray-700">
-                  <Calendar className="w-5 h-5 text-black dark:text-white" />
+                  <AnimatedCalendar className="w-5 h-5 text-black dark:text-white" />
                 </div>
                 <h3 className="font-semibold text-black dark:text-white">Schedule Status</h3>
               </div>
@@ -542,6 +569,7 @@ const ModernStatCard = ({ icon: Icon, label, value, sublabel }) => (
 // Faculty Dashboard Component
 const FacultyDashboard = ({ user, loading: parentLoading }) => {
   const { invalidateCache } = useCache();
+  const navigate = useNavigate();
 
   // ✅ CACHE: Faculty schedule with 3-minute cache (schedules change frequently)
   const facultyId = user?.facultyProfile?._id || user?.facultyProfile;
@@ -1290,7 +1318,7 @@ const StudentDashboard = ({ user, loading: parentLoading }) => {
             {/* Program Card */}
             <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 border border-blue-200 dark:border-blue-700 shadow-sm">
               <div className="mb-3 sm:mb-5 flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-xl bg-white dark:bg-gray-700">
-                <BookOpen className="h-6 w-6 sm:h-7 sm:w-7 text-black dark:text-white" />
+                <AnimatedBookOpen className="h-6 w-6 sm:h-7 sm:w-7 text-black dark:text-white" />
               </div>
               <div className="text-2xl sm:text-3xl font-bold text-black dark:text-white mb-2 truncate">
                 {user?.program || studentData?.program || 'N/A'}
@@ -1306,7 +1334,7 @@ const StudentDashboard = ({ user, loading: parentLoading }) => {
             {/* Section/Subjects Card */}
             <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 border border-blue-200 dark:border-blue-700 shadow-sm">
               <div className="mb-3 sm:mb-5 flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-xl bg-white dark:bg-gray-700">
-                <Users className="h-6 w-6 sm:h-7 sm:w-7 text-black dark:text-white" />
+                <AnimatedUsers className="h-6 w-6 sm:h-7 sm:w-7 text-black dark:text-white" />
               </div>
               <div className="text-2xl sm:text-3xl font-bold text-black dark:text-white mb-2 truncate">
                 {studentData?.studentType === 'regular' 
@@ -1325,7 +1353,7 @@ const StudentDashboard = ({ user, loading: parentLoading }) => {
             {/* Academic Year Card */}
             <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 border border-blue-200 dark:border-blue-700 shadow-sm">
               <div className="mb-3 sm:mb-5 flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-xl bg-white dark:bg-gray-700">
-                <Calendar className="h-6 w-6 sm:h-7 sm:w-7 text-black dark:text-white" />
+                <AnimatedCalendar className="h-6 w-6 sm:h-7 sm:w-7 text-black dark:text-white" />
               </div>
               <div className="text-2xl sm:text-3xl font-bold text-black dark:text-white mb-2">
                 {studentData.academicYear}
@@ -1341,7 +1369,7 @@ const StudentDashboard = ({ user, loading: parentLoading }) => {
             {/* Enrollment Status Card */}
             <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 border border-blue-200 dark:border-blue-700 shadow-sm">
               <div className="mb-3 sm:mb-5 flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-xl bg-white dark:bg-gray-700">
-                <CheckCircle className="h-6 w-6 sm:h-7 sm:w-7 text-black dark:text-white" />
+                <AnimatedCheckIcon className="h-6 w-6 sm:h-7 sm:w-7" />
               </div>
               <div className="text-2xl sm:text-3xl font-bold text-black dark:text-white mb-2 capitalize truncate">
                 {studentData.enrollmentStatus || 'N/A'}
@@ -1385,7 +1413,7 @@ const StudentDashboard = ({ user, loading: parentLoading }) => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-white rounded-lg dark:bg-gray-700 flex-shrink-0">
-              <Calendar className="w-5 h-5 sm:w-6 sm:h-6 text-black dark:text-white" />
+              <AnimatedCalendar className="w-5 h-5 sm:w-6 sm:h-6 text-black dark:text-white" />
             </div>
             <div className="min-w-0">
               <h3 className="text-lg sm:text-xl font-semibold text-black dark:text-white">
@@ -1530,7 +1558,7 @@ const StudentDashboard = ({ user, loading: parentLoading }) => {
                     {/* Subject Header */}
                     <div className="flex items-start gap-3 sm:gap-4 mb-4">
                       <div className="p-2 sm:p-3 bg-white rounded-xl dark:bg-gray-700 flex-shrink-0">
-                        <BookOpen className="w-5 h-5 sm:w-6 sm:h-6 text-black dark:text-white" />
+                        <AnimatedBookOpen className="w-5 h-5 sm:w-6 sm:h-6 text-black dark:text-white" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <h4 className="font-bold text-lg sm:text-xl text-blue-900 dark:text-white">
@@ -1555,7 +1583,7 @@ const StudentDashboard = ({ user, loading: parentLoading }) => {
                       {/* Time */}
                       <div className="flex items-center gap-2 sm:gap-3">
                         <div className="p-1.5 sm:p-2 bg-white rounded-lg dark:bg-gray-700 flex-shrink-0">
-                          <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-black dark:text-white" />
+                          <AnimatedClock className="w-4 h-4 sm:w-5 sm:h-5 text-black dark:text-white" />
                         </div>
                         <div className="min-w-0">
                           <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 font-semibold uppercase">Time</p>
@@ -1570,7 +1598,7 @@ const StudentDashboard = ({ user, loading: parentLoading }) => {
                       {/* Room */}
                       <div className="flex items-center gap-2 sm:gap-3">
                         <div className="p-1.5 sm:p-2 bg-white rounded-lg dark:bg-gray-700 flex-shrink-0">
-                          <DoorOpen className="w-4 h-4 sm:w-5 sm:h-5 text-black dark:text-white" />
+                          <AnimatedDoorOpen className="w-4 h-4 sm:w-5 sm:h-5 text-black dark:text-white" />
                         </div>
                         <div className="min-w-0">
                           <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 font-semibold uppercase">Room</p>

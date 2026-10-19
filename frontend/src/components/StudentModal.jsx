@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { studentAPI, sectionAPI } from '../services/api';
 import toast from 'react-hot-toast';
-import { Users, Mail, Lock, User, GraduationCap, Phone, MapPin, UserCheck, FileText } from 'lucide-react';
+import { Users, Mail, Lock, User, GraduationCap, Phone, MapPin, FileText, BookOpen, Plus, X } from 'lucide-react';
 import { usePrograms } from '../hooks/usePrograms';
 import BaseModal from './BaseModal';
+import AnimatedUserCheck from './AnimatedUserCheck';
 
 const StudentModal = ({ student, onClose }) => {
   const { programCodes } = usePrograms();
@@ -18,6 +19,7 @@ const StudentModal = ({ student, onClose }) => {
     yearLevel: 1,
     section: '',
     studentType: 'regular',
+    subjectCodes: [], // For irregular students
     academicYear: '2024-2025',
     semester: 1,
     contactNumber: '',
@@ -45,6 +47,7 @@ const StudentModal = ({ student, onClose }) => {
   const [loading, setLoading] = useState(false);
   const [sections, setSections] = useState([]);
   const [loadingSections, setLoadingSections] = useState(false);
+  const [subjectCodeInput, setSubjectCodeInput] = useState('');
 
   // // Disable body scroll when modal is open
   // useEffect(() => {
@@ -102,6 +105,7 @@ const StudentModal = ({ student, onClose }) => {
         yearLevel: student.yearLevel || 1,
         section: student.section || '',
         studentType: student.studentType || 'regular',
+        subjectCodes: student.subjectCodes || [],
         academicYear: student.academicYear || '2024-2025',
         semester: student.semester || 1,
         contactNumber: student.contactNumber || '',
@@ -160,6 +164,32 @@ const StudentModal = ({ student, onClose }) => {
         [field]: value
       }
     }));
+  };
+
+  const handleAddSubjectCode = () => {
+    const code = subjectCodeInput.trim().toUpperCase();
+    if (!code) {
+      toast.error('Please enter a subject code');
+      return;
+    }
+    if (formData.subjectCodes.includes(code)) {
+      toast.error('This subject code is already added');
+      return;
+    }
+    setFormData(prev => ({
+      ...prev,
+      subjectCodes: [...prev.subjectCodes, code]
+    }));
+    setSubjectCodeInput('');
+    toast.success(`Added subject code: ${code}`);
+  };
+
+  const handleRemoveSubjectCode = (code) => {
+    setFormData(prev => ({
+      ...prev,
+      subjectCodes: prev.subjectCodes.filter(c => c !== code)
+    }));
+    toast.success(`Removed subject code: ${code}`);
   };
 
   const handleSubmit = async (e) => {
@@ -514,10 +544,78 @@ const StudentModal = ({ student, onClose }) => {
               </div>
             </div>
 
+            {/* Subject Codes (For Irregular Students Only) */}
+            {formData.studentType === 'irregular' && (
+              <div className="bg-orange-50 dark:bg-orange-900/20 rounded-xl p-5 mb-4 border-2 border-orange-200 dark:border-orange-700">
+                <h3 className="text-lg font-semibold text-orange-900 dark:text-orange-100 mb-2 flex items-center gap-2">
+                  <BookOpen className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                  Subject Codes (Irregular Student)
+                </h3>
+                <p className="text-sm text-orange-700 dark:text-orange-300 mb-4">
+                  Add subject codes for this irregular student. They can enroll in these subjects independently.
+                </p>
+                
+                {/* Add Subject Code Input */}
+                <div className="flex gap-2 mb-4">
+                  <input
+                    type="text"
+                    value={subjectCodeInput}
+                    onChange={(e) => setSubjectCodeInput(e.target.value.toUpperCase())}
+                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddSubjectCode())}
+                    placeholder="Enter subject code (e.g., IT101, CS201)"
+                    className="flex-1 px-4 py-2.5 border-2 border-orange-300 dark:border-orange-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 dark:bg-gray-700 dark:text-white transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddSubjectCode}
+                    className="px-6 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium shadow-md hover:shadow-lg transition-all flex items-center gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add
+                  </button>
+                </div>
+
+                {/* Subject Codes List */}
+                {formData.subjectCodes.length > 0 ? (
+                  <div className="space-y-2">
+                    <p className="text-sm font-semibold text-orange-900 dark:text-orange-100">
+                      Added Subject Codes ({formData.subjectCodes.length}):
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {formData.subjectCodes.map((code) => (
+                        <div
+                          key={code}
+                          className="flex items-center gap-2 px-3 py-1.5 bg-orange-100 dark:bg-orange-800 text-orange-900 dark:text-orange-100 rounded-lg text-sm font-medium"
+                        >
+                          <BookOpen className="w-3.5 h-3.5" />
+                          <span>{code}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveSubjectCode(code)}
+                            className="ml-1 text-orange-600 dark:text-orange-300 hover:text-orange-800 dark:hover:text-orange-100 transition-colors"
+                            title="Remove subject code"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-6 bg-orange-100/50 dark:bg-orange-900/10 rounded-lg border-2 border-dashed border-orange-300 dark:border-orange-600">
+                    <BookOpen className="w-10 h-10 text-orange-400 mx-auto mb-2" />
+                    <p className="text-sm text-orange-700 dark:text-orange-300">
+                      No subject codes added yet. Add subject codes above.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Guardian Information */}
             <div className="bg-white dark:bg-gray-800 rounded-xl p-5 mb-4 border-2 border-gray-200 dark:border-gray-700">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                <UserCheck className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                <AnimatedUserCheck className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                 Guardian Information
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

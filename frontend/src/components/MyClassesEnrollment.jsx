@@ -2,12 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { Plus, X, BookOpen, Users, Clock, MapPin, Calendar, Loader, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { classSpaceAPI } from '../services/api';
 import toast from 'react-hot-toast';
+import TypeToConfirmDialog from './TypeToConfirmDialog';
 
 const MyClassesEnrollment = () => {
   const [classCode, setClassCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [enrolledClasses, setEnrolledClasses] = useState([]);
   const [loadingClasses, setLoadingClasses] = useState(true);
+  const [showUnenrollConfirm, setShowUnenrollConfirm] = useState(false);
+  const [classToUnenroll, setClassToUnenroll] = useState(null);
 
   useEffect(() => {
     loadMyClasses();
@@ -54,17 +57,17 @@ const MyClassesEnrollment = () => {
     }
   };
 
-  const handleUnenroll = async (classId, className) => {
-    if (!window.confirm(`Are you sure you want to drop ${className}?`)) {
-      return;
-    }
-
+  const handleUnenroll = async () => {
+    if (!classToUnenroll) return;
+    
     try {
-      const response = await classSpaceAPI.unenroll(classId);
+      const response = await classSpaceAPI.unenroll(classToUnenroll.id);
       
       if (response.data.success) {
         toast.success(response.data.message);
         await loadMyClasses();
+        setShowUnenrollConfirm(false);
+        setClassToUnenroll(null);
       }
     } catch (error) {
       console.error('Unenroll error:', error);
@@ -213,7 +216,13 @@ const MyClassesEnrollment = () => {
 
                   {isIrregular && (
                     <button
-                      onClick={() => handleUnenroll(classSpace._id, classSpace.subject?.subjectName)}
+                      onClick={() => {
+                        setClassToUnenroll({
+                          id: classSpace._id,
+                          name: classSpace.subject?.subjectName
+                        });
+                        setShowUnenrollConfirm(true);
+                      }}
                       className="ml-4 p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors dark:hover:bg-red-900/20"
                       title="Drop this class"
                     >
@@ -239,6 +248,23 @@ const MyClassesEnrollment = () => {
           </div>
         </div>
       )}
+
+      {/* Unenroll Confirmation Modal */}
+      <TypeToConfirmDialog
+        isOpen={showUnenrollConfirm}
+        onClose={() => {
+          setShowUnenrollConfirm(false);
+          setClassToUnenroll(null);
+        }}
+        onConfirm={handleUnenroll}
+        title="Drop this Class?"
+        message="You will be removed from this class and will lose access to all materials and announcements. You can re-enroll later using the class code."
+        confirmationText={classToUnenroll?.name || ''}
+        confirmButtonText="Drop Class"
+        cancelButtonText="Cancel"
+        type="danger"
+        placeholder="Type the subject name to confirm"
+      />
     </div>
   );
 };

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { facultyAPI, userAPI, programAPI } from '../services/api';
 import toast from 'react-hot-toast';
-import { Plus, Trash2, User, Users, Mail, Award, BookOpen, UserCheck, Clock } from 'lucide-react';
+import { Plus, Trash2, User, Users, Mail, Award, BookOpen, Clock } from 'lucide-react';
 import BaseModal from './BaseModal';
 import { useAuth } from '../context/AuthContext';
+import AnimatedUserCheck from './AnimatedUserCheck';
 
 const FacultyModal = ({ mode, faculty, onClose }) => {
   const { user } = useAuth();
@@ -292,7 +293,7 @@ const FacultyModal = ({ mode, faculty, onClose }) => {
                         ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
                         : 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
                     }`}>
-                      <UserCheck className="w-3 h-3" />
+                      <AnimatedUserCheck className="w-3 h-3" />
                       {faculty.isActive ? 'Active' : 'Inactive'}
                     </span>
                   </div>

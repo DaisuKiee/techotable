@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Bell, Check, CheckCheck, X, Trash2 } from 'lucide-react';
 import { notificationAPI } from '../services/api';
 import { useNavigate } from 'react-router-dom';
@@ -10,6 +10,7 @@ const NotificationBell = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const intervalRef = useRef(null);
 
   // Fetch notifications
   const fetchNotifications = async () => {
@@ -32,13 +33,29 @@ const NotificationBell = () => {
     }
   };
 
-  // Initial fetch
+  // Initial fetch and polling
   useEffect(() => {
+    // Fetch immediately
     fetchNotifications();
+    fetchUnreadCount();
     
-    // Poll for new notifications every 30 seconds
-    const interval = setInterval(fetchUnreadCount, 30000);
-    return () => clearInterval(interval);
+    // Clear any existing interval
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+    
+    // Poll for new notifications every 60 seconds (increased from 30)
+    intervalRef.current = setInterval(() => {
+      fetchUnreadCount();
+    }, 60000);
+    
+    // Cleanup interval on unmount
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
   }, []);
 
   // Mark notification as read

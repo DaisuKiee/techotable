@@ -4,9 +4,10 @@ import { activityLogAPI } from '../services/api';
 import toast from 'react-hot-toast';
 import {
   Activity, User, Calendar, Filter, Download, RefreshCw,
-  CheckCircle, XCircle, AlertTriangle, Clock, Search,
+  XCircle, AlertTriangle, Clock, Search,
   TrendingUp, Users, FileText, Settings, ChevronLeft, ChevronRight
 } from 'lucide-react';
+import AnimatedCheckIcon from '../components/AnimatedCheckIcon';
 
 const ActivityLogPage = () => {
   const [logs, setLogs] = useState([]);
@@ -117,7 +118,7 @@ const ActivityLogPage = () => {
   const getStatusIcon = (status) => {
     switch (status) {
       case 'success':
-        return <CheckCircle className="w-4 h-4" />;
+        return <AnimatedCheckIcon className="w-4 h-4" color="currentColor" />;
       case 'failure':
         return <XCircle className="w-4 h-4" />;
       case 'warning':
@@ -213,7 +214,7 @@ const ActivityLogPage = () => {
                   </p>
                 </div>
                 <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg">
-                  <CheckCircle className="w-6 h-6 text-white" />
+                  <AnimatedCheckIcon className="w-6 h-6" color="#ffffff" />
                 </div>
               </div>
             </div>

@@ -15,7 +15,7 @@ exports.getAllStudents = async (req, res) => {
     // Program filter is automatically injected by middleware for program managers
     if (program) filter.program = program;
     if (yearLevel) filter.yearLevel = parseInt(yearLevel);
-    if (section) filter.section = section;
+    if (section) filter.sectionCode = section; // Fixed: use sectionCode not section
     if (semester) filter.semester = parseInt(semester);
     if (academicYear) filter.academicYear = academicYear;
     if (studentType) filter.studentType = studentType;

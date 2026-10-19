@@ -9,6 +9,7 @@ import {
   Layers, Home, Activity
 } from 'lucide-react';
 import ctuLogo from '../assets/images/logos/ctulogo.png';
+import AnimatedUserCheck from './AnimatedUserCheck';
 import AIChatBubble from './AIChatBubble';
 import NotificationBell from './NotificationBell';
 
@@ -71,6 +72,7 @@ const Layout = ({ children }) => {
       return [
         { name: 'Dashboard', path: '/dashboard', icon: Home },
         { name: 'Faculty', path: '/faculty', icon: Users },
+        { name: 'Pending Approvals', path: '/faculty/approvals', icon: AnimatedUserCheck },
         { name: 'Students', path: '/students', icon: GraduationCap },
         { name: 'Subjects', path: '/subjects', icon: BookOpen },
         { name: 'Rooms', path: '/rooms', icon: DoorOpen },
@@ -83,6 +85,7 @@ const Layout = ({ children }) => {
     }
 
     if (user?.role === 'faculty') {
+      const facultyId = user?.facultyProfile?._id || user?.facultyProfile;
       return [
         { name: 'Dashboard', path: '/dashboard', icon: Home },
         { name: 'My Classes', path: '/classes', icon: GraduationCap },

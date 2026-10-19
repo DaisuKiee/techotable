@@ -64,6 +64,13 @@ const SubjectSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
+  },
+  subjectEnrollmentCode: {
+    type: String,
+    trim: true,
+    uppercase: true,
+    default: null,
+    index: true
   }
 }, {
   timestamps: true
@@ -73,23 +80,29 @@ const SubjectSchema = new mongoose.Schema({
 SubjectSchema.index({ program: 1, yearLevel: 1, semester: 1 });
 
 /**
- * Generate a random subject code (6 characters: 2 letters + 4 digits)
- * Example: IT3101, CS2045, EE1234
+ * Generate a random subject code (8 characters, no ambiguous chars)
+ * Example: K3P9X7M2, H7D5Q2N9, AB8XY3Z4
  */
 SubjectSchema.statics.generateSubjectCode = function() {
-  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  const digits = '0123456789';
-  
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Exclude 0, O, 1, I for clarity
   let code = '';
-  // 2 uppercase letters
-  for (let i = 0; i < 2; i++) {
-    code += letters.charAt(Math.floor(Math.random() * letters.length));
+  for (let i = 0; i < 8; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
   }
-  // 4 digits
-  for (let i = 0; i < 4; i++) {
-    code += digits.charAt(Math.floor(Math.random() * digits.length));
+  return code;
+};
+
+/**
+ * Generate a random subject enrollment code (8 characters, no ambiguous chars)
+ * Used by irregular students to enroll in a single subject
+ * Example: K3P9X7M2
+ */
+SubjectSchema.statics.generateSubjectEnrollmentCode = function() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Exclude 0, O, 1, I
+  let code = '';
+  for (let i = 0; i < 8; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
   }
-  
   return code;
 };
 

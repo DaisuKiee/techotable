@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mail, ArrowLeft, Send, CheckCircle } from 'lucide-react';
+import { Mail, ArrowLeft, Send } from 'lucide-react';
 import { authAPI } from '../services/api';
 import ctuLogo from '../assets/images/logos/ctulogo.png';
 import ctuBg from '../assets/images/backgrounds/ctu-bg.png';
+import AnimatedCheckIcon from '../components/AnimatedCheckIcon';
 
 const ForgotPasswordPage = () => {
   const navigate = useNavigate();
@@ -42,7 +43,7 @@ const ForgotPasswordPage = () => {
             {/* Success Icon */}
             <div className="flex justify-center mb-6">
               <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center">
-                <CheckCircle className="w-12 h-12 text-green-600" />
+                <AnimatedCheckIcon className="w-12 h-12" color="#16a34a" />
               </div>
             </div>
 

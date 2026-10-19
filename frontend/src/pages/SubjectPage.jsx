@@ -1,16 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
-import { subjectAPI } from '../services/api';
+import { subjectAPI, classSpaceAPI } from '../services/api';
 import useCachedData from '../hooks/useCachedData';
 import toast from 'react-hot-toast';
 import { 
-  Plus, Search, Edit2, Trash2, BookOpen, 
+  Plus, Search, Edit2, Trash2, BookOpen,
   X, GraduationCap, Clock, FileText, Grid3x3, List,
-  Layers, TrendingUp, CheckCircle, Upload, Copy
+  Upload, Copy
 } from 'lucide-react';
 import SubjectModal from '../components/SubjectModal';
+import SubjectEnrollmentModal from '../components/SubjectEnrollmentModal';
 import ExcelImportModal from '../components/ExcelImportModal';
 import ConfirmDialog from '../components/ConfirmDialog';
+import AnimatedUserCheck from '../components/AnimatedUserCheck';
+import AnimatedBookOpen from '../components/AnimatedBookOpen';
+import AnimatedLayers from '../components/AnimatedLayers';
+import AnimatedTrendingUp from '../components/AnimatedTrendingUp';
 import { useAuth } from '../context/AuthContext';
 import { usePrograms } from '../hooks/usePrograms';
 
@@ -31,6 +36,7 @@ const SubjectPage = () => {
   });
   const [showModal, setShowModal] = useState(false);
   const [showExcelImportModal, setShowExcelImportModal] = useState(false);
+  const [showEnrollmentModal, setShowEnrollmentModal] = useState(false);
   const [selectedSubject, setSelectedSubject] = useState(null);
   const [modalMode, setModalMode] = useState('create');
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
@@ -132,6 +138,11 @@ const SubjectPage = () => {
     setSelectedSubject(subject);
     setModalMode('edit');
     setShowModal(true);
+  };
+
+  const handleShowEnrollmentCodes = (subject) => {
+    setSelectedSubject(subject);
+    setShowEnrollmentModal(true);
   };
 
   const handleDelete = async (subject) => {
@@ -259,7 +270,7 @@ const SubjectPage = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
           <div className="bg-indigo-600 text-white rounded-xl p-4 shadow-md">
             <div className="flex items-center justify-between mb-2">
-              <BookOpen className="w-5 h-5 opacity-80" />
+              <AnimatedBookOpen className="w-5 h-5 opacity-80" />
               <span className="text-xs font-medium opacity-80">TOTAL</span>
             </div>
             <div className="text-2xl md:text-3xl font-bold">{stats.total}</div>
@@ -268,7 +279,7 @@ const SubjectPage = () => {
 
           <div className="bg-green-600 text-white rounded-xl p-4 shadow-md">
             <div className="flex items-center justify-between mb-2">
-              <CheckCircle className="w-5 h-5 opacity-80" />
+              <AnimatedUserCheck className="w-5 h-5 opacity-80" />
               <span className="text-xs font-medium opacity-80">ACTIVE</span>
             </div>
             <div className="text-2xl md:text-3xl font-bold">{stats.active}</div>
@@ -277,7 +288,7 @@ const SubjectPage = () => {
 
           <div className="bg-blue-600 text-white rounded-xl p-4 shadow-md">
             <div className="flex items-center justify-between mb-2">
-              <Layers className="w-5 h-5 opacity-80" />
+              <AnimatedLayers className="w-5 h-5 opacity-80" />
               <span className="text-xs font-medium opacity-80">PROGRAMS</span>
             </div>
             <div className="text-2xl md:text-3xl font-bold">{PROGRAMS.length}</div>
@@ -286,7 +297,7 @@ const SubjectPage = () => {
 
           <div className="bg-orange-600 text-white rounded-xl p-4 shadow-md">
             <div className="flex items-center justify-between mb-2">
-              <TrendingUp className="w-5 h-5 opacity-80" />
+              <AnimatedTrendingUp className="w-5 h-5 opacity-80" />
               <span className="text-xs font-medium opacity-80">AVERAGE</span>
             </div>
             <div className="text-2xl md:text-3xl font-bold">
@@ -543,26 +554,26 @@ const SubjectPage = () => {
                 {/* Actions */}
                 <div className="flex gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
                   <button
-                    onClick={() => copySubjectCode(subject.subjectCode)}
-                    className="flex items-center justify-center gap-2 px-3 py-2.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all shadow-sm hover:shadow-md font-medium"
-                    title="Copy subject code"
+                    onClick={() => handleShowEnrollmentCodes(subject)}
+                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all shadow-sm hover:shadow-md font-medium"
+                    title="View enrollment codes by section"
                   >
-                    <Copy className="w-4 h-4" />
-                    Copy
+                    <Edit2 className="w-4 h-4" />
+                    <span>View Codes</span>
                   </button>
                   <button
                     onClick={() => handleEdit(subject)}
-                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all shadow-sm hover:shadow-md font-medium"
+                    className="flex items-center justify-center gap-2 px-4 py-2.5 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg transition-all shadow-sm hover:shadow-md font-medium"
+                    title="Edit subject"
                   >
                     <Edit2 className="w-4 h-4" />
-                    Edit
                   </button>
                   <button
                     onClick={() => handleDelete(subject)}
-                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-sm bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all shadow-sm hover:shadow-md font-medium"
+                    className="flex items-center justify-center gap-2 px-4 py-2.5 text-sm bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all shadow-sm hover:shadow-md font-medium"
+                    title="Delete subject"
                   >
                     <Trash2 className="w-4 h-4" />
-                    Delete
                   </button>
                 </div>
               </div>
@@ -679,6 +690,17 @@ const SubjectPage = () => {
           mode={modalMode}
           subject={selectedSubject}
           onClose={handleModalClose}
+        />
+      )}
+
+      {/* Enrollment Codes Modal */}
+      {showEnrollmentModal && (
+        <SubjectEnrollmentModal
+          subject={selectedSubject}
+          onClose={() => {
+            setShowEnrollmentModal(false);
+            setSelectedSubject(null);
+          }}
         />
       )}
 

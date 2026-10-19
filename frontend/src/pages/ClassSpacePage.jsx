@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import ReactDOM from 'react-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { classSpaceAPI, resolveUploadUrl } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -15,7 +15,7 @@ import {
 import CreateAnnouncementModal from '../components/CreateAnnouncementModal';
 import UploadMaterialModal from '../components/UploadMaterialModal';
 import EnrollModal from '../components/EnrollModal';
-import ConfirmDialog from '../components/ConfirmDialog';
+import TypeToConfirmDialog from '../components/TypeToConfirmDialog';
 
 // Import background images
 import bg1 from '../assets/images/class-spaces-bg/GOOGLE-BLUES.jpe';
@@ -32,6 +32,31 @@ const facultyNameOf = (cs) => {
   return u ? `${u.firstName || ''} ${u.lastName || ''}`.trim() : null;
 };
 const timeSlotsOf = (cs) => cs?.schedule?.timeSlots || [];
+
+/** Build a full URL for a profile picture stored as a server-relative path. */
+const avatarSrc = (path) =>
+  path ? `${process.env.REACT_APP_API_URL?.replace('/api', '')}${path}` : null;
+
+/**
+ * Generate a URL-friendly slug from a class space
+ * Format: subjectcode-section-year (e.g., cc4112l-bsit-4a-d)
+ */
+const generateClassSlug = (cs) => {
+  const subjectCode = (cs?.subject?.subjectCode || cs?.sectionCode || 'class').toLowerCase();
+  const sectionCode = (cs?.section?.sectionCode || cs?.sectionCode || '').toLowerCase();
+  const year = cs?.section?.year || cs?.year || '';
+
+  // Clean and combine parts
+  const parts = [subjectCode, sectionCode, year].filter(Boolean);
+  return parts.join('-').replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+};
+
+/**
+ * Find a class space by its slug
+ */
+const findClassBySlug = (classes, slug) => {
+  return classes.find(cs => generateClassSlug(cs) === slug);
+};
 
 /**
  * One-line summary of when a class meets.
@@ -69,10 +94,31 @@ const backgroundFor = (key) => {
   return CARD_BACKGROUNDS[Math.abs(hash) % CARD_BACKGROUNDS.length];
 };
 
+/** Placeholder rows shown while a class's full details are loading. */
+const PostSkeleton = ({ count = 3 }) => (
+  <div className="space-y-4 animate-pulse" aria-label="Loading">
+    {Array.from({ length: count }).map((_, n) => (
+      <div
+        key={n}
+        className="flex gap-3 p-5 border border-gray-200 dark:border-gray-700 rounded-xl"
+      >
+        <div className="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-700 flex-shrink-0" />
+        <div className="flex-1 space-y-2">
+          <div className="h-3 w-1/3 rounded bg-gray-200 dark:bg-gray-700" />
+          <div className="h-4 w-2/3 rounded bg-gray-200 dark:bg-gray-700" />
+          <div className="h-3 w-full rounded bg-gray-200 dark:bg-gray-700" />
+        </div>
+      </div>
+    ))}
+  </div>
+);
+
 const ClassSpacePage = () => {
   const { user } = useAuth();
   const { getPageState, savePageState } = usePageState();
-  
+  const { classSlug } = useParams(); // Get slug from URL
+  const navigate = useNavigate(); // For navigation
+
   // Get saved state or use defaults
   const savedState = getPageState('classSpaces', {
     searchTerm: '',
@@ -89,7 +135,15 @@ const ClassSpacePage = () => {
   const [editingAnnouncement, setEditingAnnouncement] = useState(null);
   const [searchTerm, setSearchTerm] = useState(savedState.searchTerm);
   const [filterSection, setFilterSection] = useState(savedState.filterSection);
-  
+
+  // Confirmation modals
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
+  const [showLeaveSectionConfirm, setShowLeaveSectionConfirm] = useState(false);
+
+  // Track the last loaded class to prevent re-fetching
+  const lastLoadedClassId = useRef(null);
+
   // Whether the server says the current user may post in the open class
   const [canPostHere, setCanPostHere] = useState(false);
   const [studentType, setStudentType] = useState(null); // null until backend tells us or student chooses
@@ -97,26 +151,22 @@ const ClassSpacePage = () => {
 
   const isFaculty = user?.role === 'faculty';
   const isStudent = user?.role === 'student';
-  const isAdmin = user?.role === 'admin' || user?.role === 'scheduling_officer';
-  const isManager = user?.role === 'program_manager';
+  const isAdmin = user?.role === 'admin' || user?.role === 'scheduling_officer'; // eslint-disable-line no-unused-vars
+  const isManager = user?.role === 'program_manager'; // eslint-disable-line no-unused-vars
   const isIrregular = isStudent && studentType === 'irregular';
+  const isRegular = isStudent && studentType === 'regular';
 
   // ✅ CACHE: Class spaces with 5-minute cache (stale-while-revalidate)
   const {
     data: classSpacesResponse,
     loading: classSpacesLoading,
-    error: classSpacesError,
     refetch: reloadClassSpaces,
-    isFromCache
   } = useCachedData(
     () => classSpaceAPI.getMyClasses(),
     `class-spaces-${user?._id}-${user?.role}`,
     {
       cacheDuration: 5 * 60 * 1000, // 5 minutes
       enabled: !!user,
-      onSuccess: (data) => {
-        console.log('✅ Class spaces loaded:', isFromCache ? '📦 from cache' : '🌐 fresh fetch');
-      },
       onError: (err) => {
         console.error('Failed to load class spaces:', err);
         toast.error(err.response?.data?.message || 'Failed to load classes');
@@ -127,9 +177,9 @@ const ClassSpacePage = () => {
   // Extract data from response (handle both cached and fresh formats)
   useEffect(() => {
     if (!classSpacesResponse) return;
-    
-    // classSpacesResponse is now response.data (the whole API response object)
-    // It contains: {success, count, data: [...], enrolled?, studentType?, message?}
+
+    // classSpacesResponse is the whole API response object:
+    // {success, count, data: [...], enrolled?, studentType?, message?}
     const payload = classSpacesResponse;
 
     if (payload.studentType) setStudentType(payload.studentType);
@@ -145,24 +195,71 @@ const ClassSpacePage = () => {
     }
   }, [classSpacesResponse]);
 
+  // Handle URL-based class selection with optimistic UI
+  useEffect(() => {
+    if (!classSlug || classSpaces.length === 0) {
+      setSelectedClass(null);
+      lastLoadedClassId.current = null;
+      return;
+    }
+
+    const classToOpen = findClassBySlug(classSpaces, classSlug);
+
+    if (classToOpen) {
+      // Skip if we already loaded this class
+      if (lastLoadedClassId.current === classToOpen._id) {
+        return;
+      }
+
+      lastLoadedClassId.current = classToOpen._id;
+
+      // Reset modal states when opening a new class
+      setShowLeaveConfirm(false);
+      setShowRegenerateConfirm(false);
+
+      // Immediately show cached data from the grid for instant feedback
+      setSelectedClass({
+        ...classToOpen,
+        _isLoading: true, // Flag to show loading indicators
+      });
+      setActiveTab('stream');
+
+      // Load full details with announcements/materials in the background
+      classSpaceAPI.getById(classToOpen._id)
+        .then(response => {
+          setSelectedClass({
+            ...response.data.data,
+            _isLoading: false,
+          });
+          setCanPostHere(!!response.data.canPost);
+        })
+        .catch(error => {
+          console.error('Failed to load class details:', error);
+          toast.error(error.response?.data?.message || 'Could not open this class');
+          lastLoadedClassId.current = null; // Reset so user can retry
+          navigate('/classes'); // Redirect to grid view on error
+        });
+    } else {
+      // Class not found, redirect to grid view
+      toast.error('Class not found');
+      navigate('/classes');
+    }
+  }, [classSlug, classSpaces, navigate]);
+
   // Save filter/search state when they change
   useEffect(() => {
     savePageState('classSpaces', {
       searchTerm,
       filterSection
     });
-  }, [searchTerm, filterSection]); // Removed savePageState from dependencies
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTerm, filterSection]);
 
-  const openClass = async (cs) => {
-    setActiveTab('stream');
-    try {
-      // Fetch the full record: the list response omits announcements/materials
-      const response = await classSpaceAPI.getById(cs._id);
-      setSelectedClass(response.data.data);
-      setCanPostHere(!!response.data.canPost);
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Could not open this class');
-    }
+  const openClass = async (cs, tab = 'stream') => {
+    const slug = generateClassSlug(cs);
+    navigate(`/classes/${slug}`);
+    // Set the tab immediately so it's ready when the class loads
+    if (tab) setActiveTab(tab);
   };
 
   const refreshSelectedClass = async () => {
@@ -184,25 +281,41 @@ const ClassSpacePage = () => {
   };
 
   const handleRegenerateCode = async () => {
-    if (!window.confirm('Generate a new class code? The old code stops working.')) return;
     try {
       const response = await classSpaceAPI.regenerateClassCode(selectedClass._id);
       setSelectedClass(prev => ({ ...prev, classCode: response.data.data.classCode }));
       toast.success('New class code generated');
+      setShowRegenerateConfirm(false);
     } catch (error) {
       toast.error(error.response?.data?.message || 'Could not regenerate code');
     }
   };
 
   const handleLeaveClass = async () => {
-    if (!window.confirm('Leave this subject? You will lose access to its posts.')) return;
     try {
       await classSpaceAPI.leave(selectedClass._id);
       toast.success('Left the class');
-      setSelectedClass(null);
+      setShowLeaveConfirm(false);
+      navigate('/classes'); // Navigate back to grid view
       reloadClassSpaces();
     } catch (error) {
       toast.error(error.response?.data?.message || 'Could not leave this class');
+    }
+  };
+
+  /* Leaving a SECTION is separate from leaving a subject: it removes a regular
+     student from their whole section (every subject). It needs its own API
+     call, classSpaceAPI.leaveSection(), see the note in the reply. */
+  const handleLeaveSection = async () => {
+    try {
+      await classSpaceAPI.leaveSection();
+      toast.success('You have left your section');
+      setShowLeaveSectionConfirm(false);
+      setClassSpaces([]);
+      setStudentType(null);
+      reloadClassSpaces();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Could not leave your section');
     }
   };
 
@@ -215,18 +328,22 @@ const ClassSpacePage = () => {
     else if (shouldRefresh) refreshSelectedClass();
   };
 
-  const handleDeleteAnnouncement = async (announcement) => {
-    // Create a custom toast with confirm/cancel buttons
+  /**
+   * Shared "are you sure?" toast used for deleting announcements and materials.
+   * The toast itself is transparent so the Tailwind classes below control the
+   * look (and follow dark mode).
+   */
+  const confirmDeleteToast = ({ title, name, action, successMsg, errorMsg }) => {
     toast((t) => (
-      <div className="flex flex-col gap-3 p-2">
+      <div className="flex flex-col gap-4 p-4 w-full bg-white dark:bg-gray-800 rounded-2xl shadow-2xl ring-1 ring-black/5 dark:ring-white/10">
         <div className="flex items-start gap-3">
           <div className="flex-shrink-0 w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/50 flex items-center justify-center">
             <Trash2 className="w-5 h-5 text-red-600 dark:text-red-400" />
           </div>
-          <div className="flex-1">
-            <h3 className="font-bold text-gray-900 dark:text-white mb-1">Delete Announcement</h3>
-            <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
-              Are you sure you want to delete "{announcement.title}"?
+          <div className="flex-1 min-w-0">
+            <h3 className="font-bold text-gray-900 dark:text-white mb-1">{title}</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-300 mb-1 break-words">
+              Are you sure you want to delete "{name}"?
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400">This action cannot be undone.</p>
           </div>
@@ -242,16 +359,15 @@ const ClassSpacePage = () => {
             onClick={async () => {
               toast.dismiss(t.id);
               try {
-                const announcementId = announcement._id || announcement;
-                await classSpaceAPI.deleteAnnouncement(selectedClass._id, announcementId);
-                toast.success('Announcement deleted successfully');
+                await action();
+                toast.success(successMsg);
                 refreshSelectedClass();
               } catch (error) {
-                console.error('Delete announcement error:', error);
-                toast.error(error.response?.data?.message || 'Failed to delete announcement');
+                console.error(errorMsg, error);
+                toast.error(error.response?.data?.message || errorMsg);
               }
             }}
-            className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700 rounded-lg transition-colors"
+            className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
           >
             Delete
           </button>
@@ -261,25 +377,44 @@ const ClassSpacePage = () => {
       duration: 10000,
       position: 'top-center',
       style: {
-        minWidth: '400px',
-        maxWidth: '500px',
-        background: 'rgb(254, 254, 255)', // dark:bg-gray-800
-        color: 'white',
-        borderRadius: '1rem',
-        padding: '0.5rem',
+        background: 'transparent',
+        boxShadow: 'none',
+        padding: 0,
+        maxWidth: 'none',
+        width: 'min(440px, calc(100vw - 32px))',
       },
     });
   };
+
+  const handleDeleteAnnouncement = (announcement) =>
+    confirmDeleteToast({
+      title: 'Delete Announcement',
+      name: announcement.title,
+      successMsg: 'Announcement deleted successfully',
+      errorMsg: 'Failed to delete announcement',
+      action: () =>
+        classSpaceAPI.deleteAnnouncement(selectedClass._id, announcement._id || announcement),
+    });
+
+  const handleDeleteMaterial = (material) =>
+    confirmDeleteToast({
+      title: 'Delete Material',
+      name: material.title || material.fileName,
+      successMsg: 'Material deleted successfully',
+      errorMsg: 'Failed to delete material',
+      action: () =>
+        classSpaceAPI.deleteMaterial(selectedClass._id, material._id || material),
+    });
 
   const handleDownloadMaterial = async (material) => {
     try {
       const fileUrl = resolveUploadUrl(material.fileUrl);
       const fileName = material.fileName || material.title || 'download';
-      
+
       // Fetch the file as a blob
       const response = await fetch(fileUrl);
       const blob = await response.blob();
-      
+
       // Create a temporary download link
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -287,72 +422,16 @@ const ClassSpacePage = () => {
       link.download = fileName;
       document.body.appendChild(link);
       link.click();
-      
+
       // Cleanup
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-      
+
       toast.success('Download started');
     } catch (error) {
       console.error('Download error:', error);
       toast.error('Failed to download file');
     }
-  };
-
-  const handleDeleteMaterial = async (material) => {
-    // Create a custom toast with confirm/cancel buttons
-    toast((t) => (
-      <div className="flex flex-col gap-3 p-2">
-        <div className="flex items-start gap-3">
-          <div className="flex-shrink-0 w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/50 flex items-center justify-center">
-            <Trash2 className="w-5 h-5 text-red-600 dark:text-red-400" />
-          </div>
-          <div className="flex-1">
-            <h3 className="font-bold text-gray-900 dark:text-white mb-1">Delete Material</h3>
-            <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
-              Are you sure you want to delete "{material.title || material.fileName}"?
-            </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">This action cannot be undone.</p>
-          </div>
-        </div>
-        <div className="flex gap-2 justify-end">
-          <button
-            onClick={() => toast.dismiss(t.id)}
-            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={async () => {
-              toast.dismiss(t.id);
-              try {
-                const materialId = material._id || material;
-                await classSpaceAPI.deleteMaterial(selectedClass._id, materialId);
-                toast.success('Material deleted successfully');
-                refreshSelectedClass();
-              } catch (error) {
-                console.error('Delete material error:', error);
-                toast.error(error.response?.data?.message || 'Failed to delete material');
-              }
-            }}
-            className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700 rounded-lg transition-colors"
-          >
-            Delete
-          </button>
-        </div>
-      </div>
-    ), {
-      duration: 10000,
-      position: 'top-center',
-      style: {
-        minWidth: '400px',
-        maxWidth: '500px',
-        background: 'rgb(241, 244, 249)', // dark:bg-gray-800
-        color: 'white',
-        borderRadius: '1rem',
-        padding: '0.5rem',
-      },
-    });
   };
 
   // Get unique sections for filter
@@ -401,6 +480,40 @@ const ClassSpacePage = () => {
     streamItems.sort((a, b) => b.timestamp - a.timestamp);
   }
 
+  /* Confirmation dialogs.
+     These MUST be rendered by the detail view too. The detail view returns
+     early, so dialogs placed only at the bottom of the grid view never mounted
+     until you navigated back to the grid, which is why they "appeared late". */
+  const confirmPhrase = subjectNameOf(selectedClass) || subjectCodeOf(selectedClass);
+  const confirmDialogs = (
+    <>
+      <TypeToConfirmDialog
+        isOpen={showLeaveConfirm}
+        onClose={() => setShowLeaveConfirm(false)}
+        onConfirm={handleLeaveClass}
+        title="Leave this Subject?"
+        message="You will lose access to all posts, materials, and announcements in this class."
+        confirmationText={confirmPhrase}
+        confirmButtonText="Leave Class"
+        cancelButtonText="Cancel"
+        type="danger"
+        placeholder="Type the subject name to confirm"
+      />
+      <TypeToConfirmDialog
+        isOpen={showRegenerateConfirm}
+        onClose={() => setShowRegenerateConfirm(false)}
+        onConfirm={handleRegenerateCode}
+        title="Generate New Class Code?"
+        message="The current class code will stop working immediately. Students using the old code will not be able to join."
+        confirmationText={confirmPhrase}
+        confirmButtonText="Generate New Code"
+        cancelButtonText="Cancel"
+        type="warning"
+        placeholder="Type the subject name to confirm"
+      />
+    </>
+  );
+
   // ─── Loading ───────────────────────────────────────────────────────────────
   if (classSpacesLoading) {
     return (
@@ -423,6 +536,7 @@ const ClassSpacePage = () => {
     const facultyName = facultyNameOf(selectedClass);
     const canManage = canPostHere;
     const slots = timeSlotsOf(selectedClass);
+    const isLoading = selectedClass._isLoading; // Check if still loading full data
     // Students receive enrolledCount instead of the roster
     const studentCount =
       selectedClass.enrolledStudents?.length ?? selectedClass.enrolledCount ?? 0;
@@ -433,7 +547,7 @@ const ClassSpacePage = () => {
           {/* Top bar */}
           <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 sm:px-6 py-3 flex items-center gap-2 sm:gap-4">
             <button
-              onClick={() => { setSelectedClass(null); setActiveTab('stream'); }}
+              onClick={() => { navigate('/classes'); setActiveTab('stream'); }}
               className="flex items-center gap-1 sm:gap-2 flex-shrink-0 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
             >
               <ChevronLeft className="w-5 h-5 flex-shrink-0" />
@@ -447,15 +561,27 @@ const ClassSpacePage = () => {
 
           <div className="max-w-5xl mx-auto px-4 py-4 sm:py-6 space-y-4">
             {/* Class header banner */}
-            <div 
-              className="rounded-2xl p-5 sm:p-8 text-white relative overflow-hidden bg-cover bg-center"
+            <div
+              className="rounded-2xl p-5 sm:p-8 text-white relative overflow-hidden bg-cover bg-center shadow-md"
               style={{
                 backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.6)), url(${backgroundImage})`
               }}
             >
+              {/* Irregular students joined this one subject and may drop it */}
+              {isIrregular && (
+                <button
+                  onClick={() => setShowLeaveConfirm(true)}
+                  className="absolute top-4 right-4 z-20 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-black/30 hover:bg-red-600 backdrop-blur rounded-full transition-colors"
+                  title="Leave this subject"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  Leave
+                </button>
+              )}
+
               <div className="relative z-10">
                 <p className="text-sm font-medium opacity-80 mb-1">{selectedClass.sectionCode}</p>
-                <h1 className="text-2xl sm:text-3xl font-bold mb-1 break-words">{subjectCode}</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold mb-1 break-words pr-20">{subjectCode}</h1>
                 {subjectName && <p className="text-base sm:text-lg opacity-90">{subjectName}</p>}
                 {facultyName && <p className="text-sm opacity-75 mt-2">{facultyName}</p>}
 
@@ -465,14 +591,14 @@ const ClassSpacePage = () => {
                     {slots.map((s, i) => (
                       <span
                         key={i}
-                        className="inline-flex items-center gap-1 px-2 py-1 bg-white/20 rounded-md text-xs"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-white/20 backdrop-blur-sm rounded-full text-xs"
                       >
                         <Clock className="w-3 h-3" />
                         {s.day} {s.startTime}-{s.endTime}
                       </span>
                     ))}
                     {selectedClass.schedule?.roomLabel && (
-                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-white/20 rounded-md text-xs">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-white/20 backdrop-blur-sm rounded-full text-xs">
                         <MapPin className="w-3 h-3" />
                         {selectedClass.schedule.roomLabel}
                       </span>
@@ -496,7 +622,7 @@ const ClassSpacePage = () => {
                     </button>
                     {canManage && (
                       <button
-                        onClick={handleRegenerateCode}
+                        onClick={() => setShowRegenerateConfirm(true)}
                         title="Generate a new code"
                         className="p-1 hover:bg-white/20 rounded transition-colors"
                       >
@@ -506,27 +632,15 @@ const ClassSpacePage = () => {
                   </div>
                 )}
               </div>
-              <div className="absolute right-6 bottom-6 opacity-10">
+              <div className="absolute right-6 bottom-6 opacity-10 pointer-events-none">
                 <BookOpen className="w-32 h-32" />
               </div>
             </div>
 
-            {/* Irregular students joined this one subject and may drop it */}
-            {isIrregular && (
-              <div className="flex justify-end">
-                <button
-                  onClick={handleLeaveClass}
-                  className="inline-flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg font-medium transition-colors"
-                >
-                  <LogOut className="w-4 h-4" />
-                  Leave this subject
-                </button>
-              </div>
-            )}
-
-            {/* Tabs */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm overflow-hidden">
-              <div className="flex border-b border-gray-200 dark:border-gray-700">
+            {/* Tabs. No overflow-hidden on this wrapper: it would stop the
+                sticky tab bar from sticking. */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm">
+              <div className="sticky top-0 z-10 flex border-b border-gray-200 dark:border-gray-700 bg-white/90 dark:bg-gray-800/90 backdrop-blur rounded-t-2xl">
                 {[
                   { key: 'stream', label: 'Stream', icon: TrendingUp, count: streamItems.length },
                   { key: 'materials', label: 'Classwork', icon: FileText, count: sortedMaterials.length },
@@ -535,15 +649,21 @@ const ClassSpacePage = () => {
                   <button
                     key={tab.key}
                     onClick={() => setActiveTab(tab.key)}
-                    className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-3 sm:py-4 font-medium text-xs sm:text-sm transition-all ${
+                    className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-3 sm:py-4 font-medium text-xs sm:text-sm border-b-2 transition-all first:rounded-tl-2xl last:rounded-tr-2xl ${
                       activeTab === tab.key
-                        ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400'
-                        : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                        ? 'text-blue-600 border-blue-600 bg-blue-50/80 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-400'
+                        : 'text-gray-600 dark:text-gray-400 border-transparent hover:bg-gray-50 dark:hover:bg-gray-700'
                     }`}
                   >
                     <tab.icon className="w-4 h-4 flex-shrink-0" />
                     <span className="truncate">{tab.label}</span>
-                    <span className="px-1.5 py-0.5 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-full text-[11px] flex-shrink-0">
+                    <span
+                      className={`px-1.5 py-0.5 rounded-full text-[11px] flex-shrink-0 ${
+                        activeTab === tab.key
+                          ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300'
+                          : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300'
+                      }`}
+                    >
                       {tab.count}
                     </span>
                   </button>
@@ -558,14 +678,14 @@ const ClassSpacePage = () => {
                       <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                         <button
                           onClick={() => { setEditingAnnouncement(null); setShowAnnouncementModal(true); }}
-                          className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-all"
+                          className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium shadow-sm hover:shadow-md transition-all"
                         >
                           <MessageSquare className="w-5 h-5 flex-shrink-0" />
                           Announce
                         </button>
                         <button
                           onClick={() => setShowMaterialModal(true)}
-                          className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-medium transition-all"
+                          className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-medium shadow-sm hover:shadow-md transition-all"
                         >
                           <Upload className="w-5 h-5 flex-shrink-0" />
                           Upload Material
@@ -573,14 +693,21 @@ const ClassSpacePage = () => {
                       </div>
                     )}
 
-                    {streamItems.length === 0 ? (
+                    {isLoading ? (
+                      <PostSkeleton />
+                    ) : streamItems.length === 0 ? (
                       <div className="text-center py-16">
-                        <TrendingUp className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                        <TrendingUp className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
                         <p className="text-gray-500 dark:text-gray-400">Nothing posted yet</p>
                       </div>
                     ) : (
                       streamItems.map((item, i) => (
-                        <div key={i} className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+                        <div
+                          key={item.data._id || i}
+                          className={`border border-l-4 rounded-xl overflow-hidden border-gray-200 dark:border-gray-700 ${
+                            item.type === 'announcement' ? 'border-l-blue-500' : 'border-l-green-500'
+                          } ${item.data.isPinned ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}
+                        >
                           {item.type === 'announcement' ? (
                             <div className="p-5">
                               {item.data.isPinned && (
@@ -589,35 +716,40 @@ const ClassSpacePage = () => {
                                 </div>
                               )}
                               <div className="flex items-start justify-between gap-3">
-                                <div className="flex items-start gap-3 flex-1">
+                                <div className="flex items-start gap-3 flex-1 min-w-0">
                                   <div className="w-9 h-9 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center flex-shrink-0">
                                     <Bell className="w-4 h-4 text-blue-600" />
                                   </div>
-                                  <div className="flex-1">
+                                  <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2 mb-1 text-sm text-gray-500">
                                       <span className="font-medium text-gray-900 dark:text-white">
                                         {item.data.postedBy?.firstName} {item.data.postedBy?.lastName}
                                       </span>
                                       · {new Date(item.data.createdAt).toLocaleDateString()}
                                     </div>
-                                    <p className="font-semibold text-gray-900 dark:text-white mb-1">{item.data.title}</p>
-                                    <p className="text-gray-600 dark:text-gray-300 text-sm whitespace-pre-wrap">{item.data.content}</p>
+                                    <p className="font-semibold text-gray-900 dark:text-white mb-1 break-words">{item.data.title}</p>
+                                    <p className="text-gray-600 dark:text-gray-300 text-sm whitespace-pre-wrap break-words">{item.data.content}</p>
                                   </div>
                                 </div>
                                 {canManage && (
-                                  <div className="flex gap-1">
-                                    <button onClick={() => { setEditingAnnouncement(item.data); setShowAnnouncementModal(true); }} className="p-1.5 text-gray-400 hover:text-blue-600 rounded transition-colors">
+                                  <div className="flex gap-1 flex-shrink-0">
+                                    <button
+                                      type="button"
+                                      title="Edit"
+                                      onClick={() => { setEditingAnnouncement(item.data); setShowAnnouncementModal(true); }}
+                                      className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition-colors"
+                                    >
                                       <Edit2 className="w-4 h-4" />
                                     </button>
-                                    <button 
+                                    <button
+                                      type="button"
+                                      title="Delete"
                                       onClick={(e) => {
                                         e.preventDefault();
                                         e.stopPropagation();
-                                        console.log('Delete announcement clicked', item.data);
                                         handleDeleteAnnouncement(item.data);
-                                      }} 
-                                      className="p-1.5 text-gray-400 hover:text-red-600 rounded transition-colors cursor-pointer"
-                                      type="button"
+                                      }}
+                                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-colors cursor-pointer"
                                     >
                                       <Trash2 className="w-4 h-4" />
                                     </button>
@@ -630,11 +762,11 @@ const ClassSpacePage = () => {
                               <div className="w-10 h-10 bg-green-100 dark:bg-green-900 rounded-xl flex items-center justify-center flex-shrink-0">
                                 <FileText className="w-5 h-5 text-green-600" />
                               </div>
-                              <div className="flex-1">
+                              <div className="flex-1 min-w-0">
                                 <div className="text-xs text-gray-500 mb-1">
                                   Material · {new Date(item.data.createdAt || item.data.uploadedAt).toLocaleDateString()}
                                 </div>
-                                <p className="font-semibold text-gray-900 dark:text-white mb-1">{item.data.title}</p>
+                                <p className="font-semibold text-gray-900 dark:text-white mb-1 break-words">{item.data.title}</p>
                                 {item.data.description && (
                                   <p className="text-sm text-gray-500 mb-2">{item.data.description}</p>
                                 )}
@@ -647,15 +779,15 @@ const ClassSpacePage = () => {
                                   </button>
                                   <span className="text-xs text-gray-400">{fmtSize(item.data.fileSize)}</span>
                                   {canManage && (
-                                    <button 
+                                    <button
+                                      type="button"
+                                      title="Delete"
                                       onClick={(e) => {
                                         e.preventDefault();
                                         e.stopPropagation();
-                                        console.log('Delete button clicked', item.data);
                                         handleDeleteMaterial(item.data);
-                                      }} 
-                                      className="ml-auto p-1.5 text-gray-400 hover:text-red-600 rounded transition-colors cursor-pointer"
-                                      type="button"
+                                      }}
+                                      className="ml-auto p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-colors cursor-pointer"
                                     >
                                       <Trash2 className="w-4 h-4" />
                                     </button>
@@ -676,30 +808,35 @@ const ClassSpacePage = () => {
                     {canManage && (
                       <button
                         onClick={() => setShowMaterialModal(true)}
-                        className="w-full mb-5 flex items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-medium transition-all"
+                        className="w-full mb-5 flex items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-medium shadow-sm hover:shadow-md transition-all"
                       >
                         <Upload className="w-5 h-5" /> Upload Material
                       </button>
                     )}
-                    {sortedMaterials.length === 0 ? (
+                    {isLoading ? (
+                      <PostSkeleton count={2} />
+                    ) : sortedMaterials.length === 0 ? (
                       <div className="text-center py-12">
-                        <FolderOpen className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                        <p className="text-gray-500">No materials yet</p>
+                        <FolderOpen className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                        <p className="text-gray-500 dark:text-gray-400">No materials yet</p>
                       </div>
                     ) : (
                       <div className="space-y-3">
                         {sortedMaterials.map((mat, i) => (
-                          <div key={i} className="flex items-center gap-4 p-4 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                          <div
+                            key={mat._id || i}
+                            className="flex items-center gap-4 p-4 border border-l-4 border-l-green-500 border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                          >
                             <div className="w-10 h-10 bg-green-100 dark:bg-green-900 rounded-xl flex items-center justify-center flex-shrink-0">
                               <FileText className="w-5 h-5 text-green-600" />
                             </div>
-                            <div className="flex-1">
-                              <p className="font-medium text-gray-900 dark:text-white">{mat.title}</p>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-gray-900 dark:text-white truncate">{mat.title}</p>
                               <p className="text-xs text-gray-500">
                                 {fmtSize(mat.fileSize)} · {new Date(mat.createdAt || mat.uploadedAt).toLocaleDateString()}
                               </p>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-shrink-0">
                               <button
                                 onClick={() => handleDownloadMaterial(mat)}
                                 className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900 rounded-lg transition-colors"
@@ -708,15 +845,15 @@ const ClassSpacePage = () => {
                                 <Download className="w-4 h-4" />
                               </button>
                               {canManage && (
-                                <button 
+                                <button
+                                  type="button"
+                                  title="Delete"
                                   onClick={(e) => {
                                     e.preventDefault();
                                     e.stopPropagation();
-                                    console.log('Delete button clicked (materials tab)', mat);
                                     handleDeleteMaterial(mat);
-                                  }} 
+                                  }}
                                   className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900 rounded-lg transition-colors cursor-pointer"
-                                  type="button"
                                 >
                                   <Trash2 className="w-4 h-4" />
                                 </button>
@@ -731,7 +868,7 @@ const ClassSpacePage = () => {
 
                 {/* ── People Tab ── */}
                 {activeTab === 'people' && (
-                  <div className="space-y-4">
+                  <div className="space-y-6">
                     {/* Instructor */}
                     {facultyName && (
                       <div>
@@ -740,7 +877,7 @@ const ClassSpacePage = () => {
                           <div className="w-10 h-10 rounded-full flex items-center justify-center overflow-hidden bg-blue-600">
                             {selectedClass.faculty?.user?.profilePicture ? (
                               <img
-                                src={`${process.env.REACT_APP_API_URL?.replace('/api', '')}${selectedClass.faculty.user.profilePicture}`}
+                                src={avatarSrc(selectedClass.faculty.user.profilePicture)}
                                 alt={facultyName}
                                 className="w-full h-full object-cover"
                               />
@@ -773,7 +910,7 @@ const ClassSpacePage = () => {
                         </p>
                       ) : selectedClass.enrolledStudents.length === 0 ? (
                         <div className="text-center py-8">
-                          <Users className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+                          <Users className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
                           <p className="text-gray-500 text-sm">No students enrolled yet</p>
                         </div>
                       ) : (
@@ -787,11 +924,11 @@ const ClassSpacePage = () => {
                             const lastName = u?.lastName || '';
                             const profilePicture = u?.profilePicture;
                             return (
-                              <div key={i} className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                              <div key={student?._id || i} className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                                 <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden bg-gray-300 dark:bg-gray-600">
                                   {profilePicture ? (
                                     <img
-                                      src={`${process.env.REACT_APP_API_URL?.replace('/api', '')}${profilePicture}`}
+                                      src={avatarSrc(profilePicture)}
                                       alt={`${firstName} ${lastName}`}
                                       className="w-full h-full object-cover"
                                     />
@@ -836,6 +973,9 @@ const ClassSpacePage = () => {
             onClose={handleModalClose}
           />
         )}
+
+        {/* Rendered here so they actually show in the detail view */}
+        {confirmDialogs}
       </Layout>
     );
   }
@@ -848,9 +988,16 @@ const ClassSpacePage = () => {
             title, a search field and the join button on a ~375px screen. */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-5 sm:mb-6">
           <div className="min-w-0">
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-              {isStudent ? 'My Classes' : 'Class Spaces'}
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+                {isStudent ? 'My Classes' : 'Class Spaces'}
+              </h1>
+              {isStudent && studentType === 'irregular' && (
+                <span className="px-2 py-1 text-xs font-semibold bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300 rounded-full">
+                  IRREGULAR
+                </span>
+              )}
+            </div>
             <p className="text-gray-500 dark:text-gray-400 text-sm mt-0.5">
               {filteredClasses.length} {filteredClasses.length === 1 ? 'class' : 'classes'}
             </p>
@@ -868,6 +1015,36 @@ const ClassSpacePage = () => {
                 className="w-full sm:w-56 pl-9 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
+
+            {/* Regular students leave their whole section; this replaces the
+                Join Subject button, which is only for irregular students. */}
+            {isRegular && !notEnrolled && (
+              <button
+                onClick={() => setShowLeaveSectionConfirm(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors shadow-md hover:shadow-lg whitespace-nowrap"
+                title="Leave your section"
+              >
+                <LogOut className="w-4 h-4" />
+                <span className="hidden sm:inline">Leave Section</span>
+                <span className="sm:hidden">Leave</span>
+              </button>
+            )}
+
+            {/* Join Subject button for irregular students */}
+            {isStudent && !isRegular && classSpaces.length > 0 && (
+              <button
+                onClick={() => {
+                  if (!studentType) setStudentType('irregular');
+                  setShowEnrollModal(true);
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors shadow-md hover:shadow-lg whitespace-nowrap"
+                title="Add another subject"
+              >
+                <Plus className="w-4 h-4" />
+                <span className="hidden sm:inline">Join Subject</span>
+                <span className="sm:hidden">+</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -927,7 +1104,7 @@ const ClassSpacePage = () => {
                 <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-md text-center">
                   {joinHint || 'Join your section for regular enrollment, or add subjects individually if you\'re an irregular student.'}
                 </p>
-                
+
                 {/* Two buttons: Section Code and Subject Code */}
                 <div className="flex flex-col sm:flex-row gap-3 w-full max-w-md">
                   <button
@@ -943,7 +1120,7 @@ const ClassSpacePage = () => {
                       <div className="text-xs text-blue-100 font-normal">For regular students</div>
                     </div>
                   </button>
-                  
+
                   <button
                     onClick={() => {
                       setStudentType('irregular');
@@ -958,7 +1135,7 @@ const ClassSpacePage = () => {
                     </div>
                   </button>
                 </div>
-                
+
                 <p className="text-xs text-gray-400 dark:text-gray-500 mt-4 max-w-md text-center">
                   <strong>Regular:</strong> Join your section to see all subjects automatically<br />
                   <strong>Irregular:</strong> Add subjects one by one using subject codes
@@ -993,7 +1170,7 @@ const ClassSpacePage = () => {
         ) : (
           /* Google Classroom-style card grid */
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
-            {filteredClasses.map((cs, index) => {
+            {filteredClasses.map((cs) => {
               const code = subjectCodeOf(cs);
               const backgroundImage = backgroundFor(code);
               const name = subjectNameOf(cs);
@@ -1007,12 +1184,12 @@ const ClassSpacePage = () => {
               return (
                 <div
                   key={cs._id}
-                  className="bg-white dark:bg-gray-800 rounded-xl shadow-md hover:shadow-lg transition-shadow cursor-pointer overflow-hidden flex flex-col"
+                  className="group bg-white dark:bg-gray-800 rounded-2xl shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-200 cursor-pointer overflow-hidden flex flex-col ring-1 ring-gray-100 dark:ring-gray-700"
                   onClick={() => openClass(cs)}
                 >
                   {/* Header with background image */}
-                  <div 
-                    className="p-5 relative h-28 flex flex-col justify-between bg-cover bg-center"
+                  <div
+                    className="p-5 relative h-28 flex flex-col justify-between bg-cover bg-center group-hover:scale-[1.02] transition-transform duration-300"
                     style={{
                       backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.5)), url(${backgroundImage})`
                     }}
@@ -1030,7 +1207,7 @@ const ClassSpacePage = () => {
                     <div className="absolute bottom-3 right-3 w-10 h-10 bg-white/20 rounded-full flex items-center justify-center border-2 border-white/40 overflow-hidden">
                       {profilePicture ? (
                         <img
-                          src={`${process.env.REACT_APP_API_URL?.replace('/api', '')}${profilePicture}`}
+                          src={avatarSrc(profilePicture)}
                           alt={facultyName || 'Instructor'}
                           className="w-full h-full object-cover"
                         />
@@ -1060,14 +1237,14 @@ const ClassSpacePage = () => {
                   <div className="border-t border-gray-100 dark:border-gray-700 px-4 py-2 flex items-center justify-between">
                     <div className="flex items-center gap-4 text-gray-400">
                       <button
-                        onClick={e => { e.stopPropagation(); openClass(cs).then(() => setActiveTab('people')); }}
+                        onClick={e => { e.stopPropagation(); openClass(cs, 'people'); }}
                         className="hover:text-gray-600 dark:hover:text-gray-300 transition-colors p-1"
                         title="People"
                       >
                         <Users className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={e => { e.stopPropagation(); openClass(cs).then(() => setActiveTab('materials')); }}
+                        onClick={e => { e.stopPropagation(); openClass(cs, 'materials'); }}
                         className="hover:text-gray-600 dark:hover:text-gray-300 transition-colors p-1"
                         title="Materials"
                       >
@@ -1095,6 +1272,25 @@ const ClassSpacePage = () => {
       {showEnrollModal && (
         <EnrollModal studentType={studentType} onClose={handleModalClose} />
       )}
+
+      {/* Leave Section confirmation (regular students). Rendered in the grid
+          view because that is where its button lives. */}
+      <TypeToConfirmDialog
+        isOpen={showLeaveSectionConfirm}
+        onClose={() => setShowLeaveSectionConfirm(false)}
+        onConfirm={handleLeaveSection}
+        title="Leave your Section?"
+        message="You will be removed from your section and lose access to ALL of its subject classes, posts, and materials. You will need your section code to join again."
+        confirmationText={classSpaces[0]?.sectionCode || 'LEAVE'}
+        confirmButtonText="Leave Section"
+        cancelButtonText="Cancel"
+        type="danger"
+        placeholder={
+          classSpaces[0]?.sectionCode
+            ? 'Type the section code to confirm'
+            : 'Type LEAVE to confirm'
+        }
+      />
     </Layout>
   );
 };

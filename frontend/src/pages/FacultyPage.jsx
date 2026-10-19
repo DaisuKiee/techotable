@@ -1,16 +1,21 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { facultyAPI } from '../services/api';
 import useCachedData from '../hooks/useCachedData';
 import toast from 'react-hot-toast';
 import { 
   Plus, Search, Edit2, Trash2, Eye, X,
-  User, Mail, Phone, BookOpen, Award, FileText,
-  Users, UserCheck, TrendingUp, AlertCircle,
-  Grid3x3, List, GraduationCap, Briefcase, Star, Layers, Clock, Download, RefreshCw
+  User, Mail, Phone, BookOpen, Award, FileText, TrendingUp, AlertCircle,
+  Grid3x3, List, GraduationCap, Briefcase, Star, Layers, Clock, Download, RefreshCw, Settings, Link as LinkIcon, Copy
 } from 'lucide-react';
+import AnimatedUserCheck from '../components/AnimatedUserCheck';
+import AnimatedUsers from '../components/AnimatedUsers';
+import AnimatedBarChart from '../components/AnimatedBarChart';
+import AnimatedAlertCircle from '../components/AnimatedAlertCircle';
 import FacultyModal from '../components/FacultyModal';
 import FacultyDetailsModal from '../components/FacultyDetailsModal';
+import FacultyAccountConfigModal from '../components/FacultyAccountConfigModal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { useAuth } from '../context/AuthContext';
 import { usePrograms } from '../hooks/usePrograms';
@@ -85,6 +90,7 @@ const getAverageRating = (f) => {
 
 const FacultyPage = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { programCodes } = usePrograms();
   
   const [searchTerm, setSearchTerm] = useState('');
@@ -93,6 +99,8 @@ const FacultyPage = () => {
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
   const [showModal, setShowModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showConfigModal, setShowConfigModal] = useState(false);
+  const [showSignupLink, setShowSignupLink] = useState(false);
   const [selectedFaculty, setSelectedFaculty] = useState(null);
   const [modalMode, setModalMode] = useState('create'); // 'create' or 'edit'
   
@@ -261,6 +269,41 @@ const FacultyPage = () => {
     toast.success(`Exported ${exportData.length} faculty members to Excel`);
   };
 
+  // Get faculty signup link with expiration
+  const getSignupLink = () => {
+    const config = localStorage.getItem('facultyAccountConfig');
+    let linkExpirationHours = 48; // default
+    
+    if (config) {
+      try {
+        const parsed = JSON.parse(config);
+        linkExpirationHours = parsed.linkExpirationHours || 48;
+      } catch (error) {
+        console.error('Error parsing config:', error);
+      }
+    }
+    
+    const baseUrl = window.location.origin;
+    const signupUrl = `${baseUrl}/faculty-signup`;
+    const expiresAt = new Date(Date.now() + linkExpirationHours * 60 * 60 * 1000);
+    
+    return {
+      url: signupUrl,
+      expiresAt,
+      expirationHours: linkExpirationHours
+    };
+  };
+
+  const copySignupLink = () => {
+    const { url } = getSignupLink();
+    navigator.clipboard.writeText(url).then(() => {
+      toast.success('Signup link copied to clipboard!');
+    }).catch((error) => {
+      console.error('Error copying link:', error);
+      toast.error('Failed to copy link');
+    });
+  };
+
   // Filter faculty based on search and specialization
   const filteredFaculty = (faculty || []).filter((f) => {
     const matchesSearch = 
@@ -325,6 +368,22 @@ const FacultyPage = () => {
                 <span className="hidden sm:inline">Excel</span>
               </button>
               <button
+                onClick={() => setShowConfigModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-md hover:shadow-lg text-sm"
+                title="Configure faculty account creation settings"
+              >
+                <Settings className="w-5 h-5" />
+                <span className="hidden sm:inline">Account Config</span>
+              </button>
+              <button
+                onClick={() => setShowSignupLink(!showSignupLink)}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-md hover:shadow-lg text-sm"
+                title="Show faculty signup link"
+              >
+                <LinkIcon className="w-5 h-5" />
+                <span className="hidden sm:inline">Signup Link</span>
+              </button>
+              <button
                 onClick={handleCreate}
                 className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors shadow-md hover:shadow-lg text-sm"
               >
@@ -338,11 +397,65 @@ const FacultyPage = () => {
           </p>
         </div>
 
+        {/* Signup Link Display */}
+        {showSignupLink && (
+          <div className="mb-6 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl p-6 shadow-lg text-white animate-fadeIn">
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-white bg-opacity-20 rounded-xl">
+                  <LinkIcon className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold">Faculty Signup Link</h3>
+                  <p className="text-blue-100 text-sm">Share this link with faculty members to register</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowSignupLink(false)}
+                className="p-2 hover:bg-white hover:bg-opacity-20 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="bg-white bg-opacity-10 rounded-lg p-4 mb-3">
+              <div className="flex items-center gap-3">
+                <input
+                  type="text"
+                  value={getSignupLink().url}
+                  readOnly
+                  className="flex-1 bg-white bg-opacity-20 text-white px-4 py-3 rounded-lg font-mono text-sm"
+                />
+                <button
+                  onClick={copySignupLink}
+                  className="px-6 py-3 bg-white hover:bg-opacity-90 bg-opacity-80 text-blue-600 rounded-lg font-semibold flex items-center gap-2 transition-all shadow-md hover:shadow-lg"
+                >
+                  <Copy className="w-5 h-5" />
+                  Copy
+                </button>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-2 text-sm text-blue-100">
+              <Clock className="w-4 h-4" />
+              <span>
+                Link expires: <strong>{getSignupLink().expiresAt.toLocaleString()}</strong> 
+                {' '}({getSignupLink().expirationHours} hours from now)
+              </span>
+            </div>
+            
+            <div className="mt-3 text-xs text-blue-100 bg-white bg-opacity-10 rounded-lg p-3">
+              <strong>Note:</strong> Faculty who register via this link will have pending status and require approval before accessing the system.
+              You can review and approve pending accounts from the "Pending Approvals" page.
+            </div>
+          </div>
+        )}
+
         {/* Statistics Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
           <div className="bg-indigo-600 text-white rounded-xl p-4 shadow-md">
             <div className="flex items-center justify-between mb-2">
-              <Users className="w-5 h-5 opacity-80" />
+              <AnimatedUsers className="w-5 h-5 opacity-80" />
               <span className="text-xs font-medium opacity-80">TOTAL</span>
             </div>
             <div className="text-2xl md:text-3xl font-bold">{stats.total}</div>
@@ -351,7 +464,7 @@ const FacultyPage = () => {
 
           <div className="bg-green-600 text-white rounded-xl p-4 shadow-md">
             <div className="flex items-center justify-between mb-2">
-              <UserCheck className="w-5 h-5 opacity-80" />
+              <AnimatedUserCheck className="w-5 h-5 opacity-80" />
               <span className="text-xs font-medium opacity-80">ACTIVE</span>
             </div>
             <div className="text-2xl md:text-3xl font-bold">{stats.active}</div>
@@ -360,7 +473,7 @@ const FacultyPage = () => {
 
           <div className="bg-blue-600 text-white rounded-xl p-4 shadow-md">
             <div className="flex items-center justify-between mb-2">
-              <TrendingUp className="w-5 h-5 opacity-80" />
+              <AnimatedBarChart className="w-5 h-5 opacity-80" />
               <span className="text-xs font-medium opacity-80">AVG LOAD</span>
             </div>
             <div className="text-2xl md:text-3xl font-bold">{stats.avgLoad}</div>
@@ -369,7 +482,7 @@ const FacultyPage = () => {
 
           <div className="bg-orange-600 text-white rounded-xl p-4 shadow-md">
             <div className="flex items-center justify-between mb-2">
-              <AlertCircle className="w-5 h-5 opacity-80" />
+              <AnimatedAlertCircle className="w-5 h-5 opacity-80" />
               <span className="text-xs font-medium opacity-80">OVERLOAD</span>
             </div>
             <div className="text-2xl md:text-3xl font-bold">{stats.overloaded}</div>
@@ -507,7 +620,7 @@ const FacultyPage = () => {
           </div>
         ) : filteredFaculty.length === 0 ? (
           <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600">
-            <Users className="w-20 h-20 text-gray-400 mx-auto mb-4" />
+            <AnimatedUsers className="w-20 h-20 text-gray-400 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
               {(faculty || []).length === 0 ? 'No faculty members yet' : 'No faculty found'}
             </h3>
@@ -846,7 +959,7 @@ const FacultyPage = () => {
                 <div className="flex gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
                   <button
                     onClick={() => handleView(facultyMember)}
-                    className={`${isProgramManager ? 'flex-1' : 'flex-1'} flex items-center justify-center gap-2 px-3 py-2.5 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all shadow-sm hover:shadow-md font-medium`}
+                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all shadow-sm hover:shadow-md font-medium"
                     title="View Details"
                   >
                     <Eye className="w-4 h-4" />
@@ -856,7 +969,7 @@ const FacultyPage = () => {
                     <>
                       <button
                         onClick={() => handleEdit(facultyMember)}
-                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all shadow-sm hover:shadow-md font-medium"
+                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-sm bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition-all shadow-sm hover:shadow-md font-medium"
                         title="Edit"
                       >
                         <Edit2 className="w-4 h-4" />
@@ -1114,6 +1227,18 @@ const FacultyPage = () => {
           onEdit={() => {
             setShowDetailsModal(false);
             handleEdit(selectedFaculty);
+          }}
+        />
+      )}
+
+      {/* Configuration Modal */}
+      {showConfigModal && (
+        <FacultyAccountConfigModal
+          isOpen={showConfigModal}
+          onClose={() => setShowConfigModal(false)}
+          onSave={(config) => {
+            console.log('Configuration saved:', config);
+            toast.success('Configuration updated successfully!');
           }}
         />
       )}

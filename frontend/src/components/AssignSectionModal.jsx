@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { X, Users, CheckCircle, BookOpen } from 'lucide-react';
+import { X, Users, BookOpen } from 'lucide-react';
 import { studentAPI } from '../services/api';
 import toast from 'react-hot-toast';
 import { usePrograms } from '../hooks/usePrograms';
+import AnimatedCheckIcon from './AnimatedCheckIcon';
 
 const AssignSectionModal = ({ student, onClose, onSuccess }) => {
   const [formData, setFormData] = useState({
@@ -188,7 +189,7 @@ const AssignSectionModal = ({ student, onClose, onSuccess }) => {
           {generatedCode && (
             <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
               <div className="flex items-center gap-3">
-                <CheckCircle className="w-6 h-6 text-green-600 dark:text-green-400 flex-shrink-0" />
+                <AnimatedCheckIcon className="w-6 h-6" color="#16a34a" />
                 <div>
                   <p className="text-sm text-green-700 dark:text-green-300 font-medium">
                     Generated Section Code:
@@ -222,7 +223,7 @@ const AssignSectionModal = ({ student, onClose, onSuccess }) => {
               </>
             ) : (
               <>
-                <CheckCircle className="w-5 h-5" />
+                <AnimatedCheckIcon className="w-5 h-5" color="currentColor" />
                 Assign Section
               </>
             )}

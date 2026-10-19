@@ -132,7 +132,9 @@ export const facultyAPI = {
   getWorkload: (id) => api.get(`/faculty/${id}/workload`),
   getBySpecialization: (specialization) => api.get(`/faculty/specialization/${specialization}`),
   getAvailable: (params) => api.get('/faculty/available', { params }),
-  updateLoad: (id, data) => api.put(`/faculty/${id}/load`, data)
+  updateLoad: (id, data) => api.put(`/faculty/${id}/load`, data),
+  getBackgroundSummary: (id) => api.get(`/faculty/${id}/background-summary`),
+  analyzeSubjectCompatibility: (id, data) => api.post(`/faculty/${id}/analyze-subject-compatibility`, data)
 };
 
 // ============== SUBJECT ENDPOINTS ==============
@@ -146,7 +148,8 @@ export const subjectAPI = {
   getStats: () => api.get('/subjects/stats'),
   bulkImport: (data) => api.post('/subjects/bulk-import', data),
   getByQualification: (qualification) => api.get(`/subjects/qualification/${qualification}`),
-  generateCode: () => api.post('/subjects/generate-code')
+  generateCode: () => api.post('/subjects/generate-code'),
+  regenerateSubjectCode: (id) => api.put(`/subjects/${id}/regenerate-code`)
 };
 
 // ============== ROOM ENDPOINTS ==============

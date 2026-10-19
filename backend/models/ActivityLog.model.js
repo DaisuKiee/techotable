@@ -17,7 +17,7 @@ const ActivityLogSchema = new mongoose.Schema({
       // Schedule operations
       'schedule_generate', 'schedule_publish', 'schedule_export',
       // Faculty operations
-      'faculty_assign', 'faculty_workload_update',
+      'faculty_assign', 'faculty_workload_update', 'faculty_ai_analysis',
       // Student operations
       'student_enroll', 'student_bulk_import',
       // Class space operations
@@ -32,7 +32,7 @@ const ActivityLogSchema = new mongoose.Schema({
     enum: [
       'user', 'faculty', 'student', 'subject', 'room', 
       'schedule', 'classSpace', 'announcement', 'material',
-      'system', 'auth'
+      'system', 'auth', 'analyze-subject-compatibility', 'background-summary'
     ]
   },
   resourceId: {

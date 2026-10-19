@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, Users, UserPlus, UserCheck, Search, CheckCircle, XCircle } from 'lucide-react';
+import { X, Users, UserPlus, Search, CheckCircle, XCircle } from 'lucide-react';
 import { studentAPI } from '../services/api';
 import toast from 'react-hot-toast';
+import AnimatedUserCheck from './AnimatedUserCheck';
 
 const ManageSectionStudentsModal = ({ section, onClose, onSuccess }) => {
   const [students, setStudents] = useState([]);
@@ -124,7 +125,7 @@ const ManageSectionStudentsModal = ({ section, onClose, onSuccess }) => {
                 </div>
                 {assignedStudents.length === 0 ? (
                   <div className="text-center py-8 bg-gray-50 dark:bg-gray-700 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600">
-                    <UserCheck className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+                    <AnimatedUserCheck className="w-12 h-12 text-gray-400 mx-auto mb-2" />
                     <p className="text-gray-600 dark:text-gray-400">No students assigned yet</p>
                   </div>
                 ) : (

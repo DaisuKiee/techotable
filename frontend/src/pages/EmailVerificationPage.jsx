@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { CheckCircle, XCircle, Loader } from 'lucide-react';
+import { XCircle, Loader } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import ctuLogo from '../assets/images/logos/ctulogo.png';
+import AnimatedCheckIcon from '../components/AnimatedCheckIcon';
 
 const EmailVerificationPage = () => {
   const { token } = useParams();
@@ -108,7 +109,7 @@ const EmailVerificationPage = () => {
           <div>
             <div className="flex justify-center mb-4">
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
-                <CheckCircle className="w-10 h-10 text-green-600" />
+                <AnimatedCheckIcon className="w-10 h-10" color="#16a34a" />
               </div>
             </div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Email Verified!</h2>

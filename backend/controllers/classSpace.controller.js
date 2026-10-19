@@ -311,9 +311,16 @@ exports.getMyClassSpaces = async (req, res) => {
 // @desc    Get one class space
 // @route   GET /api/classSpaces/:id
 // @access  Private (must be a member, the teacher, or staff)
+// @desc    Get a single class space with full details (announcements, materials, students)
+// @route   GET /api/classSpaces/:id
+// @access  Private (must be a member, the teacher, or staff)
 exports.getClassSpaceById = async (req, res) => {
   try {
-    const classSpace = await ClassSpace.findById(req.params.id).populate(DETAIL_POPULATE);
+    // OPTIMIZATION: Support a 'quick' query parameter for faster initial load
+    const quick = req.query.quick === 'true';
+    
+    const populate = quick ? CLASS_POPULATE : DETAIL_POPULATE;
+    const classSpace = await ClassSpace.findById(req.params.id).populate(populate);
 
     if (!classSpace) {
       return res.status(404).json({ success: false, message: 'Class space not found' });
@@ -330,11 +337,25 @@ exports.getClassSpaceById = async (req, res) => {
     const data = classSpace.toObject();
     await attachRoomLabels([data]);
 
-    // Students never need to see the join code or the full roster
-    if (req.user.role === 'student') {
-      delete data.classCode;
-      data.enrolledCount = classSpace.enrolledStudents.length;
+    // OPTIMIZATION: For quick loads, return limited data
+    if (quick) {
+      // Count items without loading full data
+      data.announcementCount = classSpace.announcements?.length || 0;
+      data.materialCount = classSpace.materials?.length || 0;
+      data.enrolledCount = classSpace.enrolledStudents?.length || 0;
+      
+      // Don't send full arrays for quick load
+      delete data.announcements;
+      delete data.materials;
       delete data.enrolledStudents;
+      delete data.classCode; // Never send in quick mode
+    } else {
+      // Full load - apply existing student restrictions
+      if (req.user.role === 'student') {
+        delete data.classCode;
+        data.enrolledCount = classSpace.enrolledStudents.length;
+        delete data.enrolledStudents;
+      }
     }
 
     res.status(200).json({ success: true, canPost: access.canPost, data });
@@ -373,13 +394,61 @@ exports.joinByCode = async (req, res) => {
 
     /* ---- irregular: the code identifies ONE subject ---- */
     if (student.studentType === 'irregular') {
-      const classSpace = await ClassSpace.findOne({ classCode: raw, isActive: true })
+      // First, try to find ClassSpace by classCode
+      let classSpace = await ClassSpace.findOne({ classCode: raw, isActive: true })
         .populate('subject', 'subjectCode subjectName units program');
+
+      // If not found, try to find by Subject.subjectEnrollmentCode
+      if (!classSpace) {
+        const Subject = require('../models/Subject.model');
+        const subject = await Subject.findOne({ subjectEnrollmentCode: raw, isActive: true });
+        
+        if (subject) {
+          // Found a subject with this code
+          // Try to find an existing ClassSpace for it
+          classSpace = await ClassSpace.findOne({ 
+            subject: subject._id, 
+            isActive: true 
+          })
+            .populate('subject', 'subjectCode subjectName units program')
+            .populate('section', 'sectionCode program yearLevel');
+          
+          // If no ClassSpace exists, create one on-demand for irregular students
+          if (!classSpace) {
+            // Create a new ClassSpace without schedule (for irregular students)
+            const ClassSpace = require('../models/ClassSpace.model');
+            const generateClassCode = () => {
+              const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+              let code = '';
+              for (let i = 0; i < 8; i++) {
+                code += chars.charAt(Math.floor(Math.random() * chars.length));
+              }
+              return code;
+            };
+            
+            classSpace = await ClassSpace.create({
+              subject: subject._id,
+              classCode: generateClassCode(),
+              sectionCode: 'IRREGULAR', // Special marker for irregular student classes
+              academicYear: '2024-2025', // Default, can be updated later
+              semester: 1, // Default
+              schedule: [], // No schedule yet
+              isActive: true,
+              createdForIrregular: true // Flag to identify irregular-only classes
+            });
+            
+            // Populate the subject data
+            await classSpace.populate('subject', 'subjectCode subjectName units program');
+            
+            console.log(`Created on-demand ClassSpace for irregular student: ${classSpace.classCode} for subject ${subject.subjectCode}`);
+          }
+        }
+      }
 
       if (!classSpace) {
         return res.status(404).json({
           success: false,
-          message: 'Invalid subject class code. Irregular students join one subject at a time.',
+          message: 'Invalid subject enrollment code. Please check and try again.',
         });
       }
 
@@ -409,7 +478,7 @@ exports.joinByCode = async (req, res) => {
           classSpaceId: classSpace._id,
           subjectCode,
           subjectName: classSpace.subject?.subjectName,
-          sectionCode: classSpace.sectionCode,
+          sectionCode: classSpace.section?.sectionCode || classSpace.sectionCode,
         },
       });
     }
@@ -421,13 +490,13 @@ exports.joinByCode = async (req, res) => {
     });
 
     if (!section) {
-      // Give a precise error if they pasted a subject code by mistake
+      // Check if it might be a subject class code (for irregular students)
       const asClass = await ClassSpace.findOne({ classCode: raw, isActive: true });
       if (asClass) {
         return res.status(400).json({
           success: false,
           message:
-            'That is a subject class code. Regular students join with a section enrollment code from their program manager.',
+            'That is a subject class code. Regular students join with a section enrollment code from their program manager. Irregular students can use the correct 8-character enrollment code, not a subject code like \'CC 112\' or section name.',
         });
       }
       return res.status(404).json({
@@ -938,6 +1007,11 @@ exports.updateClassSpace = async (req, res) => {
 
     if (req.body.isActive !== undefined) {
       classSpace.isActive = req.body.isActive === true || req.body.isActive === 'true';
+    }
+    
+    // Allow updating the class code
+    if (req.body.classCode !== undefined) {
+      classSpace.classCode = req.body.classCode;
     }
 
     await classSpace.save();

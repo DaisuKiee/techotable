@@ -720,12 +720,41 @@ const ScheduleBuilder = ({
     [pendingSchedules]
   );
   const filteredSubjects = useMemo(() => {
+    let filtered = subjects;
+    
+    // Debug: log first subject to see structure
+    if (subjects.length > 0 && selectedSection) {
+      console.log('Sample subject:', subjects[0]);
+      console.log('Selected section:', selectedSection);
+    }
+    
+    // Filter by section's program and year level if a section is selected
+    if (selectedSection) {
+      filtered = filtered.filter(s => {
+        const matchesProgram = s.program === selectedSection.program;
+        const matchesYear = s.yearLevel === selectedSection.yearLevel;
+        const matchesSemester = s.semester === selectedSection.semester;
+        return matchesProgram && matchesYear && matchesSemester;
+      });
+    } else if (filters.program || filters.yearLevel) {
+      // Fallback to filters if no section selected
+      filtered = filtered.filter(s => {
+        if (filters.program && s.program !== filters.program) return false;
+        if (filters.yearLevel && s.yearLevel !== filters.yearLevel) return false;
+        return true;
+      });
+    }
+    
+    // Apply search filter
     const q = subjectSearch.trim().toLowerCase();
-    if (!q) return subjects;
-    return subjects.filter(s =>
-      `${s.subjectCode} ${s.subjectName}`.toLowerCase().includes(q)
-    );
-  }, [subjects, subjectSearch]);
+    if (q) {
+      filtered = filtered.filter(s =>
+        `${s.subjectCode} ${s.subjectName}`.toLowerCase().includes(q)
+      );
+    }
+    
+    return filtered;
+  }, [subjects, subjectSearch, selectedSection, filters.program, filters.yearLevel]);
 
   /** How many hours of each subject are already placed (saved + pending). */
   const scheduledHoursBySubject = useMemo(() => {

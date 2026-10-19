@@ -4,12 +4,16 @@ import { roomAPI } from '../services/api';
 import useCachedData from '../hooks/useCachedData';
 import toast from 'react-hot-toast';
 import { 
-  Plus, Search, Edit2, Trash2, DoorOpen, 
-  Users, Monitor, Wrench, Building, X, Grid3x3, List,
-  Layers, TrendingUp, CheckCircle
+  Plus, Search, Edit2, Trash2, Users, DoorOpen,
+  Monitor, Wrench, Building, X, Grid3x3, List,
+  Layers
 } from 'lucide-react';
 import RoomModal from '../components/RoomModal';
 import ConfirmDialog from '../components/ConfirmDialog';
+import AnimatedDoorOpen from '../components/AnimatedDoorOpen';
+import AnimatedUserCheck from '../components/AnimatedUserCheck';
+import AnimatedUsers from '../components/AnimatedUsers';
+import AnimatedTrendingUp from '../components/AnimatedTrendingUp';
 
 const ROOM_TYPES = ['Lecture Room', 'Laboratory', 'Computer Lab', 'Workshop', 'Auditorium', 'Conference Room'];
 
@@ -215,7 +219,7 @@ const RoomPage = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
           <div className="bg-indigo-600 text-white rounded-xl p-4 shadow-md">
             <div className="flex items-center justify-between mb-2">
-              <DoorOpen className="w-5 h-5 opacity-80" />
+              <AnimatedDoorOpen className="w-5 h-5 opacity-80" />
               <span className="text-xs font-medium opacity-80">TOTAL</span>
             </div>
             <div className="text-2xl md:text-3xl font-bold">{stats.total}</div>
@@ -224,7 +228,7 @@ const RoomPage = () => {
 
           <div className="bg-green-600 text-white rounded-xl p-4 shadow-md">
             <div className="flex items-center justify-between mb-2">
-              <CheckCircle className="w-5 h-5 opacity-80" />
+              <AnimatedUserCheck className="w-5 h-5 opacity-80" />
               <span className="text-xs font-medium opacity-80">ACTIVE</span>
             </div>
             <div className="text-2xl md:text-3xl font-bold">{stats.active}</div>
@@ -233,7 +237,7 @@ const RoomPage = () => {
 
           <div className="bg-blue-600 text-white rounded-xl p-4 shadow-md">
             <div className="flex items-center justify-between mb-2">
-              <Users className="w-5 h-5 opacity-80" />
+              <AnimatedUsers className="w-5 h-5 opacity-80" />
               <span className="text-xs font-medium opacity-80">CAPACITY</span>
             </div>
             <div className="text-2xl md:text-3xl font-bold">{stats.totalCapacity}</div>
@@ -242,7 +246,7 @@ const RoomPage = () => {
 
           <div className="bg-orange-600 text-white rounded-xl p-4 shadow-md">
             <div className="flex items-center justify-between mb-2">
-              <TrendingUp className="w-5 h-5 opacity-80" />
+              <AnimatedTrendingUp className="w-5 h-5 opacity-80" />
               <span className="text-xs font-medium opacity-80">AVERAGE</span>
             </div>
             <div className="text-2xl md:text-3xl font-bold">{stats.avgCapacity}</div>

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { studentAPI } from '../services/api';
 import toast from 'react-hot-toast';
-import { FiX, FiUpload, FiCheckCircle, FiXCircle, FiAlertCircle } from 'react-icons/fi';
+import { FiX, FiUpload, FiXCircle, FiAlertCircle } from 'react-icons/fi';
+import AnimatedCheckIcon from './AnimatedCheckIcon';
 
 const BulkImportModal = ({ onClose, onComplete }) => {
   const [file, setFile] = useState(null);
@@ -117,7 +118,7 @@ const BulkImportModal = ({ onClose, onComplete }) => {
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                   <div className="flex items-center gap-2 text-green-800 mb-1">
-                    <FiCheckCircle className="w-5 h-5" />
+                    <AnimatedCheckIcon className="w-5 h-5" color="#16a34a" />
                     <span className="font-semibold">Successful</span>
                   </div>
                   <p className="text-2xl font-bold text-green-900">{results.success.length}</p>
@@ -135,7 +136,7 @@ const BulkImportModal = ({ onClose, onComplete }) => {
               {results.success.length > 0 && (
                 <div>
                   <h3 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                    <FiCheckCircle className="w-5 h-5 text-green-600" />
+                    <AnimatedCheckIcon className="w-5 h-5" color="#16a34a" />
                     Successfully Imported Students
                   </h3>
                   <div className="bg-gray-50 rounded-lg border border-gray-200 max-h-48 overflow-y-auto">

@@ -104,13 +104,15 @@ const SubjectModal = ({ mode, subject, onClose }) => {
       onClose(true);
     } catch (error) {
       console.error('Submit error:', error);
+      console.error('Error response:', error.response);
+      console.error('Error response data:', error.response?.data);
       
       // Show specific validation errors if available
       if (error.response?.data?.errors && Array.isArray(error.response.data.errors)) {
         const errorMessages = error.response.data.errors.map(err => err.msg || err.message).join(', ');
         toast.error(`Validation error: ${errorMessages}`);
       } else {
-        const message = error.response?.data?.message || 'Operation failed';
+        const message = error.response?.data?.message || error.message || 'Operation failed';
         toast.error(message);
       }
     } finally {

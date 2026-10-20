@@ -87,11 +87,11 @@ const SubjectModal = ({ mode, subject, onClose }) => {
     try {
       const submitData = {
         ...formData,
-        units: parseInt(formData.units),
-        lectureHours: parseInt(formData.lectureHours) || 0,
-        labHours: parseInt(formData.labHours) || 0,
-        yearLevel: parseInt(formData.yearLevel),
-        semester: parseInt(formData.semester)
+        units: Number(formData.units) || 0,
+        lectureHours: Number(formData.lectureHours) || 0,
+        labHours: Number(formData.labHours) || 0,
+        yearLevel: Number(formData.yearLevel),
+        semester: Number(formData.semester)
       };
 
       if (mode === 'create') {
@@ -104,8 +104,15 @@ const SubjectModal = ({ mode, subject, onClose }) => {
       onClose(true);
     } catch (error) {
       console.error('Submit error:', error);
-      const message = error.response?.data?.message || 'Operation failed';
-      toast.error(message);
+      
+      // Show specific validation errors if available
+      if (error.response?.data?.errors && Array.isArray(error.response.data.errors)) {
+        const errorMessages = error.response.data.errors.map(err => err.msg || err.message).join(', ');
+        toast.error(`Validation error: ${errorMessages}`);
+      } else {
+        const message = error.response?.data?.message || 'Operation failed';
+        toast.error(message);
+      }
     } finally {
       setLoading(false);
     }

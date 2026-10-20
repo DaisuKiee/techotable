@@ -122,7 +122,7 @@ const ShiftBadge = ({ shift, solid = false }) => {
 };
 
 const GridSkeleton = () => (
-  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-pulse" aria-label="Loading sections">
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" aria-label="Loading sections">
     {Array.from({ length: 6 }).map((_, i) => (
       <div key={i} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 space-y-4">
         <div className="flex justify-between">

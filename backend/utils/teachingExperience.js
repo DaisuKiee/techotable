@@ -82,7 +82,7 @@ const matchesSubject = (entry, subject) => {
 /**
  * Summarise one faculty member's experience with one subject.
  *
- * @param {object} faculty  Faculty document (needs teachingHistory)
+ * @param {object} faculty  Faculty document (needs teachingHistory or experiencedSubjects)
  * @param {object} subject  { subjectCode, subjectName }
  * @returns {{
  *   timesTaught: number,
@@ -96,10 +96,13 @@ const matchesSubject = (entry, subject) => {
  * }}
  */
 const summarizeSubjectExperience = (faculty, subject, now = new Date()) => {
-  const entries = (faculty?.teachingHistory || []).filter(h => matchesSubject(h, subject));
-
-  const occurrences = entries
-    .map(h => {
+  let occurrences = [];
+  
+  // First try teachingHistory (actual system records)
+  const historyEntries = (faculty?.teachingHistory || []).filter(h => matchesSubject(h, subject));
+  
+  if (historyEntries.length > 0) {
+    occurrences = historyEntries.map(h => {
       const yearsAgo = yearsAgoFor(h.academicYear, now);
       return {
         academicYear: h.academicYear || null,
@@ -108,9 +111,46 @@ const summarizeSubjectExperience = (faculty, subject, now = new Date()) => {
         rating: typeof h.rating === 'number' && h.rating > 0 ? h.rating : null,
         weight: recencyWeight(yearsAgo),
       };
-    })
-    // Most recent first
-    .sort((a, b) => (a.yearsAgo ?? 99) - (b.yearsAgo ?? 99));
+    });
+  } else {
+    // Fallback to experiencedSubjects (qualifications/past experience)
+    const subjectCode = subject.subjectCode || subject.code;
+    const experiencedEntry = (faculty?.experiencedSubjects || []).find(
+      exp => exp.subjectCode && subjectCode && 
+             String(exp.subjectCode).toLowerCase() === String(subjectCode).toLowerCase()
+    );
+    
+    if (experiencedEntry) {
+      // Parse period like "this year", "last year", "2 years ago"
+      let yearsAgo = 0;
+      if (experiencedEntry.period) {
+        const match = experiencedEntry.period.match(/(\d+)\s+years?\s+ago/i);
+        if (match) {
+          yearsAgo = parseInt(match[1], 10);
+        } else if (experiencedEntry.period.toLowerCase().includes('last year')) {
+          yearsAgo = 1;
+        } else if (experiencedEntry.period.toLowerCase().includes('this year')) {
+          yearsAgo = 0;
+        }
+      }
+      
+      // Create occurrences based on semestersTaught
+      const semesterCount = experiencedEntry.semestersTaught || 1;
+      for (let i = 0; i < semesterCount; i++) {
+        const adjustedYearsAgo = yearsAgo + Math.floor(i / 2); // Spread semesters over years
+        occurrences.push({
+          academicYear: null,
+          semester: null,
+          yearsAgo: adjustedYearsAgo,
+          rating: experiencedEntry.rating || null,
+          weight: recencyWeight(adjustedYearsAgo),
+        });
+      }
+    }
+  }
+
+  // Sort most recent first
+  occurrences.sort((a, b) => (a.yearsAgo ?? 99) - (b.yearsAgo ?? 99));
 
   const weightedExperience = occurrences.reduce((sum, o) => sum + o.weight, 0);
 

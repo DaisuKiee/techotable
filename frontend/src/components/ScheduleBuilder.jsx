@@ -262,6 +262,48 @@ const ScheduleBuilder = ({
     toast.success(`Moved to ${day} ${range.startTime}`);
   }, [pendingSchedules, resolveRange]);
 
+  /** Move an already-saved schedule to a new day/slot. */
+  const moveSavedSchedule = useCallback(async (scheduleId, day, slotIndex) => {
+    const schedule = savedSchedules.find(s => String(s._id) === String(scheduleId));
+    if (!schedule) return;
+
+    // Calculate duration from the existing schedule
+    const slot = schedule.timeSlots?.[0];
+    if (!slot) return;
+    
+    const startIdx = TIME_SLOTS.findIndex(t => t.time === slot.startTime);
+    const endIdx = TIME_SLOTS.findIndex(t => t.time === slot.endTime);
+    const hours = endIdx - startIdx;
+
+    const range = resolveRange(day, slotIndex, hours, scheduleId);
+    if (!range.ok) {
+      toast.error(range.reason);
+      return;
+    }
+
+    // Check if it's the same location (no-op)
+    if (slot.day === day && slot.startTime === range.startTime) return;
+
+    try {
+      // Update the schedule in the database
+      await scheduleAPI.update(scheduleId, {
+        timeSlots: [{ day, startTime: range.startTime, endTime: range.endTime }]
+      });
+      
+      toast.success(`Moved to ${day} ${range.startTime}`);
+      
+      // Update local state immediately for better UX
+      setSavedSchedules(prev => prev.map(s => 
+        String(s._id) === String(scheduleId)
+          ? { ...s, timeSlots: [{ day, startTime: range.startTime, endTime: range.endTime }] }
+          : s
+      ));
+    } catch (error) {
+      console.error('Failed to move schedule:', error);
+      toast.error(error.response?.data?.message || 'Failed to move schedule');
+    }
+  }, [savedSchedules, resolveRange]);
+
   // ── Load data ──────────────────────────────────────────────────────────────
   // Also re-runs when the section changes, since the grid is scoped to it.
   useEffect(() => { loadData(); }, [filters, selectedSection?.sectionCode]);
@@ -431,12 +473,20 @@ const ScheduleBuilder = ({
     e.preventDefault();
     setHoveredCells([]);
 
-    // Dropping an already-placed card onto a grid cell MOVES it.
-    // It previously deleted the card outright, so a mis-drop meant re-dragging
-    // from the sidebar and there was no way to reposition a class at all.
+    // Check what kind of item is being dropped
+    const kind = e.dataTransfer.getData('kind');
+    
+    // Dropping a pending schedule card onto a grid cell MOVES it.
     const pendingId = e.dataTransfer.getData('pendingId');
-    if (pendingId) {
+    if (pendingId && kind === 'pending') {
       movePending(pendingId, day, slotIndex);
+      return;
+    }
+
+    // Dropping a saved schedule card onto a grid cell MOVES it.
+    const scheduleId = e.dataTransfer.getData('scheduleId');
+    if (scheduleId && kind === 'saved') {
+      moveSavedSchedule(scheduleId, day, slotIndex);
       return;
     }
 
@@ -1181,7 +1231,7 @@ const ScheduleBuilder = ({
                               {/* Column so multiple cards in one cell share the
                                   available height instead of overflowing it */}
                               <div className="flex flex-col gap-1 h-full">
-                              {/* Existing schedules - NOW EDITABLE */}
+                              {/* Existing schedules - NOW DRAGGABLE TO MOVE */}
                               {existingSchedules.map((sched) => {
                                 const code = sched.subject?.subjectCode;
                                 const color = getSubjectColor(code);
@@ -1193,11 +1243,17 @@ const ScheduleBuilder = ({
                                 return (
                                   <div 
                                     key={sched._id}
+                                    draggable
+                                    onDragStart={e => {
+                                      e.dataTransfer.effectAllowed = 'move';
+                                      e.dataTransfer.setData('kind', 'saved');
+                                      e.dataTransfer.setData('scheduleId', String(sched._id));
+                                    }}
                                     onClick={() => handleEditSavedSchedule(sched)}
                                     // Stretches to fill the cell. It used to set
                                     // its own pixel height, which fought the row
                                     // heights and broke alignment.
-                                    className={`flex-1 min-h-0 flex flex-col rounded-lg overflow-hidden border ${color.border} cursor-pointer hover:shadow-md transition-all group`}
+                                    className={`flex-1 min-h-0 flex flex-col rounded-lg overflow-hidden border ${color.border} cursor-grab active:cursor-grabbing hover:shadow-md transition-all group`}
                                   >
                                     <div className={`${color.bg} px-2 py-1 flex items-center justify-between`}>
                                       <p className="text-white text-[11px] font-bold truncate">{code || '—'}</p>

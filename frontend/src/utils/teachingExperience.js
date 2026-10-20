@@ -44,12 +44,14 @@ export const describeRecency = (yearsAgo) => {
 
 /**
  * Group a faculty member's teachingHistory by subject, most experienced first.
+ * Falls back to experiencedSubjects if teachingHistory is empty.
  * Note: entries store `subjectCode`/`subjectName` directly (there is no
  * populated `subject` reference).
  */
 export const summarizeAllSubjects = (faculty, now = new Date()) => {
   const groups = new Map();
 
+  // First, process teachingHistory (actual system records)
   (faculty?.teachingHistory || []).forEach((h) => {
     const key = h.subjectCode || h.subjectName;
     if (!key) return;
@@ -73,6 +75,49 @@ export const summarizeAllSubjects = (faculty, now = new Date()) => {
       weight: recencyWeight(yearsAgo),
     });
   });
+
+  // If no teaching history, fall back to experiencedSubjects (past experience/qualifications)
+  if (groups.size === 0 && faculty?.experiencedSubjects) {
+    (faculty.experiencedSubjects || []).forEach((exp) => {
+      const key = exp.subjectCode;
+      if (!key) return;
+
+      if (!groups.has(key)) {
+        groups.set(key, {
+          key,
+          subjectCode: exp.subjectCode,
+          subjectName: exp.subjectName || null,
+          program: null,
+          occurrences: [],
+        });
+      }
+
+      // Parse period like "this year", "last year", "2 years ago", "3 years ago"
+      let yearsAgo = 0;
+      if (exp.period) {
+        const match = exp.period.match(/(\d+)\s+years?\s+ago/i);
+        if (match) {
+          yearsAgo = parseInt(match[1], 10);
+        } else if (exp.period.toLowerCase().includes('last year')) {
+          yearsAgo = 1;
+        } else if (exp.period.toLowerCase().includes('this year')) {
+          yearsAgo = 0;
+        }
+      }
+
+      // Create multiple occurrences based on semestersTaught
+      const semesterCount = exp.semestersTaught || 1;
+      for (let i = 0; i < semesterCount; i++) {
+        groups.get(key).occurrences.push({
+          academicYear: null,
+          semester: null,
+          yearsAgo: yearsAgo + Math.floor(i / 2), // Spread semesters over years
+          rating: exp.rating || null,
+          weight: recencyWeight(yearsAgo + Math.floor(i / 2)),
+        });
+      }
+    });
+  }
 
   return [...groups.values()]
     .map((g) => {

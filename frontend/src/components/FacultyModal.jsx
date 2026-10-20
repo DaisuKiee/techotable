@@ -470,6 +470,26 @@ const FacultyModal = ({ mode, faculty, onClose }) => {
                       </p>
                     )}
                   </div>
+
+                  {/* Maximum Teaching Hours */}
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                      Maximum Teaching Hours (per week) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      name="maxTeachingHours"
+                      value={formData.maxTeachingHours}
+                      onChange={handleChange}
+                      required
+                      min="1"
+                      max="60"
+                      className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
+                    />
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5">
+                      Maximum weekly teaching hours (default: 36 hours)
+                    </p>
+                  </div>
                 </div>
               </div>
 

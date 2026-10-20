@@ -1147,8 +1147,15 @@ exports.generateSchedule = async (req, res) => {
       }
 
     } else {
-      // Use greedy algorithm
+      // Use greedy algorithm with AI enhancements
       const { generateScheduleForProgram } = require('../services/scheduleGenerator.service');
+
+      // Optional: Set up status callback for real-time progress (future SSE implementation)
+      const statusUpdates = [];
+      const statusCallback = (update) => {
+        statusUpdates.push(update);
+        // Future: Send via Server-Sent Events (SSE) for real-time updates
+      };
 
       result = await generateScheduleForProgram({
         academicYear,
@@ -1158,7 +1165,12 @@ exports.generateSchedule = async (req, res) => {
         section,
         shift,
         useAIRecommendations: useAIRecommendations === true || useAIRecommendations === 'true'
-      });
+      }, statusCallback);
+
+      // Attach thinking process to response
+      if (result.results && result.results.thinkingProcess) {
+        result.thinkingProcess = result.results.thinkingProcess;
+      }
     }
 
     res.status(200).json({
@@ -1169,8 +1181,10 @@ exports.generateSchedule = async (req, res) => {
       message: result.message
         || result.error
         || (result.success ? 'Schedule generated successfully' : 'Schedule generation failed'),
-      method: method === 'ortools' ? 'Google OR-Tools CP-SAT' : 'Greedy Algorithm',
+      method: method === 'ortools' ? 'Google OR-Tools CP-SAT' : 'AI-Enhanced Smart Scheduler',
       aiUsed: result.aiUsed || false,
+      thinkingProcess: result.thinkingProcess || [],
+      aiPlan: result.results?.aiPlan || null,
       blockers: result.blockers || [],
       diagnostics: result.diagnostics || [],
       data: result
@@ -1243,6 +1257,12 @@ exports.previewSchedule = async (req, res) => {
       // Use greedy algorithm - preview only
       const { previewScheduleForProgram } = require('../services/scheduleGenerator.service');
 
+      // Status callback for thinking process
+      const statusUpdates = [];
+      const statusCallback = (update) => {
+        statusUpdates.push(update);
+      };
+
       preview = await previewScheduleForProgram({
         academicYear,
         semester,
@@ -1251,14 +1271,24 @@ exports.previewSchedule = async (req, res) => {
         section,
         shift,
         useAIRecommendations: useAIRecommendations === true || useAIRecommendations === 'true'
-      });
+      }, statusCallback);
+
+      // Attach thinking process
+      if (preview.results && preview.results.thinkingProcess) {
+        preview.thinkingProcess = preview.results.thinkingProcess;
+      }
+      if (preview.results && preview.results.aiPlan) {
+        preview.aiPlan = preview.results.aiPlan;
+      }
     }
 
     res.status(200).json({
       success: preview.success,
       message: preview.message || (preview.success ? 'Schedule preview generated successfully' : 'Schedule preview generation failed'),
-      method: method === 'ortools' ? 'Google OR-Tools CP-SAT' : 'Greedy Algorithm',
+      method: method === 'ortools' ? 'Google OR-Tools CP-SAT' : 'AI-Enhanced Smart Scheduler',
       aiUsed: preview.aiUsed || false,
+      thinkingProcess: preview.thinkingProcess || [],
+      aiPlan: preview.aiPlan || null,
       data: preview
     });
 

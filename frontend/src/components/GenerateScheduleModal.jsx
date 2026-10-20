@@ -14,6 +14,7 @@ const GenerateScheduleModal = ({ onClose }) => {
   const [ortoolsStatus, setOrtoolsStatus] = useState(null);
   const [availableSections, setAvailableSections] = useState([]);
   const [loadingSections, setLoadingSections] = useState(false);
+  const [showThinkingProcess, setShowThinkingProcess] = useState(false);
   // A constraint solve can run for the full time limit. Without a visible
   // counter a 60-second wait behind a static spinner looks like a hang.
   const [elapsed, setElapsed] = useState(0);
@@ -141,12 +142,19 @@ const GenerateScheduleModal = ({ onClose }) => {
           method: payload.method,
           methodNote: body.methodNote || preview.methodNote,
           aiUsed: payload.aiUsed || formData.useAIRecommendations,
+          thinkingProcess: payload.thinkingProcess || [],
+          aiPlan: payload.aiPlan || null,
           // Solver notes: relaxed room capacity, subjects left alone, and so on
           diagnostics: body.diagnostics || preview.diagnostics || [],
           skipped: body.skipped || preview.skipped || [],
           preview,
           sectionInfo: selectedSection
         });
+
+        // Auto-expand thinking process if AI was used and steps exist
+        if (payload.thinkingProcess && payload.thinkingProcess.length > 0) {
+          setShowThinkingProcess(true);
+        }
 
         // A successful solve with nothing to place is not worth a success toast
         if (scheduled === 0) {
@@ -159,6 +167,7 @@ const GenerateScheduleModal = ({ onClose }) => {
           success: false,
           message: payload.message,
           method: payload.method,
+          thinkingProcess: payload.thinkingProcess || [],
           blockers: payload.blockers || body.blockers || [],
           diagnostics: payload.diagnostics || body.diagnostics || [],
         });
@@ -175,7 +184,7 @@ const GenerateScheduleModal = ({ onClose }) => {
 
       if (error.code === 'ECONNABORTED' || /timeout/i.test(error.message || '')) {
         message = `The request timed out after about ${formData.timeLimit + 45}s.`;
-        hint = 'Lower the optimization time limit, or pick the Greedy method for a fast result.';
+        hint = 'Lower the optimization time limit, or pick the Smart Scheduler for a fast result.';
       } else if (!error.response) {
         message = 'Could not reach the server.';
         hint = 'Check that the backend is running, then try again.';
@@ -289,7 +298,7 @@ const GenerateScheduleModal = ({ onClose }) => {
                   Schedule Generator
                 </h3>
                 <p className="text-xs text-purple-200 truncate">
-                  {isORTools ? 'Google OR-Tools constraint solver' : 'Greedy algorithm'}
+                  {isORTools ? 'Google OR-Tools constraint solver' : 'AI-Enhanced Smart Scheduler'}
                 </p>
               </div>
             </div>
@@ -308,8 +317,9 @@ const GenerateScheduleModal = ({ onClose }) => {
           <div className="flex-1 overflow-y-auto p-4 sm:p-6">
             <div className="mb-6">
               <p className="text-sm text-gray-600 mb-4">
-                Generate an optimized schedule using AI recommendations. The system will automatically
-                assign faculty, rooms, and time slots based on qualifications, availability, and workload.
+                Generate an optimized schedule using our AI-Enhanced Smart Scheduler. The system uses 
+                advanced AI planning to analyze constraints, match faculty expertise with subjects, and 
+                create conflict-free timetables with optimal resource allocation.
               </p>
 
               <div className="grid grid-cols-1 gap-4">
@@ -392,14 +402,14 @@ const GenerateScheduleModal = ({ onClose }) => {
                       disabled={generating}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 disabled:opacity-50"
                     >
-                      <option value="greedy">Greedy Algorithm (Fast)</option>
+                      <option value="greedy">AI-Enhanced Smart Scheduler (Recommended)</option>
                       <option value="ortools" disabled={!ortoolsStatus?.available}>
                         Google OR-Tools (Optimal) {!ortoolsStatus?.available && '- Not Available'}
                       </option>
                     </select>
                     <p className="text-xs text-gray-500 mt-1">
                       {formData.method === 'greedy' ? (
-                        'Fast algorithm, good results for most cases'
+                        'Intelligent algorithm with AI planning and optimization'
                       ) : (
                         'Advanced constraint solver, finds optimal solutions'
                       )}
@@ -476,6 +486,114 @@ const GenerateScheduleModal = ({ onClose }) => {
                 )}
               </div>
             </div>
+
+            {/* AI Thinking Process */}
+            {generating && formData.useAIRecommendations && (
+              <div className="mb-6 p-4 bg-gradient-to-br from-purple-50 to-blue-50 rounded-lg border border-purple-200">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="animate-spin">
+                    <Sparkles className="text-purple-600" size={20} />
+                  </div>
+                  <h4 className="text-sm font-semibold text-purple-900">
+                    AI Thinking Process
+                  </h4>
+                </div>
+                <div className="space-y-1.5 text-xs">
+                  <p className="text-purple-700 flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-pulse"></span>
+                    Analyzing constraints and subjects...
+                  </p>
+                  <p className="text-purple-700 flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-pulse animation-delay-200"></span>
+                    Evaluating faculty expertise and workload...
+                  </p>
+                  <p className="text-purple-700 flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-pulse animation-delay-400"></span>
+                    Optimizing room allocation and time slots...
+                  </p>
+                  <p className="text-purple-700 flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-pulse animation-delay-600"></span>
+                    Enforcing NSTP Saturday 8:00-11:00AM rule...
+                  </p>
+                </div>
+                {elapsed > 0 && (
+                  <p className="text-xs text-purple-600 mt-3 font-medium">
+                    ⏱️ Elapsed time: {elapsed}s
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Thinking Process Log (after generation) */}
+            {previewData?.thinkingProcess && previewData.thinkingProcess.length > 0 && (
+              <div className="mb-6">
+                <button
+                  type="button"
+                  onClick={() => setShowThinkingProcess(!showThinkingProcess)}
+                  className="w-full flex items-center justify-between p-3 bg-purple-50 hover:bg-purple-100 rounded-lg border border-purple-200 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="text-purple-600" size={18} />
+                    <h4 className="text-sm font-semibold text-purple-900">
+                      AI Thinking Process Log ({previewData.thinkingProcess.length} steps)
+                    </h4>
+                  </div>
+                  <svg
+                    className={`w-4 h-4 text-purple-600 transition-transform ${showThinkingProcess ? 'rotate-180' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {showThinkingProcess && (
+                  <div className="mt-2 p-4 bg-white rounded-lg border border-purple-200 max-h-80 overflow-y-auto">
+                    <div className="space-y-2">
+                      {previewData.thinkingProcess.map((step, idx) => {
+                        const timestamp = step.timestamp ? new Date(step.timestamp).toLocaleTimeString() : '';
+                        return (
+                          <div key={idx} className="flex gap-3 text-xs">
+                            <span className="text-gray-400 flex-shrink-0 font-mono">
+                              {timestamp || `Step ${idx + 1}`}
+                            </span>
+                            <div className="flex-1">
+                              <p className="text-gray-900">{step.message}</p>
+                              {step.data && Object.keys(step.data).length > 0 && (
+                                <div className="mt-1 pl-3 border-l-2 border-purple-200">
+                                  {Object.entries(step.data).map(([key, value]) => (
+                                    <p key={key} className="text-gray-600">
+                                      <span className="font-medium">{key}:</span>{' '}
+                                      {typeof value === 'object' ? JSON.stringify(value) : value}
+                                    </p>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* AI Plan Summary */}
+            {previewData?.aiPlan && (
+              <div className="mb-6 p-4 bg-gradient-to-br from-purple-50 to-blue-50 rounded-lg border border-purple-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <Sparkles className="text-purple-600" size={18} />
+                  <h4 className="text-sm font-semibold text-purple-900">
+                    AI Optimization Strategy
+                  </h4>
+                </div>
+                <p className="text-xs text-purple-800 whitespace-pre-wrap leading-relaxed">
+                  {previewData.aiPlan.strategy}
+                </p>
+              </div>
+            )}
 
             {/* Preview Results */}
             {previewData && previewData.success && previewData.preview && (

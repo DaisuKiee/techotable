@@ -94,18 +94,22 @@ const SubjectModal = ({ mode, subject, onClose }) => {
         semester: Number(formData.semester)
       };
 
+      console.log('[SubjectModal] Submitting:', mode, submitData);
+
       if (mode === 'create') {
-        await subjectAPI.create(submitData);
+        const response = await subjectAPI.create(submitData);
+        console.log('[SubjectModal] Create response:', response);
         toast.success('Subject created successfully');
       } else {
-        await subjectAPI.update(subject._id, submitData);
+        const response = await subjectAPI.update(subject._id, submitData);
+        console.log('[SubjectModal] Update response:', response);
         toast.success('Subject updated successfully');
       }
       onClose(true);
     } catch (error) {
-      console.error('Submit error:', error);
-      console.error('Error response:', error.response);
-      console.error('Error response data:', error.response?.data);
+      console.error('[SubjectModal] Submit error:', error);
+      console.error('[SubjectModal] Error response:', error.response);
+      console.error('[SubjectModal] Error response data:', error.response?.data);
       
       // Show specific validation errors if available
       if (error.response?.data?.errors && Array.isArray(error.response.data.errors)) {

@@ -53,6 +53,7 @@ tmp/
 *.pdf
 *.csv
 *.txt
+*.zip
 
 # Database
 *.db

@@ -52,7 +52,7 @@ function App() {
                 style: {
                   background: '#363636',
                   color: '#fff',
-                  zIndex: 99999, // Ensure toasts appear above modals
+                  zIndex: 999999, // Ensure toasts appear above ALL modals
                 },
                 success: {
                   duration: 3000,
@@ -70,7 +70,7 @@ function App() {
               },
             }}
             containerStyle={{
-              zIndex: 99999, // Container also needs high z-index
+              zIndex: 999999, // Container also needs high z-index to appear above modals
             }}
           />
           <Routes>

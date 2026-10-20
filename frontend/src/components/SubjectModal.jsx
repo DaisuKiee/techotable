@@ -13,6 +13,7 @@ const SubjectModal = ({ mode, subject, onClose }) => {
   const { programCodes: PROGRAMS } = usePrograms();
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   
   // Initialize with user's program if they're a program manager
   const initialProgram = user?.role === 'program_manager' && user?.program ? user.program : 'BSIT';
@@ -59,6 +60,7 @@ const SubjectModal = ({ mode, subject, onClose }) => {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
+    setErrorMessage(''); // Clear error when user starts typing
     setFormData({
       ...formData,
       [name]: type === 'checkbox' ? checked : value
@@ -112,13 +114,17 @@ const SubjectModal = ({ mode, subject, onClose }) => {
       console.error('[SubjectModal] Error response data:', error.response?.data);
       
       // Show specific validation errors if available
+      let errorMsg = '';
       if (error.response?.data?.errors && Array.isArray(error.response.data.errors)) {
         const errorMessages = error.response.data.errors.map(err => err.msg || err.message).join(', ');
-        toast.error(`Validation error: ${errorMessages}`);
+        errorMsg = `Validation error: ${errorMessages}`;
       } else {
-        const message = error.response?.data?.message || error.message || 'Operation failed';
-        toast.error(message);
+        errorMsg = error.response?.data?.message || error.message || 'Operation failed';
       }
+      
+      console.log('[SubjectModal] About to call toast.error with:', errorMsg);
+      setErrorMessage(errorMsg); // Show error on screen
+      toast.error(errorMsg); // Also show toast
     } finally {
       setLoading(false);
     }
@@ -158,6 +164,26 @@ const SubjectModal = ({ mode, subject, onClose }) => {
 
         {/* Scrollable body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-5 bg-gray-50 dark:bg-gray-900">
+          
+          {/* Error Message Display */}
+          {errorMessage && (
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 flex items-start gap-3">
+              <div className="flex-shrink-0 w-5 h-5 rounded-full bg-red-100 dark:bg-red-900/40 flex items-center justify-center">
+                <X className="w-3 h-3 text-red-600 dark:text-red-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm font-semibold text-red-800 dark:text-red-300 mb-1">Error</h3>
+                <p className="text-sm text-red-700 dark:text-red-400">{errorMessage}</p>
+              </div>
+              <button
+                onClick={() => setErrorMessage('')}
+                className="flex-shrink-0 text-red-400 hover:text-red-600 dark:hover:text-red-300 transition-colors"
+                title="Dismiss"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
           <form onSubmit={handleSubmit} id="subject-form">
               {/* Basic Information */}
               <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">

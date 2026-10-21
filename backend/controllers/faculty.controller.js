@@ -1,6 +1,36 @@
 const Faculty = require('../models/Faculty.model');
 const User = require('../models/User.model');
+const Schedule = require('../models/Schedule.model');
 const { validationResult } = require('express-validator');
+
+/**
+ * Calculate actual teaching hours from faculty's active schedules
+ * @param {String} facultyId - Faculty ObjectId
+ * @returns {Promise<Number>} Total teaching hours per week
+ */
+const calculateActualWorkload = async (facultyId) => {
+  try {
+    const schedules = await Schedule.find({
+      faculty: facultyId,
+      isActive: true
+    }).populate('subject', 'lectureHours labHours');
+
+    let totalHours = 0;
+    
+    for (const schedule of schedules) {
+      if (schedule.subject) {
+        const lectureHours = Number(schedule.subject.lectureHours) || 0;
+        const labHours = Number(schedule.subject.labHours) || 0;
+        totalHours += lectureHours + labHours;
+      }
+    }
+
+    return totalHours;
+  } catch (error) {
+    console.error('Error calculating workload:', error);
+    return 0;
+  }
+};
 
 // @desc    Get all faculty members
 // @route   GET /api/faculty
@@ -62,10 +92,21 @@ exports.getAllFaculty = async (req, res) => {
       });
     }
 
+    // Calculate actual workload from schedules for each faculty
+    const facultyWithWorkload = await Promise.all(
+      faculty.map(async (f) => {
+        const actualWorkload = await calculateActualWorkload(f._id);
+        const facultyObj = f.toObject();
+        facultyObj.currentTeachingHours = actualWorkload;
+        facultyObj.currentLoad = actualWorkload; // For backward compatibility
+        return facultyObj;
+      })
+    );
+
     res.status(200).json({
       success: true,
-      count: faculty.length,
-      data: faculty
+      count: facultyWithWorkload.length,
+      data: facultyWithWorkload
     });
 
   } catch (error) {
@@ -93,9 +134,15 @@ exports.getFacultyById = async (req, res) => {
       });
     }
 
+    // Calculate actual workload from schedules
+    const actualWorkload = await calculateActualWorkload(faculty._id);
+    const facultyObj = faculty.toObject();
+    facultyObj.currentTeachingHours = actualWorkload;
+    facultyObj.currentLoad = actualWorkload; // For backward compatibility
+
     res.status(200).json({
       success: true,
-      data: faculty
+      data: facultyObj
     });
 
   } catch (error) {

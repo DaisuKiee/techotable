@@ -243,6 +243,7 @@ exports.createSchedule = async (req, res) => {
 
     // Check for conflicts
     const conflicts = await checkScheduleConflicts({
+      subject,
       faculty,
       room,
       sectionCode,
@@ -326,7 +327,8 @@ exports.createSchedule = async (req, res) => {
 // @access  Private/Admin
 exports.updateSchedule = async (req, res) => {
   try {
-    const schedule = await Schedule.findById(req.params.id);
+    const schedule = await Schedule.findById(req.params.id)
+      .populate('subject', 'subjectCode subjectName');
 
     if (!schedule) {
       return res.status(404).json({
@@ -351,6 +353,7 @@ exports.updateSchedule = async (req, res) => {
     const roomChanged = room && String(room) !== String(schedule.room);
     if (facultyChanged || roomChanged || timeSlots) {
       const conflicts = await checkScheduleConflicts({
+        subject: schedule.subject, // Use the existing subject from the schedule
         faculty: faculty || schedule.faculty,
         room: room || schedule.room,
         sectionCode: schedule.sectionCode,
@@ -497,6 +500,7 @@ exports.deleteSchedule = async (req, res) => {
 
 // Helper function to check schedule conflicts
 async function checkScheduleConflicts({
+  subject,
   faculty,
   room,
   sectionCode,
@@ -575,16 +579,25 @@ async function checkScheduleConflicts({
         // so read the id defensively rather than through `.faculty._id`.
         const existingFacultyId = existingSchedule.faculty?._id || existingSchedule.faculty;
         if (faculty && existingFacultyId && existingFacultyId.toString() === faculty.toString()) {
-          const name = existingSchedule.faculty?.user
-            ? `${existingSchedule.faculty.user.firstName} ${existingSchedule.faculty.user.lastName}`
-            : 'This instructor';
-          add({
-            type: 'faculty',
-            message: `${name} is already teaching ${against} at this time`,
-            day: newSlot.day,
-            time,
-            conflictingSchedule: existingSchedule.sectionCode
-          });
+          // EXCEPTION: NSTP is a combined class where one instructor teaches multiple sections simultaneously
+          const isNewNSTP = (subject?.subjectCode || '').toUpperCase().includes('NSTP') ||
+                           (subject?.subjectName || '').toUpperCase().includes('NSTP');
+          const isExistingNSTP = (existingSchedule.subject?.subjectCode || '').toUpperCase().includes('NSTP') ||
+                                (existingSchedule.subject?.subjectName || '').toUpperCase().includes('NSTP');
+          
+          // Only report conflict if NOT both NSTP (NSTP combined class is allowed)
+          if (!(isNewNSTP && isExistingNSTP)) {
+            const name = existingSchedule.faculty?.user
+              ? `${existingSchedule.faculty.user.firstName} ${existingSchedule.faculty.user.lastName}`
+              : 'This instructor';
+            add({
+              type: 'faculty',
+              message: `${name} is already teaching ${against} at this time`,
+              day: newSlot.day,
+              time,
+              conflictingSchedule: existingSchedule.sectionCode
+            });
+          }
         }
 
         // Room double-booking
@@ -816,17 +829,27 @@ exports.checkConflicts = async (req, res) => {
                   const f1 = schedule1.faculty?._id || schedule1.faculty;
                   const f2 = schedule2.faculty?._id || schedule2.faculty;
                   if (f1 && f2 && f1.toString() === f2.toString()) {
-                    const name = schedule1.faculty?.user
-                      ? `${schedule1.faculty.user.firstName || ''} ${schedule1.faculty.user.lastName || ''}`.trim()
-                      : 'An instructor';
-                    allConflicts.push({
-                      type: 'faculty',
-                      message: `${name} has overlapping classes`,
-                      day: slot1.day,
-                      time: `${slot1.startTime} - ${slot1.endTime}`,
-                      schedule1: schedule1.sectionCode,
-                      schedule2: schedule2.sectionCode
-                    });
+                    // EXCEPTION: NSTP is a combined class where one instructor teaches multiple sections simultaneously
+                    // Check if BOTH schedules are NSTP
+                    const isNSTP1 = (schedule1.subject?.subjectCode || '').toUpperCase().includes('NSTP') ||
+                                    (schedule1.subject?.subjectName || '').toUpperCase().includes('NSTP');
+                    const isNSTP2 = (schedule2.subject?.subjectCode || '').toUpperCase().includes('NSTP') ||
+                                    (schedule2.subject?.subjectName || '').toUpperCase().includes('NSTP');
+                    
+                    // If both are NSTP, this is NOT a conflict (it's a combined class)
+                    if (!isNSTP1 || !isNSTP2) {
+                      const name = schedule1.faculty?.user
+                        ? `${schedule1.faculty.user.firstName || ''} ${schedule1.faculty.user.lastName || ''}`.trim()
+                        : 'An instructor';
+                      allConflicts.push({
+                        type: 'faculty',
+                        message: `${name} has overlapping classes`,
+                        day: slot1.day,
+                        time: `${slot1.startTime} - ${slot1.endTime}`,
+                        schedule1: schedule1.sectionCode,
+                        schedule2: schedule2.sectionCode
+                      });
+                    }
                   }
 
                   // Room conflict
@@ -883,6 +906,7 @@ exports.checkConflicts = async (req, res) => {
     }
 
     const conflicts = await checkScheduleConflicts({
+      subject,
       faculty,
       room,
       timeSlots,
@@ -1517,6 +1541,7 @@ exports.bulkCreateSchedules = async (req, res) => {
       const { row, index, label, existing } = item;
 
       const conflicts = await checkScheduleConflicts({
+        subject: row.subject,
         faculty: row.faculty,
         room: row.room,
         sectionCode: row.sectionCode,

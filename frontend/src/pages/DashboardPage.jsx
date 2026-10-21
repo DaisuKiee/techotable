@@ -580,29 +580,6 @@ const FacultyDashboard = ({ user, loading: parentLoading }) => {
     facultyProfile: user?.facultyProfile
   });
 
-  // If no faculty profile, show error message
-  if (!facultyId && !loadingFaculty) {
-    return (
-      <div className="space-y-6">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center dark:bg-red-900/20 dark:border-red-800">
-          <AlertTriangle className="w-12 h-12 mx-auto mb-3 text-red-500" />
-          <h3 className="text-lg font-semibold text-red-900 dark:text-red-200 mb-2">
-            Faculty Profile Not Found
-          </h3>
-          <p className="text-red-700 dark:text-red-300 mb-4">
-            Your account is not linked to a faculty profile. Please contact the administrator to set up your faculty profile.
-          </p>
-          <button
-            onClick={() => window.location.href = '/profile'}
-            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-          >
-            View Profile
-          </button>
-        </div>
-      </div>
-    );
-  }
-  
   const {
     data: facultyResponse,
     loading: loadingFaculty,
@@ -663,6 +640,29 @@ const FacultyDashboard = ({ user, loading: parentLoading }) => {
   const loading = loadingFaculty || loadingSchedules || loadingClasses;
   const allSchedules = Array.isArray(schedules) ? schedules : [];
   const classList = Array.isArray(classes) ? classes : [];
+
+  // If no faculty profile, show error message
+  if (!facultyId && !loading) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center dark:bg-red-900/20 dark:border-red-800">
+          <AlertTriangle className="w-12 h-12 mx-auto mb-3 text-red-500" />
+          <h3 className="text-lg font-semibold text-red-900 dark:text-red-200 mb-2">
+            Faculty Profile Not Found
+          </h3>
+          <p className="text-red-700 dark:text-red-300 mb-4">
+            Your account is not linked to a faculty profile. Please contact the administrator to set up your faculty profile.
+          </p>
+          <button
+            onClick={() => window.location.href = '/profile'}
+            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+          >
+            View Profile
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // Filter today's schedule
   const todaySchedule = React.useMemo(() => {

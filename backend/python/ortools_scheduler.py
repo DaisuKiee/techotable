@@ -26,7 +26,7 @@ Input JSON
 ----------
 {
   "subjects":  [{_id, subject_code, subject_name, units, lecture_hours,
-                 lab_hours, required_qualifications[], needs_lab}],
+                 lab_hours, required_qualifications[], needs_lab, year_level}],
   "faculty":   [{_id, name, specializations[], max_teaching_load, current_load,
                  qualifications[], unavailable[{day,start,end}],
                  experience{subject_id: 0-100}}],
@@ -86,6 +86,10 @@ class TimetableOptimizer:
             for k, vals in (data.get('already_scheduled') or {}).items()
         }
         self.skipped = []
+        
+        # Get generation parameters including year_level
+        self.parameters = data.get('parameters') or {}
+        self.year_level = int(self.parameters.get('year_level') or 0)
 
         options = data.get('options') or {}
         self.max_block = max(1, int(options.get('max_block_hours', 3)))
@@ -176,8 +180,11 @@ class TimetableOptimizer:
             code_str = str(subject.get('subject_code') or '').upper()
             name_str = str(subject.get('subject_name') or '').upper()
             is_nstp = 'NSTP' in code_str or 'NSTP' in name_str
+            
+            # NSTP gets special treatment only for first-year generation
+            is_first_year_nstp = is_nstp and self.year_level == 1
 
-            if is_nstp:
+            if is_first_year_nstp:
                 total_hours = (lecture + lab) or int(subject.get('units') or 3)
                 blocks = [total_hours]
                 lab_from = None
@@ -205,8 +212,8 @@ class TimetableOptimizer:
                     'section': section,
                     'blocks': blocks,
                     'lab_from': lab_from,
-                    'needs_lab': (lab > 0 or bool(subject.get('needs_lab'))) and not is_nstp,
-                    'is_nstp': is_nstp,
+                    'needs_lab': (lab > 0 or bool(subject.get('needs_lab'))) and not is_first_year_nstp,
+                    'is_nstp': is_first_year_nstp,  # Only first-year NSTP gets special scheduling
                 })
 
     # ------------------------------------------------------- candidate sets
@@ -362,16 +369,41 @@ class TimetableOptimizer:
     def add_constraints(self):
         busy_fac, busy_room, busy_section = self._fixed_intervals_from_existing()
 
-        # Force NSTP subjects to always be scheduled on Saturday from 08:00 to 11:00
-        if 'Saturday' in self.days:
+        # Prefer FIRST-YEAR NSTP subjects to be scheduled on Saturday from 08:00 to 11:00
+        # Make this a SOFT constraint (preference) instead of HARD constraint (requirement)
+        # to avoid making the schedule infeasible
+        # NOTE: Only applies when generating first-year schedules; ignore for 2nd-4th year
+        if self.year_level == 1 and 'Saturday' in self.days:
             sat_idx = self.days.index('Saturday')
             slot_0800_idx = next((i for i, s in enumerate(self.slots) if s.get('start') == '08:00'), None)
             if slot_0800_idx is not None:
                 nstp_target_start = sat_idx * self.slots_per_day + slot_0800_idx
+                
+                print(f"[DEBUG] NSTP Saturday constraint setup (Year {self.year_level}):")
+                print(f"  - Saturday index: {sat_idx}")
+                print(f"  - 08:00 slot index: {slot_0800_idx}")
+                print(f"  - Target start slot: {nstp_target_start}")
+                
+                # Soft constraint: prefer first-year NSTP on Saturday 8:00 (add to objective rather than forcing)
+                nstp_count = 0
                 for c_idx, klass in enumerate(self.classes):
-                    if klass.get('is_nstp'):
+                    if klass.get('is_nstp'):  # Only first-year NSTP has is_nstp=True
+                        nstp_count += 1
+                        print(f"  - Applying soft Saturday constraint to: {klass['subject'].get('subject_code')}")
                         for b_idx in range(len(klass['blocks'])):
-                            self.model.Add(self.blocks[(c_idx, b_idx)]['start'] == nstp_target_start)
+                            # Create a boolean variable: true if scheduled at target time
+                            is_at_target = self.model.NewBoolVar(f'nstp_sat_c{c_idx}_b{b_idx}')
+                            self.model.Add(self.blocks[(c_idx, b_idx)]['start'] == nstp_target_start).OnlyEnforceIf(is_at_target)
+                            self.model.Add(self.blocks[(c_idx, b_idx)]['start'] != nstp_target_start).OnlyEnforceIf(is_at_target.Not())
+                            # Store for objective: we'll add penalty if NOT at target
+                            if not hasattr(self, 'nstp_penalties'):
+                                self.nstp_penalties = []
+                            self.nstp_penalties.append(is_at_target.Not())
+                
+                if nstp_count == 0:
+                    print(f"  - No NSTP subjects found in first-year classes")
+        elif self.year_level != 1:
+            print(f"[DEBUG] NSTP Saturday constraint SKIPPED (Year {self.year_level} - not first year)")
 
         # Exactly one teacher and one room per class
         for c_idx, klass in enumerate(self.classes):
@@ -542,6 +574,11 @@ class TimetableOptimizer:
                 self.model.Add(slot_in_day != slot_0700_idx).OnlyEnforceIf(is_7am.Not())
                 terms.append(is_7am * -self.weights['prefer_8am'])
 
+        # Add NSTP soft constraint penalties (prefer Saturday 8-11 AM but don't require it)
+        if hasattr(self, 'nstp_penalties') and self.nstp_penalties:
+            for penalty_var in self.nstp_penalties:
+                terms.append(penalty_var * -1000)  # Strong preference but not hard constraint
+
         if terms:
             self.model.Maximize(sum(terms))
 
@@ -555,6 +592,26 @@ class TimetableOptimizer:
         problems = []
         teaching_slots = sum(1 for i in range(self.slots_per_day) if i not in self.break_slots)
         capacity_hours = teaching_slots * len(self.days)
+        
+        # Debug: Log what we're working with
+        print(f"[DEBUG] Preflight Check:")
+        print(f"  - Year Level: {self.year_level}")
+        print(f"  - Days: {len(self.days)} ({', '.join(self.days)})")
+        print(f"  - Slots per day: {self.slots_per_day}")
+        print(f"  - Teaching slots (excluding breaks): {teaching_slots}")
+        print(f"  - Total capacity hours: {capacity_hours}")
+        print(f"  - Total classes to schedule: {len(self.classes)}")
+        print(f"  - Total faculty: {len(self.faculty)}")
+        print(f"  - Total rooms: {len(self.rooms)}")
+        
+        # Debug: Show NSTP classes
+        nstp_classes = [k for k in self.classes if k.get('is_nstp')]
+        if nstp_classes:
+            print(f"  - First-year NSTP classes: {len(nstp_classes)}")
+            for k in nstp_classes:
+                print(f"    * {k['subject'].get('subject_code')} - Section {k['section'].get('letter')} - {sum(k['blocks'])} hours")
+        elif self.year_level == 1:
+            print(f"  - No NSTP classes found (expected for first year)")
 
         required_by_section = defaultdict(int)
         for klass in self.classes:

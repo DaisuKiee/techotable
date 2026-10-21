@@ -124,15 +124,19 @@ exports.createSubject = async (req, res) => {
       console.log(`Generated subject code: ${subjectCode}`);
     }
 
-    // Check if subject code already exists
+    // Check if subject code already exists IN THE SAME PROGRAM
+    // Different programs can have the same subject code (e.g., GEC-US in BSIT and BSHM)
     const existingSubject = await Subject.findOne({ 
-      subjectCode: subjectCode.toUpperCase() 
+      subjectCode: subjectCode.toUpperCase(),
+      program: program,
+      yearLevel: yearLevel,
+      semester: semester
     });
     
     if (existingSubject) {
       return res.status(400).json({
         success: false,
-        message: 'Subject with this code already exists'
+        message: `Subject with code ${subjectCode} already exists for ${program} Year ${yearLevel} Semester ${semester}`
       });
     }
 
@@ -226,16 +230,24 @@ exports.updateSubject = async (req, res) => {
       });
     }
 
-    // Check if new subject code conflicts
+    // Check if new subject code conflicts WITHIN THE SAME PROGRAM
+    // Different programs can have the same subject code
     if (subjectCode && subjectCode.toUpperCase() !== subject.subjectCode) {
+      const newProgram = program || subject.program;
+      const newYearLevel = yearLevel !== undefined ? yearLevel : subject.yearLevel;
+      const newSemester = semester !== undefined ? semester : subject.semester;
+      
       const existingSubject = await Subject.findOne({ 
-        subjectCode: subjectCode.toUpperCase() 
+        subjectCode: subjectCode.toUpperCase(),
+        program: newProgram,
+        yearLevel: newYearLevel,
+        semester: newSemester
       });
       
       if (existingSubject) {
         return res.status(400).json({
           success: false,
-          message: 'Subject code already exists'
+          message: `Subject code ${subjectCode} already exists for ${newProgram} Year ${newYearLevel} Semester ${newSemester}`
         });
       }
       subject.subjectCode = subjectCode.toUpperCase();

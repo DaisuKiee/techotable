@@ -9,7 +9,7 @@ import toast from 'react-hot-toast';
 import {
   BookOpen, Bell, FileText, Users, Plus, Upload,
   UserPlus, Search, Download, Trash2, Pin,
-  User, X, Edit2, ChevronLeft, Copy, RefreshCw,
+  User, Edit2, ChevronLeft, Copy, RefreshCw,
   TrendingUp, MessageSquare, FolderOpen, Clock, MapPin, LogOut
 } from 'lucide-react';
 import CreateAnnouncementModal from '../components/CreateAnnouncementModal';
@@ -94,6 +94,81 @@ const backgroundFor = (key) => {
   return CARD_BACKGROUNDS[Math.abs(hash) % CARD_BACKGROUNDS.length];
 };
 
+/**
+ * A manila folder, drawn rather than imported so it inherits crisp rendering
+ * at any size and needs no asset. The sheet peeking out of the back half is
+ * what reads as "there are things in here" at a glance.
+ */
+/*
+ * Opening animation, driven by the tile's `group` hover/focus:
+ *  - the front flap hinges forward on its bottom edge (scaleY + skew from the
+ *    bottom reads as a flap tipping toward you, without 3D transforms, which
+ *    SVG elements don't support reliably);
+ *  - the front sheet rises, and a second sheet behind it rises further and
+ *    tilts, so the folder visibly has contents;
+ *  - a soft shadow grows underneath as the folder lifts.
+ * `transform-box: fill-box` makes each origin relative to the shape itself
+ * rather than the whole SVG canvas.
+ */
+const FOLDER_EASE = 'transition-transform duration-300 ease-[cubic-bezier(.34,1.56,.64,1)] motion-reduce:transition-none [transform-box:fill-box]';
+
+const FolderGlyph = () => (
+  <span className="relative block">
+    <svg
+      viewBox="0 0 96 78"
+      className="relative z-10 h-20 w-24 overflow-visible transition-transform duration-300 group-hover:-translate-y-1 group-focus-visible:-translate-y-1 motion-reduce:transition-none"
+      aria-hidden="true"
+    >
+      <defs>
+        <linearGradient id="folderBack" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#fcd34d" />
+          <stop offset="100%" stopColor="#f6c445" />
+        </linearGradient>
+        <linearGradient id="folderFront" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#fde08a" />
+          <stop offset="100%" stopColor="#f8c84e" />
+        </linearGradient>
+      </defs>
+
+      {/* back half, with the tab */}
+      <path
+        d="M3 13a7 7 0 0 1 7-7h24.6a4 4 0 0 1 2.9 1.2l5.2 5.3a4 4 0 0 0 2.9 1.2H86a7 7 0 0 1 7 7v44a7 7 0 0 1-7 7H10a7 7 0 0 1-7-7z"
+        fill="url(#folderBack)"
+      />
+
+      {/* rear sheet: hidden behind the front one until the folder opens */}
+      <g className={`${FOLDER_EASE} origin-bottom group-hover:-translate-y-[9px] group-hover:rotate-[7deg] group-focus-visible:-translate-y-[9px] group-focus-visible:rotate-[7deg]`}>
+        <path d="M38 18h24l8 8v20H38z" fill="#f3f4f6" />
+        <path d="M62 18l8 8h-8z" fill="#d6dae0" />
+      </g>
+
+      {/* front sheet */}
+      <g className={`${FOLDER_EASE} origin-bottom group-hover:-translate-y-[6px] group-hover:-rotate-[4deg] group-focus-visible:-translate-y-[6px] group-focus-visible:-rotate-[4deg]`}>
+        <path d="M31 15h24l9 9v20H31z" fill="#ffffff" />
+        <path d="M55 15l9 9h-9z" fill="#dfe3e8" />
+        <g fill="#c9ced6">
+          <rect x="36" y="24" width="14" height="1.6" rx=".8" />
+          <rect x="36" y="28" width="19" height="1.6" rx=".8" />
+          <rect x="36" y="32" width="11" height="1.6" rx=".8" />
+        </g>
+      </g>
+
+      {/* front flap, hinged on its bottom edge */}
+      <path
+        d="M3 32h90v32a7 7 0 0 1-7 7H10a7 7 0 0 1-7-7z"
+        fill="url(#folderFront)"
+        className={`${FOLDER_EASE} origin-bottom group-hover:[transform:scaleY(.82)_skewX(-7deg)] group-focus-visible:[transform:scaleY(.82)_skewX(-7deg)]`}
+      />
+    </svg>
+
+    {/* shadow that spreads as the folder lifts */}
+    <span
+      aria-hidden="true"
+      className="absolute -bottom-1 left-1/2 h-2 w-16 -translate-x-1/2 rounded-full bg-black/10 blur-[3px] transition-all duration-300 group-hover:w-20 group-hover:bg-black/15 motion-reduce:transition-none"
+    />
+  </span>
+);
+
 /** Placeholder rows shown while a class's full details are loading. */
 const PostSkeleton = ({ count = 3 }) => (
   <div className="space-y-4 animate-pulse" aria-label="Loading">
@@ -148,6 +223,7 @@ const ClassSpacePage = () => {
   const [canPostHere, setCanPostHere] = useState(false);
   const [studentType, setStudentType] = useState(null); // null until backend tells us or student chooses
   const [joinHint, setJoinHint] = useState(null);
+
 
   const isFaculty = user?.role === 'faculty';
   const isStudent = user?.role === 'student';
@@ -451,6 +527,31 @@ const ClassSpacePage = () => {
     return searchMatch && sectionMatch;
   });
 
+  /**
+   * Classes filed by section, section code ascending.
+   *
+   * Section is the category that already exists in the data and in the filter
+   * above, so it is what the folders are built from - no new field needed.
+   */
+  const groupedClasses = Object.entries(
+    filteredClasses.reduce((acc, cs) => {
+      const key = cs.sectionCode || 'Unassigned';
+      (acc[key] = acc[key] || []).push(cs);
+      return acc;
+    }, {})
+  ).sort(([a], [b]) => a.localeCompare(b));
+
+  /**
+   * Show folders only at the top level. Searching is a cross-section action,
+   * so results are listed flat rather than hidden one folder down; students
+   * see their own handful of classes directly.
+   */
+  const showFolderGrid =
+    !isStudent &&
+    filterSection === 'all' &&
+    !searchTerm.trim() &&
+    groupedClasses.length > 1;
+
   const sortedAnnouncements = selectedClass?.announcements
     ? [...selectedClass.announcements].sort((a, b) => {
         if (a.isPinned && !b.isPinned) return -1;
@@ -527,6 +628,106 @@ const ClassSpacePage = () => {
       </Layout>
     );
   }
+
+  /**
+   * One class card. Extracted so the folder view and any future flat view
+   * render exactly the same card rather than keeping two copies in sync.
+   */
+  const renderClassCard = (cs) => {
+      const code = subjectCodeOf(cs);
+      const backgroundImage = backgroundFor(code);
+      const name = subjectNameOf(cs);
+      const facultyName = facultyNameOf(cs);
+      const profilePicture = cs?.faculty?.user?.profilePicture;
+      const initials = facultyName
+        ? facultyName.split(' ').filter(Boolean).map(p => p[0]).slice(0, 2).join('')
+        : null;
+      const slots = timeSlotsOf(cs);
+
+      return (
+        <div
+          key={cs._id}
+          className="group bg-white dark:bg-gray-800 rounded-2xl shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-200 cursor-pointer overflow-hidden flex flex-col ring-1 ring-gray-100 dark:ring-gray-700"
+          onClick={() => openClass(cs)}
+        >
+          {/* Header with background image */}
+          <div
+            className="p-5 relative h-28 flex flex-col justify-between bg-cover bg-center group-hover:scale-[1.02] transition-transform duration-300"
+            style={{
+              backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.5)), url(${backgroundImage})`
+            }}
+          >
+            <div className="pr-12">
+              <h3 className="text-white font-bold text-base leading-tight line-clamp-2">
+                {name || code}
+              </h3>
+              <p className="text-white/80 text-xs mt-0.5">{cs.sectionCode}</p>
+              {facultyName && (
+                <p className="text-white/70 text-xs mt-0.5 truncate">{facultyName}</p>
+              )}
+            </div>
+            {/* Instructor avatar */}
+            <div className="absolute bottom-3 right-3 w-10 h-10 bg-white/20 rounded-full flex items-center justify-center border-2 border-white/40 overflow-hidden">
+              {profilePicture ? (
+                <img
+                  src={avatarSrc(profilePicture)}
+                  alt={facultyName || 'Instructor'}
+                  className="w-full h-full object-cover"
+                />
+              ) : initials ? (
+                <span className="text-white font-bold text-sm">{initials}</span>
+              ) : (
+                <User className="w-5 h-5 text-white/70" />
+              )}
+            </div>
+          </div>
+
+          {/* Subject code + meeting time */}
+          <div className="px-4 py-3 flex-1">
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{code}</p>
+            {name && name !== code && (
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 line-clamp-1">{name}</p>
+            )}
+            {slots.length > 0 && (
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                {summariseSlots(slots)}
+              </p>
+            )}
+          </div>
+
+          {/* Bottom action bar */}
+          <div className="border-t border-gray-100 dark:border-gray-700 px-4 py-2 flex items-center justify-between">
+            <div className="flex items-center gap-4 text-gray-400">
+              <button
+                onClick={e => { e.stopPropagation(); openClass(cs, 'people'); }}
+                className="hover:text-gray-600 dark:hover:text-gray-300 transition-colors p-1"
+                title="People"
+              >
+                <Users className="w-4 h-4" />
+              </button>
+              <button
+                onClick={e => { e.stopPropagation(); openClass(cs, 'materials'); }}
+                className="hover:text-gray-600 dark:hover:text-gray-300 transition-colors p-1"
+                title="Materials"
+              >
+                <FolderOpen className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-gray-400">
+              <span className="flex items-center gap-1">
+                <Bell className="w-3 h-3" />
+                {cs.announcements?.length || 0}
+              </span>
+              <span className="flex items-center gap-1">
+                <FileText className="w-3 h-3" />
+                {cs.materials?.length || 0}
+              </span>
+            </div>
+          </div>
+        </div>
+      );
+  };
 
   // ─── Detail view (class selected) ─────────────────────────────────────────
   if (selectedClass) {
@@ -1074,14 +1275,15 @@ const ClassSpacePage = () => {
               </select>
             </div>
 
-            {/* Clear Filter Button - only show when filter is active */}
+            {/* Inside a folder: a way back out, phrased as navigation rather
+                than as clearing a filter. */}
             {filterSection !== 'all' && (
               <button
                 onClick={() => setFilterSection('all')}
-                className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700 rounded-xl transition-colors"
+                className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-200 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white"
               >
-                <X className="w-4 h-4" />
-                Clear Filter
+                <ChevronLeft className="h-4 w-4" />
+                All sections
               </button>
             )}
           </div>
@@ -1168,104 +1370,34 @@ const ClassSpacePage = () => {
             )}
           </div>
         ) : (
-          /* Google Classroom-style card grid */
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
-            {filteredClasses.map((cs) => {
-              const code = subjectCodeOf(cs);
-              const backgroundImage = backgroundFor(code);
-              const name = subjectNameOf(cs);
-              const facultyName = facultyNameOf(cs);
-              const profilePicture = cs?.faculty?.user?.profilePicture;
-              const initials = facultyName
-                ? facultyName.split(' ').filter(Boolean).map(p => p[0]).slice(0, 2).join('')
-                : null;
-              const slots = timeSlotsOf(cs);
-
-              return (
-                <div
-                  key={cs._id}
-                  className="group bg-white dark:bg-gray-800 rounded-2xl shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-200 cursor-pointer overflow-hidden flex flex-col ring-1 ring-gray-100 dark:ring-gray-700"
-                  onClick={() => openClass(cs)}
+          /* Browsing works like a file manager: sections are folders you open,
+             and the class cards live inside one. A search looks across every
+             section at once, so it bypasses the folders entirely. */
+          showFolderGrid ? (
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+              {groupedClasses.map(([sectionCode, classes]) => (
+                <button
+                  key={sectionCode}
+                  type="button"
+                  onClick={() => setFilterSection(sectionCode)}
+                  title={`Open ${sectionCode} — ${classes.length} ${classes.length === 1 ? 'class' : 'classes'}`}
+                  className="group flex flex-col items-center gap-1 rounded-xl p-3 transition-colors hover:bg-blue-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:hover:bg-gray-800"
                 >
-                  {/* Header with background image */}
-                  <div
-                    className="p-5 relative h-28 flex flex-col justify-between bg-cover bg-center group-hover:scale-[1.02] transition-transform duration-300"
-                    style={{
-                      backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.5)), url(${backgroundImage})`
-                    }}
-                  >
-                    <div className="pr-12">
-                      <h3 className="text-white font-bold text-base leading-tight line-clamp-2">
-                        {name || code}
-                      </h3>
-                      <p className="text-white/80 text-xs mt-0.5">{cs.sectionCode}</p>
-                      {facultyName && (
-                        <p className="text-white/70 text-xs mt-0.5 truncate">{facultyName}</p>
-                      )}
-                    </div>
-                    {/* Instructor avatar */}
-                    <div className="absolute bottom-3 right-3 w-10 h-10 bg-white/20 rounded-full flex items-center justify-center border-2 border-white/40 overflow-hidden">
-                      {profilePicture ? (
-                        <img
-                          src={avatarSrc(profilePicture)}
-                          alt={facultyName || 'Instructor'}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : initials ? (
-                        <span className="text-white font-bold text-sm">{initials}</span>
-                      ) : (
-                        <User className="w-5 h-5 text-white/70" />
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Subject code + meeting time */}
-                  <div className="px-4 py-3 flex-1">
-                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{code}</p>
-                    {name && name !== code && (
-                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 line-clamp-1">{name}</p>
-                    )}
-                    {slots.length > 0 && (
-                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {summariseSlots(slots)}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Bottom action bar */}
-                  <div className="border-t border-gray-100 dark:border-gray-700 px-4 py-2 flex items-center justify-between">
-                    <div className="flex items-center gap-4 text-gray-400">
-                      <button
-                        onClick={e => { e.stopPropagation(); openClass(cs, 'people'); }}
-                        className="hover:text-gray-600 dark:hover:text-gray-300 transition-colors p-1"
-                        title="People"
-                      >
-                        <Users className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={e => { e.stopPropagation(); openClass(cs, 'materials'); }}
-                        className="hover:text-gray-600 dark:hover:text-gray-300 transition-colors p-1"
-                        title="Materials"
-                      >
-                        <FolderOpen className="w-4 h-4" />
-                      </button>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-gray-400">
-                      <span className="flex items-center gap-1">
-                        <Bell className="w-3 h-3" />
-                        {cs.announcements?.length || 0}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <FileText className="w-3 h-3" />
-                        {cs.materials?.length || 0}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                  <FolderGlyph />
+                  <span className="mt-1 w-full truncate text-center text-sm font-semibold text-gray-900 dark:text-gray-100">
+                    {sectionCode}
+                  </span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    {classes.length} {classes.length === 1 ? 'class' : 'classes'}
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
+              {filteredClasses.map(renderClassCard)}
+            </div>
+          )
         )}
       </div>
 

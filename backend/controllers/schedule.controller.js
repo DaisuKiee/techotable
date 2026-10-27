@@ -1094,6 +1094,24 @@ exports.batchDeleteSchedules = async (req, res) => {
   }
 };
 
+/**
+ * Objective weights the client may steer, as named presets.
+ *
+ * The solver already accepted a `weights` override but nothing ever sent one,
+ * so every generation ran on the built-in defaults. Presets are used instead of
+ * raw numbers so a request can't push the objective somewhere nonsensical.
+ * `balanced` deliberately sends nothing and lets the solver's defaults stand.
+ */
+const SOLVER_PRIORITIES = {
+  balanced: null,
+  experience: { experience: 20, balance: 20 },
+  workload: { experience: 5, balance: 120 },
+  compact: { compact: 6, prefer_8am: 80 }
+};
+
+const resolveSolverWeights = (priority) =>
+  SOLVER_PRIORITIES[priority] || undefined;
+
 // @desc    Generate schedule automatically
 // @route   POST /api/schedules/generate
 // @access  Private/Admin
@@ -1108,7 +1126,8 @@ exports.generateSchedule = async (req, res) => {
       method = 'greedy',  // 'greedy' or 'ortools'
       shift = 'Day',      // 'Day' or 'Night'
       timeLimit = 60,     // seconds for OR-Tools
-      useAIRecommendations = false  // Use AI RAG for faculty recommendations
+      priority = 'balanced',  // which objective preset the solver should favour
+      useAIRecommendations = false  // greedy path only
     } = req.body;
 
     if (!academicYear || !semester || !program || !yearLevel || !section) {
@@ -1132,7 +1151,8 @@ exports.generateSchedule = async (req, res) => {
         yearLevel,
         section,
         shift,
-        timeLimit
+        timeLimit,
+        weights: resolveSolverWeights(priority)
       });
 
       // If OR-Tools succeeded, save the schedules
@@ -1238,6 +1258,7 @@ exports.previewSchedule = async (req, res) => {
       method = 'greedy',
       shift = 'Day',
       timeLimit = 60,
+      priority = 'balanced',
       useAIRecommendations = false
     } = req.body;
 
@@ -1265,6 +1286,7 @@ exports.previewSchedule = async (req, res) => {
         section,
         shift,
         timeLimit,
+        weights: resolveSolverWeights(priority),
       });
 
       preview = {

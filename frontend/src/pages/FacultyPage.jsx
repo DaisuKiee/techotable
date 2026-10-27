@@ -1136,7 +1136,7 @@ const FacultyPage = () => {
           <p className="text-gray-600 dark:text-gray-400 text-sm md:text-base">
             Manage faculty profiles, qualifications, and workload. Click a faculty member to see their full profile.
             {lastUpdated && (
-              <span className="text-xs text-gray-400 dark:text-gray-500 ml-2">
+              <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
                 Updated {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </span>
             )}
@@ -1221,7 +1221,7 @@ const FacultyPage = () => {
             label="NEAR LIMIT"
             value={stats.warning}
             caption={`${STANDARD_LOAD + 1}–${WARNING_LIMIT} hrs`}
-            tone="bg-yellow-500"
+            tone="bg-amber-600"
             active={filterLoad === 'warning'}
             onClick={() => toggleLoadFilter('warning')}
             title="Filter faculty near their limit"
@@ -1505,7 +1505,7 @@ const FacultyPage = () => {
             >
               <ChevronDown className="w-4 h-4" />
               Show {Math.min(pageSize, remaining)} more
-              <span className="text-gray-400">({remaining} remaining)</span>
+              <span className="text-gray-500 dark:text-gray-400">({remaining} remaining)</span>
             </button>
           </div>
         )}

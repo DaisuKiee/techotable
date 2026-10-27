@@ -177,7 +177,7 @@ const SectionModal = ({ section, faculty, onClose, onSubmit }) => {
                     className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-semibold transition-all ${
                       formData.shift === shift
                         ? shift === 'Day'
-                          ? 'bg-yellow-500 text-white shadow-lg scale-105'
+                          ? 'bg-amber-600 text-white shadow-lg scale-105'
                           : 'bg-blue-600 text-white shadow-lg scale-105'
                         : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
                     }`}

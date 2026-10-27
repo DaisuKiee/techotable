@@ -4,9 +4,10 @@ import toast from 'react-hot-toast';
 import {
   BookOpen, GripVertical, Clock, X, Save, RefreshCw,
   Plus, Trash2, AlertCircle, Undo2, Redo2, Search,
-  User, MapPin, ChevronDown, CheckCircle
+  User, ChevronDown, CheckCircle
 } from 'lucide-react';
 import EditScheduleModal from './EditScheduleModal';
+import FacultyPicker from './FacultyPicker';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -17,8 +18,12 @@ const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'
  * rowSpan={n} is always exactly n rows tall. Cards then stretch to fill their
  * cell rather than dictating the row height, which is what previously knocked
  * the grid out of alignment.
+ *
+ * Tightened from 78 to match the generator's preview grid: a full teaching day
+ * is ~15 rows, so the old height pushed the afternoon off screen. 48 still
+ * leaves a comfortable drop target and fits code + faculty + room in one hour.
  */
-const ROW_H = 78;
+const ROW_H = 48;
 
 const ALL_TIME_SLOTS = [
   { time: '07:00-08:00', isLunch: false },
@@ -38,25 +43,30 @@ const ALL_TIME_SLOTS = [
   { time: '21:00-22:00', isLunch: false },
 ];
 
-// Format "07:00" → "7:00 AM"
+// Format "07:00" → "7AM". The gutter is narrow, and the minutes are always :00.
 const fmtTime = (t) => {
-  const [h, m] = t.split(':').map(Number);
+  const [h] = t.split(':').map(Number);
   const period = h >= 12 ? 'PM' : 'AM';
   const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
-  return `${h12}:${String(m).padStart(2, '0')} ${period}`;
+  return `${h12}${period}`;
 };
 
+/**
+ * `bg` / `light` / `border` / `text` dress the sidebar subject cards.
+ * `tile` / `edge` / `ink` dress a class on the grid, matching the generator's
+ * preview week: a soft fill, a saturated left edge, and dark readable text.
+ */
 const SUBJECT_COLORS = [
-  { bg: 'bg-blue-600', light: 'bg-blue-50 dark:bg-blue-900/20', border: 'border-blue-200 dark:border-blue-700', text: 'text-blue-700 dark:text-blue-300' },
-  { bg: 'bg-purple-600', light: 'bg-purple-50 dark:bg-purple-900/20', border: 'border-purple-200 dark:border-purple-700', text: 'text-purple-700 dark:text-purple-300' },
-  { bg: 'bg-teal-600', light: 'bg-teal-50 dark:bg-teal-900/20', border: 'border-teal-200 dark:border-teal-700', text: 'text-teal-700 dark:text-teal-300' },
-  { bg: 'bg-rose-600', light: 'bg-rose-50 dark:bg-rose-900/20', border: 'border-rose-200 dark:border-rose-700', text: 'text-rose-700 dark:text-rose-300' },
-  { bg: 'bg-orange-500', light: 'bg-orange-50 dark:bg-orange-900/20', border: 'border-orange-200 dark:border-orange-700', text: 'text-orange-700 dark:text-orange-300' },
-  { bg: 'bg-indigo-600', light: 'bg-indigo-50 dark:bg-indigo-900/20', border: 'border-indigo-200 dark:border-indigo-700', text: 'text-indigo-700 dark:text-indigo-300' },
-  { bg: 'bg-emerald-600', light: 'bg-emerald-50 dark:bg-emerald-900/20', border: 'border-emerald-200 dark:border-emerald-700', text: 'text-emerald-700 dark:text-emerald-300' },
-  { bg: 'bg-pink-600', light: 'bg-pink-50 dark:bg-pink-900/20', border: 'border-pink-200 dark:border-pink-700', text: 'text-pink-700 dark:text-pink-300' },
-  { bg: 'bg-cyan-600', light: 'bg-cyan-50 dark:bg-cyan-900/20', border: 'border-cyan-200 dark:border-cyan-700', text: 'text-cyan-700 dark:text-cyan-300' },
-  { bg: 'bg-amber-600', light: 'bg-amber-50 dark:bg-amber-900/20', border: 'border-amber-200 dark:border-amber-700', text: 'text-amber-700 dark:text-amber-300' },
+  { bg: 'bg-blue-600', light: 'bg-blue-50 dark:bg-blue-900/20', border: 'border-blue-200 dark:border-blue-700', text: 'text-blue-700 dark:text-blue-300', tile: 'bg-blue-100 dark:bg-blue-900/40', edge: 'border-blue-500', ink: 'text-blue-900 dark:text-blue-100' },
+  { bg: 'bg-purple-600', light: 'bg-purple-50 dark:bg-purple-900/20', border: 'border-purple-200 dark:border-purple-700', text: 'text-purple-700 dark:text-purple-300', tile: 'bg-purple-100 dark:bg-purple-900/40', edge: 'border-purple-500', ink: 'text-purple-900 dark:text-purple-100' },
+  { bg: 'bg-teal-600', light: 'bg-teal-50 dark:bg-teal-900/20', border: 'border-teal-200 dark:border-teal-700', text: 'text-teal-700 dark:text-teal-300', tile: 'bg-teal-100 dark:bg-teal-900/40', edge: 'border-teal-500', ink: 'text-teal-900 dark:text-teal-100' },
+  { bg: 'bg-rose-600', light: 'bg-rose-50 dark:bg-rose-900/20', border: 'border-rose-200 dark:border-rose-700', text: 'text-rose-700 dark:text-rose-300', tile: 'bg-rose-100 dark:bg-rose-900/40', edge: 'border-rose-500', ink: 'text-rose-900 dark:text-rose-100' },
+  { bg: 'bg-orange-600', light: 'bg-orange-50 dark:bg-orange-900/20', border: 'border-orange-200 dark:border-orange-700', text: 'text-orange-700 dark:text-orange-300', tile: 'bg-orange-100 dark:bg-orange-900/40', edge: 'border-orange-500', ink: 'text-orange-900 dark:text-orange-100' },
+  { bg: 'bg-indigo-600', light: 'bg-indigo-50 dark:bg-indigo-900/20', border: 'border-indigo-200 dark:border-indigo-700', text: 'text-indigo-700 dark:text-indigo-300', tile: 'bg-indigo-100 dark:bg-indigo-900/40', edge: 'border-indigo-500', ink: 'text-indigo-900 dark:text-indigo-100' },
+  { bg: 'bg-emerald-600', light: 'bg-emerald-50 dark:bg-emerald-900/20', border: 'border-emerald-200 dark:border-emerald-700', text: 'text-emerald-700 dark:text-emerald-300', tile: 'bg-emerald-100 dark:bg-emerald-900/40', edge: 'border-emerald-500', ink: 'text-emerald-900 dark:text-emerald-100' },
+  { bg: 'bg-pink-600', light: 'bg-pink-50 dark:bg-pink-900/20', border: 'border-pink-200 dark:border-pink-700', text: 'text-pink-700 dark:text-pink-300', tile: 'bg-pink-100 dark:bg-pink-900/40', edge: 'border-pink-500', ink: 'text-pink-900 dark:text-pink-100' },
+  { bg: 'bg-cyan-600', light: 'bg-cyan-50 dark:bg-cyan-900/20', border: 'border-cyan-200 dark:border-cyan-700', text: 'text-cyan-700 dark:text-cyan-300', tile: 'bg-cyan-100 dark:bg-cyan-900/40', edge: 'border-cyan-500', ink: 'text-cyan-900 dark:text-cyan-100' },
+  { bg: 'bg-amber-600', light: 'bg-amber-50 dark:bg-amber-900/20', border: 'border-amber-200 dark:border-amber-700', text: 'text-amber-700 dark:text-amber-300', tile: 'bg-amber-100 dark:bg-amber-900/40', edge: 'border-amber-500', ink: 'text-amber-900 dark:text-amber-100' },
 ];
 
 const getSubjectColor = (subjectCode) => {
@@ -89,8 +99,29 @@ const ScheduleBuilder = ({
   // a class meeting on Mon/Wed/Fri drew three identical cards in every cell and
   // counted its hours three times in the sidebar.
   const [savedSchedules, setSavedSchedules] = useState([]);
-  const [draggedSubject, setDraggedSubject] = useState(null);
-  const [hoveredCells, setHoveredCells] = useState([]);
+
+  /**
+   * The drag in flight, whatever started it:
+   *   { kind: 'subject', subject, facultyId }
+   *   { kind: 'pending', id, hours, facultyId, code }
+   *   { kind: 'saved',   id, hours, facultyId, code }
+   *
+   * Moving a placed card used to set no state at all, so the grid behaved as
+   * though nothing was being dragged: it previewed the toolbar's duration
+   * rather than the card's own, and never ran the instructor check.
+   */
+  const [drag, setDrag] = useState(null);
+
+  /**
+   * Live preview under the pointer: which cells the drop would cover, whether
+   * it would actually be accepted, and why not if it wouldn't.
+   *   { day, cells, ok, reason?, hours?, conflict? }
+   *
+   * `ok` comes straight from resolveRange - the same call handleDrop makes - so
+   * the highlight can no longer promise a drop that is then refused.
+   */
+  const [hover, setHover] = useState(null);
+
   const [pendingSchedules, setPendingSchedules] = useState([]);
   const [selectedHours, setSelectedHours] = useState(1);
   const [editingSchedule, setEditingSchedule] = useState(null);
@@ -98,6 +129,24 @@ const ScheduleBuilder = ({
   const [subjectSearch, setSubjectSearch] = useState('');
   const [history, setHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
+
+  // Faculty pre-assigned to a subject card BEFORE it's dragged. Dragging is
+  // disabled until this is set, and selecting it eagerly fetches that
+  // faculty's existing schedule so drag-hover can warn about a real conflict
+  // without a round-trip on every hovered cell.
+  const [subjectFaculty, setSubjectFaculty] = useState({});
+  const [facultySchedules, setFacultySchedules] = useState({});
+  // Subject whose faculty picker is open, or null.
+  const [pickerSubject, setPickerSubject] = useState(null);
+
+  /** The sidebar subject being dragged, if the drag started there. */
+  const draggedSubject = drag?.kind === 'subject' ? drag.subject : null;
+
+  /**
+   * Hours the drop would occupy: the toolbar duration for a new subject, the
+   * card's own length when an existing card is being moved.
+   */
+  const dragHours = !drag ? 0 : drag.kind === 'subject' ? selectedHours : drag.hours;
 
   const TIME_SLOTS = useMemo(() => (
     filters.shift === 'Night'
@@ -199,10 +248,14 @@ const ScheduleBuilder = ({
    * @param {string} day
    * @param {number} slotIndex index into TIME_SLOTS
    * @param {number} hours     how many hours the class should occupy
-   * @param {string} [ignoreTempId] pending card to ignore (used when moving it)
+   * @param {{kind: 'pending'|'saved', id: string}} [ignore]
+   *        the card being moved, so it doesn't collide with its own current
+   *        footprint. This used to take a bare tempId and only ever matched
+   *        PENDING entries, so dragging a SAVED card anywhere overlapping where
+   *        it already sat was rejected as "already taken" - by itself.
    * @returns {{ok: true, startTime: string, endTime: string} | {ok: false, reason: string}}
    */
-  const resolveRange = useCallback((day, slotIndex, hours, ignoreTempId = null) => {
+  const resolveRange = useCallback((day, slotIndex, hours, ignore = null) => {
     const startSlot = TIME_SLOTS[slotIndex];
     if (!startSlot) return { ok: false, reason: 'Invalid time slot' };
     if (startSlot.isLunch) return { ok: false, reason: 'Cannot schedule over lunch break' };
@@ -210,15 +263,24 @@ const ScheduleBuilder = ({
     const startTime = startSlot.time.split('-')[0];
     let endTime = startSlot.time.split('-')[1];
 
+    const isIgnored = (entry) => {
+      if (!ignore) return false;
+      if (ignore.kind === 'pending' && entry.kind === 'pending') {
+        return String(entry.pending.tempId) === String(ignore.id);
+      }
+      if (ignore.kind === 'saved' && entry.kind === 'saved') {
+        return String(entry.schedule._id) === String(ignore.id);
+      }
+      return false;
+    };
+
     for (let i = 0; i < hours; i++) {
       const t = TIME_SLOTS[slotIndex + i];
-      if (!t) return { ok: false, reason: 'Not enough time left in the day' };
+      if (!t) return { ok: false, reason: `Not enough room before the day ends — needs ${hours}h` };
       if (t.isLunch) return { ok: false, reason: 'Cannot schedule through lunch break' };
 
       const hhmm = t.time.split('-')[0];
-      const blocking = entriesAt(day, hhmm).filter(
-        entry => !(ignoreTempId && entry.kind === 'pending' && entry.pending.tempId === ignoreTempId)
-      );
+      const blocking = entriesAt(day, hhmm).filter(entry => !isIgnored(entry));
 
       if (blocking.length > 0) {
         const first = blocking[0];
@@ -243,7 +305,7 @@ const ScheduleBuilder = ({
     if (!card) return;
 
     const hours = getDurationHours(card);
-    const range = resolveRange(day, slotIndex, hours, card.tempId);
+    const range = resolveRange(day, slotIndex, hours, { kind: 'pending', id: card.tempId });
     if (!range.ok) {
       toast.error(range.reason);
       return;
@@ -267,15 +329,16 @@ const ScheduleBuilder = ({
     const schedule = savedSchedules.find(s => String(s._id) === String(scheduleId));
     if (!schedule) return;
 
-    // Calculate duration from the existing schedule
+    // Duration comes from the slot's own times. The old version looked the
+    // start/end up in TIME_SLOTS, whose `time` is a RANGE ("10:00-11:00") and
+    // never equals a bare "10:00" - so both lookups returned -1, hours came out
+    // 0, and every move silently collapsed the class to a single hour.
     const slot = schedule.timeSlots?.[0];
     if (!slot) return;
-    
-    const startIdx = TIME_SLOTS.findIndex(t => t.time === slot.startTime);
-    const endIdx = TIME_SLOTS.findIndex(t => t.time === slot.endTime);
-    const hours = endIdx - startIdx;
 
-    const range = resolveRange(day, slotIndex, hours, scheduleId);
+    const hours = slotDuration(slot);
+
+    const range = resolveRange(day, slotIndex, hours, { kind: 'saved', id: scheduleId });
     if (!range.ok) {
       toast.error(range.reason);
       return;
@@ -304,6 +367,67 @@ const ScheduleBuilder = ({
     }
   }, [savedSchedules, resolveRange]);
 
+  // ── Faculty pre-assignment & conflict preview ─────────────────────────────
+  const timesOverlap = (aStart, aEnd, bStart, bEnd) => {
+    const toMin = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+    return toMin(aStart) < toMin(bEnd) && toMin(bStart) < toMin(aEnd);
+  };
+
+  /** Fetch (or refresh) a faculty's full schedule so drag-hover can warn about
+   *  a real conflict elsewhere without a round-trip per hovered cell. */
+  const loadFacultySchedule = useCallback(async (facultyId) => {
+    if (!facultyId) return;
+    try {
+      const res = await scheduleAPI.getFacultySchedule(facultyId, {
+        academicYear: filters.academicYear,
+        semester: selectedSection?.semester || filters.semester,
+      });
+      const flat = (res.data.data || []).flatMap(s =>
+        (s.timeSlots || []).map(slot => ({
+          day: slot.day,
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+          subjectCode: s.subject?.subjectCode,
+          sectionCode: s.sectionCode,
+        }))
+      );
+      setFacultySchedules(prev => ({ ...prev, [facultyId]: flat }));
+    } catch (err) {
+      console.error('Failed to load faculty schedule:', err);
+    }
+  }, [filters.academicYear, filters.semester, selectedSection?.semester]);
+
+  /** Assign (or clear) the faculty for a subject card in the sidebar. */
+  const assignSubjectFaculty = (subjectId, facultyId) => {
+    setSubjectFaculty(prev => ({ ...prev, [subjectId]: facultyId || null }));
+    if (facultyId && !facultySchedules[facultyId]) loadFacultySchedule(facultyId);
+  };
+
+  /** Display name for a faculty id, or '' when unset/unknown. */
+  const facultyName = useCallback((facultyId) => {
+    if (!facultyId) return '';
+    const f = faculty.find(x => String(x._id) === String(facultyId));
+    if (!f) return 'Assigned';
+    return f.user ? `${f.user.firstName} ${f.user.lastName}` : f.employeeId;
+  }, [faculty]);
+
+  /** First booking for `facultyId` that overlaps this slot from OUTSIDE this
+   *  section's own grid (e.g. another section or program). */
+  const findFacultyConflict = useCallback((facultyId, day, startTime, endTime) => {
+    const entries = facultySchedules[facultyId];
+    if (!entries) return null;
+    return entries.find(e => e.day === day && timesOverlap(startTime, endTime, e.startTime, e.endTime)) || null;
+  }, [facultySchedules]);
+
+  /** Re-pull every faculty schedule we've cached so the conflict preview stays
+   *  in sync after schedules are created/updated/deleted. Without this the
+   *  cache keeps a pre-save snapshot and stops warning about classes saved in
+   *  this very session. */
+  const refreshFacultySchedules = useCallback(async () => {
+    const ids = Object.keys(facultySchedules);
+    if (ids.length) await Promise.all(ids.map(id => loadFacultySchedule(id)));
+  }, [facultySchedules, loadFacultySchedule]);
+
   // ── Load data ──────────────────────────────────────────────────────────────
   // Also re-runs when the section changes, since the grid is scoped to it.
   useEffect(() => { loadData(); }, [filters, selectedSection?.sectionCode]);
@@ -311,12 +435,16 @@ const ScheduleBuilder = ({
   // ── Keyboard shortcuts ─────────────────────────────────────────────────────
   useEffect(() => {
     const onKey = (e) => {
+      // Escape closes the faculty picker; undo/redo stay out of its way while
+      // it is open, since the grid behind it isn't what's being edited.
+      if (e.key === 'Escape' && pickerSubject) { setPickerSubject(null); return; }
+      if (pickerSubject) return;
       if (e.ctrlKey && e.key === 'z' && !e.shiftKey) { e.preventDefault(); handleUndo(); }
       if ((e.ctrlKey && e.key === 'y') || (e.ctrlKey && e.shiftKey && e.key === 'Z')) { e.preventDefault(); handleRedo(); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [historyIndex, history]);
+  }, [historyIndex, history, pickerSubject]);
 
   const loadData = async () => {
     try {
@@ -354,6 +482,14 @@ const ScheduleBuilder = ({
         setFaculty(facRes.data.data || []);
         setRooms(roomRes.data.data || []);
       }
+
+      // Re-fetch the conflict data for every faculty already pinned to a
+      // subject. loadData runs on a section/filter change and after each save,
+      // which are exactly the moments a cached faculty schedule goes stale -
+      // without this, a class saved moments ago is missing from the preview and
+      // a real clash shows green.
+      [...new Set(Object.values(subjectFaculty).filter(Boolean))]
+        .forEach(id => loadFacultySchedule(id));
     } catch (err) {
       console.error('Load data error:', err);
       toast.error(err.response?.data?.message || 'Failed to load schedule data');
@@ -397,8 +533,31 @@ const ScheduleBuilder = ({
   };
 
   // ── Drag ───────────────────────────────────────────────────────────────────
+
+  /**
+   * Replace the browser's default drag ghost with a compact chip.
+   *
+   * The default is a screenshot of the whole source element, which for a
+   * sidebar card is a tall block of subject name, hours and the faculty button -
+   * it covers the very cells you are aiming at.
+   */
+  const setDragChip = (e, label, hours) => {
+    const chip = document.createElement('div');
+    chip.textContent = hours ? `${label} · ${hours}h` : label;
+    chip.style.cssText = [
+      'position:fixed', 'top:-1000px', 'left:-1000px',
+      'padding:6px 12px', 'border-radius:9999px',
+      'background:#111827', 'color:#ffffff',
+      'font:600 12px/1.2 system-ui,-apple-system,sans-serif',
+      'box-shadow:0 8px 20px rgba(0,0,0,.25)', 'white-space:nowrap',
+    ].join(';');
+    document.body.appendChild(chip);
+    // The browser snapshots this synchronously, so it can be removed right after.
+    e.dataTransfer.setDragImage(chip, 14, 16);
+    setTimeout(() => chip.remove(), 0);
+  };
+
   const handleSubjectDragStart = (e, subject) => {
-    setDraggedSubject(subject);
     e.dataTransfer.effectAllowed = 'copy';
     // Mark the payload so a cell can tell a subject drag from a card move
     e.dataTransfer.setData('kind', 'subject');
@@ -406,18 +565,34 @@ const ScheduleBuilder = ({
     // Suggest the subject's remaining hours, but ONLY while the manager hasn't
     // set a duration themselves. Doing this unconditionally meant picking "1h"
     // was silently overwritten the moment a drag started.
-    if (durationTouchedRef.current) return;
-
     const required =
       (subject.lectureHours || 0) + (subject.labHours || 0) || subject.units || 1;
     const placed = scheduledHoursBySubject.get(String(subject._id)) || 0;
     const remaining = Math.max(1, required - placed);
-    setSelectedHours(Math.min(remaining, 3));
+    const hours = durationTouchedRef.current ? selectedHours : Math.min(remaining, 3);
+
+    if (!durationTouchedRef.current) setSelectedHours(hours);
+
+    setDrag({
+      kind: 'subject',
+      subject,
+      facultyId: subjectFaculty[String(subject._id)] || null,
+    });
+    setDragChip(e, subject.subjectCode, hours);
+  };
+
+  /** Begin moving a card already on the grid (pending or saved). */
+  const handleCardDragStart = (e, { kind, id, hours, facultyId, code }) => {
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('kind', kind);
+    e.dataTransfer.setData(kind === 'pending' ? 'pendingId' : 'scheduleId', String(id));
+    setDrag({ kind, id: String(id), hours, facultyId: facultyId || null, code });
+    setDragChip(e, code || 'Class', hours);
   };
 
   const handleDragEnd = () => {
-    setDraggedSubject(null);
-    setHoveredCells([]);
+    setDrag(null);
+    setHover(null);
   };
 
   // ── Duration ───────────────────────────────────────────────────────────────
@@ -442,7 +617,7 @@ const ScheduleBuilder = ({
     const slotIndex = TIME_SLOTS.findIndex(t => t.time.split('-')[0] === slot.startTime);
     if (slotIndex === -1) return;
 
-    const range = resolveRange(slot.day, slotIndex, target, ps.tempId);
+    const range = resolveRange(slot.day, slotIndex, target, { kind: 'pending', id: ps.tempId });
     if (!range.ok) {
       toast.error(range.reason);
       return;
@@ -457,21 +632,56 @@ const ScheduleBuilder = ({
     pushHistory(next);
   }, [pendingSchedules, resolveRange, TIME_SLOTS]);
 
-  const handleDragOver = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; };
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    // Show the "no entry" cursor when the drop would be refused, instead of
+    // inviting a drop that only fails once released.
+    e.dataTransfer.dropEffect = hover && !hover.ok
+      ? 'none'
+      : drag?.kind === 'subject' ? 'copy' : 'move';
+  };
 
   const handleDragEnter = (e, day, slotIndex) => {
     e.preventDefault();
+    if (!drag) return;
+
+    const hours = dragHours;
+
+    // Cells the placement would cover. Computed independently of validity so a
+    // refused range still lights up across its whole span.
     const cells = [];
-    for (let i = 0; i < selectedHours; i++) {
+    for (let i = 0; i < hours; i++) {
       const t = TIME_SLOTS[slotIndex + i];
       if (t && !t.isLunch) cells.push(`${day}-${t.time}`);
     }
-    setHoveredCells(cells);
+
+    // A card being moved must not collide with the spot it currently occupies.
+    const ignore = drag.kind === 'subject' ? null : { kind: drag.kind, id: drag.id };
+    const range = resolveRange(day, slotIndex, hours, ignore);
+
+    if (!range.ok) {
+      setHover({ day, cells, ok: false, reason: range.reason });
+      return;
+    }
+
+    // Is this instructor already teaching elsewhere at this time? Only
+    // answerable once a faculty is attached to whatever is being dragged.
+    const hit = drag.facultyId
+      ? findFacultyConflict(drag.facultyId, day, range.startTime, range.endTime)
+      : null;
+
+    setHover({
+      day,
+      cells,
+      ok: true,
+      hours,
+      conflict: hit ? { startTime: range.startTime, endTime: range.endTime, with: hit } : null,
+    });
   };
 
   const handleDrop = (e, day, slotIndex) => {
     e.preventDefault();
-    setHoveredCells([]);
+    setHover(null);
 
     // Check what kind of item is being dropped
     const kind = e.dataTransfer.getData('kind');
@@ -514,12 +724,30 @@ const ScheduleBuilder = ({
       return;
     }
     const { startTime, endTime } = range;
+    const assignedFacultyId = subjectFaculty[String(draggedSubject._id)] || null;
+
+    // Enforce the cross-section instructor conflict that the grid only
+    // previewed (the orange cell) until now. Soft block: a manager may
+    // legitimately double-book one instructor across sections (e.g. a
+    // combined/NSTP class), so warn and let them confirm rather than refuse.
+    const facultyHit = assignedFacultyId
+      ? findFacultyConflict(assignedFacultyId, day, startTime, endTime)
+      : null;
+    if (facultyHit) {
+      const proceed = window.confirm(
+        `This instructor already teaches ${facultyHit.subjectCode || 'a class'} ` +
+        `(${facultyHit.sectionCode || '—'}) on ${day} ` +
+        `${facultyHit.startTime}–${facultyHit.endTime}.\n\n` +
+        `Schedule them here anyway?`
+      );
+      if (!proceed) return;
+    }
 
     const newSchedule = {
       tempId: nextTempId(),
       subject: draggedSubject._id,
       subjectData: draggedSubject,
-      faculty: null,
+      faculty: assignedFacultyId,
       room: null,
       program: filters.program,
       yearLevel: selectedSection?.yearLevel || filters.yearLevel,
@@ -538,7 +766,11 @@ const ScheduleBuilder = ({
     const next = [...pendingSchedules, newSchedule];
     setPendingSchedules(next);
     pushHistory(next);
-    toast.success(`Added ${draggedSubject.subjectCode} (${selectedHours}h) — assign faculty & room`);
+    toast.success(
+      assignedFacultyId
+        ? `Added ${draggedSubject.subjectCode} (${selectedHours}h) — assign room`
+        : `Added ${draggedSubject.subjectCode} (${selectedHours}h) — assign faculty & room`
+    );
   };
 
   const removePending = (tempId) => {
@@ -620,6 +852,7 @@ const ScheduleBuilder = ({
       setHistory([]);
       setHistoryIndex(-1);
       await loadData();
+      await refreshFacultySchedules();
       onAssignmentChange?.();
     } catch (err) {
       const data = err.response?.data;
@@ -664,7 +897,8 @@ const ScheduleBuilder = ({
       toast.success('Schedule saved');
       removePending(schedule.tempId);
       setEditingSchedule(null);
-      loadData();
+      await loadData();
+      await refreshFacultySchedules();
       onAssignmentChange?.();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to save');
@@ -694,6 +928,7 @@ const ScheduleBuilder = ({
       // No artificial delay: the update response is already committed, so
       // refetching immediately returns the new values.
       await loadData();
+      await refreshFacultySchedules();
       onAssignmentChange?.();
     } catch (err) {
       console.error('Update error:', err);
@@ -710,7 +945,8 @@ const ScheduleBuilder = ({
       await scheduleAPI.delete(scheduleId);
       toast.success('Schedule deleted');
       setEditingSavedSchedule(null);
-      loadData();
+      await loadData();
+      await refreshFacultySchedules();
       onAssignmentChange?.();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to delete schedule');
@@ -862,18 +1098,22 @@ const ScheduleBuilder = ({
             <ol className="flex items-center gap-3 mt-1 text-xs text-gray-500 dark:text-gray-400 flex-wrap">
               <li className="flex items-center gap-1">
                 <span className="w-4 h-4 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-[10px] font-bold flex items-center justify-center">1</span>
-                Pick a duration
+                Assign a faculty to a subject
               </li>
               <li className="flex items-center gap-1">
                 <span className="w-4 h-4 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-[10px] font-bold flex items-center justify-center">2</span>
-                Drag a subject onto a slot
+                Pick a duration
               </li>
               <li className="flex items-center gap-1">
                 <span className="w-4 h-4 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-[10px] font-bold flex items-center justify-center">3</span>
-                Click the card to assign faculty &amp; room
+                Drag it onto a slot
               </li>
               <li className="flex items-center gap-1">
-                <span className="w-4 h-4 rounded-full bg-green-600 text-white text-[10px] font-bold flex items-center justify-center">4</span>
+                <span className="w-4 h-4 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-[10px] font-bold flex items-center justify-center">4</span>
+                Click the card to assign a room
+              </li>
+              <li className="flex items-center gap-1">
+                <span className="w-4 h-4 rounded-full bg-green-600 text-white text-[10px] font-bold flex items-center justify-center">5</span>
                 Save All
               </li>
             </ol>
@@ -984,10 +1224,11 @@ const ScheduleBuilder = ({
           <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-amber-100 border-2 border-amber-400" />Needs faculty/room</div>
           <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-green-100 border-2 border-green-400" />Ready to save</div>
           <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-amber-50 border border-amber-300" />Lunch</div>
-          <span className="text-gray-400">Drag a placed card to move it · drop it on the bin to remove</span>
-          <div className="flex items-center gap-1.5 ml-auto text-gray-400">
-            <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-[10px] border border-gray-200 dark:border-gray-600">Ctrl+Z</kbd>Undo
-            <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-[10px] border border-gray-200 dark:border-gray-600 ml-1">Ctrl+Y</kbd>Redo
+          <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-orange-100 border-2 border-orange-500" />Instructor busy elsewhere</div>
+          <span className="text-gray-500 dark:text-gray-400">Drag a placed card to move it · drop it on the bin to remove</span>
+          <div className="flex items-center gap-1.5 ml-auto text-gray-500 dark:text-gray-400">
+            <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-[10px] text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-600">Ctrl+Z</kbd>Undo
+            <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-[10px] text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-600 ml-1">Ctrl+Y</kbd>Redo
           </div>
         </div>
       </div>
@@ -1048,15 +1289,22 @@ const ScheduleBuilder = ({
                 const isLimitReached = requiredHours > 0 && totalScheduled >= requiredHours;
 
                 const isDragging = draggedSubject?._id === subject._id;
+                const assignedFacultyId = subjectFaculty[subject._id] || '';
+                const hasFaculty = !!assignedFacultyId;
 
                 return (
                   <div
                     key={subject._id}
-                    draggable={!isLimitReached}
+                    draggable={!isLimitReached && hasFaculty}
                     onDragStart={e => {
                       if (isLimitReached) {
                         e.preventDefault();
                         toast.error(`${subject.subjectCode} already has all ${requiredHours}h scheduled`);
+                        return;
+                      }
+                      if (!hasFaculty) {
+                        e.preventDefault();
+                        toast.error(`Assign a faculty to ${subject.subjectCode} before dragging it`);
                         return;
                       }
                       handleSubjectDragStart(e, subject);
@@ -1067,6 +1315,8 @@ const ScheduleBuilder = ({
                         ? 'opacity-40 cursor-not-allowed border-gray-300 dark:border-gray-600'
                         : isDragging
                         ? 'opacity-40 scale-95 border-blue-300 cursor-grab active:cursor-grabbing'
+                        : !hasFaculty
+                        ? `${color.border} opacity-70 cursor-not-allowed`
                         : `${color.border} hover:shadow-md hover:scale-[1.01] cursor-grab active:cursor-grabbing`
                     }`}
                   >
@@ -1098,6 +1348,34 @@ const ScheduleBuilder = ({
                           <span className="text-[9px] text-red-600 dark:text-red-400 font-semibold uppercase">Full</span>
                         )}
                       </div>
+
+                      {/* Faculty must be set here BEFORE the card can be
+                          dragged - this is what lets drag-hover warn about a
+                          real conflict for that specific instructor. Opens the
+                          same ranked picker the assign-room panel uses, so the
+                          choice is made with teaching history in view. */}
+                      <div className="mt-1.5" onMouseDown={e => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          onClick={e => { e.stopPropagation(); setPickerSubject(subject); }}
+                          className={`flex w-full items-center gap-1.5 rounded-md border px-1.5 py-1 text-left text-[10px] transition-colors ${
+                            hasFaculty
+                              ? 'border-gray-200 bg-white text-gray-700 hover:border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200'
+                              : 'border-amber-400 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:border-amber-600 dark:bg-amber-900/20 dark:text-amber-300'
+                          }`}
+                        >
+                          <User className="h-3 w-3 flex-shrink-0" />
+                          <span className="truncate">
+                            {facultyName(assignedFacultyId) || 'Assign faculty first'}
+                          </span>
+                          <ChevronDown className="ml-auto h-3 w-3 flex-shrink-0 opacity-60" />
+                        </button>
+                        {!hasFaculty && !isLimitReached && (
+                          <p className="text-[9px] text-amber-600 dark:text-amber-400 mt-0.5">
+                            Set a faculty to enable dragging
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
@@ -1114,7 +1392,7 @@ const ScheduleBuilder = ({
                 className="mt-2 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-3 text-center hover:border-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
               >
                 <Trash2 className="w-4 h-4 text-gray-400 mx-auto mb-1" />
-                <p className="text-[10px] text-gray-400">Drop a card here to remove it</p>
+                <p className="text-[10px] text-gray-500 dark:text-gray-400">Drop a card here to remove it</p>
               </div>
             </div>
           </div>
@@ -1161,15 +1439,12 @@ const ScheduleBuilder = ({
                             near-zero, so a 2h block never lined up with the two
                             hour labels it was supposed to cover. */}
                         <td
-                          className="px-3 py-2 border-b border-r border-gray-100 dark:border-gray-700 align-top"
-                          style={{ height: ROW_H, minWidth: '96px' }}
+                          className="px-2 py-1 border-b border-r border-gray-100 bg-gray-50/70 align-top dark:border-gray-700 dark:bg-gray-800/60"
+                          style={{ height: ROW_H, width: '56px' }}
                         >
-                          <div className="flex items-center gap-1.5">
-                            <Clock className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                            <span className="text-xs font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                              {fmtTime(slot.time.split('-')[0])}
-                            </span>
-                          </div>
+                          <span className="block text-right text-[10px] font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                            {fmtTime(slot.time.split('-')[0])}
+                          </span>
                         </td>
 
                         {/* Day cells */}
@@ -1181,9 +1456,19 @@ const ScheduleBuilder = ({
                           const existingSchedules = getCellSchedules(day, slot);
                           const pendingHere = getPendingForCell(day, slot);
                           const cellKey = `${day}-${slot.time}`;
-                          const isHovered = hoveredCells.includes(cellKey);
-                          const isDragging = !!draggedSubject;
+                          const isHovered = !!hover?.cells.includes(cellKey);
+                          const isDragging = !!drag;
                           const isEmpty = existingSchedules.length === 0 && pendingHere.length === 0;
+
+                          // Three mutually exclusive hover outcomes, all read
+                          // off the same resolveRange the drop itself runs:
+                          //   blocked  - the drop would be refused, and why
+                          //   clashing - allowed here, but the instructor is
+                          //              already teaching elsewhere then
+                          //   free     - good to drop
+                          const blocked = isHovered && !hover.ok;
+                          const clashing = isHovered && hover.ok && !!hover.conflict;
+                          const free = isHovered && hover.ok && !hover.conflict;
 
                           // rowSpan is the longest class starting in this cell,
                           // clamped so it can't run past the rendered slots (a
@@ -1210,23 +1495,31 @@ const ScheduleBuilder = ({
                               // on every frame.
                               onDragLeave={e => {
                                 if (!e.currentTarget.contains(e.relatedTarget)) {
-                                  setHoveredCells([]);
+                                  setHover(null);
                                 }
                               }}
                               onDrop={e => handleDrop(e, day, slotIndex)}
                               className={`px-1.5 py-1.5 border-b border-r border-gray-100 dark:border-gray-700 last:border-r-0 align-top transition-colors ${
-                                isHovered && isEmpty
-                                  ? 'bg-green-50 dark:bg-green-900/20 ring-2 ring-inset ring-green-500'
-                                  : isHovered && !isEmpty
-                                  // Occupied cells now read as blocked during a
-                                  // drag instead of only carrying a tooltip
+                                blocked
                                   ? 'bg-red-50 dark:bg-red-900/20 ring-2 ring-inset ring-red-400 cursor-not-allowed'
+                                  : clashing
+                                  // Allowed here, but the instructor already has
+                                  // a class elsewhere at this day and time.
+                                  ? 'bg-orange-50 dark:bg-orange-900/20 ring-2 ring-inset ring-orange-500'
+                                  : free
+                                  ? 'bg-green-50 dark:bg-green-900/20 ring-2 ring-inset ring-green-500'
                                   : isDragging && isEmpty
-                                  ? 'bg-blue-50/40 dark:bg-blue-900/10 hover:bg-blue-50 dark:hover:bg-blue-900/20'
+                                  ? 'bg-blue-50/40 dark:bg-blue-900/10'
                                   : ''
                               }`}
                               style={{ minWidth: '110px', height: cellRowSpan * ROW_H }}
-                              title={isDragging && !isEmpty ? 'Already taken — drop on a free slot' : ''}
+                              title={
+                                blocked
+                                  ? hover.reason
+                                  : clashing
+                                  ? `Instructor already has ${hover.conflict.with.subjectCode || 'a class'} (${hover.conflict.with.sectionCode || '—'}) on ${hover.day} ${hover.conflict.with.startTime}-${hover.conflict.with.endTime}`
+                                  : ''
+                              }
                             >
                               {/* Column so multiple cards in one cell share the
                                   available height instead of overflowing it */}
@@ -1241,41 +1534,45 @@ const ScheduleBuilder = ({
                                 const duration = slotDuration(sched._slot);
 
                                 return (
-                                  <div 
+                                  <div
                                     key={sched._id}
                                     draggable
-                                    onDragStart={e => {
-                                      e.dataTransfer.effectAllowed = 'move';
-                                      e.dataTransfer.setData('kind', 'saved');
-                                      e.dataTransfer.setData('scheduleId', String(sched._id));
-                                    }}
+                                    onDragStart={e => handleCardDragStart(e, {
+                                      kind: 'saved',
+                                      id: sched._id,
+                                      hours: duration,
+                                      facultyId: sched.faculty?._id || sched.faculty,
+                                      code,
+                                    })}
+                                    onDragEnd={handleDragEnd}
                                     onClick={() => handleEditSavedSchedule(sched)}
                                     // Stretches to fill the cell. It used to set
                                     // its own pixel height, which fought the row
                                     // heights and broke alignment.
-                                    className={`flex-1 min-h-0 flex flex-col rounded-lg overflow-hidden border ${color.border} cursor-grab active:cursor-grabbing hover:shadow-md transition-all group`}
+                                    // Soft fill with a saturated left edge, the
+                                    // same language as the generator's preview
+                                    // week. The old card spent its top third on
+                                    // a solid header bar, which at this row
+                                    // height left no room for the detail.
+                                    className={`flex-1 min-h-0 flex flex-col overflow-hidden rounded-md border-l-[3px] px-1.5 py-1 ${color.tile} ${color.edge} cursor-grab active:cursor-grabbing transition-all hover:brightness-95 hover:shadow-sm group ${
+                                      drag?.kind === 'saved' && String(drag.id) === String(sched._id) ? 'opacity-40' : ''
+                                    }`}
+                                    title={`${code || 'Class'} · ${sched.faculty?.user ? `${sched.faculty.user.firstName} ${sched.faculty.user.lastName}` : 'No faculty'} · ${sched.roomLabel || 'TBA'} · ${duration}h — click to edit`}
                                   >
-                                    <div className={`${color.bg} px-2 py-1 flex items-center justify-between`}>
-                                      <p className="text-white text-[11px] font-bold truncate">{code || '—'}</p>
-                                      <span className="text-white/70 text-[9px] opacity-0 group-hover:opacity-100 transition-opacity">Click to edit</span>
-                                    </div>
-                                    <div className={`${color.light} px-2 py-1 flex-1 min-h-0 overflow-hidden`}>
-                                      <p className={`${color.text} text-[10px] font-medium truncate`}>
-                                        {sched.faculty?.user ? `${sched.faculty.user.firstName} ${sched.faculty.user.lastName}` : <span className="italic text-gray-400">No faculty</span>}
-                                      </p>
-                                      {/* roomLabel is resolved server-side:
-                                          Schedule.room is a String holding a Room id,
-                                          so it can't be populated. */}
-                                      <p className="text-gray-400 text-[10px] truncate">
-                                        {sched.section} · {sched.roomLabel || 'TBA'}
-                                      </p>
-                                      {duration > 1 && (
-                                        <p className="text-gray-500 text-[9px] mt-1">
-                                          <Clock className="w-2.5 h-2.5 inline mr-0.5" />
-                                          {duration}h
-                                        </p>
-                                      )}
-                                    </div>
+                                    <p className={`${color.ink} text-[11px] font-bold leading-tight truncate`}>
+                                      {code || '—'}
+                                    </p>
+                                    <p className={`${color.ink} text-[9px] leading-tight truncate opacity-80`}>
+                                      {sched.faculty?.user
+                                        ? `${sched.faculty.user.firstName} ${sched.faculty.user.lastName}`
+                                        : <span className="italic">No faculty</span>}
+                                    </p>
+                                    {/* roomLabel is resolved server-side:
+                                        Schedule.room is a String holding a Room id,
+                                        so it can't be populated. */}
+                                    <p className={`${color.ink} text-[9px] leading-tight truncate opacity-60`}>
+                                      {sched.roomLabel || 'TBA'}
+                                    </p>
                                   </div>
                                 );
                               })}
@@ -1291,54 +1588,59 @@ const ScheduleBuilder = ({
                                   <div
                                     key={ps.tempId}
                                     draggable
-                                    onDragStart={e => {
-                                      e.dataTransfer.effectAllowed = 'move';
-                                      e.dataTransfer.setData('kind', 'pending');
-                                      e.dataTransfer.setData('pendingId', String(ps.tempId));
-                                    }}
+                                    onDragStart={e => handleCardDragStart(e, {
+                                      kind: 'pending',
+                                      id: ps.tempId,
+                                      hours,
+                                      facultyId: typeof ps.faculty === 'object' ? ps.faculty?._id : ps.faculty,
+                                      code,
+                                    })}
+                                    onDragEnd={handleDragEnd}
                                     onClick={() => setEditingSchedule(ps)}
-                                    className={`flex-1 min-h-0 flex flex-col rounded-xl overflow-hidden cursor-grab active:cursor-grabbing hover:shadow-md transition-all border-2 relative group ${
-                                      isReady ? 'border-green-400' : 'border-amber-400'
+                                    // Same tile as a saved class, so the week
+                                    // reads as one timetable. Unsaved state is
+                                    // carried by the coloured ring and the
+                                    // status dot rather than a different shape.
+                                    className={`relative flex-1 min-h-0 flex flex-col overflow-hidden rounded-md border-l-[3px] px-1.5 py-1 ${color.tile} ${color.edge} cursor-grab active:cursor-grabbing transition-all hover:brightness-95 hover:shadow-sm group ring-1 ${
+                                      isReady ? 'ring-green-500/70' : 'ring-amber-500/70'
+                                    } ${
+                                      drag?.kind === 'pending' && String(drag.id) === String(ps.tempId) ? 'opacity-40' : ''
                                     }`}
+                                    title={`${code} · ${isReady ? 'ready to save' : 'needs faculty or room'} · ${hours}h ${ps.timeSlots[0]?.startTime}–${ps.timeSlots[0]?.endTime} — click to edit`}
                                   >
-                                    {/* Top stripe */}
-                                    <div className={`${color.bg} px-2 py-1.5 flex items-start justify-between gap-1`}>
-                                      <div className="flex-1 min-w-0">
-                                        <p className="text-white text-[11px] font-bold truncate">{code}</p>
-                                        <p className="text-white/70 text-[10px] truncate">{ps.subjectData?.subjectName}</p>
-                                      </div>
+                                    <div className="flex items-start gap-1">
+                                      <span
+                                        aria-hidden="true"
+                                        className={`mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full ${
+                                          isReady ? 'bg-green-500' : 'bg-amber-500'
+                                        }`}
+                                      />
+                                      <p className={`${color.ink} flex-1 text-[11px] font-bold leading-tight truncate`}>
+                                        {code}
+                                      </p>
                                       <button
                                         onClick={e => { e.stopPropagation(); removePending(ps.tempId); }}
-                                        className="text-white/70 hover:text-white transition-colors flex-shrink-0 mt-0.5"
+                                        aria-label={`Remove ${code}`}
+                                        className={`${color.ink} flex-shrink-0 opacity-0 transition-opacity hover:opacity-100 group-hover:opacity-60`}
                                       >
                                         <X className="w-3 h-3" />
                                       </button>
                                     </div>
-                                    {/* Body */}
-                                    <div className={`${isReady ? 'bg-green-50 dark:bg-green-900/20' : 'bg-amber-50 dark:bg-amber-900/20'} px-2 py-1.5 flex-1 min-h-0 overflow-hidden`}>
-                                      <div className={`flex items-center gap-1 text-[10px] ${isReady ? 'text-green-700 dark:text-green-300' : 'text-amber-700 dark:text-amber-300'} font-medium mb-1`}>
-                                        {isReady ? <CheckCircle className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
-                                        {isReady ? 'Ready to save' : 'Tap to assign'}
-                                      </div>
-                                      {ps.faculty && (
-                                        <p className="text-[10px] text-gray-700 dark:text-gray-300 flex items-center gap-1 truncate">
-                                          <User className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                                          {typeof ps.faculty === 'object'
+                                    <p className={`${color.ink} text-[9px] leading-tight truncate opacity-80`}>
+                                      {ps.faculty
+                                        ? (typeof ps.faculty === 'object'
                                             ? `${ps.faculty?.user?.firstName} ${ps.faculty?.user?.lastName}`
                                             : faculty.find(f => f._id === ps.faculty)?.user
                                               ? `${faculty.find(f => f._id === ps.faculty).user.firstName} ${faculty.find(f => f._id === ps.faculty).user.lastName}`
-                                              : 'Assigned'}
-                                        </p>
-                                      )}
-                                      {ps.room && (
-                                        <p className="text-[10px] text-gray-700 dark:text-gray-300 flex items-center gap-1 truncate">
-                                          <MapPin className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                                          {typeof ps.room === 'object' ? ps.room?.roomNumber : rooms.find(r => r._id === ps.room)?.roomNumber || ps.room}
-                                        </p>
-                                      )}
-                                      <p className="text-[10px] text-gray-500 mt-0.5">{hours}h · {ps.timeSlots[0]?.startTime}–{ps.timeSlots[0]?.endTime}</p>
-                                    </div>
-                                    
+                                              : 'Assigned')
+                                        : <span className="italic">Needs faculty</span>}
+                                    </p>
+                                    <p className={`${color.ink} text-[9px] leading-tight truncate opacity-60`}>
+                                      {ps.room
+                                        ? (typeof ps.room === 'object' ? ps.room?.roomNumber : rooms.find(r => r._id === ps.room)?.roomNumber || ps.room)
+                                        : 'Needs room'}
+                                    </p>
+
                                     {/* Duration stepper.
                                         This replaces a drag-to-resize handle that
                                         could not work: mousedown on a draggable
@@ -1368,16 +1670,37 @@ const ScheduleBuilder = ({
                                 );
                               })}
 
-                              {/* Drop hints while dragging */}
+                              {/* Drop hints while dragging.
+                                  The idle hint is a bare outline now - it used
+                                  to repeat the words "drop here" in every one
+                                  of ~80 empty cells at once. */}
                               {isEmpty && isDragging && !isHovered && (
-                                <div className="flex-1 min-h-0 border-2 border-dashed border-blue-300 dark:border-blue-700 rounded-lg flex items-center justify-center">
-                                  <span className="text-[10px] text-blue-400 font-medium">drop here</span>
+                                <div className="flex-1 min-h-0 border border-dashed border-blue-300/70 dark:border-blue-700/70 rounded-lg" />
+                              )}
+                              {isEmpty && blocked && (
+                                <div className="flex-1 min-h-0 border-2 border-red-400 bg-red-100 dark:bg-red-900/40 rounded-lg flex items-center justify-center px-1 text-center">
+                                  <span className="text-[9px] text-red-700 dark:text-red-300 font-bold leading-tight">
+                                    {/* Only the first clause: the cell is too
+                                        small for the full sentence, which the
+                                        tooltip carries. */}
+                                    {hover.reason.split('—')[0].trim()}
+                                  </span>
                                 </div>
                               )}
-                              {isEmpty && isHovered && (
+                              {isEmpty && clashing && (
+                                <div className="flex-1 min-h-0 border-2 border-orange-500 bg-orange-100 dark:bg-orange-900/40 rounded-lg flex flex-col items-center justify-center px-1 text-center">
+                                  <span className="text-[9px] text-orange-800 dark:text-orange-200 font-bold leading-tight">
+                                    ⚠ Instructor busy
+                                  </span>
+                                  <span className="text-[8px] text-orange-700 dark:text-orange-300 leading-tight">
+                                    {hover.conflict.with.subjectCode} · {hover.conflict.with.sectionCode}
+                                  </span>
+                                </div>
+                              )}
+                              {isEmpty && free && (
                                 <div className="flex-1 min-h-0 border-2 border-green-500 bg-green-100 dark:bg-green-900/40 rounded-lg flex items-center justify-center">
                                   <span className="text-[10px] text-green-700 dark:text-green-300 font-bold">
-                                    {selectedHours}h here
+                                    {hover.hours}h here
                                   </span>
                                 </div>
                               )}
@@ -1444,6 +1767,98 @@ const ScheduleBuilder = ({
           )}
         </div>
       </div>
+
+      {/* Pre-drag faculty picker, opened from a subject card */}
+      {pickerSubject && (() => {
+        const code = pickerSubject.subjectCode;
+        const color = getSubjectColor(code);
+        const chosen = subjectFaculty[pickerSubject._id] || '';
+
+        return (
+          <div
+            className="fixed inset-0 z-[100001] flex items-center justify-center p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Assign faculty to ${code}`}
+          >
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" onClick={() => setPickerSubject(null)} />
+
+            <div className="relative flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-gray-50 shadow-2xl dark:bg-gray-900">
+              <div className={`${color.bg} flex-shrink-0 px-6 pb-5 pt-6`}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="mb-1 text-xs font-medium text-white/70">Assign faculty before scheduling</p>
+                    <h2 className="break-words text-2xl font-bold text-white">{code}</h2>
+                    <p className="mt-0.5 line-clamp-2 text-sm text-white/85">{pickerSubject.subjectName}</p>
+                  </div>
+                  <button
+                    onClick={() => setPickerSubject(null)}
+                    aria-label="Close"
+                    className="rounded-full bg-white/15 p-2 text-white transition-colors hover:bg-white/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Mirrors the status bar of the assign-room panel, so the two
+                  steps of the flow read the same way. */}
+              <div
+                className={`flex flex-shrink-0 items-center gap-2 border-b px-6 py-2.5 text-sm ${
+                  chosen
+                    ? 'border-green-100 bg-green-50 dark:border-green-800 dark:bg-green-900/20'
+                    : 'border-amber-100 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20'
+                }`}
+              >
+                {chosen ? (
+                  <>
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    <span className="font-medium text-green-700 dark:text-green-300">
+                      {facultyName(chosen)} — ready to drag onto the grid
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <AlertCircle className="h-4 w-4 text-amber-600" />
+                    <span className="font-medium text-amber-700 dark:text-amber-300">
+                      Pick a faculty to enable dragging
+                    </span>
+                  </>
+                )}
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-5">
+                <FacultyPicker
+                  faculty={faculty}
+                  selectedFacultyId={chosen}
+                  onSelect={(id) => assignSubjectFaculty(pickerSubject._id, id)}
+                  subjectId={pickerSubject._id}
+                  subjectCode={code}
+                  subjectName={pickerSubject.subjectName}
+                  hint={chosen ? 'Faculty selected' : 'Required before dragging'}
+                  requiredWarning={!chosen}
+                />
+              </div>
+
+              <div className="flex flex-shrink-0 items-center gap-3 border-t border-gray-200 bg-white px-5 py-4 dark:border-gray-700 dark:bg-gray-800">
+                <button
+                  onClick={() => assignSubjectFaculty(pickerSubject._id, null)}
+                  disabled={!chosen}
+                  className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:opacity-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+                >
+                  Clear
+                </button>
+                <button
+                  onClick={() => setPickerSubject(null)}
+                  className="flex-1 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Edit modal for pending schedules */}
       {editingSchedule && (

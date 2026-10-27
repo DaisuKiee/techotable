@@ -12,6 +12,21 @@
       content="AI-Integrated Faculty Timetabling System for CoTE"
     />
     <title>CoTE Timetabling System | CTU Daanbantayan</title>
+    <!--
+      Apply the saved theme before the app loads. Without this the page paints
+      light first and flips to dark once React starts. Mirrors ThemeContext,
+      which owns the 'theme' key in localStorage.
+    -->
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('theme');
+          var dark = t === 'dark' ||
+            (t === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          if (dark) document.documentElement.classList.add('dark');
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this application.</noscript>

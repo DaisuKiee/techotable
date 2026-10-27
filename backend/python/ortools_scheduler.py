@@ -374,22 +374,23 @@ class TimetableOptimizer:
         # to avoid making the schedule infeasible
         # NOTE: Only applies when generating first-year schedules; ignore for 2nd-4th year
         if self.year_level == 1 and 'Saturday' in self.days:
+            import sys
             sat_idx = self.days.index('Saturday')
             slot_0800_idx = next((i for i, s in enumerate(self.slots) if s.get('start') == '08:00'), None)
             if slot_0800_idx is not None:
                 nstp_target_start = sat_idx * self.slots_per_day + slot_0800_idx
                 
-                print(f"[DEBUG] NSTP Saturday constraint setup (Year {self.year_level}):")
-                print(f"  - Saturday index: {sat_idx}")
-                print(f"  - 08:00 slot index: {slot_0800_idx}")
-                print(f"  - Target start slot: {nstp_target_start}")
+                print(f"[DEBUG] NSTP Saturday constraint setup (Year {self.year_level}):", file=sys.stderr)
+                print(f"  - Saturday index: {sat_idx}", file=sys.stderr)
+                print(f"  - 08:00 slot index: {slot_0800_idx}", file=sys.stderr)
+                print(f"  - Target start slot: {nstp_target_start}", file=sys.stderr)
                 
                 # Soft constraint: prefer first-year NSTP on Saturday 8:00 (add to objective rather than forcing)
                 nstp_count = 0
                 for c_idx, klass in enumerate(self.classes):
                     if klass.get('is_nstp'):  # Only first-year NSTP has is_nstp=True
                         nstp_count += 1
-                        print(f"  - Applying soft Saturday constraint to: {klass['subject'].get('subject_code')}")
+                        print(f"  - Applying soft Saturday constraint to: {klass['subject'].get('subject_code')}", file=sys.stderr)
                         for b_idx in range(len(klass['blocks'])):
                             # Create a boolean variable: true if scheduled at target time
                             is_at_target = self.model.NewBoolVar(f'nstp_sat_c{c_idx}_b{b_idx}')
@@ -401,9 +402,11 @@ class TimetableOptimizer:
                             self.nstp_penalties.append(is_at_target.Not())
                 
                 if nstp_count == 0:
-                    print(f"  - No NSTP subjects found in first-year classes")
+                    import sys
+                    print(f"  - No NSTP subjects found in first-year classes", file=sys.stderr)
         elif self.year_level != 1:
-            print(f"[DEBUG] NSTP Saturday constraint SKIPPED (Year {self.year_level} - not first year)")
+            import sys
+            print(f"[DEBUG] NSTP Saturday constraint SKIPPED (Year {self.year_level} - not first year)", file=sys.stderr)
 
         # Exactly one teacher and one room per class
         for c_idx, klass in enumerate(self.classes):
@@ -594,24 +597,25 @@ class TimetableOptimizer:
         capacity_hours = teaching_slots * len(self.days)
         
         # Debug: Log what we're working with
-        print(f"[DEBUG] Preflight Check:")
-        print(f"  - Year Level: {self.year_level}")
-        print(f"  - Days: {len(self.days)} ({', '.join(self.days)})")
-        print(f"  - Slots per day: {self.slots_per_day}")
-        print(f"  - Teaching slots (excluding breaks): {teaching_slots}")
-        print(f"  - Total capacity hours: {capacity_hours}")
-        print(f"  - Total classes to schedule: {len(self.classes)}")
-        print(f"  - Total faculty: {len(self.faculty)}")
-        print(f"  - Total rooms: {len(self.rooms)}")
+        import sys
+        print(f"[DEBUG] Preflight Check:", file=sys.stderr)
+        print(f"  - Year Level: {self.year_level}", file=sys.stderr)
+        print(f"  - Days: {len(self.days)} ({', '.join(self.days)})", file=sys.stderr)
+        print(f"  - Slots per day: {self.slots_per_day}", file=sys.stderr)
+        print(f"  - Teaching slots (excluding breaks): {teaching_slots}", file=sys.stderr)
+        print(f"  - Total capacity hours: {capacity_hours}", file=sys.stderr)
+        print(f"  - Total classes to schedule: {len(self.classes)}", file=sys.stderr)
+        print(f"  - Total faculty: {len(self.faculty)}", file=sys.stderr)
+        print(f"  - Total rooms: {len(self.rooms)}", file=sys.stderr)
         
         # Debug: Show NSTP classes
         nstp_classes = [k for k in self.classes if k.get('is_nstp')]
         if nstp_classes:
-            print(f"  - First-year NSTP classes: {len(nstp_classes)}")
+            print(f"  - First-year NSTP classes: {len(nstp_classes)}", file=sys.stderr)
             for k in nstp_classes:
-                print(f"    * {k['subject'].get('subject_code')} - Section {k['section'].get('letter')} - {sum(k['blocks'])} hours")
+                print(f"    * {k['subject'].get('subject_code')} - Section {k['section'].get('letter')} - {sum(k['blocks'])} hours", file=sys.stderr)
         elif self.year_level == 1:
-            print(f"  - No NSTP classes found (expected for first year)")
+            print(f"  - No NSTP classes found (expected for first year)", file=sys.stderr)
 
         required_by_section = defaultdict(int)
         for klass in self.classes:

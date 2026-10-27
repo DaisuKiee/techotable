@@ -109,7 +109,7 @@ const Chip = ({ children, onRemove }) => (
 const ShiftBadge = ({ shift, solid = false }) => {
   const day = shift === 'Day';
   const cls = solid
-    ? day ? 'bg-yellow-500 text-white' : 'bg-indigo-600 text-white'
+    ? day ? 'bg-amber-600 text-white' : 'bg-indigo-600 text-white'
     : day
     ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300'
     : 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300';
@@ -711,7 +711,7 @@ const SectionPage = () => {
             onClick={() => toggleShift('Day')}
             aria-pressed={filterShift === 'Day'}
             title="Filter Day shift"
-            className={`text-left bg-yellow-500 text-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all ${
+            className={`text-left bg-amber-600 text-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all ${
               filterShift === 'Day' ? 'ring-4 ring-yellow-300 dark:ring-yellow-700' : ''
             }`}
           >

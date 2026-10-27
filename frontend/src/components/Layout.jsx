@@ -5,13 +5,60 @@ import {
   Users, BookOpen, DoorOpen, Calendar, 
   Brain, GraduationCap, LogOut, Menu, X,
   User, Settings, LayoutGrid,
-  FileText, ClipboardList, HelpCircle,
-  Layers, Home, Activity
+  FileText, ClipboardList,
+  Layers, Home, Activity, ChevronDown, Sun, Moon
 } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
 import ctuLogo from '../assets/images/logos/ctulogo.png';
 import AnimatedUserCheck from './AnimatedUserCheck';
 import AIChatBubble from './AIChatBubble';
 import NotificationBell from './NotificationBell';
+
+/** Nav categories the user has collapsed. Remembered between visits. */
+const COLLAPSED_GROUPS_KEY = 'layout.collapsedNavGroups';
+
+const readCollapsedGroups = () => {
+  try {
+    const raw = localStorage.getItem(COLLAPSED_GROUPS_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    // Private windows and blocked site data both throw here; an empty list
+    // just means every category starts open.
+    return [];
+  }
+};
+
+/**
+ * Light/dark switch for the header. The theme used to be reachable only from
+ * Settings, so checking a page in the other mode meant a detour every time.
+ */
+const ThemeToggle = () => {
+  const { resolvedTheme, toggleTheme } = useTheme();
+  const dark = resolvedTheme === 'dark';
+  return (
+    <button
+      type="button"
+      onClick={toggleTheme}
+      aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
+      title={dark ? 'Light mode' : 'Dark mode'}
+      className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg text-gray-600 transition-colors hover:bg-gray-100 dark:text-dark-text-secondary dark:hover:bg-dark-hover"
+    >
+      {/* Both icons are rendered and swapped with a rotate, so the switch
+          animates rather than popping. */}
+      <Sun
+        className={`absolute h-5 w-5 transition-all duration-300 motion-reduce:transition-none ${
+          dark ? 'rotate-0 scale-100 opacity-100' : '-rotate-90 scale-50 opacity-0'
+        }`}
+      />
+      <Moon
+        className={`absolute h-5 w-5 transition-all duration-300 motion-reduce:transition-none ${
+          dark ? 'rotate-90 scale-50 opacity-0' : 'rotate-0 scale-100 opacity-100'
+        }`}
+      />
+    </button>
+  );
+};
 
 const Layout = ({ children }) => {
   const { user, logout } = useAuth();
@@ -19,6 +66,7 @@ const Layout = ({ children }) => {
   const location = useLocation();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
+  const [collapsedGroups, setCollapsedGroups] = useState(readCollapsedGroups);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [mobileUserMenuOpen, setMobileUserMenuOpen] = useState(false);
   const userMenuRef = useRef(null);
@@ -51,6 +99,15 @@ const Layout = ({ children }) => {
     setMobileUserMenuOpen(false);
   }, [location.pathname]);
 
+  // Remember which categories are collapsed
+  useEffect(() => {
+    try {
+      localStorage.setItem(COLLAPSED_GROUPS_KEY, JSON.stringify(collapsedGroups));
+    } catch {
+      // Not worth surfacing: the nav still works, it just won't remember.
+    }
+  }, [collapsedGroups]);
+
   // Get avatar URL
   const getAvatarUrl = () => {
     if (user?.profilePicture) {
@@ -66,47 +123,100 @@ const Layout = ({ children }) => {
     navigate('/');
   };
 
-  // Navigation items based on role
-  const getNavItems = () => {
+  /**
+   * Navigation grouped by what each destination is *for*, rather than one flat
+   * list of eleven links. A group with `label: null` renders without a heading -
+   * used for Dashboard, and for the short faculty/student menus where
+   * categorising three items would add more chrome than it removes.
+   */
+  const getNavGroups = () => {
     if (user?.role === 'admin' || user?.role === 'scheduling_officer' || user?.role === 'program_manager') {
       return [
-        { name: 'Dashboard', path: '/dashboard', icon: Home },
-        { name: 'Faculty', path: '/faculty', icon: Users },
-        { name: 'Pending Approvals', path: '/faculty/approvals', icon: AnimatedUserCheck },
-        { name: 'Students', path: '/students', icon: GraduationCap },
-        { name: 'Subjects', path: '/subjects', icon: BookOpen },
-        { name: 'Rooms', path: '/rooms', icon: DoorOpen },
-        { name: 'Sections', path: '/sections', icon: Layers },
-        { name: 'Schedules', path: '/schedules', icon: Calendar },
-        { name: 'Class Spaces', path: '/classes', icon: FileText },
-        { name: 'AI Insights', path: '/ai', icon: Brain },
-        { name: 'Activity Log', path: '/activity', icon: Activity }
+        {
+          label: null,
+          items: [{ name: 'Dashboard', path: '/dashboard', icon: Home }],
+        },
+        // Scheduling leads: building and publishing timetables is what the
+        // system is for, so it sits closest to Dashboard.
+        {
+          label: 'Scheduling',
+          items: [
+            { name: 'Schedules', path: '/schedules', icon: Calendar },
+            { name: 'Class Spaces', path: '/classes', icon: FileText },
+          ],
+        },
+        {
+          label: 'People',
+          items: [
+            { name: 'Faculty', path: '/faculty', icon: Users },
+            { name: 'Pending Approvals', path: '/faculty/approvals', icon: AnimatedUserCheck },
+            { name: 'Students', path: '/students', icon: GraduationCap },
+          ],
+        },
+        {
+          label: 'Academics',
+          items: [
+            { name: 'Subjects', path: '/subjects', icon: BookOpen },
+            { name: 'Sections', path: '/sections', icon: Layers },
+            { name: 'Rooms', path: '/rooms', icon: DoorOpen },
+          ],
+        },
+        {
+          label: 'System',
+          items: [
+            { name: 'AI Insights', path: '/ai', icon: Brain },
+            { name: 'Activity Log', path: '/activity', icon: Activity },
+          ],
+        },
       ];
     }
 
-    if (user?.role === 'faculty') {
-      const facultyId = user?.facultyProfile?._id || user?.facultyProfile;
+    if (user?.role === 'faculty' || user?.role === 'student') {
       return [
-        { name: 'Dashboard', path: '/dashboard', icon: Home },
-        { name: 'My Classes', path: '/classes', icon: GraduationCap },
-        { name: 'My Schedule', path: '/schedules', icon: Calendar }
+        {
+          label: null,
+          items: [
+            { name: 'Dashboard', path: '/dashboard', icon: Home },
+            { name: 'My Classes', path: '/classes', icon: GraduationCap },
+            { name: 'My Schedule', path: '/schedules', icon: Calendar },
+          ],
+        },
       ];
     }
 
-    if (user?.role === 'student') {
-      return [
-        { name: 'Dashboard', path: '/dashboard', icon: Home },
-        { name: 'My Classes', path: '/classes', icon: GraduationCap },
-        { name: 'My Schedule', path: '/schedules', icon: Calendar }
-      ];
-    }
-
-    return [{ name: 'Dashboard', path: '/dashboard', icon: Home }];
+    return [{ label: null, items: [{ name: 'Dashboard', path: '/dashboard', icon: Home }] }];
   };
 
-  const navItems = getNavItems();
+  const navGroups = getNavGroups();
+  const navItems = navGroups.flatMap(group => group.items);
   const isActive = (path) => location.pathname === path;
   const currentPage = navItems.find(item => isActive(item.path))?.name || 'Dashboard';
+
+  /** Does this group contain the page currently being viewed? */
+  const groupHasActive = (group) => group.items.some(item => isActive(item.path));
+
+  /**
+   * Whether a group's links are shown.
+   *
+   * Collapsed groups are stored rather than open ones, so the default - nothing
+   * stored - leaves everything open and no link is hidden on first use.
+   *
+   * The choice applies in both widths: a group folded away while the sidebar is
+   * expanded stays folded on the minimised rail, where its icons give way to a
+   * chevron marking the hidden set.
+   *
+   * One case still overrides it - the group holding the current page, which
+   * stays open so the active marker is never hidden behind a closed header.
+   */
+  const isGroupOpen = (group) =>
+    !group.label ||
+    groupHasActive(group) ||
+    !collapsedGroups.includes(group.label);
+
+  const toggleGroup = (label) =>
+    setCollapsedGroups(prev =>
+      prev.includes(label) ? prev.filter(l => l !== label) : [...prev, label]
+    );
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#060913]">
@@ -129,6 +239,7 @@ const Layout = ({ children }) => {
           </div>
 
           <div className="flex items-center gap-2">
+            <ThemeToggle />
             {/* Notification Bell for Mobile */}
             <NotificationBell />
             
@@ -208,57 +319,101 @@ const Layout = ({ children }) => {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto custom-scrollbar">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const active = isActive(item.path);
-            
+        <nav className="flex-1 px-3 py-6 overflow-y-auto custom-scrollbar">
+          {navGroups.map((group, groupIndex) => {
+            const open = isGroupOpen(group);
+            const panelId = `nav-group-${groupIndex}`;
+
             return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={`flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all duration-200 group relative ${
-                  active
-                    ? 'bg-yellow-400 dark:bg-dark-blue-hover text-blue-900 dark:text-white shadow-lg shadow-yellow-500/30 dark:shadow-none'
-                    : 'text-blue-100 dark:text-dark-text-secondary hover:bg-white/10 dark:hover:bg-dark-hover'
+            <div key={group.label || `group-${groupIndex}`} className={groupIndex > 0 ? 'mt-3' : ''}>
+              {/* Group heading. The rail is only 80px wide when collapsed, far
+                  too narrow for a word, so the heading cross-fades into a short
+                  rule that keeps the grouping legible either way. The row holds
+                  a fixed height so nothing shifts as the sidebar animates. */}
+              {group.label && (
+                <div className="relative h-6 mb-0.5">
+                  <button
+                    type="button"
+                    onClick={() => toggleGroup(group.label)}
+                    aria-expanded={open}
+                    aria-controls={panelId}
+                    // Only a control while the labels are actually readable;
+                    // on the icon rail it is inert and invisible.
+                    tabIndex={sidebarExpanded ? 0 : -1}
+                    className={`absolute inset-0 flex items-center justify-between rounded-lg px-4 text-[10px] font-semibold uppercase tracking-wider text-blue-200/80 dark:text-dark-text-muted transition-opacity duration-200 hover:text-white hover:bg-white/5 dark:hover:bg-dark-hover ${
+                      sidebarExpanded ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                    }`}
+                  >
+                    <span className="whitespace-nowrap">{group.label}</span>
+                    <ChevronDown
+                      className={`w-3.5 h-3.5 flex-shrink-0 transition-transform duration-200 ${
+                        open ? '' : '-rotate-90'
+                      }`}
+                    />
+                  </button>
+                  {/* Minimised rail. An open group is just separated by a
+                      rule; a closed one shows a chevron instead, so a folded
+                      category still reads as "more behind here" rather than
+                      silently missing icons. */}
+                  <span
+                    aria-hidden="true"
+                    className={`absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center transition-opacity duration-200 ${
+                      sidebarExpanded ? 'opacity-0' : 'opacity-100'
+                    }`}
+                  >
+                    {open ? (
+                      <span className="block h-px w-8 rounded-full bg-white/25 dark:bg-dark-border-subtle" />
+                    ) : (
+                      <ChevronDown className="h-3.5 w-3.5 -rotate-90 text-blue-200/70 dark:text-dark-text-muted" />
+                    )}
+                  </span>
+                </div>
+              )}
+
+              <div
+                id={panelId}
+                className={`space-y-1 overflow-hidden transition-all duration-300 ease-in-out ${
+                  open ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
                 }`}
               >
-                <Icon 
-                  className={`w-5 h-5 flex-shrink-0 transition-transform duration-200 ${
-                    active ? 'scale-110' : 'group-hover:scale-110'
-                  }`}
-                />
-                <span className={`font-medium text-sm whitespace-nowrap overflow-hidden transition-all duration-300 ${
-                  sidebarExpanded ? 'w-auto opacity-100' : 'w-0 opacity-0'
-                }`}>
-                  {item.name}
-                </span>
-                
-                {/* Active Indicator */}
-                {active && (
-                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-yellow-500 dark:bg-dark-blue-primary rounded-r-full" />
-                )}
-              </Link>
+                {group.items.map((item) => {
+                  const Icon = item.icon;
+                  const active = isActive(item.path);
+
+                  return (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      title={sidebarExpanded ? undefined : item.name}
+                      className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 group relative ${
+                        active
+                          ? 'bg-yellow-400 dark:bg-dark-blue-hover text-blue-900 dark:text-white shadow-lg shadow-yellow-500/30 dark:shadow-none'
+                          : 'text-blue-100 dark:text-dark-text-secondary hover:bg-white/10 dark:hover:bg-dark-hover'
+                      }`}
+                    >
+                      <Icon
+                        className={`w-5 h-5 flex-shrink-0 transition-transform duration-200 ${
+                          active ? 'scale-110' : 'group-hover:scale-110'
+                        }`}
+                      />
+                      <span className={`font-medium text-sm whitespace-nowrap overflow-hidden transition-all duration-300 ${
+                        sidebarExpanded ? 'w-auto opacity-100' : 'w-0 opacity-0'
+                      }`}>
+                        {item.name}
+                      </span>
+
+                      {/* Active Indicator */}
+                      {active && (
+                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-yellow-500 dark:bg-dark-blue-primary rounded-r-full" />
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
             );
           })}
         </nav>
-
-        {/* Help Card */}
-        <div className={`mx-3 mb-4 transition-all duration-300 overflow-hidden ${
-          sidebarExpanded ? 'max-h-32 opacity-100' : 'max-h-0 opacity-0'
-        }`}>
-          <div className="bg-white/10 dark:bg-dark-elevated backdrop-blur-sm rounded-xl p-4 border border-white/20 dark:border-dark-border-subtle">
-            <div className="flex items-start gap-3">
-              <HelpCircle className="w-5 h-5 text-blue-200 dark:text-dark-blue-info flex-shrink-0 mt-0.5" />
-              <div>
-                <h3 className="text-white dark:text-dark-text-primary font-semibold text-sm mb-1">Need Help?</h3>
-                <p className="text-blue-200 dark:text-dark-text-muted text-xs leading-relaxed">
-                  Contact IT support for assistance
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
 
         {/* User Profile */}
         <div ref={userMenuRef} className="p-4 border-t border-blue-500/30 dark:border-dark-border-subtle relative">
@@ -385,29 +540,62 @@ const Layout = ({ children }) => {
             </div>
           </div>
 
-          {/* Navigation */}
-          <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const active = isActive(item.path);
-              
+          {/* Navigation. Always full width here, so the group headings are
+              plain text - no collapsed rail to account for. */}
+          <nav className="flex-1 px-3 py-4 overflow-y-auto">
+            {navGroups.map((group, groupIndex) => {
+              const open = isGroupOpen(group);
+              const panelId = `mobile-nav-group-${groupIndex}`;
+
               return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  onClick={() => setMobileSidebarOpen(false)}
-                  className={`flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all duration-200 relative ${
-                    active
-                      ? 'bg-yellow-400 dark:bg-dark-blue-hover text-blue-900 dark:text-white shadow-lg shadow-yellow-500/30 dark:shadow-none'
-                      : 'text-blue-100 dark:text-dark-text-secondary hover:bg-white/10 dark:hover:bg-dark-hover'
+              <div key={group.label || `group-${groupIndex}`} className={groupIndex > 0 ? 'mt-3' : ''}>
+                {group.label && (
+                  <button
+                    type="button"
+                    onClick={() => toggleGroup(group.label)}
+                    aria-expanded={open}
+                    aria-controls={panelId}
+                    className="flex w-full items-center justify-between rounded-lg px-4 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-blue-200/80 dark:text-dark-text-muted transition-colors hover:text-white hover:bg-white/5 dark:hover:bg-dark-hover"
+                  >
+                    <span>{group.label}</span>
+                    <ChevronDown
+                      className={`w-3.5 h-3.5 flex-shrink-0 transition-transform duration-200 ${
+                        open ? '' : '-rotate-90'
+                      }`}
+                    />
+                  </button>
+                )}
+                <div
+                  id={panelId}
+                  className={`space-y-1 overflow-hidden transition-all duration-300 ease-in-out ${
+                    open ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
                   }`}
                 >
-                  <Icon className="w-5 h-5 flex-shrink-0" />
-                  <span className="font-medium text-sm">{item.name}</span>
-                  {active && (
-                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-yellow-500 dark:bg-dark-blue-primary rounded-r-full" />
-                  )}
-                </Link>
+                  {group.items.map((item) => {
+                    const Icon = item.icon;
+                    const active = isActive(item.path);
+
+                    return (
+                      <Link
+                        key={item.path}
+                        to={item.path}
+                        onClick={() => setMobileSidebarOpen(false)}
+                        className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 relative ${
+                          active
+                            ? 'bg-yellow-400 dark:bg-dark-blue-hover text-blue-900 dark:text-white shadow-lg shadow-yellow-500/30 dark:shadow-none'
+                            : 'text-blue-100 dark:text-dark-text-secondary hover:bg-white/10 dark:hover:bg-dark-hover'
+                        }`}
+                      >
+                        <Icon className="w-5 h-5 flex-shrink-0" />
+                        <span className="font-medium text-sm">{item.name}</span>
+                        {active && (
+                          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-yellow-500 dark:bg-dark-blue-primary rounded-r-full" />
+                        )}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
               );
             })}
           </nav>
@@ -457,8 +645,9 @@ const Layout = ({ children }) => {
               </p>
             </div>
             
-            {/* Notification Bell */}
-            <div>
+            {/* Theme switch + notification bell */}
+            <div className="flex items-center gap-1">
+              <ThemeToggle />
               <NotificationBell />
             </div>
           </div>

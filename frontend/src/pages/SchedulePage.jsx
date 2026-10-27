@@ -29,10 +29,12 @@ const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 const VIEW_MODE_KEY = 'schedulePage.viewMode';
 const BATCH_SIZE = 5; // concurrent requests for bulk actions
 
+// `countKey` indexes into `stats`, so the control carries its own counts. They
+// used to sit in a separate strip above that wrote the same statusFilter state.
 const STATUS_FILTERS = [
-  { value: 'all', label: 'All' },
-  { value: 'published', label: 'Published' },
-  { value: 'draft', label: 'Draft' }
+  { value: 'all', label: 'All', countKey: 'total' },
+  { value: 'published', label: 'Published', countKey: 'published' },
+  { value: 'draft', label: 'Draft', countKey: 'draft' }
 ];
 
 const SELECT_CLASS =
@@ -848,12 +850,35 @@ const SchedulePage = () => {
   return (
     <Layout>
       <div className="p-4 md:p-6 max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-2 gap-3">
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">
-              Schedule Management
-            </h1>
+        {/* Page actions.
+            The app header already names this page, so the old <h1> plus its
+            subtitle only repeated it - and together with the stats strip they
+            pushed the table halfway down the viewport. What replaces them is a
+            single line that says what you are actually looking at. */}
+        <div className="mb-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {schedulesLoading ? (
+                'Loading schedules…'
+              ) : (
+                <>
+                  <span className="font-semibold text-gray-900 dark:text-white tabular-nums">
+                    {stats.total}
+                  </span>{' '}
+                  schedule{stats.total === 1 ? '' : 's'}
+                  <span className="mx-1.5 text-gray-300 dark:text-gray-500">·</span>
+                  {filters.academicYear}
+                  <span className="mx-1.5 text-gray-300 dark:text-gray-500">·</span>
+                  {filters.semester === 1 ? '1st' : '2nd'} Sem
+                  {filters.program && (
+                    <>
+                      <span className="mx-1.5 text-gray-300 dark:text-gray-500">·</span>
+                      {filters.program}
+                    </>
+                  )}
+                </>
+              )}
+            </p>
             <div className="flex gap-2">
               {canEditSchedules && (
                 <>
@@ -915,66 +940,11 @@ const SchedulePage = () => {
               </div>
             </div>
           </div>
-          <p className="text-gray-600 dark:text-gray-400 text-sm md:text-base">
-            {canEditSchedules ? 'Manage class schedules and timetables' : 'View class schedules'}
-          </p>
-        </div>
-
-        {/* Compact stats strip. Clicking Published / Draft filters the list. */}
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mb-4 px-4 py-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
-          <button
-            type="button"
-            onClick={() => setStatusFilter('all')}
-            className={`inline-flex items-center gap-2 text-sm rounded-md px-1 ${statusFilter === 'all' ? 'ring-1 ring-blue-300' : 'hover:underline'}`}
-          >
-            <CalendarIcon className="w-4 h-4 text-blue-600" />
-            <span className="font-bold text-gray-900 dark:text-white">{stats.total}</span>
-            <span className="text-gray-500 dark:text-gray-400">in view</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setStatusFilter(statusFilter === 'published' ? 'all' : 'published')}
-            className={`inline-flex items-center gap-2 text-sm rounded-md px-1 ${statusFilter === 'published' ? 'ring-1 ring-green-400' : 'hover:underline'}`}
-          >
-            <CheckCircle className="w-4 h-4 text-green-600" />
-            <span className="font-bold text-gray-900 dark:text-white">{stats.published}</span>
-            <span className="text-gray-500 dark:text-gray-400">published</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setStatusFilter(statusFilter === 'draft' ? 'all' : 'draft')}
-            className={`inline-flex items-center gap-2 text-sm rounded-md px-1 ${statusFilter === 'draft' ? 'ring-1 ring-orange-400' : 'hover:underline'}`}
-          >
-            <FileText className="w-4 h-4 text-orange-500" />
-            <span className="font-bold text-gray-900 dark:text-white">{stats.draft}</span>
-            <span className="text-gray-500 dark:text-gray-400">draft</span>
-          </button>
-          {stats.conflicts > 0 && (
-            <button
-              onClick={() => setShowConflictWarning(true)}
-              className="inline-flex items-center gap-2 text-sm text-red-600 dark:text-red-400 hover:underline"
-            >
-              <AlertTriangle className="w-4 h-4" />
-              <span className="font-bold">{stats.conflicts}</span>
-              <span>conflict{stats.conflicts === 1 ? '' : 's'}</span>
-            </button>
-          )}
-
-          <button
-            type="button"
-            onClick={() => reloadSchedulesFromCache()}
-            disabled={schedulesLoading}
-            title={schedulesFromCache ? 'Showing cached data. Click to refresh.' : 'Refresh schedules'}
-            className="ml-auto inline-flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 disabled:opacity-60"
-          >
-            <RefreshCw className={`w-4 h-4 ${schedulesLoading ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline">{schedulesFromCache && !schedulesLoading ? 'Cached · Refresh' : 'Refresh'}</span>
-          </button>
         </div>
 
         {/* Search and Filters */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 mb-6 shadow-sm">
-          <div className="flex flex-col lg:flex-row gap-4">
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 mb-4 shadow-sm">
+          <div className="flex flex-col lg:flex-row gap-3">
             {/* Search */}
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -1110,29 +1080,100 @@ const SchedulePage = () => {
             </div>
           </div>
 
-          {/* Status segmented control + active filter chips */}
-          <div className="flex flex-wrap items-center gap-3 mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+          {/* Status + list actions on one line. Status used to be split across
+              a stats strip above and this segmented control, two controls
+              writing one piece of state; the counts moved onto the control. */}
+          <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
             <div className="inline-flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden" role="group" aria-label="Filter by status">
-              {STATUS_FILTERS.map(({ value, label }) => (
+              {STATUS_FILTERS.map(({ value, label, countKey }) => (
                 <button
                   key={value}
                   type="button"
                   onClick={() => setStatusFilter(value)}
                   aria-pressed={statusFilter === value}
-                  className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${
                     statusFilter === value
                       ? 'bg-blue-600 text-white'
                       : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
                   }`}
                 >
                   {label}
+                  <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${
+                    statusFilter === value
+                      ? 'bg-white/25'
+                      : 'bg-gray-100 text-gray-600 dark:bg-gray-600 dark:text-gray-200'
+                  }`}>
+                    {stats[countKey]}
+                  </span>
                 </button>
               ))}
             </div>
 
-            {hasActiveFilters && (
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm text-gray-600 dark:text-gray-400">Active filters:</span>
+            {stats.conflicts > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowConflictWarning(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-900/30 dark:text-red-300"
+              >
+                <AlertTriangle className="w-3.5 h-3.5" />
+                {stats.conflicts} conflict{stats.conflicts === 1 ? '' : 's'}
+              </button>
+            )}
+
+            {/* Actions sit with the list they act on, rather than in a third
+                row of their own below the filters. */}
+            <div className="ml-auto flex flex-wrap items-center gap-2">
+              {canEditSchedules && (
+                <>
+                  {!builderReady && (
+                    <span className="text-xs text-gray-500 dark:text-gray-400 hidden sm:inline">
+                      Choose a section to enable
+                    </span>
+                  )}
+                  <button
+                    onClick={handleCheckConflicts}
+                    disabled={!builderReady || checkingConflicts}
+                    title={builderReady ? 'Check this section for clashes' : 'Choose a section first'}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <AlertTriangle size={14} className={checkingConflicts ? 'animate-pulse' : ''} />
+                    {checkingConflicts ? 'Checking…' : 'Check Conflicts'}
+                  </button>
+                  <button
+                    onClick={handlePublish}
+                    disabled={!builderReady || stats.draft === 0}
+                    title={
+                      !builderReady
+                        ? 'Choose a section first'
+                        : stats.draft === 0
+                        ? 'Nothing left to publish in this view'
+                        : `Publish ${stats.draft} draft schedule(s) to students`
+                    }
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <CheckCircle size={14} />
+                    Publish {stats.draft > 0 ? `(${stats.draft})` : ''}
+                  </button>
+                </>
+              )}
+              <button
+                type="button"
+                onClick={() => reloadSchedulesFromCache()}
+                disabled={schedulesLoading}
+                title={schedulesFromCache ? 'Showing cached data. Click to refresh.' : 'Refresh schedules'}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-60 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${schedulesLoading ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">{schedulesFromCache && !schedulesLoading ? 'Cached' : 'Refresh'}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Active filter chips get their own line so they can wrap without
+              shoving the controls above around. */}
+          {hasActiveFilters && (
+            <div className="flex flex-wrap items-center gap-2 mt-3">
+              <span className="text-xs text-gray-500 dark:text-gray-400">Active filters:</span>
                 {searchTerm && <FilterChip label={`Search: ${searchTerm}`} onRemove={() => setSearchTerm('')} />}
                 {statusFilter !== 'all' && (
                   <FilterChip
@@ -1152,78 +1193,38 @@ const SchedulePage = () => {
                 {filters.shift && (
                   <FilterChip label={`${filters.shift} Shift`} onRemove={clearShift} />
                 )}
-                <button
-                  onClick={clearAllFilters}
-                  className="text-xs text-red-600 dark:text-red-400 hover:underline"
-                >
-                  Clear all
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Action buttons: always rendered, disabled with an explanation. */}
-          {canEditSchedules && (
-            <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
               <button
-                onClick={handleCheckConflicts}
-                disabled={!builderReady || checkingConflicts}
-                title={builderReady ? 'Check this section for clashes' : 'Choose a section first'}
-                className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                onClick={clearAllFilters}
+                className="text-xs text-red-600 dark:text-red-400 hover:underline"
               >
-                <AlertTriangle size={18} className={checkingConflicts ? 'animate-pulse' : ''} />
-                {checkingConflicts ? 'Checking…' : 'Check Conflicts'}
+                Clear all
               </button>
-              <button
-                onClick={handlePublish}
-                disabled={!builderReady || stats.draft === 0}
-                title={
-                  !builderReady
-                    ? 'Choose a section first'
-                    : stats.draft === 0
-                    ? 'Nothing left to publish in this view'
-                    : `Publish ${stats.draft} draft schedule(s) to students`
-                }
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                <CheckCircle size={18} />
-                Publish {stats.draft > 0 ? `(${stats.draft})` : ''}
-              </button>
-              {!builderReady && (
-                <span className="text-xs text-gray-500 dark:text-gray-400">
-                  Choose a section to enable these
-                </span>
-              )}
             </div>
           )}
         </div>
 
-        {/* Selected section banner */}
+        {/* Selected section. A single line rather than the four-line card it
+            was: the section dropdown already states the choice, so this only
+            needs to confirm it and carry the detail the dropdown omits. */}
         {canEditSchedules && selectedSection && (
-          <div className="mb-4 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-xl p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <School className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
-                <div>
-                  <p className="text-sm font-bold text-blue-900 dark:text-blue-100">
-                    {selectedSection.sectionCode}
-                  </p>
-                  <p className="text-xs text-blue-700 dark:text-blue-300">
-                    {selectedSection.program} &nbsp;·&nbsp; Year {selectedSection.yearLevel} &nbsp;·&nbsp; Semester {selectedSection.semester} &nbsp;·&nbsp; {selectedSection.shift} Shift
-                    {selectedSection.adviser?.user && (
-                      <> &nbsp;·&nbsp; Adviser: {selectedSection.adviser.user.firstName} {selectedSection.adviser.user.lastName}</>
-                    )}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => handleSectionSelect('')}
-                aria-label="Deselect section"
-                className="text-blue-400 hover:text-blue-600 dark:hover:text-blue-200 transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+          <div className="mb-4 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs dark:border-blue-700 dark:bg-blue-900/30">
+            <School className="w-4 h-4 flex-shrink-0 text-blue-600 dark:text-blue-400" />
+            <span className="font-bold text-blue-900 dark:text-blue-100">
+              {selectedSection.sectionCode}
+            </span>
+            <span className="text-blue-700/90 dark:text-blue-300">
+              {selectedSection.program} · Year {selectedSection.yearLevel} · Sem {selectedSection.semester} · {selectedSection.shift}
+              {selectedSection.adviser?.user && (
+                <> · Adviser: {selectedSection.adviser.user.firstName} {selectedSection.adviser.user.lastName}</>
+              )}
+            </span>
+            <button
+              onClick={() => handleSectionSelect('')}
+              aria-label="Deselect section"
+              className="ml-auto text-blue-400 transition-colors hover:text-blue-700 dark:hover:text-blue-200"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
         )}
 

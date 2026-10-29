@@ -21,6 +21,14 @@ const StudentSchema = new mongoose.Schema({
     trim: true,
     validate: programFieldValidator()
   },
+  // Year level was only ever stored on User (or dropped), so the page showed
+  // "Year undefined". Set from the assigned section when there is one.
+  yearLevel: {
+    type: Number,
+    min: 1,
+    max: 5,
+    default: null
+  },
   studentType: {
     type: String,
     enum: ['regular', 'irregular'],
@@ -97,9 +105,8 @@ const StudentSchema = new mongoose.Schema({
 });
 
 // Index for faster queries
-StudentSchema.index({ studentId: 1 });
 StudentSchema.index({ program: 1, sectionCode: 1 });
-StudentSchema.index({ user: 1 });
 StudentSchema.index({ studentType: 1 });
+StudentSchema.index({ sectionCode: 1 });
 
 module.exports = mongoose.model('Student', StudentSchema);

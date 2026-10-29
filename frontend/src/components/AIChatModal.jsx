@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, Send, Bot, User, Loader2, Sparkles, Languages, HelpCircle, Minimize2, Maximize2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
+import { getErrorMessage } from '../services/api';
 const AIChatModal = ({ isOpen, onClose, contextData = {} }) => {
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
@@ -96,7 +97,7 @@ const AIChatModal = ({ isOpen, onClose, contextData = {} }) => {
       }
     } catch (error) {
       console.error('Chat error:', error);
-      toast.error('Failed to send message');
+      toast.error(getErrorMessage(error, 'Failed to send message'));
       
       const errorMessage = {
         role: 'assistant',

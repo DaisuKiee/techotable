@@ -24,47 +24,112 @@ api.interceptors.request.use(
 );
 
 // Response interceptor - Handle errors globally
+const AUTH_ENDPOINTS = ['/auth/login', '/auth/register', '/auth/signup', '/auth/faculty-signup',
+  '/auth/forgot-password', '/auth/reset-password', '/auth/verify-email', '/auth/resend-verification'];
+
+const STATUS_MESSAGES = {
+  0: 'Cannot reach the server. Check your connection and try again.',
+  408: 'The server took too long to respond. Please try again.',
+  413: 'That upload is too large.',
+  429: 'Too many requests. Please wait a moment and try again.',
+  500: 'Something went wrong on the server. Please try again.',
+  502: 'The server is restarting or unavailable. Please try again in a moment.',
+  503: 'The server is temporarily unavailable. Please try again in a moment.',
+  504: 'The server took too long to respond. Please try again.',
+};
+
+/**
+ * The one message to show for a failed request. Pages read
+ * error.response.data.message, so every failure - including a dead server,
+ * a timeout or an HTML error page from a proxy - is given one.
+ */
+export const getErrorMessage = (error, fallback = 'Something went wrong. Please try again.') => {
+  const data = error?.response?.data;
+  if (data && typeof data === 'object' && data.message) return data.message;
+  return error?.userMessage || fallback;
+};
+
+let sessionExpiredHandled = false;
+
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      // Unauthorized - BUT: Don't redirect if this is a login/register/auth attempt
-      // Only redirect if this is an authenticated endpoint failing (expired token)
-      const isAuthEndpoint = error.config?.url?.includes('/auth/login') || 
-                            error.config?.url?.includes('/auth/register') ||
-                            error.config?.url?.includes('/auth/signup') ||
-                            error.config?.url?.includes('/auth/forgot-password') ||
-                            error.config?.url?.includes('/auth/reset-password');
-      
-      if (!isAuthEndpoint) {
-        // Clear token and redirect to home only for expired/invalid tokens on protected routes
+    // Cancelled on purpose (AbortController) - nothing to report
+    if (axios.isCancel(error)) return Promise.reject(error);
+
+    const timedOut = error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT';
+
+    if (!error.response) {
+      // No response at all: offline, server down, CORS, or timeout. Give it a
+      // response-shaped body so `error.response?.data?.message` works everywhere.
+      error.isNetworkError = !timedOut;
+      error.userMessage = timedOut ? STATUS_MESSAGES[408] : STATUS_MESSAGES[0];
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+        error.userMessage = 'You are offline. Reconnect and try again.';
+      }
+      error.response = {
+        status: 0,
+        data: { success: false, code: timedOut ? 'TIMEOUT' : 'NETWORK_ERROR', message: error.userMessage },
+        headers: {},
+        config: error.config,
+      };
+      return Promise.reject(error);
+    }
+
+    const { status } = error.response;
+
+    // Proxies and crashes can answer with HTML or an empty body
+    if (!error.response.data || typeof error.response.data !== 'object' || !error.response.data.message) {
+      const base = error.response.data && typeof error.response.data === 'object' ? error.response.data : {};
+      error.response.data = {
+        ...base,
+        success: false,
+        message: STATUS_MESSAGES[status] || (status >= 500 ? STATUS_MESSAGES[500] : `Request failed (${status}).`),
+      };
+    }
+    error.userMessage = error.response.data.message;
+    error.requestId = error.response.data.requestId || error.response.headers?.['x-request-id'];
+
+    if (status >= 500) {
+      console.error(`API ${status} on ${error.config?.method?.toUpperCase()} ${error.config?.url}`
+        + (error.requestId ? ` (request ${error.requestId})` : ''), error.response.data);
+    }
+
+    if (status === 401) {
+      // Wrong password etc. on the auth pages is handled by the page itself.
+      // Anywhere else a 401 means the saved session is no longer valid.
+      const url = error.config?.url || '';
+      const isAuthEndpoint = AUTH_ENDPOINTS.some((p) => url.includes(p));
+
+      if (!isAuthEndpoint && localStorage.getItem('token') && !sessionExpiredHandled) {
+        sessionExpiredHandled = true;
         localStorage.removeItem('token');
         localStorage.removeItem('user');
-        window.location.href = '/';
+        try {
+          sessionStorage.setItem('authNotice', error.response.data.code === 'TOKEN_EXPIRED' || /expired/i.test(error.response.data.message)
+            ? 'Your session has expired. Please sign in again.'
+            : 'Please sign in again to continue.');
+        } catch (_) { /* storage blocked */ }
+        window.location.href = '/login';
       }
-      // If it's an auth endpoint, let the page handle the error (don't redirect)
-    } else if (error.response?.status === 403) {
-      // Forbidden - log the error but don't redirect
-      // Let individual pages handle 403 errors as needed
+    } else if (status === 403) {
+      // Let individual pages handle 403s; keep details for the access-denied page
       console.warn('403 Forbidden:', {
         url: error.config?.url,
         method: error.config?.method,
-        message: error.response?.data?.message || 'Access denied'
+        message: error.response.data.message
       });
-      
-      // Store error details in session storage for debugging
-      const errorDetails = {
-        url: error.config?.url,
-        resourceType: error.response?.data?.resource?.type || null,
-        resourceProgram: error.response?.data?.resource?.program || null,
-        userProgram: error.response?.data?.userProgram || null,
-        message: error.response?.data?.message || 'Access denied'
-      };
-      sessionStorage.setItem('lastAccessDeniedDetails', JSON.stringify(errorDetails));
-      
-      // DON'T automatically redirect - let the page handle it
-      // Automatic redirects cause problems when pages make multiple API calls
+      try {
+        sessionStorage.setItem('lastAccessDeniedDetails', JSON.stringify({
+          url: error.config?.url,
+          resourceType: error.response.data.resource?.type || null,
+          resourceProgram: error.response.data.resource?.program || null,
+          userProgram: error.response.data.userProgram || null,
+          message: error.response.data.message
+        }));
+      } catch (_) { /* storage blocked */ }
     }
+
     return Promise.reject(error);
   }
 );
@@ -80,7 +145,9 @@ export const authAPI = {
   updateSettings: (data) => api.put('/auth/settings', data),
   logout: () => api.post('/auth/logout'),
   forgotPassword: (data) => api.post('/auth/forgot-password', data),
-  resetPassword: (token, data) => api.post(`/auth/reset-password/${token}`, data)
+  resetPassword: (token, data) => api.post(`/auth/reset-password/${token}`, data),
+  createFacultyInvite: (hours) => api.post('/auth/faculty-invite', { hours }),
+  checkFacultyInvite: (token) => api.get(`/auth/faculty-invite/${encodeURIComponent(token)}`)
 };
 
 // ============== USER ENDPOINTS ==============

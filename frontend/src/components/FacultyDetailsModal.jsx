@@ -4,6 +4,8 @@ import {
   GraduationCap, Star, Copy, Check, Search, ChevronDown, ChevronUp,
   AlertTriangle, Clock, Briefcase,
 } from 'lucide-react';
+import { ModalShell, ModalFooter, ModalButton } from './modal/ModalShell';
+import SummaryCard from './StatCard';
 import {
   summarizeAllSubjects,
   describeRecency,
@@ -29,15 +31,15 @@ const INITIAL_VISIBLE = 8;
 
 const Section = ({ icon: Icon, title, right, children, tone = 'gray' }) => {
   const tones = {
-    gray: 'bg-gray-50 dark:bg-gray-700/30 border-gray-200 dark:border-gray-600',
-    blue: 'bg-blue-50/60 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700',
-    indigo: 'bg-indigo-50/60 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-700',
+    gray: 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700',
+    blue: 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700',
+    indigo: 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700',
   };
   return (
-    <section className={`rounded-xl p-5 border ${tones[tone]}`}>
+    <section className={`rounded-xl p-4 sm:p-5 border shadow-sm ${tones[tone]}`}>
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2 uppercase tracking-wide">
-          {Icon && <Icon className="w-4 h-4 text-blue-600" />}
+        <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+          {Icon && <Icon className="w-4 h-4 text-blue-600 dark:text-blue-400" />}
           {title}
         </h3>
         {right}
@@ -67,22 +69,9 @@ const InfoRow = ({ icon: Icon, label, color = 'blue', children }) => {
   );
 };
 
-const StatCard = ({ icon: Icon, value, unit, label, tone }) => {
-  const tones = {
-    blue: 'from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border-blue-200 dark:border-blue-700 text-blue-600',
-    green: 'from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border-green-200 dark:border-green-700 text-green-600',
-    purple: 'from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 border-purple-200 dark:border-purple-700 text-purple-600',
-    amber: 'from-amber-50 to-amber-100 dark:from-amber-900/20 dark:to-amber-800/20 border-amber-200 dark:border-amber-700 text-amber-600',
-  };
-  return (
-    <div className={`bg-gradient-to-br ${tones[tone]} rounded-xl p-4 text-center border shadow-sm hover:shadow-md transition-shadow`}>
-      <Icon className="w-6 h-6 mx-auto mb-1.5" />
-      <p className="text-2xl font-bold text-gray-900 dark:text-white leading-none">{value}</p>
-      <p className="text-[11px] text-gray-500 dark:text-gray-400 font-medium mt-1">{unit}</p>
-      <p className="text-xs text-gray-700 dark:text-gray-300 mt-1.5 font-semibold">{label}</p>
-    </div>
-  );
-};
+const StatCard = ({ icon, value, unit, label, tone }) => (
+  <SummaryCard icon={icon} label={label} value={value} hint={unit} tone={tone === 'green' ? 'emerald' : tone} />
+);
 
 const Stars = ({ value }) => (
   <div className="flex items-center gap-0.5" aria-label={`${value.toFixed(1)} out of 5`}>
@@ -144,18 +133,7 @@ const FacultyDetailsModal = ({ faculty, onClose, onEdit }) => {
     setShowAll(false);
   }, [faculty?._id, faculty?.id]);
 
-  // Close on Escape + lock background scroll
-  useEffect(() => {
-    if (!faculty) return undefined;
-    const onKey = (e) => e.key === 'Escape' && onClose?.();
-    document.addEventListener('keydown', onKey);
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = prevOverflow;
-    };
-  }, [faculty, onClose]);
+  // Escape, scroll lock and focus come from ModalShell
 
   const subjectExperience = useMemo(
     () => (faculty ? summarizeAllSubjects(faculty) : []),
@@ -207,18 +185,28 @@ const FacultyDetailsModal = ({ faculty, onClose, onEdit }) => {
   const currentLoad = (faculty.currentTeachingHours || 0) + positionHours;
   const maxLoad = faculty.maxTeachingHours || 36;
   const rawPercent = maxLoad > 0 ? (currentLoad / maxLoad) * 100 : 0;
-  const loadPercent = Math.min(rawPercent, 100);
+  const LOAD_ALLOWANCE = 4;
+  const barScale = Math.max(maxLoad + LOAD_ALLOWANCE, currentLoad);
+  const loadPercent = Math.min((currentLoad / barScale) * 100, 100);
   const remaining = maxLoad - currentLoad;
 
+  // Same rule as the Faculty page cards: over the teacher's own max is "near
+  // limit" up to LOAD_ALLOWANCE hours, beyond that an overload. (This modal
+  // used to call anything past 80% "near capacity" while the card behind it
+  // said "Normal".)
   const status =
-    currentLoad > maxLoad
-      ? { label: 'Overloaded', text: 'text-red-600 dark:text-red-400', bar: 'bg-red-500', chip: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' }
-      : rawPercent > 80
-      ? { label: 'Near capacity', text: 'text-yellow-600 dark:text-yellow-400', bar: 'bg-yellow-500', chip: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300' }
-      : { label: 'Healthy', text: 'text-green-600 dark:text-green-400', bar: 'bg-green-500', chip: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' };
+    currentLoad > maxLoad + LOAD_ALLOWANCE
+      ? { label: 'Overload', text: 'text-red-600 dark:text-red-400', bar: 'bg-red-500', chip: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' }
+      : currentLoad > maxLoad
+      ? { label: 'Near limit', text: 'text-amber-600 dark:text-amber-400', bar: 'bg-amber-500', chip: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300' }
+      : { label: 'Normal', text: 'text-emerald-600 dark:text-emerald-400', bar: 'bg-emerald-500', chip: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' };
+  // The schema field is `specializations`; this read `specialization`, so the
+  // section never showed
+  const specializations = faculty.specializations || faculty.specialization || [];
+  const programs = faculty.programs || [];
 
   const imgSrc = faculty.user?.profilePicture
-    ? `${process.env.REACT_APP_API_URL?.replace('/api', '') || ''}${faculty.user.profilePicture}`
+    ? `${(process.env.REACT_APP_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '')}${faculty.user.profilePicture}`
     : null;
 
   const rated = subjectExperience.filter((s) => s.avgRating);
@@ -239,139 +227,121 @@ const FacultyDetailsModal = ({ faculty, onClose, onEdit }) => {
 
   /* ----- Render ----- */
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fadeIn"
-      onMouseDown={(e) => e.target === e.currentTarget && onClose?.()}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="faculty-modal-title"
-        className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] flex flex-col animate-slideUp"
-      >
+    // Read-only, so no "discard changes?" (its search box is just a filter)
+    <ModalShell onClose={onClose} size="xl" labelledBy="faculty-modal-title" guardDirty={false} focusFirstField={false}>
         {/* Header */}
-        <div className="relative bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 px-6 py-6 rounded-t-2xl">
+        <div className="relative flex-shrink-0 bg-gradient-to-r from-blue-600 to-indigo-700 px-5 py-5 sm:rounded-t-2xl sm:px-6">
           <button
+            type="button"
             onClick={onClose}
-            className="absolute top-4 right-4 p-2 hover:bg-white/20 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+            className="absolute right-3 top-3 rounded-lg p-2 text-white/90 transition-colors hover:bg-white/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
             aria-label="Close"
           >
-            <X className="w-5 h-5 text-white" />
+            <X className="h-5 w-5" />
           </button>
 
-          <div className="flex items-center gap-5 pr-10">
+          <div className="flex items-center gap-4 pr-10">
             <div className="relative flex-shrink-0">
               {imgSrc && !imgFailed ? (
                 <img
                   src={imgSrc}
-                  alt={fullName}
-                  className="w-20 h-20 rounded-full object-cover ring-4 ring-white/30 shadow-xl"
+                  alt=""
+                  className="h-16 w-16 rounded-full object-cover ring-2 ring-white/40"
                   onError={() => setImgFailed(true)}
                 />
               ) : (
-                <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm ring-4 ring-white/30 shadow-xl text-white text-2xl font-bold">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/20 text-xl font-bold text-white ring-2 ring-white/40">
                   {initials}
                 </div>
               )}
               <span
-                className={`absolute bottom-0.5 right-0.5 w-4 h-4 rounded-full border-2 border-white ${
-                  faculty.isActive ? 'bg-green-400' : 'bg-red-400'
-                }`}
+                className={`absolute bottom-0 right-0 h-4 w-4 rounded-full border-2 border-blue-600 ${faculty.isActive ? 'bg-emerald-400' : 'bg-gray-400'}`}
                 title={faculty.isActive ? 'Active' : 'Inactive'}
               />
             </div>
 
-            <div className="flex-1 min-w-0">
-              <h2 id="faculty-modal-title" className="text-2xl font-bold text-white truncate">
+            <div className="min-w-0 flex-1">
+              <h2 id="faculty-modal-title" className="truncate text-xl font-bold text-white sm:text-2xl">
                 {fullName}
               </h2>
-              <p className="text-blue-100 text-sm font-medium mt-0.5">
+              <p className="truncate text-sm text-blue-100">
                 {faculty.position || 'Instructor'}
                 {faculty.employeeId && <span className="opacity-80"> · {faculty.employeeId}</span>}
               </p>
-              <div className="flex flex-wrap items-center gap-2 mt-2.5">
-                <span
-                  className={`px-3 py-1 text-xs font-semibold rounded-full ${
-                    faculty.isActive ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
-                  }`}
-                >
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ${faculty.isActive ? 'bg-emerald-400/20 text-emerald-50 ring-emerald-300/50' : 'bg-white/15 text-white ring-white/30'}`}>
                   {faculty.isActive ? 'Active' : 'Inactive'}
                 </span>
-                <span
-                  className={`px-3 py-1 text-xs font-semibold rounded-full ${
-                    (faculty.employmentType || 'Regular') === 'Regular'
-                      ? 'bg-white/20 text-white backdrop-blur-sm'
-                      : 'bg-purple-500 text-white'
-                  }`}
-                >
+                <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold text-white ring-1 ring-white/30">
                   {faculty.employmentType || 'Regular'}
                 </span>
                 {faculty.administrativeDesignation && (
-                  <span className="px-3 py-1 text-xs font-semibold rounded-full bg-amber-400/90 text-amber-950">
+                  <span className="rounded-full bg-amber-300 px-2.5 py-0.5 text-xs font-semibold text-amber-950">
                     {faculty.administrativeDesignation}
                   </span>
                 )}
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Tabs */}
-          <div className="flex gap-1 mt-5 -mb-6 relative" role="tablist">
-            {TABS.map(({ id, label, icon: Icon }) => {
-              const active = activeTab === id;
-              return (
-                <button
-                  key={id}
-                  role="tab"
-                  aria-selected={active}
-                  onClick={() => setActiveTab(id)}
-                  className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-t-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white ${
-                    active
-                      ? 'bg-white dark:bg-gray-800 text-blue-700 dark:text-blue-300'
-                      : 'text-blue-100 hover:bg-white/15'
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  {label}
-                  {id === 'expertise' && subjectExperience.length > 0 && (
-                    <span className={`text-[11px] px-1.5 rounded-full ${active ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300' : 'bg-white/20'}`}>
-                      {subjectExperience.length}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
+        {/* Tabs */}
+        <div className="flex flex-shrink-0 gap-1 overflow-x-auto border-b border-gray-200 bg-white px-3 dark:border-gray-700 dark:bg-gray-800 sm:px-5" role="tablist" aria-label="Faculty details">
+          {TABS.map(({ id, label, icon: Icon }) => {
+            const active = activeTab === id;
+            return (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setActiveTab(id)}
+                className={`-mb-px flex items-center gap-2 whitespace-nowrap border-b-2 px-3 py-3 text-sm font-semibold transition-colors focus:outline-none focus-visible:bg-gray-100 dark:focus-visible:bg-gray-700 ${
+                  active
+                    ? 'border-blue-600 text-blue-700 dark:border-blue-400 dark:text-blue-300'
+                    : 'border-transparent text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200'
+                }`}
+              >
+                <Icon className="h-4 w-4" />
+                {label}
+                {id === 'expertise' && subjectExperience.length > 0 && (
+                  <span className={`rounded-full px-1.5 text-[11px] ${active ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/60 dark:text-blue-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'}`}>
+                    {subjectExperience.length}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6 pt-9 space-y-6" role="tabpanel">
+        <div className="flex-1 space-y-4 overflow-y-auto bg-gray-50 p-4 dark:bg-gray-900/60 sm:p-6" role="tabpanel">
           {/* ================= OVERVIEW ================= */}
           {activeTab === 'overview' && (
             <>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <StatCard icon={TrendingUp} tone="blue" value={currentLoad} unit="hrs / week" label="Current Load" />
-                <StatCard icon={BookOpen} tone="purple" value={subjectExperience.length} unit="distinct" label="Subjects" />
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                <StatCard icon={TrendingUp} tone="blue" value={currentLoad} unit={`of ${maxLoad} hrs / week`} label="Load" />
+                <StatCard icon={BookOpen} tone="purple" value={subjectExperience.length} unit="different subjects taught" label="Subjects" />
                 <StatCard
                   icon={Star}
                   tone="amber"
                   value={overallRating ? overallRating.toFixed(1) : '—'}
-                  unit="out of 5"
-                  label="Avg Rating"
+                  unit={overallRating ? 'average out of 5' : 'no ratings yet'}
+                  label="Rating"
                 />
                 <StatCard
                   icon={Clock}
                   tone="green"
                   value={yearsTeaching || '—'}
-                  unit={yearsTeaching === 1 ? 'year' : 'years'}
-                  label="Teaching Span"
+                  unit={yearsTeaching ? (yearsTeaching === 1 ? 'year of teaching' : 'years of teaching') : 'no history yet'}
+                  label="Experience"
                 />
               </div>
 
               {/* Workload */}
               <Section
                 icon={TrendingUp}
-                title="Workload Status"
+                title="Workload"
                 tone="blue"
                 right={
                   <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${status.chip}`}>
@@ -393,7 +363,7 @@ const FacultyDetailsModal = ({ faculty, onClose, onEdit }) => {
                   <span className={`text-2xl font-bold ${status.text}`}>{Math.round(rawPercent)}%</span>
                 </div>
                 <div
-                  className="relative w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4 overflow-hidden shadow-inner"
+                  className="relative w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden"
                   role="progressbar"
                   aria-valuenow={Math.round(loadPercent)}
                   aria-valuemin={0}
@@ -403,15 +373,15 @@ const FacultyDetailsModal = ({ faculty, onClose, onEdit }) => {
                     className={`h-full ${status.bar} transition-all duration-500 ease-out rounded-full`}
                     style={{ width: `${loadPercent}%` }}
                   />
-                  {/* 80% threshold marker */}
-                  <div className="absolute top-0 bottom-0 w-px bg-gray-500/50" style={{ left: '80%' }} title="80% threshold" />
+                  {/* Where the teacher's max sits */}
+                  <div className="absolute top-0 bottom-0 w-0.5 bg-gray-500/70" style={{ left: `${(maxLoad / barScale) * 100}%` }} title={`Max ${maxLoad} hrs`} />
                 </div>
                 <p className="mt-2 text-xs text-gray-600 dark:text-gray-400">
                   {remaining >= 0
                     ? `${remaining} hour${remaining === 1 ? '' : 's'} of capacity remaining`
                     : `Overloaded by ${Math.abs(remaining)} hour${Math.abs(remaining) === 1 ? '' : 's'}`}
                 </p>
-                {currentLoad > maxLoad && (
+                {currentLoad > maxLoad + LOAD_ALLOWANCE && (
                   <div className="mt-3 flex items-center gap-2 p-3 bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg">
                     <AlertTriangle className="w-4 h-4 text-red-600 flex-shrink-0" />
                     <p className="text-sm text-red-700 dark:text-red-400 font-semibold">
@@ -469,19 +439,28 @@ const FacultyDetailsModal = ({ faculty, onClose, onEdit }) => {
                 </div>
               </Section>
 
-              {/* Specialization */}
-              {faculty.specialization?.length > 0 && (
-                <Section icon={BookOpen} title="Areas of Specialization">
-                  <div className="flex flex-wrap gap-2">
-                    {faculty.specialization.map((spec, idx) => (
-                      <span
-                        key={idx}
-                        className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-semibold bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 border border-purple-200 dark:border-purple-700"
-                      >
-                        {spec}
-                      </span>
-                    ))}
-                  </div>
+              {(specializations.length > 0 || programs.length > 0) && (
+                <Section icon={BookOpen} title="Programs & specializations">
+                  {programs.length > 0 && (
+                    <div className={specializations.length > 0 ? 'mb-3' : ''}>
+                      <p className="mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">Qualified to teach in</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {programs.map((p) => (
+                          <span key={p} className="rounded-md bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300">{p}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {specializations.length > 0 && (
+                    <div>
+                      <p className="mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">Specializations</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {specializations.map((spec) => (
+                          <span key={spec} className="rounded-md bg-purple-100 px-2 py-0.5 text-xs font-semibold text-purple-800 dark:bg-purple-900/40 dark:text-purple-300">{spec}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </Section>
               )}
             </>
@@ -782,24 +761,11 @@ const FacultyDetailsModal = ({ faculty, onClose, onEdit }) => {
           )}
         </div>
 
-        {/* Footer */}
-        <div className="flex gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 rounded-b-2xl">
-          <button
-            onClick={onClose}
-            className="flex-1 px-6 py-2.5 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-all font-semibold"
-          >
-            Close
-          </button>
-          <button
-            onClick={onEdit}
-            className="flex-1 px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl transition-all flex items-center justify-center gap-2 font-semibold shadow-lg hover:shadow-xl"
-          >
-            <Edit2 className="w-4 h-4" />
-            Edit Profile
-          </button>
-        </div>
-      </div>
-    </div>
+        <ModalFooter>
+          <ModalButton variant="secondary" onClick={onClose}>Close</ModalButton>
+          {onEdit && <ModalButton icon={Edit2} onClick={onEdit}>Edit profile</ModalButton>}
+        </ModalFooter>
+    </ModalShell>
   );
 };
 

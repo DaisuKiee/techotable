@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
-import { roomAPI } from '../services/api';
+import { roomAPI, getErrorMessage } from '../services/api';
 import useCachedData from '../hooks/useCachedData';
 import toast from 'react-hot-toast';
 import { 
@@ -14,6 +14,7 @@ import AnimatedDoorOpen from '../components/AnimatedDoorOpen';
 import AnimatedUserCheck from '../components/AnimatedUserCheck';
 import AnimatedUsers from '../components/AnimatedUsers';
 import AnimatedTrendingUp from '../components/AnimatedTrendingUp';
+import StatCard from '../components/StatCard';
 
 const ROOM_TYPES = ['Lecture Room', 'Laboratory', 'Computer Lab', 'Workshop', 'Auditorium', 'Conference Room'];
 
@@ -58,7 +59,7 @@ const RoomPage = () => {
       },
       onError: (err) => {
         console.error('Failed to load rooms:', err);
-        toast.error('Failed to load rooms');
+        toast.error(getErrorMessage(err, 'Failed to load rooms'));
       }
     }
   );
@@ -217,41 +218,13 @@ const RoomPage = () => {
 
         {/* Statistics Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
-          <div className="bg-indigo-600 text-white rounded-xl p-4 shadow-md">
-            <div className="flex items-center justify-between mb-2">
-              <AnimatedDoorOpen className="w-5 h-5 opacity-80" />
-              <span className="text-xs font-medium opacity-80">TOTAL</span>
-            </div>
-            <div className="text-2xl md:text-3xl font-bold">{stats.total}</div>
-            <div className="text-xs opacity-80 mt-1">Rooms</div>
-          </div>
+          <StatCard icon={AnimatedDoorOpen} label="Total" value={stats.total} hint="Rooms" tone="indigo" />
 
-          <div className="bg-green-600 text-white rounded-xl p-4 shadow-md">
-            <div className="flex items-center justify-between mb-2">
-              <AnimatedUserCheck className="w-5 h-5 opacity-80" />
-              <span className="text-xs font-medium opacity-80">ACTIVE</span>
-            </div>
-            <div className="text-2xl md:text-3xl font-bold">{stats.active}</div>
-            <div className="text-xs opacity-80 mt-1">Available</div>
-          </div>
+          <StatCard icon={AnimatedUserCheck} label="Active" value={stats.active} hint="Available" tone="emerald" />
 
-          <div className="bg-blue-600 text-white rounded-xl p-4 shadow-md">
-            <div className="flex items-center justify-between mb-2">
-              <AnimatedUsers className="w-5 h-5 opacity-80" />
-              <span className="text-xs font-medium opacity-80">CAPACITY</span>
-            </div>
-            <div className="text-2xl md:text-3xl font-bold">{stats.totalCapacity}</div>
-            <div className="text-xs opacity-80 mt-1">Total Seats</div>
-          </div>
+          <StatCard icon={AnimatedUsers} label="Capacity" value={stats.totalCapacity} hint="Total Seats" tone="blue" />
 
-          <div className="bg-orange-600 text-white rounded-xl p-4 shadow-md">
-            <div className="flex items-center justify-between mb-2">
-              <AnimatedTrendingUp className="w-5 h-5 opacity-80" />
-              <span className="text-xs font-medium opacity-80">AVERAGE</span>
-            </div>
-            <div className="text-2xl md:text-3xl font-bold">{stats.avgCapacity}</div>
-            <div className="text-xs opacity-80 mt-1">Avg. Capacity</div>
-          </div>
+          <StatCard icon={AnimatedTrendingUp} label="Average" value={stats.avgCapacity} hint="Avg. Capacity" tone="orange" />
         </div>
 
         {/* Search and Filters */}

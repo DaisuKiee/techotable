@@ -1,727 +1,379 @@
-import React, { useState, useEffect } from 'react';
-import { studentAPI, sectionAPI } from '../services/api';
-import toast from 'react-hot-toast';
-import { Users, Mail, Lock, User, GraduationCap, Phone, MapPin, FileText, BookOpen, Plus, X } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Users, User, GraduationCap, Phone, FileText, BookOpen, Plus, X, Eye, EyeOff, AlertCircle, Info } from 'lucide-react';
+import { studentAPI, sectionAPI, subjectAPI, getErrorMessage } from '../services/api';
 import { usePrograms } from '../hooks/usePrograms';
+import { useAuth } from '../context/AuthContext';
 import BaseModal from './BaseModal';
-import AnimatedUserCheck from './AnimatedUserCheck';
+
+const MIN_PASSWORD = 8;
+const STATUSES = [
+  ['enrolled', 'Enrolled'],
+  ['not_enrolled', 'Not enrolled'],
+  ['dropped', 'Dropped'],
+  ['graduated', 'Graduated'],
+];
+
+const inputCls = (invalid) => `w-full rounded-lg border px-3.5 py-2.5 text-sm transition-colors focus:outline-none focus:ring-2 dark:bg-gray-700 dark:text-white disabled:cursor-not-allowed disabled:bg-gray-100 dark:disabled:bg-gray-600 ${
+  invalid
+    ? 'border-red-400 focus:border-red-500 focus:ring-red-500/30 dark:border-red-500'
+    : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500/30 dark:border-gray-600'
+}`;
+
+const Field = ({ label, required, error, hint, children, className = '' }) => (
+  <div className={className}>
+    <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+      {label}{required && <span className="ml-0.5 text-red-500">*</span>}
+    </label>
+    {children}
+    {error ? (
+      <p className="mt-1 flex items-center gap-1 text-xs text-red-600 dark:text-red-400"><AlertCircle className="h-3 w-3" />{error}</p>
+    ) : hint ? (
+      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{hint}</p>
+    ) : null}
+  </div>
+);
+
+const Panel = ({ icon: Icon, title, children, aside }) => (
+  <section className="rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800">
+    <div className="mb-4 flex items-center justify-between gap-2">
+      <h3 className="flex items-center gap-2 font-semibold text-gray-900 dark:text-white">
+        <Icon className="h-5 w-5 text-indigo-600 dark:text-indigo-400" /> {title}
+      </h3>
+      {aside}
+    </div>
+    {children}
+  </section>
+);
+
+const blankContact = { name: '', relationship: '', contactNumber: '' };
+
+const fromStudent = (student, defaultProgram) => ({
+  email: student?.user?.email || '',
+  password: '',
+  firstName: student?.user?.firstName || '',
+  lastName: student?.user?.lastName || '',
+  middleName: student?.user?.middleName || '',
+  studentId: student?.studentId || '',
+  program: student?.program || defaultProgram || '',
+  yearLevel: student?.yearLevel || 1,
+  sectionCode: student?.sectionCode || '',
+  studentType: student?.studentType || 'regular',
+  subjectCodes: student?.subjectCodes || [],
+  contactNumber: student?.contactNumber || '',
+  guardianInfo: { ...blankContact, ...(student?.guardianInfo || {}) },
+  emergencyContact: { ...blankContact, ...(student?.emergencyContact || {}) },
+  enrollmentStatus: student?.enrollmentStatus || 'not_enrolled',
+  gpa: student?.gpa ?? '',
+  notes: student?.notes || '',
+});
 
 const StudentModal = ({ student, onClose }) => {
+  const { user } = useAuth();
   const { programCodes } = usePrograms();
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-    firstName: '',
-    lastName: '',
-    middleName: '',
-    studentId: '',
-    program: 'BSIT',
-    yearLevel: 1,
-    section: '',
-    studentType: 'regular',
-    subjectCodes: [], // For irregular students
-    academicYear: '2024-2025',
-    semester: 1,
-    contactNumber: '',
-    address: {
-      street: '',
-      barangay: '',
-      city: '',
-      province: '',
-      zipCode: ''
-    },
-    guardianInfo: {
-      name: '',
-      relationship: '',
-      contactNumber: ''
-    },
-    emergencyContact: {
-      name: '',
-      relationship: '',
-      contactNumber: ''
-    },
-    enrollmentStatus: 'enrolled',
-    gpa: '',
-    notes: ''
-  });
+  const isEdit = !!student;
+  const lockedProgram = user?.role === 'program_manager' ? user.program : null;
+  const hasAccount = !isEdit || !!student.user;
+
+  const [form, setForm] = useState(() => fromStudent(student, lockedProgram || ''));
+  const [errors, setErrors] = useState({});
+  const [serverError, setServerError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [sections, setSections] = useState([]);
-  const [loadingSections, setLoadingSections] = useState(false);
-  const [subjectCodeInput, setSubjectCodeInput] = useState('');
+  const [sectionsLoading, setSectionsLoading] = useState(false);
+  const [subjects, setSubjects] = useState([]);
+  const [subjectInput, setSubjectInput] = useState('');
 
-  // // Disable body scroll when modal is open
-  // useEffect(() => {
-  //   document.body.style.overflow = 'hidden';
-  //   return () => {
- 
-
-  // Fetch sections when program or year level changes
+  // Pick a default program once the list arrives (it used to be hard-coded to BSIT)
   useEffect(() => {
-    fetchSections();
-  }, [formData.program, formData.yearLevel]);
+    if (!form.program && programCodes.length) setForm((f) => ({ ...f, program: programCodes[0] }));
+  }, [programCodes, form.program]);
 
-  const fetchSections = async () => {
-    if (!formData.program || !formData.yearLevel) return;
-    
-    setLoadingSections(true);
-    try {
-      const response = await sectionAPI.getAll();
-      const allSections = response.data.data || [];
-      
-      // Filter sections by program and year level
-      const filteredSections = allSections.filter(
-        s => s.program === formData.program && s.yearLevel === parseInt(formData.yearLevel)
-      );
-      
-      setSections(filteredSections);
-      
-      // Auto-select first section if current selection is invalid
-      if (filteredSections.length > 0 && !student) {
-        const currentSectionValid = filteredSections.some(s => s.sectionLetter === formData.section);
-        if (!currentSectionValid) {
-          setFormData(prev => ({ ...prev, section: filteredSections[0].sectionLetter }));
-        }
-      } else if (filteredSections.length === 0) {
-        setFormData(prev => ({ ...prev, section: '' }));
-      }
-    } catch (error) {
-      console.error('Failed to fetch sections:', error);
-      toast.error('Failed to load sections');
-    } finally {
-      setLoadingSections(false);
-    }
-  };
-
+  // Sections and subjects of the chosen program
   useEffect(() => {
-    if (student) {
-      setFormData({
-        email: student.user?.email || '',
-        password: '', // Don't populate password for edit
-        firstName: student.user?.firstName || '',
-        lastName: student.user?.lastName || '',
-        middleName: student.user?.middleName || '',
-        studentId: student.studentId || '',
-        program: student.program || 'BSIT',
-        yearLevel: student.yearLevel || 1,
-        section: student.section || '',
-        studentType: student.studentType || 'regular',
-        subjectCodes: student.subjectCodes || [],
-        academicYear: student.academicYear || '2024-2025',
-        semester: student.semester || 1,
-        contactNumber: student.contactNumber || '',
-        address: student.address || {
-          street: '',
-          barangay: '',
-          city: '',
-          province: '',
-          zipCode: ''
-        },
-        guardianInfo: student.guardianInfo || {
-          name: '',
-          relationship: '',
-          contactNumber: ''
-        },
-        emergencyContact: student.emergencyContact || {
-          name: '',
-          relationship: '',
-          contactNumber: ''
-        },
-        enrollmentStatus: student.enrollmentStatus || 'enrolled',
-        gpa: student.gpa || '',
-        notes: student.notes || ''
-      });
-    }
-  }, [student]);
+    if (!form.program) return undefined;
+    let live = true;
+    setSectionsLoading(true);
+    Promise.all([
+      sectionAPI.getAll({ program: form.program }).catch(() => ({ data: { data: [] } })),
+      subjectAPI.getAll({ program: form.program }).catch(() => ({ data: { data: [] } })),
+    ]).then(([sec, sub]) => {
+      if (!live) return;
+      setSections((sec.data.data || []).filter((s) => s.program === form.program && s.isActive !== false));
+      setSubjects(sub.data.data || []);
+    }).finally(() => live && setSectionsLoading(false));
+    return () => { live = false; };
+  }, [form.program]);
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    
-    // If section is changed, auto-fill semester and academic year from the selected section
-    if (name === 'section') {
-      const selectedSection = sections.find(s => s.sectionLetter === value);
-      if (selectedSection) {
-        setFormData(prev => ({
-          ...prev,
-          section: value,
-          semester: selectedSection.semester,
-          academicYear: selectedSection.academicYear
-        }));
-        return;
-      }
-    }
-    
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+  const yearSections = useMemo(
+    () => sections
+      .filter((s) => Number(s.yearLevel) === Number(form.yearLevel))
+      .sort((a, b) => a.sectionCode.localeCompare(b.sectionCode)),
+    [sections, form.yearLevel]
+  );
+  const chosenSection = sections.find((s) => s.sectionCode === form.sectionCode);
+
+  const set = (name, value) => {
+    setForm((f) => ({ ...f, [name]: value }));
+    if (errors[name]) setErrors((e) => ({ ...e, [name]: undefined }));
   };
+  const handleChange = (e) => set(e.target.name, e.target.value);
+  const setNested = (parent, field, value) => setForm((f) => ({ ...f, [parent]: { ...f[parent], [field]: value } }));
 
-  const handleNestedChange = (parent, field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [parent]: {
-        ...prev[parent],
-        [field]: value
-      }
-    }));
+  const changeProgram = (program) => setForm((f) => ({ ...f, program, sectionCode: '' }));
+  const changeYear = (yearLevel) => setForm((f) => ({
+    ...f,
+    yearLevel,
+    // A section from another year doesn't fit any more
+    sectionCode: sections.find((s) => s.sectionCode === f.sectionCode && Number(s.yearLevel) === Number(yearLevel)) ? f.sectionCode : '',
+  }));
+  const changeSection = (sectionCode) => setForm((f) => ({
+    ...f,
+    sectionCode,
+    enrollmentStatus: sectionCode && f.enrollmentStatus === 'not_enrolled' ? 'enrolled' : f.enrollmentStatus,
+  }));
+
+  const addSubject = (raw = subjectInput) => {
+    const code = raw.trim().replace(/\s+/g, ' ').toUpperCase();
+    if (!code) return;
+    if (!form.subjectCodes.includes(code)) set('subjectCodes', [...form.subjectCodes, code]);
+    setSubjectInput('');
   };
+  const removeSubject = (code) => set('subjectCodes', form.subjectCodes.filter((c) => c !== code));
+  const knownSubject = (code) => subjects.find((s) => s.subjectCode?.toUpperCase() === code);
 
-  const handleAddSubjectCode = () => {
-    const code = subjectCodeInput.trim().toUpperCase();
-    if (!code) {
-      toast.error('Please enter a subject code');
-      return;
+  const validate = () => {
+    const e = {};
+    if (!form.studentId.trim()) e.studentId = 'Student ID is required';
+    if (hasAccount) {
+      if (!form.firstName.trim()) e.firstName = 'First name is required';
+      if (!form.lastName.trim()) e.lastName = 'Last name is required';
+      if (!form.email.trim()) e.email = 'Email is required';
+      else if (!/^\S+@\S+\.\S+$/.test(form.email.trim())) e.email = 'Enter a valid email address';
     }
-    if (formData.subjectCodes.includes(code)) {
-      toast.error('This subject code is already added');
-      return;
-    }
-    setFormData(prev => ({
-      ...prev,
-      subjectCodes: [...prev.subjectCodes, code]
-    }));
-    setSubjectCodeInput('');
-    toast.success(`Added subject code: ${code}`);
-  };
-
-  const handleRemoveSubjectCode = (code) => {
-    setFormData(prev => ({
-      ...prev,
-      subjectCodes: prev.subjectCodes.filter(c => c !== code)
-    }));
-    toast.success(`Removed subject code: ${code}`);
+    if (!isEdit && form.password.length < MIN_PASSWORD) e.password = `At least ${MIN_PASSWORD} characters`;
+    if (!form.program) e.program = 'Choose a program';
+    if (form.gpa !== '' && (Number(form.gpa) < 0 || Number(form.gpa) > 5)) e.gpa = 'GPA is between 0 and 5';
+    setErrors(e);
+    return Object.keys(e).length === 0;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // Validate required fields
-    if (!formData.studentId || !formData.email || !formData.firstName || !formData.lastName || !formData.program) {
-      toast.error('Please fill in all required fields');
-      return;
-    }
+    setServerError('');
+    if (!validate()) return;
 
-    if (!student && !formData.password) {
-      toast.error('Password is required for new students');
-      return;
-    }
+    const payload = { ...form, email: form.email.trim().toLowerCase(), studentId: form.studentId.trim() };
+    if (subjectInput.trim()) payload.subjectCodes = [...new Set([...form.subjectCodes, subjectInput.trim().toUpperCase()])];
+    if (isEdit) delete payload.password;
+    if (!hasAccount) ['email', 'firstName', 'lastName', 'middleName'].forEach((k) => delete payload[k]);
 
     setLoading(true);
     try {
-      if (student) {
-        await studentAPI.update(student._id, formData);
-        toast.success('Student updated successfully');
-      } else {
-        await studentAPI.create(formData);
-        toast.success('Student created successfully');
-      }
+      if (isEdit) await studentAPI.update(student._id, payload);
+      else await studentAPI.create(payload);
       onClose(true);
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Operation failed');
+      // Show field problems next to the field, everything else at the top
+      const fieldErrors = error.response?.data?.errors;
+      if (Array.isArray(fieldErrors)) {
+        setErrors(Object.fromEntries(fieldErrors.map((f) => [f.path || f.param, f.msg])));
+      } else if (fieldErrors && typeof fieldErrors === 'object') {
+        setErrors(fieldErrors);
+      }
+      const message = getErrorMessage(error, isEdit ? 'Could not update the student' : 'Could not create the student');
+      setServerError(message);
+      if (/student id/i.test(message)) setErrors((x) => ({ ...x, studentId: message }));
+      else if (/email|registered/i.test(message)) setErrors((x) => ({ ...x, email: message }));
+      else if (/section/i.test(message)) setErrors((x) => ({ ...x, sectionCode: message }));
     } finally {
       setLoading(false);
     }
   };
 
+  const name = `${form.firstName} ${form.lastName}`.trim();
+
   return (
     <BaseModal
-      isOpen={true}
+      isOpen
       onClose={() => onClose(false)}
-      title={student ? 'Edit Student' : 'Add New Student'}
-      subtitle={student ? 'Update student information' : 'Create a new student record'}
+      title={isEdit ? 'Edit student' : 'Add student'}
+      subtitle={isEdit ? `${name || student.studentId} · ${student.studentId}` : 'Creates the student record and their login'}
       icon={Users}
       size="large"
-      footerContent={
-        <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={() => onClose(false)}
-            className="flex-1 px-5 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 font-medium transition-all"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            form="student-form"
-            disabled={loading}
-            className="flex-1 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
-            {loading ? (
-              <>
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                <span>{student ? 'Updating...' : 'Creating...'}</span>
-              </>
-            ) : (
-              <span>{student ? 'Update Student' : 'Create Student'}</span>
-            )}
-          </button>
-        </div>
-      }
+      formId="student-form"
+      loading={loading}
+      submitText={isEdit ? 'Save changes' : 'Create student'}
+      footerInfo={!isEdit ? 'The student can log in right away with this email and password.' : undefined}
     >
-      <div className="bg-gray-50 dark:bg-gray-900">
-          <form onSubmit={handleSubmit} className="p-6" id="student-form">
-            {/* Student Preview Card */}
-            <div className="bg-gradient-to-br from-blue-600 to-indigo-600 text-white rounded-xl p-4 mb-6 shadow-lg">
-              <div className="text-sm font-medium opacity-90 mb-1">Student Preview</div>
-              <div className="text-2xl font-bold">
-                {formData.studentId || 'Student ID'} - {formData.firstName || 'First'} {formData.lastName || 'Last'}
-              </div>
-              <div className="text-sm opacity-90 mt-1">
-                {formData.program} • Year {formData.yearLevel} • Section {formData.section || 'N/A'} • {formData.studentType}
-              </div>
-              <div className="text-xs opacity-80 mt-1">
-                {formData.academicYear || 'Academic Year'} • Semester {formData.semester}
-              </div>
-            </div>
-            {/* Basic Information */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-5 mb-4 border-2 border-gray-200 dark:border-gray-700">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                  <User className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                  Basic Information
-                </h3>
-                <span className="text-xs text-gray-500 dark:text-gray-400">* Required</span>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                    Student ID <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="studentId"
-                    value={formData.studentId}
-                    onChange={handleChange}
-                    disabled={!!student}
-                    placeholder="e.g., 2024-00001"
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all disabled:bg-gray-100 dark:disabled:bg-gray-600"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                    Email <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                    placeholder="student@ctu.edu.ph"
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
-                    required
-                  />
-                </div>
-                {!student && (
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                      Password <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="password"
-                      name="password"
-                      value={formData.password}
-                      onChange={handleChange}
-                      placeholder="Create a password"
-                      className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
-                      required
-                    />
-                  </div>
-                )}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                    First Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="firstName"
-                    value={formData.firstName}
-                    onChange={handleChange}
-                    placeholder="Juan"
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                    Last Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="lastName"
-                    value={formData.lastName}
-                    onChange={handleChange}
-                    placeholder="Dela Cruz"
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                    Middle Name
-                  </label>
-                  <input
-                    type="text"
-                    name="middleName"
-                    value={formData.middleName}
-                    onChange={handleChange}
-                    placeholder="Santos"
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                    Contact Number
-                  </label>
-                  <input
-                    type="text"
-                    name="contactNumber"
-                    value={formData.contactNumber}
-                    onChange={handleChange}
-                    placeholder="09123456789"
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
-                  />
-                </div>
-              </div>
-            </div>
+      <form onSubmit={handleSubmit} id="student-form" noValidate className="space-y-4 bg-gray-50 p-4 dark:bg-gray-900 sm:p-6">
+        {serverError && (
+          <div role="alert" className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-900/20 dark:text-red-200">
+            <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" /> {serverError}
+          </div>
+        )}
+        {!hasAccount && (
+          <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-100">
+            <Info className="mt-0.5 h-4 w-4 flex-shrink-0" />
+            This record has no login account (it was removed), so name and email can't be edited. Academic details still save.
+          </div>
+        )}
 
-            {/* Academic Information */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-5 mb-4 border-2 border-gray-200 dark:border-gray-700">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                  <GraduationCap className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                  Academic Information
-                </h3>
-                <span className="text-xs text-gray-500 dark:text-gray-400">* Required</span>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                    Program <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    name="program"
-                    value={formData.program}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
-                    required
-                  >
-                    {programCodes.map(prog => (
-                      <option key={prog} value={prog}>{prog}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                    Year Level <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    name="yearLevel"
-                    value={formData.yearLevel}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
-                    required
-                  >
-                    <option value={1}>1st Year</option>
-                    <option value={2}>2nd Year</option>
-                    <option value={3}>3rd Year</option>
-                    <option value={4}>4th Year</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                    Section <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    name="section"
-                    value={formData.section}
-                    onChange={handleChange}
-                    disabled={loadingSections || sections.length === 0}
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all disabled:bg-gray-100 dark:disabled:bg-gray-600 disabled:cursor-not-allowed"
-                    required
-                  >
-                    {loadingSections ? (
-                      <option value="">Loading sections...</option>
-                    ) : sections.length === 0 ? (
-                      <option value="">No sections available</option>
-                    ) : (
-                      <>
-                        <option value="">Select Section</option>
-                        {sections.map(section => (
-                          <option key={section._id} value={section.sectionLetter}>
-                            Section {section.sectionLetter} - {section.shift} ({section.currentStudents || 0}/{section.maxStudents})
-                          </option>
-                        ))}
-                      </>
-                    )}
-                  </select>
-                  {sections.length === 0 && !loadingSections && (
-                    <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-                      No sections found for {formData.program} Year {formData.yearLevel}. Please create a section first.
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                    Student Type
-                  </label>
-                  <select
-                    name="studentType"
-                    value={formData.studentType}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
-                  >
-                    <option value="regular">Regular</option>
-                    <option value="irregular">Irregular</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                    Academic Year
-                  </label>
-                  <input
-                    type="text"
-                    name="academicYear"
-                    value={formData.academicYear}
-                    readOnly
-                    placeholder="Auto-filled from section"
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all bg-gray-50 dark:bg-gray-600 cursor-not-allowed"
-                    title="This field is automatically filled based on the selected section"
-                  />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Auto-filled from selected section
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                    Semester
-                  </label>
-                  <input
-                    type="text"
-                    name="semester"
-                    value={formData.semester === 1 ? '1st Semester' : '2nd Semester'}
-                    readOnly
-                    placeholder="Auto-filled from section"
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all bg-gray-50 dark:bg-gray-600 cursor-not-allowed"
-                    title="This field is automatically filled based on the selected section"
-                  />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Auto-filled from selected section
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                    Enrollment Status
-                  </label>
-                  <select
-                    name="enrollmentStatus"
-                    value={formData.enrollmentStatus}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
-                  >
-                    <option value="enrolled">Enrolled</option>
-                    <option value="not_enrolled">Not Enrolled</option>
-                    <option value="dropped">Dropped</option>
-                    <option value="graduated">Graduated</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                    GPA
-                  </label>
-                  <input
-                    type="number"
-                    name="gpa"
-                    value={formData.gpa}
-                    onChange={handleChange}
-                    step="0.01"
-                    min="0"
-                    max="5"
-                    placeholder="1.00"
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Subject Codes (For Irregular Students Only) */}
-            {formData.studentType === 'irregular' && (
-              <div className="bg-orange-50 dark:bg-orange-900/20 rounded-xl p-5 mb-4 border-2 border-orange-200 dark:border-orange-700">
-                <h3 className="text-lg font-semibold text-orange-900 dark:text-orange-100 mb-2 flex items-center gap-2">
-                  <BookOpen className="w-5 h-5 text-orange-600 dark:text-orange-400" />
-                  Subject Codes (Irregular Student)
-                </h3>
-                <p className="text-sm text-orange-700 dark:text-orange-300 mb-4">
-                  Add subject codes for this irregular student. They can enroll in these subjects independently.
-                </p>
-                
-                {/* Add Subject Code Input */}
-                <div className="flex gap-2 mb-4">
-                  <input
-                    type="text"
-                    value={subjectCodeInput}
-                    onChange={(e) => setSubjectCodeInput(e.target.value.toUpperCase())}
-                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddSubjectCode())}
-                    placeholder="Enter subject code (e.g., IT101, CS201)"
-                    className="flex-1 px-4 py-2.5 border-2 border-orange-300 dark:border-orange-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 dark:bg-gray-700 dark:text-white transition-all"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddSubjectCode}
-                    className="px-6 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium shadow-md hover:shadow-lg transition-all flex items-center gap-2"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add
+        <Panel icon={User} title="Student" aside={<span className="text-xs text-gray-500 dark:text-gray-400">* required</span>}>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <Field label="Student ID" required error={errors.studentId} hint={isEdit ? 'Student IDs cannot be changed' : undefined}>
+              <input name="studentId" value={form.studentId} onChange={handleChange} disabled={isEdit} placeholder="e.g. 2025-00001" autoComplete="off" className={inputCls(errors.studentId)} />
+            </Field>
+            <Field label="Email" required={hasAccount} error={errors.email}>
+              <input type="email" name="email" value={form.email} onChange={handleChange} disabled={!hasAccount} placeholder="student@example.com" autoComplete="off" className={inputCls(errors.email)} />
+            </Field>
+            <Field label="First name" required={hasAccount} error={errors.firstName}>
+              <input name="firstName" value={form.firstName} onChange={handleChange} disabled={!hasAccount} placeholder="Juan" className={inputCls(errors.firstName)} />
+            </Field>
+            <Field label="Last name" required={hasAccount} error={errors.lastName}>
+              <input name="lastName" value={form.lastName} onChange={handleChange} disabled={!hasAccount} placeholder="Dela Cruz" className={inputCls(errors.lastName)} />
+            </Field>
+            <Field label="Middle name">
+              <input name="middleName" value={form.middleName} onChange={handleChange} disabled={!hasAccount} placeholder="Santos" className={inputCls()} />
+            </Field>
+            <Field label="Contact number">
+              <input type="tel" name="contactNumber" value={form.contactNumber} onChange={handleChange} placeholder="09123456789" className={inputCls()} />
+            </Field>
+            {!isEdit && (
+              <Field label="Password" required error={errors.password} hint={`At least ${MIN_PASSWORD} characters. Share it with the student.`} className="md:col-span-2">
+                <div className="relative">
+                  <input type={showPassword ? 'text' : 'password'} name="password" value={form.password} onChange={handleChange} autoComplete="new-password" placeholder="Create a password" className={`${inputCls(errors.password)} pr-11`} />
+                  <button type="button" onClick={() => setShowPassword((v) => !v)} aria-label={showPassword ? 'Hide password' : 'Show password'} className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
-
-                {/* Subject Codes List */}
-                {formData.subjectCodes.length > 0 ? (
-                  <div className="space-y-2">
-                    <p className="text-sm font-semibold text-orange-900 dark:text-orange-100">
-                      Added Subject Codes ({formData.subjectCodes.length}):
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {formData.subjectCodes.map((code) => (
-                        <div
-                          key={code}
-                          className="flex items-center gap-2 px-3 py-1.5 bg-orange-100 dark:bg-orange-800 text-orange-900 dark:text-orange-100 rounded-lg text-sm font-medium"
-                        >
-                          <BookOpen className="w-3.5 h-3.5" />
-                          <span>{code}</span>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveSubjectCode(code)}
-                            className="ml-1 text-orange-600 dark:text-orange-300 hover:text-orange-800 dark:hover:text-orange-100 transition-colors"
-                            title="Remove subject code"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-6 bg-orange-100/50 dark:bg-orange-900/10 rounded-lg border-2 border-dashed border-orange-300 dark:border-orange-600">
-                    <BookOpen className="w-10 h-10 text-orange-400 mx-auto mb-2" />
-                    <p className="text-sm text-orange-700 dark:text-orange-300">
-                      No subject codes added yet. Add subject codes above.
-                    </p>
-                  </div>
-                )}
-              </div>
+              </Field>
             )}
+          </div>
+        </Panel>
 
-            {/* Guardian Information */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-5 mb-4 border-2 border-gray-200 dark:border-gray-700">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                <AnimatedUserCheck className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                Guardian Information
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                    Guardian Name
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.guardianInfo.name}
-                    onChange={(e) => handleNestedChange('guardianInfo', 'name', e.target.value)}
-                    placeholder="Full name"
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                    Relationship
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.guardianInfo.relationship}
-                    onChange={(e) => handleNestedChange('guardianInfo', 'relationship', e.target.value)}
-                    placeholder="e.g., Father, Mother"
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                    Contact Number
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.guardianInfo.contactNumber}
-                    onChange={(e) => handleNestedChange('guardianInfo', 'contactNumber', e.target.value)}
-                    placeholder="09123456789"
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
-                  />
-                </div>
-              </div>
-            </div>
+        <Panel icon={GraduationCap} title="Enrollment">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <Field label="Program" required error={errors.program}>
+              <select value={form.program} onChange={(e) => changeProgram(e.target.value)} disabled={!!lockedProgram} className={inputCls(errors.program)}>
+                {lockedProgram ? <option value={lockedProgram}>{lockedProgram}</option> : (
+                  <>
+                    {!form.program && <option value="">Choose…</option>}
+                    {programCodes.map((p) => <option key={p} value={p}>{p}</option>)}
+                  </>
+                )}
+              </select>
+            </Field>
+            <Field label="Year level">
+              <select value={form.yearLevel} onChange={(e) => changeYear(Number(e.target.value))} className={inputCls()}>
+                {[1, 2, 3, 4, 5].map((y) => <option key={y} value={y}>Year {y}</option>)}
+              </select>
+            </Field>
+            <Field
+              label="Section"
+              error={errors.sectionCode}
+              hint={sectionsLoading
+                ? 'Loading sections…'
+                : yearSections.length === 0
+                ? `No ${form.program} year ${form.yearLevel} sections yet. You can assign one later.`
+                : chosenSection
+                ? `${chosenSection.academicYear} · Semester ${chosenSection.semester} · ${chosenSection.shift} shift`
+                : 'Optional. Can be assigned later.'}
+            >
+              <select value={form.sectionCode} onChange={(e) => changeSection(e.target.value)} disabled={sectionsLoading} className={inputCls(errors.sectionCode)}>
+                <option value="">No section yet</option>
+                {yearSections.map((s) => {
+                  const full = s.maxStudents && s.currentStudents >= s.maxStudents && s.sectionCode !== student?.sectionCode;
+                  return (
+                    <option key={s._id} value={s.sectionCode} disabled={full}>
+                      {s.sectionCode} · {s.currentStudents || 0}/{s.maxStudents}{full ? ' (full)' : ''}
+                    </option>
+                  );
+                })}
+                {/* Keep a current section that's no longer in the list visible */}
+                {form.sectionCode && !yearSections.some((s) => s.sectionCode === form.sectionCode) && !sectionsLoading && (
+                  <option value={form.sectionCode}>{form.sectionCode}</option>
+                )}
+              </select>
+            </Field>
+            <Field label="Student type" hint={form.studentType === 'irregular' ? 'Takes individual subjects' : 'Follows their section’s schedule'}>
+              <select name="studentType" value={form.studentType} onChange={handleChange} className={inputCls()}>
+                <option value="regular">Regular</option>
+                <option value="irregular">Irregular</option>
+              </select>
+            </Field>
+            <Field label="Status">
+              <select name="enrollmentStatus" value={form.enrollmentStatus} onChange={handleChange} className={inputCls()}>
+                {STATUSES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+            </Field>
+            <Field label="GPA" error={errors.gpa}>
+              <input type="number" name="gpa" value={form.gpa} onChange={handleChange} step="0.01" min="0" max="5" placeholder="e.g. 1.75" className={inputCls(errors.gpa)} />
+            </Field>
+          </div>
+        </Panel>
 
-            {/* Emergency Contact */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-5 mb-4 border-2 border-gray-200 dark:border-gray-700">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                <Phone className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                Emergency Contact
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                    Contact Name
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.emergencyContact.name}
-                    onChange={(e) => handleNestedChange('emergencyContact', 'name', e.target.value)}
-                    placeholder="Full name"
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                    Relationship
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.emergencyContact.relationship}
-                    onChange={(e) => handleNestedChange('emergencyContact', 'relationship', e.target.value)}
-                    placeholder="e.g., Sibling"
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                    Contact Number
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.emergencyContact.contactNumber}
-                    onChange={(e) => handleNestedChange('emergencyContact', 'contactNumber', e.target.value)}
-                    placeholder="09123456789"
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Notes */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border-2 border-gray-200 dark:border-gray-700">
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
-                <FileText className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                Notes
-              </label>
-              <textarea
-                name="notes"
-                value={formData.notes}
-                onChange={handleChange}
-                rows={3}
-                placeholder="Additional notes about the student..."
-                className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all resize-none"
+        {form.studentType === 'irregular' && (
+          <Panel icon={BookOpen} title="Subjects" aside={<span className="text-xs text-gray-500 dark:text-gray-400">{form.subjectCodes.length} added</span>}>
+            <p className="mb-3 text-sm text-gray-600 dark:text-gray-400">The subjects this irregular student takes. Pick from {form.program} subjects or type a code.</p>
+            <div className="flex gap-2">
+              <input
+                list="student-subject-options"
+                value={subjectInput}
+                onChange={(e) => setSubjectInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addSubject(); }
+                }}
+                placeholder="Subject code, e.g. CC 111"
+                aria-label="Subject code"
+                className={inputCls()}
               />
+              <datalist id="student-subject-options">
+                {subjects.filter((s) => !form.subjectCodes.includes(s.subjectCode?.toUpperCase())).map((s) => (
+                  <option key={s._id} value={s.subjectCode}>{s.subjectName}</option>
+                ))}
+              </datalist>
+              <button type="button" onClick={() => addSubject()} disabled={!subjectInput.trim()} className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50">
+                <Plus className="h-4 w-4" /> Add
+              </button>
             </div>
-          </form>
-        </div>
-      </BaseModal>
+            {form.subjectCodes.length > 0 ? (
+              <ul className="mt-3 flex flex-wrap gap-2">
+                {form.subjectCodes.map((code) => {
+                  const known = knownSubject(code);
+                  return (
+                    <li key={code} title={known ? known.subjectName : 'Not a subject of this program'} className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-sm font-medium ${known ? 'bg-indigo-50 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200' : 'bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200'}`}>
+                      {code}
+                      {known && <span className="hidden max-w-[10rem] truncate text-xs font-normal opacity-70 sm:inline">{known.subjectName}</span>}
+                      <button type="button" onClick={() => removeSubject(code)} aria-label={`Remove ${code}`} className="rounded opacity-70 hover:opacity-100"><X className="h-3.5 w-3.5" /></button>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p className="mt-3 rounded-lg border border-dashed border-gray-300 p-4 text-center text-sm text-gray-500 dark:border-gray-600 dark:text-gray-400">No subjects yet</p>
+            )}
+          </Panel>
+        )}
+
+        <Panel icon={Phone} title="Guardian & emergency contact">
+          {[['guardianInfo', 'Guardian', 'e.g. Mother'], ['emergencyContact', 'Emergency contact', 'e.g. Sibling']].map(([key, label, rel]) => (
+            <div key={key} className="mb-4 last:mb-0">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</p>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                <input aria-label={`${label} name`} value={form[key].name} onChange={(e) => setNested(key, 'name', e.target.value)} placeholder="Full name" className={inputCls()} />
+                <input aria-label={`${label} relationship`} value={form[key].relationship} onChange={(e) => setNested(key, 'relationship', e.target.value)} placeholder={rel} className={inputCls()} />
+                <input aria-label={`${label} contact number`} type="tel" value={form[key].contactNumber} onChange={(e) => setNested(key, 'contactNumber', e.target.value)} placeholder="09123456789" className={inputCls()} />
+              </div>
+            </div>
+          ))}
+        </Panel>
+
+        <Panel icon={FileText} title="Notes">
+          <textarea name="notes" value={form.notes} onChange={handleChange} rows={3} placeholder="Anything the scheduling office should know" className={`${inputCls()} resize-y`} aria-label="Notes" />
+        </Panel>
+      </form>
+    </BaseModal>
   );
 };
 

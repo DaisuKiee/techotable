@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
-import { classSpaceAPI, resolveUploadUrl } from '../services/api';
+import { classSpaceAPI, resolveUploadUrl, getErrorMessage } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { usePageState } from '../context/PageStateContext';
 import useCachedData from '../hooks/useCachedData';
@@ -171,7 +171,7 @@ const FolderGlyph = () => (
 
 /** Placeholder rows shown while a class's full details are loading. */
 const PostSkeleton = ({ count = 3 }) => (
-  <div className="space-y-4 animate-pulse" aria-label="Loading">
+  <div className="space-y-4" aria-label="Loading">
     {Array.from({ length: count }).map((_, n) => (
       <div
         key={n}
@@ -506,7 +506,7 @@ const ClassSpacePage = () => {
       toast.success('Download started');
     } catch (error) {
       console.error('Download error:', error);
-      toast.error('Failed to download file');
+      toast.error(getErrorMessage(error, 'Failed to download file'));
     }
   };
 

@@ -1,6 +1,7 @@
 const User = require('../models/User.model');
 const jwt = require('jsonwebtoken');
 const { validationResult } = require('express-validator');
+const { sendError, AppError, sendValidationErrors } = require('../middleware/error.middleware');
 
 // Generate JWT Token
 const generateToken = (userId) => {
@@ -19,10 +20,7 @@ exports.register = async (req, res) => {
     // Validate request
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        errors: errors.array()
-      });
+      return sendValidationErrors(res, errors);
     }
 
     const { email, password, role, firstName, lastName, middleName } = req.body;
@@ -72,12 +70,7 @@ exports.register = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Register error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error registering user',
-      error: error.message
-    });
+    sendError(res, error, 'Error registering user');
   }
 };
 
@@ -89,10 +82,7 @@ exports.login = async (req, res) => {
     // Validate request
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        errors: errors.array()
-      });
+      return sendValidationErrors(res, errors);
     }
 
     const { email, password } = req.body;
@@ -155,14 +145,7 @@ exports.login = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Login error:', error);
-    console.error('Error stack:', error.stack);
-    res.status(500).json({
-      success: false,
-      message: 'Error logging in',
-      error: error.message,
-      ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
-    });
+    sendError(res, error, 'Error logging in');
   }
 };
 
@@ -188,12 +171,7 @@ exports.getMe = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get me error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching user data',
-      error: error.message
-    });
+    sendError(res, error, 'Error fetching user data');
   }
 };
 
@@ -232,12 +210,7 @@ exports.updateProfile = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Update profile error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error updating profile',
-      error: error.message
-    });
+    sendError(res, error, 'Error updating profile');
   }
 };
 
@@ -290,12 +263,7 @@ exports.changePassword = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Change password error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error changing password',
-      error: error.message
-    });
+    sendError(res, error, 'Error changing password');
   }
 };
 
@@ -309,12 +277,7 @@ exports.logout = async (req, res) => {
       message: 'Logged out successfully'
     });
   } catch (error) {
-    console.error('Logout error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error logging out',
-      error: error.message
-    });
+    sendError(res, error, 'Error logging out');
   }
 };
 
@@ -380,12 +343,7 @@ exports.updateSettings = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Update settings error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error updating settings',
-      error: error.message
-    });
+    sendError(res, error, 'Error updating settings');
   }
 };
 
@@ -433,12 +391,7 @@ exports.getSettings = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get settings error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching settings',
-      error: error.message
-    });
+    sendError(res, error, 'Error fetching settings');
   }
 };
 
@@ -535,12 +488,7 @@ exports.signup = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Signup error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error creating account',
-      error: error.message
-    });
+    sendError(res, error, 'Error creating account');
   }
 };
 
@@ -592,12 +540,7 @@ exports.verifyEmail = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Email verification error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error verifying email',
-      error: error.message
-    });
+    sendError(res, error, 'Error verifying email');
   }
 };
 
@@ -641,10 +584,7 @@ exports.resendVerification = async (req, res) => {
     );
 
     if (!emailResult.success) {
-      return res.status(500).json({
-        success: false,
-        message: 'Failed to send verification email'
-      });
+      return sendError(res, new AppError('We could not send the verification email. Please try again in a few minutes.', 502));
     }
 
     res.json({
@@ -653,12 +593,7 @@ exports.resendVerification = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Resend verification error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error resending verification email',
-      error: error.message
-    });
+    sendError(res, error, 'Error resending verification email');
   }
 };
 
@@ -711,10 +646,7 @@ exports.forgotPassword = async (req, res) => {
         await user.save();
         
         console.error('Failed to send password reset email:', emailResult.error);
-        return res.status(500).json({
-          success: false,
-          message: 'Failed to send password reset email. Please try again later.'
-        });
+        return sendError(res, new AppError('We could not send the password reset email. Please try again in a few minutes.', 502));
       }
     }
 
@@ -725,12 +657,7 @@ exports.forgotPassword = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Forgot password error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error processing password reset request',
-      error: error.message
-    });
+    sendError(res, error, 'Error processing password reset request');
   }
 };
 
@@ -788,27 +715,95 @@ exports.resetPassword = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Reset password error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error resetting password',
-      error: error.message
-    });
+    sendError(res, error, 'Error resetting password');
   }
 };
 
 // @desc    Faculty Signup (Public - Pending Approval)
 // @route   POST /api/auth/faculty-signup
 // @access  Public
+/*
+ * Faculty invite links.
+ *
+ * Faculty sign-up used to be a public page: anyone who found /faculty-signup
+ * could register, and the "expires in 48 hours" shown next to the link was
+ * only a label. Now the scheduling office issues a signed, expiring invite
+ * token, and faculty sign-up is refused without a valid one.
+ *
+ * Signed with JWT_SECRET but tagged with a purpose, so a login token can't be
+ * passed off as an invite (or the other way round - login tokens carry `id`).
+ */
+const FACULTY_INVITE = 'faculty-invite';
+const MAX_INVITE_HOURS = 24 * 14;
+
+const readFacultyInvite = (token) => {
+  if (!token) return { ok: false, reason: 'missing' };
+  try {
+    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    return payload.purpose === FACULTY_INVITE
+      ? { ok: true, expiresAt: new Date(payload.exp * 1000) }
+      : { ok: false, reason: 'invalid' };
+  } catch (err) {
+    return { ok: false, reason: err.name === 'TokenExpiredError' ? 'expired' : 'invalid' };
+  }
+};
+
+const INVITE_MESSAGES = {
+  missing: 'Faculty accounts can only be created from an invite link. Ask your scheduling office for one.',
+  invalid: 'This invite link is not valid. Ask your scheduling office for a new one.',
+  expired: 'This invite link has expired. Ask your scheduling office for a new one.',
+};
+
+// @desc    Create a faculty invite link token
+// @route   POST /api/auth/faculty-invite
+// @access  Private (admin, scheduling officer)
+exports.createFacultyInvite = async (req, res) => {
+  const hours = Math.min(MAX_INVITE_HOURS, Math.max(1, parseInt(req.body?.hours, 10) || 48));
+  const token = jwt.sign(
+    { purpose: FACULTY_INVITE, by: String(req.user._id) },
+    process.env.JWT_SECRET,
+    { expiresIn: `${hours}h` }
+  );
+  res.status(201).json({
+    success: true,
+    data: { token, hours, expiresAt: new Date(jwt.decode(token).exp * 1000) },
+  });
+};
+
+// @desc    Check an invite before showing the faculty sign-up form
+// @route   GET /api/auth/faculty-invite/:token
+// @access  Public
+exports.checkFacultyInvite = async (req, res) => {
+  const invite = readFacultyInvite(req.params.token);
+  if (!invite.ok) {
+    return res.status(400).json({ success: false, reason: invite.reason, message: INVITE_MESSAGES[invite.reason] });
+  }
+  res.json({ success: true, data: { expiresAt: invite.expiresAt } });
+};
+
 exports.facultySignup = async (req, res) => {
   try {
-    const { name, email, password, department, qualification, specialization } = req.body;
+    const { name, email, password, department, qualification, specialization, invite } = req.body;
+
+    const access = readFacultyInvite(invite);
+    if (!access.ok) {
+      return res.status(403).json({ success: false, reason: access.reason, message: INVITE_MESSAGES[access.reason] });
+    }
 
     // Validate required fields
     if (!name || !email || !password || !department || !qualification) {
       return res.status(400).json({
         success: false,
         message: 'Please provide all required fields: name, email, password, department, and qualification'
+      });
+    }
+
+    // Faculty.department is an enum; free text used to fail validation
+    const FACULTY_DEPARTMENTS = ['CoTE', 'Other'];
+    if (!FACULTY_DEPARTMENTS.includes(department)) {
+      return res.status(400).json({
+        success: false,
+        message: `Department must be one of: ${FACULTY_DEPARTMENTS.join(', ')}`
       });
     }
 
@@ -850,17 +845,37 @@ exports.facultySignup = async (req, res) => {
       isActive: false // Inactive until approved
     });
 
-    // Create Faculty profile (also pending)
+    /*
+     * The profile used to be created with fields this schema doesn't have
+     * (userId, name, qualification) and without the ones it requires (user,
+     * employeeId, position), so EVERY faculty sign-up failed validation here -
+     * after the login above had been created. The applicant saw an error, and
+     * retrying said "email already exists".
+     */
     const Faculty = require('../models/Faculty.model');
-    const facultyProfile = await Faculty.create({
-      userId: user._id,
-      name: name.trim(),
-      email: email.toLowerCase(),
-      department,
-      qualification,
-      specialization: specialization || '',
-      isActive: false // Inactive until approved
-    });
+    // "MS in Information Technology" -> degree "MS", field "Information Technology"
+    const [degreePart, ...fieldParts] = String(qualification).trim().split(/\s+in\s+/i);
+    let facultyProfile;
+    try {
+      facultyProfile = await Faculty.create({
+        user: user._id,
+        // Placeholder until the scheduling office sets the real one (editable)
+        employeeId: `PENDING-${user._id.toString().slice(-6).toUpperCase()}`,
+        department,
+        position: 'Instructor',
+        qualifications: [{
+          degree: degreePart || String(qualification).trim(),
+          field: fieldParts.join(' in ') || 'Not specified',
+        }],
+        specializations: String(specialization || '')
+          .split(',').map((x) => x.trim()).filter(Boolean),
+        isActive: false // Inactive until approved
+      });
+    } catch (profileError) {
+      // Don't leave a login behind that blocks the applicant from retrying
+      await User.deleteOne({ _id: user._id });
+      throw profileError;
+    }
 
     // Link faculty profile to user
     user.facultyProfile = facultyProfile._id;
@@ -878,11 +893,6 @@ exports.facultySignup = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Faculty signup error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error registering faculty account',
-      error: error.message
-    });
+    sendError(res, error, 'Error registering faculty account');
   }
 };

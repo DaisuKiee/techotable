@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { 
   Users, BookOpen, DoorOpen, Calendar, 
-  Brain, GraduationCap, LogOut, Menu, X,
+  BarChart3, GraduationCap, LogOut, Menu, X,
   User, Settings, LayoutGrid,
   FileText, ClipboardList,
   Layers, Home, Activity, ChevronDown, Sun, Moon
@@ -33,7 +33,7 @@ const readCollapsedGroups = () => {
  * Light/dark switch for the header. The theme used to be reachable only from
  * Settings, so checking a page in the other mode meant a detour every time.
  */
-const ThemeToggle = () => {
+export const ThemeToggle = () => {
   const { resolvedTheme, toggleTheme } = useTheme();
   const dark = resolvedTheme === 'dark';
   return (
@@ -164,7 +164,7 @@ const Layout = ({ children }) => {
         {
           label: 'System',
           items: [
-            { name: 'AI Insights', path: '/ai', icon: Brain },
+            { name: 'Faculty Analytics', path: '/faculty-analytics', icon: BarChart3 },
             { name: 'Activity Log', path: '/activity', icon: Activity },
           ],
         },

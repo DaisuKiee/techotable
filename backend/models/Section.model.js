@@ -65,6 +65,13 @@ const SectionSchema = new mongoose.Schema({
     ref: 'Faculty',
     default: null
   },
+  // The room this section normally meets in. The schedule builder pre-fills it
+  // on every class dropped for the section. Stored as a Room id string, the
+  // same way Schedule.room is, so the two compare directly.
+  room: {
+    type: String,
+    default: null
+  },
   description: {
     type: String,
     trim: true,

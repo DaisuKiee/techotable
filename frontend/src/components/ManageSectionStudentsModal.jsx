@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, Users, UserPlus, Search, CheckCircle, XCircle } from 'lucide-react';
-import { studentAPI } from '../services/api';
+import { Users, UserPlus, Search, CheckCircle, XCircle } from 'lucide-react';
+import { ModalShell, ModalHeader, ModalFooter, ModalButton, useModalTitleId } from './modal/ModalShell';
+import { studentAPI, getErrorMessage } from '../services/api';
 import toast from 'react-hot-toast';
 import AnimatedUserCheck from './AnimatedUserCheck';
 
@@ -24,7 +25,7 @@ const ManageSectionStudentsModal = ({ section, onClose, onSuccess }) => {
       setStudents(response.data.data || []);
     } catch (error) {
       console.error('Load students error:', error);
-      toast.error('Failed to load students');
+      toast.error(getErrorMessage(error, 'Failed to load students'));
     } finally {
       setLoading(false);
     }
@@ -69,32 +70,20 @@ const ManageSectionStudentsModal = ({ section, onClose, onSuccess }) => {
   const assignedStudents = filteredStudents.filter(s => s.sectionCode === section.sectionCode);
   const unassignedStudents = filteredStudents.filter(s => s.sectionCode !== section.sectionCode);
 
+  const titleId = useModalTitleId();
+
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl">
-        {/* Header */}
-        <div className="bg-blue-600 px-6 py-4 flex items-center justify-between rounded-t-2xl flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-              <Users className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-white">Manage Section Students</h2>
-              <p className="text-blue-100 text-sm">
-                {section.sectionCode} • {section.program} Year {section.yearLevel}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-white/80 hover:text-white transition-colors"
-          >
-            <X className="w-6 h-6" />
-          </button>
-        </div>
+    <ModalShell onClose={onClose} size="xl" labelledBy={titleId} guardDirty={false}>
+      <ModalHeader
+        id={titleId}
+        icon={Users}
+        title="Manage section students"
+        subtitle={`${section.sectionCode} · ${section.program} Year ${section.yearLevel} · ${assignedStudents.length} assigned`}
+        onClose={onClose}
+      />
 
         {/* Search */}
-        <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+        <div className="px-5 py-3 sm:px-6 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
             <input
@@ -102,13 +91,14 @@ const ManageSectionStudentsModal = ({ section, onClose, onSuccess }) => {
               placeholder="Search by name, student ID, or email..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+              data-modal-ignore-dirty
             />
           </div>
         </div>
 
         {/* Body - Scrollable */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6 space-y-6">
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
@@ -252,17 +242,10 @@ const ManageSectionStudentsModal = ({ section, onClose, onSuccess }) => {
           )}
         </div>
 
-        {/* Footer */}
-        <div className="px-6 py-4 bg-gray-50 dark:bg-gray-700 rounded-b-2xl flex justify-end flex-shrink-0">
-          <button
-            onClick={onClose}
-            className="px-6 py-2.5 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors font-medium"
-          >
-            Close
-          </button>
-        </div>
-      </div>
-    </div>
+        <ModalFooter info={`${unassignedStudents.length} student${unassignedStudents.length === 1 ? '' : 's'} not in this section`}>
+          <ModalButton variant="secondary" onClick={onClose}>Close</ModalButton>
+        </ModalFooter>
+    </ModalShell>
   );
 };
 

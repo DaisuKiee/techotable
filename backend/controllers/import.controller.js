@@ -1,3 +1,4 @@
+const { sendError } = require('../middleware/error.middleware');
 const { 
   importFromExcel, 
   generateTemplate,
@@ -36,12 +37,7 @@ exports.importExcel = async (req, res) => {
       data: results
     });
   } catch (error) {
-    console.error('Excel import error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error importing Excel file',
-      error: error.message
-    });
+    sendError(res, error, 'Error importing Excel file');
   }
 };
 
@@ -70,12 +66,7 @@ exports.importStudentsExcel = async (req, res) => {
       data: results
     });
   } catch (error) {
-    console.error('Import students error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error importing students',
-      error: error.message
-    });
+    sendError(res, error, 'Error importing students');
   }
 };
 
@@ -104,12 +95,7 @@ exports.importFacultyExcel = async (req, res) => {
       data: results
     });
   } catch (error) {
-    console.error('Import faculty error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error importing faculty',
-      error: error.message
-    });
+    sendError(res, error, 'Error importing faculty');
   }
 };
 
@@ -138,12 +124,7 @@ exports.importSubjectsExcel = async (req, res) => {
       data: results
     });
   } catch (error) {
-    console.error('Import subjects error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error importing subjects',
-      error: error.message
-    });
+    sendError(res, error, 'Error importing subjects');
   }
 };
 
@@ -168,12 +149,7 @@ exports.downloadTemplate = async (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename=${type}_template.xlsx`);
     res.send(buffer);
   } catch (error) {
-    console.error('Download template error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error generating template',
-      error: error.message
-    });
+    sendError(res, error, 'Error generating template');
   }
 };
 

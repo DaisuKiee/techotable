@@ -1,3 +1,4 @@
+const { sendError } = require('../middleware/error.middleware');
 const { 
   getActivityLogs, 
   getActivityStats, 
@@ -37,12 +38,7 @@ exports.getAllLogs = async (req, res) => {
       data: result
     });
   } catch (error) {
-    console.error('Get logs error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching activity logs',
-      error: error.message
-    });
+    sendError(res, error, 'Error fetching activity logs');
   }
 };
 
@@ -64,12 +60,7 @@ exports.getStats = async (req, res) => {
       data: stats
     });
   } catch (error) {
-    console.error('Get stats error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching activity statistics',
-      error: error.message
-    });
+    sendError(res, error, 'Error fetching activity statistics');
   }
 };
 
@@ -95,12 +86,7 @@ exports.getUserSummary = async (req, res) => {
       data: summary
     });
   } catch (error) {
-    console.error('Get user summary error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching user activity summary',
-      error: error.message
-    });
+    sendError(res, error, 'Error fetching user activity summary');
   }
 };
 
@@ -119,12 +105,7 @@ exports.cleanupLogs = async (req, res) => {
       data: result
     });
   } catch (error) {
-    console.error('Cleanup logs error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error cleaning up activity logs',
-      error: error.message
-    });
+    sendError(res, error, 'Error cleaning up activity logs');
   }
 };
 

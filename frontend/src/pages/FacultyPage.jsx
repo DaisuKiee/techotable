@@ -1,14 +1,15 @@
 import React, { useState, useMemo, useEffect, useRef, useDeferredValue } from 'react';
 import Layout from '../components/Layout';
-import { facultyAPI } from '../services/api';
+import StatCard from '../components/StatCard';
+import { facultyAPI, authAPI, getErrorMessage } from '../services/api';
 import useCachedData from '../hooks/useCachedData';
 import toast from 'react-hot-toast';
 import {
-  Plus, Search, Edit2, Trash2, Eye, X,
+  Plus, Search, Edit2, Eye, X,
   User, Mail, Phone, BookOpen, TrendingUp,
   AlertCircle, AlertTriangle, CheckCircle,
   Grid3x3, List, GraduationCap, Briefcase, Star, Layers, Clock,
-  Download, RefreshCw, Settings, Link as LinkIcon, Copy, ArrowDown, ChevronDown
+  Download, RefreshCw, Settings, Link as LinkIcon, Copy, ArrowDown, ChevronDown, UserX, UserCheck
 } from 'lucide-react';
 import AnimatedUsers from '../components/AnimatedUsers';
 import AnimatedBarChart from '../components/AnimatedBarChart';
@@ -81,6 +82,10 @@ const backgroundFor = (key) => {
 };
 
 const nameOf = (u) => `${u?.firstName || ''} ${u?.lastName || ''}`.trim();
+// A profile without a linked user (left over by a cleanup script) has no
+// name, so fall back to the employee ID rather than rendering a blank title.
+const displayName = (member) => nameOf(member.user) || member.employeeId || 'Unknown';
+
 const initialsOf = (u) =>
   `${u?.firstName?.[0] || ''}${u?.lastName?.[0] || ''}`.toUpperCase();
 
@@ -88,7 +93,9 @@ const avatarSrc = (path) =>
   path ? `${process.env.REACT_APP_API_URL?.replace('/api', '')}${path}` : null;
 
 // Accessors for the Faculty schema (backend/models/Faculty.model.js).
-const getMaxLoad = (f) => f.maxTeachingHours || f.maxTeachingLoad || STANDARD_LOAD;
+// maxTeachingHours only: some documents also carry a legacy maxTeachingLoad,
+// which is in UNITS (18-30), and falling back to it compared hours to units.
+const getMaxLoad = (f) => f.maxTeachingHours || STANDARD_LOAD;
 const getCurrentLoad = (f) => f.currentTeachingHours || f.currentLoad || 0;
 const getPositionHours = (f) => POSITION_HOURS[f.position] || 0;
 const getTotalHours = (f) => getCurrentLoad(f) + getPositionHours(f);
@@ -109,15 +116,27 @@ const getTopQualification = (f) => {
   return q ? [q.degree, q.field].filter(Boolean).join(' in ') : null;
 };
 
+// How far past their own limit someone can go before it's an overload: the
+// standard 36-hour load allows up to 40 "with warning".
+const LOAD_ALLOWANCE = WARNING_LIMIT - STANDARD_LOAD;
+
+/**
+ * Workload status against the teacher's OWN limit. It was measured against a
+ * fixed 36 hours for everyone, so a part-timer capped at 18 hours carrying 30
+ * still showed "Normal".
+ */
 const getLoad = (f) => {
   const total = getTotalHours(f);
-  const key = total > WARNING_LIMIT ? 'overload' : total > STANDARD_LOAD ? 'warning' : 'normal';
+  const max = getMaxLoad(f);
+  const key = total > max + LOAD_ALLOWANCE ? 'overload' : total > max ? 'warning' : 'normal';
   return {
     key,
     total,
+    max,
     teaching: getCurrentLoad(f),
     admin: getPositionHours(f),
-    percent: Math.min(100, (total / STANDARD_LOAD) * 100),
+    classes: f.assignedClasses || 0,
+    percent: Math.min(100, (total / max) * 100),
     ...LOAD_STATUS[key],
   };
 };
@@ -203,7 +222,12 @@ const downloadCsv = (filename, headers, rows) => {
   window.URL.revokeObjectURL(url);
 };
 
-const readSignupLink = () => {
+/**
+ * Issue a faculty invite link. The server signs an expiring token, so the
+ * expiry shown is enforced - this used to be the bare public /faculty-signup
+ * address with a display-only countdown, which anyone could use at any time.
+ */
+const createSignupLink = async () => {
   let hours = 48;
   try {
     const config = JSON.parse(localStorage.getItem('facultyAccountConfig') || '{}');
@@ -211,10 +235,11 @@ const readSignupLink = () => {
   } catch (error) {
     console.error('Error parsing config:', error);
   }
+  const { data } = await authAPI.createFacultyInvite(hours);
   return {
-    url: `${window.location.origin}/faculty-signup`,
-    hours,
-    expiresAt: new Date(Date.now() + hours * 60 * 60 * 1000),
+    url: `${window.location.origin}/faculty-signup?invite=${encodeURIComponent(data.data.token)}`,
+    hours: data.data.hours,
+    expiresAt: new Date(data.data.expiresAt),
   };
 };
 
@@ -255,6 +280,15 @@ const Chip = ({ children, onRemove }) => (
   </span>
 );
 
+const AVATAR_TONES = [
+  'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/70 dark:text-indigo-200',
+  'bg-sky-100 text-sky-700 dark:bg-sky-900/70 dark:text-sky-200',
+  'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/70 dark:text-emerald-200',
+  'bg-amber-100 text-amber-800 dark:bg-amber-900/70 dark:text-amber-200',
+  'bg-rose-100 text-rose-700 dark:bg-rose-900/70 dark:text-rose-200',
+  'bg-violet-100 text-violet-700 dark:bg-violet-900/70 dark:text-violet-200',
+];
+
 const Avatar = ({ user, size = 'h-10 w-10', iconSize = 'w-5 h-5', extra = '' }) => {
   const [failed, setFailed] = useState(false);
   const src = avatarSrc(user?.profilePicture);
@@ -269,12 +303,16 @@ const Avatar = ({ user, size = 'h-10 w-10', iconSize = 'w-5 h-5', extra = '' }) 
     );
   }
   const initials = initialsOf(user);
+  // Same person, same colour - easier to pick someone out of a long grid
+  // than a wall of identical indigo circles
+  const tone = AVATAR_TONES[Math.abs([...(nameOf(user) || 'x')].reduce((h, c) => c.charCodeAt(0) + ((h << 5) - h), 0)) % AVATAR_TONES.length];
+  const big = /h-1[2-9]|h-2\d/.test(size);
   return (
-    <div className={`flex-shrink-0 ${size} rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center ${extra}`}>
+    <div className={`flex-shrink-0 ${size} rounded-full ${tone} flex items-center justify-center ${extra}`}>
       {initials ? (
-        <span className="font-bold text-indigo-700 dark:text-indigo-300 text-sm">{initials}</span>
+        <span className={`font-bold ${big ? 'text-xl' : 'text-sm'}`}>{initials}</span>
       ) : (
-        <User className={`${iconSize} text-indigo-600 dark:text-indigo-400`} />
+        <User className={iconSize} />
       )}
     </div>
   );
@@ -339,26 +377,6 @@ const LoadBar = ({ load, height = 'h-2.5' }) => (
     />
   </div>
 );
-
-const StatCard = ({ icon: Icon, label, value, caption, tone, onClick, active, title }) => {
-  const interactive = typeof onClick === 'function';
-  const Tag = interactive ? 'button' : 'div';
-  return (
-    <Tag
-      {...(interactive ? { type: 'button', onClick, title, 'aria-pressed': !!active } : {})}
-      className={`text-left ${tone} text-white rounded-xl p-4 shadow-md transition-all ${
-        interactive ? 'hover:shadow-lg' : ''
-      } ${active ? 'ring-4 ring-gray-300 dark:ring-gray-500' : ''}`}
-    >
-      <div className="flex items-center justify-between mb-2">
-        <Icon className="w-5 h-5 opacity-80" />
-        <span className="text-xs font-medium opacity-80">{label}</span>
-      </div>
-      <div className="text-2xl md:text-3xl font-bold">{value}</div>
-      <div className="text-xs opacity-80 mt-1">{caption}</div>
-    </Tag>
-  );
-};
 
 /** One-glance split of the whole faculty by workload status. */
 const LoadDistribution = ({ stats }) => {
@@ -434,7 +452,8 @@ const stop = (fn) => (e) => {
   fn();
 };
 
-const ActionButtons = ({ member, canManage, onView, onEdit, onDelete, variant }) => {
+const ActionButtons = ({ member, canManage, onView, onEdit, onDelete, onReactivate, variant }) => {
+  const inactive = member.isActive === false;
   const full = variant === 'full';
   const base = full
     ? 'flex items-center justify-center gap-2 px-3 py-2.5 text-sm rounded-lg transition-all font-medium'
@@ -470,14 +489,27 @@ const ActionButtons = ({ member, canManage, onView, onEdit, onDelete, variant })
             <Edit2 className="w-4 h-4" />
             {full && 'Edit'}
           </button>
-          <button
-            onClick={stop(() => onDelete(member))}
-            className={`${base} ${deleteTone}`}
-            title="Delete"
-            aria-label="Delete"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
+          {inactive ? (
+            <button
+              onClick={stop(() => onReactivate(member))}
+              className={`${base} ${full ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm hover:shadow-md' : 'text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900'}`}
+              title="Reactivate"
+              aria-label="Reactivate"
+            >
+              <UserCheck className="w-4 h-4" />
+            </button>
+          ) : (
+            // It never deleted anything - the account is deactivated and can
+            // be restored - so it no longer says "Delete"
+            <button
+              onClick={stop(() => onDelete(member))}
+              className={`${base} ${deleteTone}`}
+              title="Deactivate"
+              aria-label="Deactivate"
+            >
+              <UserX className="w-4 h-4" />
+            </button>
+          )}
         </>
       )}
     </>
@@ -486,7 +518,7 @@ const ActionButtons = ({ member, canManage, onView, onEdit, onDelete, variant })
 
 /* ─── Grid card ──────────────────────────────────────────────────────────── */
 
-const FacultyCard = ({ member, canManage, onView, onEdit, onDelete }) => {
+const FacultyCard = ({ member, canManage, onView, onEdit, onDelete, onReactivate }) => {
   const { user } = member;
   const load = getLoad(member);
   const programs = getPrograms(member);
@@ -498,7 +530,6 @@ const FacultyCard = ({ member, canManage, onView, onEdit, onDelete }) => {
   const rating = getAverageRating(member);
   const phone = getPhone(member);
   const StatusIcon = load.Icon;
-  const hoursGap = load.total - STANDARD_LOAD;
 
   return (
     <div
@@ -515,12 +546,19 @@ const FacultyCard = ({ member, canManage, onView, onEdit, onDelete }) => {
       >
         <div className="absolute inset-0 bg-gradient-to-b from-black/30 to-black/50" />
         {/* Status dot: visible at a glance without reading the workload section */}
-        <span
-          className={`absolute top-3 right-3 inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-semibold bg-white/90 dark:bg-gray-900/80 ${load.text}`}
-        >
-          <StatusIcon className="w-3 h-3" />
-          {load.label}
-        </span>
+        {member.isActive === false ? (
+          <span className="absolute top-3 right-3 inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-semibold bg-gray-900/80 text-gray-100">
+            <UserX className="w-3 h-3" />
+            Inactive
+          </span>
+        ) : (
+          <span
+            className={`absolute top-3 right-3 inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-semibold bg-white/90 dark:bg-gray-900/80 ${load.text}`}
+          >
+            <StatusIcon className="w-3 h-3" />
+            {load.label}
+          </span>
+        )}
       </div>
 
       <div className="p-5 -mt-8 relative flex flex-col flex-1">
@@ -533,27 +571,44 @@ const FacultyCard = ({ member, canManage, onView, onEdit, onDelete }) => {
             extra="ring-4 ring-white dark:ring-gray-800 shadow-lg"
           />
           <div className="flex-1 min-w-0 mt-4">
-            <h3 className="font-bold text-gray-900 dark:text-white text-base truncate">{nameOf(user)}</h3>
+            <h3 className="font-bold text-gray-900 dark:text-white text-base truncate">
+              {displayName(member)}
+            </h3>
             {member.position && (
               <p className="text-xs font-medium text-indigo-700 dark:text-indigo-400 truncate flex items-center gap-1">
                 <Briefcase className="w-3 h-3 flex-shrink-0" />
                 {member.position}
               </p>
             )}
-            <p className="text-xs text-gray-600 dark:text-gray-400 truncate flex items-center gap-1 mt-1">
-              <Mail className="w-3 h-3 flex-shrink-0" />
-              {user?.email}
-            </p>
+            {/* Only rows that have something in them - an empty envelope icon
+                said nothing */}
+            {user?.email && (
+              <a
+                href={`mailto:${user.email}`}
+                onClick={(e) => e.stopPropagation()}
+                className="text-xs text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-300 truncate flex items-center gap-1 mt-1"
+                title={`Email ${user.email}`}
+              >
+                <Mail className="w-3 h-3 flex-shrink-0" />
+                <span className="truncate">{user.email}</span>
+              </a>
+            )}
             {phone && (
-              <p className="text-xs text-gray-600 dark:text-gray-400 truncate flex items-center gap-1">
+              <a
+                href={`tel:${phone}`}
+                onClick={(e) => e.stopPropagation()}
+                className="text-xs text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-300 truncate flex items-center gap-1"
+              >
                 <Phone className="w-3 h-3 flex-shrink-0" />
                 {phone}
-              </p>
+              </a>
             )}
             <div className="flex flex-wrap items-center gap-1 mt-2">
-              <span className="px-2 py-0.5 bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300 text-xs font-bold rounded">
-                {member.employeeId}
-              </span>
+              {user && (
+                <span className="px-2 py-0.5 bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300 text-xs font-bold rounded">
+                  {member.employeeId}
+                </span>
+              )}
               {member.employmentType && (
                 <span className={`px-2 py-0.5 text-xs font-semibold rounded ${member.employmentType === 'Part-time' ? TONE_AMBER : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300'}`}>
                   {member.employmentType}
@@ -668,12 +723,13 @@ const FacultyCard = ({ member, canManage, onView, onEdit, onDelete }) => {
             </span>
           </div>
           <LoadBar load={load} />
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            {hoursGap > 0
-              ? `${hoursGap} hrs over standard`
-              : hoursGap === 0
-              ? 'At standard load'
-              : `${-hoursGap} hrs below standard`}
+          <p className="mt-1 flex justify-between text-xs text-gray-500 dark:text-gray-400">
+            <span>{load.classes} class{load.classes === 1 ? '' : 'es'}</span>
+            <span>
+              {load.total > load.max
+                ? `${Math.round((load.total - load.max) * 10) / 10} hrs over their ${load.max}-hr max`
+                : `${Math.round((load.max - load.total) * 10) / 10} hrs left of ${load.max}`}
+            </span>
           </p>
         </div>
 
@@ -684,6 +740,7 @@ const FacultyCard = ({ member, canManage, onView, onEdit, onDelete }) => {
             onView={onView}
             onEdit={onEdit}
             onDelete={onDelete}
+            onReactivate={onReactivate}
             variant="full"
           />
         </div>
@@ -694,7 +751,7 @@ const FacultyCard = ({ member, canManage, onView, onEdit, onDelete }) => {
 
 /* ─── Table row ──────────────────────────────────────────────────────────── */
 
-const FacultyRow = ({ member, canManage, onView, onEdit, onDelete }) => {
+const FacultyRow = ({ member, canManage, onView, onEdit, onDelete, onReactivate }) => {
   const { user } = member;
   const load = getLoad(member);
   const programs = getPrograms(member);
@@ -713,17 +770,21 @@ const FacultyRow = ({ member, canManage, onView, onEdit, onDelete }) => {
         <div className="flex items-center">
           <Avatar user={user} />
           <div className="ml-4">
-            <div className="text-sm font-medium text-gray-900 dark:text-white">{nameOf(user)}</div>
+            <div className="text-sm font-medium text-gray-900 dark:text-white">
+              {displayName(member)}
+            </div>
             {member.position && (
               <div className="text-xs text-indigo-700 dark:text-indigo-400 font-medium">
                 {member.position}
                 {member.employmentType ? ` · ${member.employmentType}` : ''}
               </div>
             )}
-            <div className="text-sm text-gray-600 dark:text-gray-400 flex items-center">
-              <Mail className="w-3 h-3 mr-1" />
-              {user?.email}
-            </div>
+            {user?.email && (
+              <div className="text-sm text-gray-600 dark:text-gray-400 flex items-center">
+                <Mail className="w-3 h-3 mr-1" />
+                {user.email}
+              </div>
+            )}
           </div>
         </div>
       </td>
@@ -752,7 +813,7 @@ const FacultyRow = ({ member, canManage, onView, onEdit, onDelete }) => {
       <td className="px-4 py-4 whitespace-nowrap">
         <div className="min-w-[140px]">
           <div className="flex items-center justify-between text-xs mb-1">
-            <span className="text-gray-600 dark:text-gray-400">{load.total} hrs</span>
+            <span className="text-gray-600 dark:text-gray-400" title={`${load.classes} classes`}>{load.total} / {load.max} hrs</span>
             <span className={`inline-flex items-center gap-1 font-semibold ${load.text}`} title={load.label}>
               <StatusIcon className="w-3.5 h-3.5" />
               {load.label}
@@ -769,6 +830,7 @@ const FacultyRow = ({ member, canManage, onView, onEdit, onDelete }) => {
             onView={onView}
             onEdit={onEdit}
             onDelete={onDelete}
+            onReactivate={onReactivate}
             variant="icon"
           />
         </div>
@@ -795,6 +857,8 @@ const FacultyPage = () => {
 
   // Program managers are locked to their own program
   const isProgramManager = user?.role === 'program_manager';
+  // Faculty invite links come from the scheduling office only (enforced by the API too)
+  const canInvite = user?.role === 'admin' || user?.role === 'scheduling_officer';
   const lockedProgram = isProgramManager ? user?.program || '' : '';
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -802,6 +866,9 @@ const FacultyPage = () => {
   const [filterSpecialization, setFilterSpecialization] = useState('');
   const [filterEmployment, setFilterEmployment] = useState('');
   const [filterLoad, setFilterLoad] = useState(''); // '' | 'warning' | 'overload'
+  // Deactivated faculty used to vanish for good: the list only ever asked for
+  // active ones, so there was no way to see or restore them.
+  const [filterStatus, setFilterStatus] = useState('active'); // 'active' | 'inactive'
   const [sortKey, setSortKey] = usePersistedState('faculty.sortKey', 'name', SORT_OPTIONS.map((o) => o.key));
   const [viewMode, setViewMode] = usePersistedState('faculty.viewMode', 'grid', ['grid', 'list']);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE.grid);
@@ -837,17 +904,17 @@ const FacultyPage = () => {
     refetch: reloadFaculty,
   } = useCachedData(
     () => {
-      const params = { isActive: true };
+      const params = { isActive: filterStatus === 'active' };
       if (activeProgram) params.program = activeProgram;
       return facultyAPI.getAll(params);
     },
-    `faculty-list-${activeProgram || 'all'}`,
+    `faculty-list-${activeProgram || 'all'}-${filterStatus}`,
     {
       cacheDuration: 5 * 60 * 1000,
       enabled: true,
       onError: (err) => {
         console.error('Failed to load faculty:', err);
-        toast.error('Failed to load faculty');
+        toast.error(getErrorMessage(err, 'Failed to load faculty'));
       },
     }
   );
@@ -930,7 +997,7 @@ const FacultyPage = () => {
   // Reset paging whenever the result set or layout changes
   useEffect(() => {
     setVisibleCount(PAGE_SIZE[viewMode]);
-  }, [deferredSearch, filterSpecialization, filterEmployment, filterLoad, sortKey, viewMode, activeProgram]);
+  }, [deferredSearch, filterSpecialization, filterEmployment, filterLoad, sortKey, viewMode, activeProgram, filterStatus]);
 
   const visibleFaculty = useMemo(
     () => filteredFaculty.slice(0, visibleCount),
@@ -940,17 +1007,38 @@ const FacultyPage = () => {
 
   const stats = useMemo(() => {
     const keys = faculty.map((f) => getLoad(f).key);
-    const totalHours = faculty.reduce((sum, f) => sum + getTotalHours(f), 0);
+    // Averaged over faculty who have classes. Averaging over everyone let the
+    // unassigned majority drag it to "2 hours/week", which said nothing about
+    // how loaded the teaching staff actually are.
+    const teaching = faculty.filter((f) => (f.assignedClasses || 0) > 0);
+    const totalHours = teaching.reduce((sum, f) => sum + getTotalHours(f), 0);
     return {
       total: faculty.length,
-      avgLoad: faculty.length ? Math.round(totalHours / faculty.length) : 0,
+      teaching: teaching.length,
+      unassigned: faculty.length - teaching.length,
+      avgLoad: teaching.length ? Math.round((totalHours / teaching.length) * 10) / 10 : 0,
       warning: keys.filter((k) => k === 'warning').length,
       overloaded: keys.filter((k) => k === 'overload').length,
     };
   }, [faculty]);
 
-  // Computed only while the panel is open, so the "expires in" time is stable between renders
-  const signupLink = useMemo(() => (showSignupLink ? readSignupLink() : null), [showSignupLink]);
+  // A fresh invite each time the panel opens
+  const [signupLink, setSignupLink] = useState(null);
+  const [signupLinkError, setSignupLinkError] = useState('');
+  useEffect(() => {
+    if (!showSignupLink) {
+      setSignupLink(null);
+      setSignupLinkError('');
+      return undefined;
+    }
+    let cancelled = false;
+    createSignupLink()
+      .then((link) => { if (!cancelled) setSignupLink(link); })
+      .catch((err) => {
+        if (!cancelled) setSignupLinkError(err.response?.data?.message || 'Could not create an invite link.');
+      });
+    return () => { cancelled = true; };
+  }, [showSignupLink]);
 
   const hasActiveFilters = !!(
     searchTerm || filterSpecialization || filterEmployment || filterLoad ||
@@ -987,30 +1075,50 @@ const FacultyPage = () => {
     setShowDetailsModal(true);
   };
 
+  // The API deactivates (profile and login) rather than deleting, so the
+  // dialog says so - it used to promise "cannot be undone" - and warns about
+  // classes that will be left with an inactive teacher.
   const handleDelete = (member) => {
+    const classes = member.assignedClasses || 0;
     setConfirmDialog({
       isOpen: true,
-      title: 'Delete Faculty Member',
-      message: 'Are you sure you want to delete this faculty member? This action cannot be undone.',
-      itemName: nameOf(member.user),
+      title: 'Deactivate Faculty Member',
+      confirmText: 'Deactivate',
+      type: 'warning',
+      footnote: null,
+      message: classes > 0
+        ? `They will no longer be able to log in. ${classes} class${classes === 1 ? ' is' : 'es are'} still assigned to them and will need a new teacher. You can reactivate them later from the Inactive list.`
+        : 'They will no longer be able to log in. You can reactivate them later from the Inactive list.',
+      itemName: displayName(member),
       onConfirm: async () => {
         try {
-          await facultyAPI.delete(member._id);
-          toast.success('Faculty member deleted successfully');
+          const { data } = await facultyAPI.delete(member._id);
+          toast.success(data?.message || 'Faculty member deactivated', { duration: classes > 0 ? 6000 : 3000 });
           reloadFaculty();
         } catch (err) {
           console.error('Delete error:', err);
           toast.error(
             err.response?.data?.message ||
               (err.response?.status === 403
-                ? 'You do not have permission to delete this faculty member'
-                : 'Failed to delete faculty member')
+                ? 'You do not have permission to deactivate this faculty member'
+                : 'Failed to deactivate faculty member')
           );
         } finally {
           closeConfirmDialog();
         }
       },
     });
+  };
+
+  const handleReactivate = async (member) => {
+    try {
+      await facultyAPI.update(member._id, { isActive: true });
+      toast.success(`${displayName(member)} reactivated`);
+      reloadFaculty();
+    } catch (err) {
+      console.error('Reactivate error:', err);
+      toast.error(err.response?.data?.message || 'Failed to reactivate faculty member');
+    }
   };
 
   const handleModalClose = (shouldRefresh) => {
@@ -1038,7 +1146,7 @@ const FacultyPage = () => {
     const headers = [
       'Employee ID', 'First Name', 'Last Name', 'Email', 'Contact Number', 'Position',
       'Employment Type', 'Programs', 'Specializations', 'Max Teaching Hours', 'Current Load',
-      'Position Load', 'Total Hours', 'Workload Status', 'Status', 'Highest Qualification',
+      'Position Load', 'Total Hours', 'Classes', 'Units', 'Workload Status', 'Status', 'Highest Qualification',
     ];
     const rows = filteredFaculty.map((f) => [
       f.employeeId,
@@ -1054,6 +1162,8 @@ const FacultyPage = () => {
       getCurrentLoad(f),
       getPositionHours(f),
       getTotalHours(f),
+      f.assignedClasses || 0,
+      f.assignedUnits || 0,
       LOAD_STATUS[getLoad(f).key].label,
       f.isActive ? 'Active' : 'Inactive',
       getTopQualification(f),
@@ -1067,10 +1177,10 @@ const FacultyPage = () => {
   const copySignupLink = async () => {
     try {
       await navigator.clipboard.writeText(signupLink.url);
-      toast.success('Signup link copied to clipboard!');
+      toast.success('Invite link copied to clipboard!');
     } catch (err) {
       console.error('Error copying link:', err);
-      toast.error('Failed to copy link');
+      toast.error(getErrorMessage(err, 'Failed to copy link'));
     }
   };
 
@@ -1115,15 +1225,17 @@ const FacultyPage = () => {
                 <Settings className="w-4 h-4" />
                 <span className="hidden sm:inline">Account Config</span>
               </button>
-              <button
-                onClick={() => setShowSignupLink((v) => !v)}
-                aria-pressed={showSignupLink}
-                className={SECONDARY_BTN}
-                title="Show faculty signup link"
-              >
-                <LinkIcon className="w-4 h-4" />
-                <span className="hidden sm:inline">Signup Link</span>
-              </button>
+              {canInvite && (
+                <button
+                  onClick={() => setShowSignupLink((v) => !v)}
+                  aria-pressed={showSignupLink}
+                  className={SECONDARY_BTN}
+                  title="Create a faculty invite link"
+                >
+                  <LinkIcon className="w-4 h-4" />
+                  <span className="hidden sm:inline">Invite Link</span>
+                </button>
+              )}
               <button
                 onClick={handleCreate}
                 className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors shadow-md hover:shadow-lg text-sm"
@@ -1143,7 +1255,14 @@ const FacultyPage = () => {
           </p>
         </div>
 
-        {/* Signup link */}
+        {/* Invite link */}
+        {showSignupLink && (signupLinkError || !signupLink) && (
+          <div className={`mb-6 rounded-xl border p-4 text-sm ${signupLinkError
+            ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300'
+            : 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-300'}`}>
+            {signupLinkError || 'Creating invite link…'}
+          </div>
+        )}
         {signupLink && (
           <div className="mb-6 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl p-6 shadow-lg text-white animate-fadeIn">
             <div className="flex items-start justify-between mb-4">
@@ -1152,8 +1271,8 @@ const FacultyPage = () => {
                   <LinkIcon className="w-6 h-6" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold">Faculty Signup Link</h3>
-                  <p className="text-blue-100 text-sm">Share this link with faculty members to register</p>
+                  <h3 className="text-xl font-bold">Faculty Invite Link</h3>
+                  <p className="text-blue-100 text-sm">Only people with this link can create a faculty account</p>
                 </div>
               </div>
               <button
@@ -1172,7 +1291,7 @@ const FacultyPage = () => {
                 value={signupLink.url}
                 readOnly
                 onFocus={(e) => e.target.select()}
-                aria-label="Faculty signup link"
+                aria-label="Faculty invite link"
                 className="flex-1 min-w-0 bg-white/20 text-white px-4 py-3 rounded-lg font-mono text-sm focus:outline-none focus:ring-2 focus:ring-white/60"
               />
               <button
@@ -1192,8 +1311,8 @@ const FacultyPage = () => {
             </div>
 
             <div className="mt-3 text-xs text-blue-100 bg-white/10 rounded-lg p-3">
-              <strong>Note:</strong> Faculty who register via this link will have pending status and require approval
-              before accessing the system. You can review and approve pending accounts from the "Pending Approvals" page.
+              <strong>Note:</strong> The link stops working when it expires; open this panel again for a new one.
+              Faculty who register with it have pending status until you approve them on the "Pending Approvals" page.
             </div>
           </div>
         )}
@@ -1202,36 +1321,36 @@ const FacultyPage = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-4">
           <StatCard
             icon={AnimatedUsers}
-            label="TOTAL"
+            label="Faculty"
             value={stats.total}
-            caption="Faculty Members"
-            tone="bg-indigo-600"
+            hint="in total · click to show all"
+            tone="indigo"
             onClick={clearFilters}
             title="Show all faculty"
           />
           <StatCard
             icon={AnimatedBarChart}
-            label="AVG LOAD"
+            label="Avg load"
             value={stats.avgLoad}
-            caption="Hours/Week"
-            tone="bg-blue-600"
+            hint={`Hrs/week · ${stats.teaching} teaching, ${stats.unassigned} unassigned`}
+            tone="blue"
           />
           <StatCard
             icon={AlertTriangle}
-            label="NEAR LIMIT"
+            label="Near limit"
             value={stats.warning}
-            caption={`${STANDARD_LOAD + 1}–${WARNING_LIMIT} hrs`}
-            tone="bg-amber-600"
+            hint={`Over own max, within +${LOAD_ALLOWANCE} hrs`}
+            tone="amber"
             active={filterLoad === 'warning'}
             onClick={() => toggleLoadFilter('warning')}
             title="Filter faculty near their limit"
           />
           <StatCard
             icon={AnimatedAlertCircle}
-            label="OVERLOAD"
+            label="Overload"
             value={stats.overloaded}
-            caption={`Over ${WARNING_LIMIT} hrs`}
-            tone="bg-red-600"
+            hint={`More than ${LOAD_ALLOWANCE} hrs over max`}
+            tone="red"
             active={filterLoad === 'overload'}
             onClick={() => toggleLoadFilter('overload')}
             title="Filter overloaded faculty"
@@ -1267,25 +1386,38 @@ const FacultyPage = () => {
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <select
-                value={lockedProgram || filterProgram}
-                onChange={(e) => setFilterProgram(e.target.value)}
-                disabled={isProgramManager}
-                title={isProgramManager ? `You manage ${lockedProgram}` : 'Filter by program'}
-                aria-label="Filter by program"
-                className={SELECT_CLASS}
-              >
-                {isProgramManager ? (
-                  <option value={lockedProgram}>{lockedProgram || 'No program assigned'}</option>
-                ) : (
-                  <>
-                    <option value="">All Programs</option>
-                    {programCodes.map((prog) => (
-                      <option key={prog} value={prog}>{prog}</option>
-                    ))}
-                  </>
-                )}
-              </select>
+              <div className="flex border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden" role="group" aria-label="Faculty status">
+                {[['active', 'Active'], ['inactive', 'Inactive']].map(([value, label], i) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => { setFilterStatus(value); setFilterLoad(''); }}
+                    aria-pressed={filterStatus === value}
+                    className={`px-3 py-2 text-sm transition-colors ${i > 0 ? 'border-l border-gray-300 dark:border-gray-600' : ''} ${
+                      filterStatus === value
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {!isProgramManager && (
+                <select
+                  value={filterProgram}
+                  onChange={(e) => setFilterProgram(e.target.value)}
+                  title="Filter by program"
+                  aria-label="Filter by program"
+                  className={SELECT_CLASS}
+                >
+                  <option value="">All Programs</option>
+                  {programCodes.map((prog) => (
+                    <option key={prog} value={prog}>{prog}</option>
+                  ))}
+                </select>
+              )}
 
               <select
                 value={filterSpecialization}
@@ -1402,14 +1534,18 @@ const FacultyPage = () => {
           <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600">
             <AnimatedUsers className="w-20 h-20 text-gray-400 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-              {faculty.length === 0 ? 'No faculty members yet' : 'No faculty found'}
+              {faculty.length === 0
+                ? filterStatus === 'inactive' ? 'No inactive faculty' : 'No faculty members yet'
+                : 'No faculty found'}
             </h3>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
               {faculty.length === 0
-                ? 'Get started by adding your first faculty member'
+                ? filterStatus === 'inactive'
+                  ? 'Deactivated faculty appear here, where you can reactivate them.'
+                  : 'Get started by adding your first faculty member'
                 : 'Try adjusting your search or filter criteria'}
             </p>
-            {faculty.length === 0 ? (
+            {faculty.length === 0 ? (filterStatus === 'inactive' ? null : (
               canManage && (
                 <button
                   onClick={handleCreate}
@@ -1419,7 +1555,7 @@ const FacultyPage = () => {
                   Add First Faculty
                 </button>
               )
-            ) : (
+            )) : (
               <button
                 onClick={clearFilters}
                 className="px-5 py-2.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg transition-colors text-sm font-medium"
@@ -1438,6 +1574,7 @@ const FacultyPage = () => {
                 onView={handleView}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
+                onReactivate={handleReactivate}
               />
             ))}
           </div>
@@ -1488,6 +1625,7 @@ const FacultyPage = () => {
                       onView={handleView}
                       onEdit={handleEdit}
                       onDelete={handleDelete}
+                      onReactivate={handleReactivate}
                     />
                   ))}
                 </tbody>
@@ -1544,6 +1682,9 @@ const FacultyPage = () => {
         title={confirmDialog.title}
         message={confirmDialog.message}
         itemName={confirmDialog.itemName}
+        confirmText={confirmDialog.confirmText}
+        type={confirmDialog.type}
+        footnote={confirmDialog.footnote}
       />
     </Layout>
   );

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { classSpaceAPI } from '../services/api';
 import toast from 'react-hot-toast';
-import { X, UserPlus, Key, AlertCircle, BookOpen } from 'lucide-react';
+import { UserPlus, Key, AlertCircle, BookOpen } from 'lucide-react';
+import { ModalShell, ModalHeader, ModalBody, ModalButton, useModalTitleId } from './modal/ModalShell';
 import AnimatedCheckIcon from './AnimatedCheckIcon';
 
 /**
@@ -71,35 +72,23 @@ const EnrollModal = ({ studentType = 'regular', onClose }) => {
     }
   };
 
+  // After a successful join the class list must reload, whichever way the
+  // modal is closed - the X used to dismiss it without reloading.
+  const close = () => onClose(result?.success ? 'reload' : false);
+  const titleId = useModalTitleId();
+
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={() => onClose(false)}
+    <ModalShell onClose={close} size="sm" labelledBy={titleId} busy={loading}>
+      <ModalHeader
+        id={titleId}
+        icon={UserPlus}
+        title={copy.heading}
+        subtitle={isIrregular ? 'Irregular student' : 'Regular student'}
+        onClose={close}
+        closeDisabled={loading}
       />
 
-      <div className="relative bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full shadow-2xl overflow-hidden">
-        <div className="bg-blue-600 px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-white/20 rounded-lg flex items-center justify-center">
-              <UserPlus className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-white">{copy.heading}</h3>
-              <p className="text-xs text-blue-100">
-                {isIrregular ? 'Irregular student' : 'Regular student'}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => onClose(false)}
-            className="text-white/80 hover:text-white transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <div className="p-6">
+      <ModalBody>
           {result?.success ? (
             <div className="space-y-4">
               <div className="flex items-start gap-3 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl">
@@ -204,7 +193,7 @@ const EnrollModal = ({ studentType = 'regular', onClose }) => {
                     type="text"
                     value={code}
                     onChange={(e) => {
-                      setCode(e.target.value.toUpperCase().replace(/\s/g, ''));
+                      setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8));
                       setResult(null);
                     }}
                     placeholder="e.g. K3P9X7M2"
@@ -214,6 +203,11 @@ const EnrollModal = ({ studentType = 'regular', onClose }) => {
                     disabled={loading}
                     className="w-full pl-10 pr-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white font-mono text-lg tracking-widest text-center uppercase transition-all"
                   />
+                </div>
+                <div className="mt-2 flex justify-center gap-1" aria-hidden="true">
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <span key={i} className={`h-1 w-5 rounded-full transition-colors ${i < code.length ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-600'}`} />
+                  ))}
                 </div>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5 text-center">
                   {copy.hint}
@@ -245,38 +239,16 @@ const EnrollModal = ({ studentType = 'regular', onClose }) => {
                 </div>
               </div>
 
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => onClose(false)}
-                  disabled={loading}
-                  className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 font-medium transition-colors disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading || code.length < 8}
-                  className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {loading ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Joining...
-                    </>
-                  ) : (
-                    <>
-                      <UserPlus className="w-4 h-4" />
-                      {copy.cta}
-                    </>
-                  )}
-                </button>
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <ModalButton variant="secondary" onClick={() => onClose(false)} disabled={loading}>Cancel</ModalButton>
+                <ModalButton type="submit" loading={loading} loadingText="Joining..." disabled={code.length < 8} icon={UserPlus}>
+                  {copy.cta}
+                </ModalButton>
               </div>
             </form>
           )}
-        </div>
-      </div>
-    </div>
+      </ModalBody>
+    </ModalShell>
   );
 };
 

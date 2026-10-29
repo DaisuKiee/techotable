@@ -35,7 +35,6 @@ const ProgramSchema = new mongoose.Schema({
 });
 
 // Index for faster queries
-ProgramSchema.index({ code: 1 });
 ProgramSchema.index({ isActive: 1 });
 
 module.exports = mongoose.model('Program', ProgramSchema);

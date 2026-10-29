@@ -1,10 +1,11 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import {
   X, Save, MapPin, BookOpen, Clock, Calendar, AlertCircle,
   School, Info, Trash2,
 } from 'lucide-react';
 import AnimatedCheckIcon from './AnimatedCheckIcon';
 import FacultyPicker, { Tip, Section } from './FacultyPicker';
+import { ModalShell } from './modal/ModalShell';
 
 /* ───────────────────────── helpers ───────────────────────── */
 
@@ -56,13 +57,7 @@ const EditScheduleModal = ({
   const subjectCode = schedule?.subjectData?.subjectCode;
   const subjectName = schedule?.subjectData?.subjectName;
 
-  // Escape closes the panel
-  useEffect(() => {
-    const onKey = (e) => e.key === 'Escape' && onClose();
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
+  // Escape, focus and scroll lock come from ModalShell
   if (!schedule) return null;
 
   const scheduleId = isSaved ? schedule._id : schedule.tempId;
@@ -86,10 +81,7 @@ const EditScheduleModal = ({
   const missing = [!schedule.faculty && 'faculty', !schedule.room && 'room'].filter(Boolean).join(' and ');
 
   return (
-    <div className="fixed inset-0 z-[100001] flex justify-end" role="dialog" aria-modal="true" aria-label="Edit schedule">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" onClick={onClose} />
-
-      <aside className="relative flex h-full w-full flex-col overflow-hidden bg-gray-50 shadow-2xl dark:bg-gray-900 sm:max-w-xl">
+    <ModalShell variant="drawer" size="md" onClose={onClose} label="Edit schedule" panelClassName="bg-gray-50 dark:bg-gray-900">
         {/* ── Header ── */}
         <div className={`${headerColor} flex-shrink-0 px-6 pb-5 pt-6`}>
           <div className="flex items-start justify-between gap-3">
@@ -243,8 +235,7 @@ const EditScheduleModal = ({
             </Tip>
           </div>
         </div>
-      </aside>
-    </div>
+    </ModalShell>
   );
 };
 

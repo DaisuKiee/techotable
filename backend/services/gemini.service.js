@@ -126,7 +126,7 @@ const getSystemPrompt = (context = {}) => {
         const employmentBadge = f.employmentType === 'Part-time' ? '🕐 PT' : '📋 REG';
         
         return `• **${f.fullName}** (ID: ${f.employeeId}) ${employmentBadge}
-  Specializations: ${specs} | Load: ${f.currentLoad || 0}/${f.maxTeachingLoad || 24}u | Available: ${f.availableLoad}u
+  Specializations: ${specs} | Classes: ${f.assignedClasses ?? 0} | Teaching: ${f.teachingHours ?? 0}/${f.maxTeachingHours ?? 36} hrs/week | Units: ${f.currentLoad || 0}/${f.maxTeachingLoad || 24}u | Available: ${f.availableLoad}u
   Experience: ${f.experienceYears} semesters | Subjects taught: ${subjects || 'None yet'} | Rating: ${f.averageRating ? f.averageRating.toFixed(1) : 'N/A'}/5`;
       }).join('\n');
     

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
-import { scheduleAPI, subjectAPI, sectionAPI, facultyAPI, roomAPI } from '../services/api';
+import { scheduleAPI, subjectAPI, sectionAPI, facultyAPI, roomAPI, getErrorMessage } from '../services/api';
 import toast from 'react-hot-toast';
 import { 
   Calendar as CalendarIcon, Plus, Download, 
@@ -118,7 +118,7 @@ const SchedulePage = () => {
       calculateStats(scheduleData);
     } catch (error) {
       console.error('Load schedules error:', error);
-      toast.error('Failed to load schedules');
+      toast.error(getErrorMessage(error, 'Failed to load schedules'));
     }
   };
 
@@ -283,7 +283,7 @@ const SchedulePage = () => {
       }
     } catch (error) {
       console.error('Check conflicts error:', error);
-      toast.error('Failed to check conflicts');
+      toast.error(getErrorMessage(error, 'Failed to check conflicts'));
     }
   };
 
@@ -320,7 +320,7 @@ const SchedulePage = () => {
       }
     } catch (error) {
       console.error('Export error:', error);
-      toast.error('Failed to export schedule');
+      toast.error(getErrorMessage(error, 'Failed to export schedule'));
     }
   };
 

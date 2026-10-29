@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useTranslation } from 'react-i18next';
 import Layout from '../components/Layout';
-import { authAPI } from '../services/api';
+import { authAPI, getErrorMessage } from '../services/api';
 import toast from 'react-hot-toast';
 import {
   Settings, Lock, Bell, Eye, Globe, Shield,
@@ -232,7 +232,7 @@ const SettingsPage = () => {
       await authAPI.updateSettings({ notifications });
       toast.success('Notification preferences saved');
     } catch (error) {
-      toast.error('Failed to save notification preferences');
+      toast.error(getErrorMessage(error, 'Failed to save notification preferences'));
     } finally {
       setLoading(false);
     }
@@ -251,7 +251,7 @@ const SettingsPage = () => {
 
       toast.success('Appearance settings saved and applied');
     } catch (error) {
-      toast.error('Failed to save appearance settings');
+      toast.error(getErrorMessage(error, 'Failed to save appearance settings'));
     } finally {
       setLoading(false);
     }
@@ -263,7 +263,7 @@ const SettingsPage = () => {
       await authAPI.updateSettings({ privacy });
       toast.success('Privacy settings saved');
     } catch (error) {
-      toast.error('Failed to save privacy settings');
+      toast.error(getErrorMessage(error, 'Failed to save privacy settings'));
     } finally {
       setLoading(false);
     }

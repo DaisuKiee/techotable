@@ -25,6 +25,8 @@ const Section = require('../models/Section.model');
 const Schedule = require('../models/Schedule.model');
 require('../models/User.model');
 const { summarizeSubjectExperience } = require('../utils/teachingExperience');
+const { solveInWorker } = require('./builtinSolver.service');
+const { getFacultyLoads } = require('../utils/facultyLoad');
 
 const PYTHON_SCRIPT = path.join(__dirname, '../python/ortools_scheduler.py');
 
@@ -137,7 +139,13 @@ async function loadInputs({ academicYear, semester, program, yearLevel, section,
     isActive: true,
   }).select('faculty room sectionCode subject timeSlots').lean();
 
-  return { subjects, facultyDocs, rooms, sections, existing };
+  // Units each teacher already carries this term. The cap used to read a
+  // stored currentLoad that never changed (it isn't in the Faculty schema, so
+  // every $inc was dropped), so it always saw 0 and generating section after
+  // section could pile classes onto the same teacher past their limit.
+  const loads = await getFacultyLoads({ academicYear, semester });
+
+  return { subjects, facultyDocs, rooms, sections, existing, loads };
 }
 
 /**
@@ -145,7 +153,7 @@ async function loadInputs({ academicYear, semester, program, yearLevel, section,
  */
 function preparePythonInput(data) {
   const {
-    subjects, facultyDocs, rooms, sections, existing,
+    subjects, facultyDocs, rooms, sections, existing, loads,
     section, timeLimit, shift, academicYear, semester, program, yearLevel, weights,
   } = data;
 
@@ -177,7 +185,7 @@ function preparePythonInput(data) {
       user_id: fac.user?._id?.toString(),
       specializations: fac.specializations || [],
       max_teaching_load: fac.maxTeachingLoad || 24,
-      current_load: fac.currentLoad || 0,
+      current_load: loads ? (loads.get(String(fac._id))?.units || 0) : (fac.currentLoad || 0),
       qualifications: (fac.qualifications || []).map(q => ({ degree: q.degree, field: q.field })),
       unavailable: (fac.unavailableTimeSlots || []).map(u => ({
         day: u.day, start: u.startTime, end: u.endTime,
@@ -203,6 +211,9 @@ function preparePythonInput(data) {
         code: s.sectionCode,
         letter: s.sectionLetter,
         max_students: s.maxStudents || 40,
+        // The section's home room (a Room id). Every non-lab class of the
+        // section is held there; lab subjects still go to a lab room.
+        home_room: s.room ? String(s.room) : null,
       }))
     : [{
         code: `${program}-${yearLevel}${String(section || 'A').toUpperCase()}-${(shift || 'Day')[0]}`,
@@ -273,10 +284,10 @@ function callPythonOptimizer(inputData, timeoutSeconds) {
   const attempt = (bins) => new Promise((resolve, reject) => {
     const [bin, ...rest] = bins;
     if (!bin) {
-      reject(new Error(
+      reject(Object.assign(new Error(
         'Python was not found. Install Python 3 with `pip install ortools`, '
         + 'or set PYTHON_BIN to the interpreter path.'
-      ));
+      ), { unavailable: true }));
       return;
     }
 
@@ -319,17 +330,20 @@ function callPythonOptimizer(inputData, timeoutSeconds) {
         const hint = /ModuleNotFoundError|No module named/.test(errOut)
           ? ' Install the solver with `pip install ortools`.'
           : '';
-        reject(new Error(`Solver process failed (exit ${code}).${hint} ${errOut.trim().slice(-500)}`));
+        reject(Object.assign(
+          new Error(`Solver process failed (exit ${code}).${hint} ${errOut.trim().slice(-500)}`),
+          { unavailable: true }
+        ));
         return;
       }
 
       try {
         resolve(JSON.parse(out));
       } catch (err) {
-        reject(new Error(
+        reject(Object.assign(new Error(
           `Could not read the solver output: ${err.message}. `
           + `Output: ${out.slice(0, 400)}`
-        ));
+        ), { unavailable: true }));
       }
     });
 
@@ -394,6 +408,144 @@ function transformOptimizedSchedule(optimizerResult, params) {
   }));
 }
 
+const ENGINE_LABELS = {
+  ortools: 'Google OR-Tools CP-SAT',
+  builtin: 'Built-in constraint solver',
+};
+
+/**
+ * Independent check of a solver result against the hard rules.
+ *
+ * Neither engine is trusted blindly: this re-derives every clash from the
+ * output itself - generated classes against each other, against classes
+ * already saved this term, against declared unavailability - plus load caps.
+ * Works on the raw solver output, so it checks both engines the same way.
+ * @returns {Array<{subject, subjectName, reason}>} the shape the preview lists
+ */
+function findConflicts(input, rawSchedules) {
+  const toMin = (t) => {
+    const [h, m] = String(t || '').split(':');
+    return parseInt(h, 10) * 60 + (parseInt(m, 10) || 0);
+  };
+  const overlaps = (a, b) => a.day === b.day && a.start < b.end && b.start < a.end;
+  const when = (m) => `${m.day} ${m.startText}-${m.endText}`;
+
+  const meetings = [];
+  for (const s of rawSchedules || []) {
+    for (const t of s.time_slots || []) {
+      meetings.push({
+        subject: s.subject?.subject_code,
+        subjectName: s.subject?.subject_name,
+        section: s.section_code || s.section,
+        facultyId: s.faculty?._id ? String(s.faculty._id) : null,
+        facultyName: s.faculty?.name,
+        roomId: s.room?._id ? String(s.room._id) : null,
+        roomName: s.room?.room_code || s.room?.room_number,
+        day: t.day,
+        start: toMin(t.start_time),
+        end: toMin(t.end_time),
+        startText: t.start_time,
+        endText: t.end_time,
+      });
+    }
+  }
+
+  const found = new Map();
+  const add = (m, reason) => {
+    if (!found.has(reason)) found.set(reason, { subject: m.subject, subjectName: m.subjectName, reason });
+  };
+
+  for (let i = 0; i < meetings.length; i++) {
+    for (let j = i + 1; j < meetings.length; j++) {
+      const a = meetings[i];
+      const b = meetings[j];
+      if (!overlaps(a, b)) continue;
+      if (a.section && a.section === b.section) {
+        add(a, `Section ${a.section} has ${a.subject} and ${b.subject} at the same time (${when(a)}).`);
+      }
+      if (a.facultyId && a.facultyId === b.facultyId) {
+        add(a, `${a.facultyName} teaches ${a.subject} and ${b.subject} at the same time (${when(a)}).`);
+      }
+      if (a.roomId && a.roomId === b.roomId) {
+        add(a, `Room ${a.roomName} hosts ${a.subject} and ${b.subject} at the same time (${when(a)}).`);
+      }
+    }
+  }
+
+  for (const m of meetings) {
+    for (const row of input.existing || []) {
+      const busy = { day: row.day, start: toMin(row.start_time), end: toMin(row.end_time) };
+      if (!overlaps(m, busy)) continue;
+      if (row.section_code && row.section_code === m.section) {
+        add(m, `${m.subject} (${when(m)}) clashes with a class section ${m.section} already has.`);
+      }
+      if (row.faculty_id && String(row.faculty_id) === m.facultyId) {
+        add(m, `${m.facultyName} already teaches another saved class during ${m.subject} (${when(m)}).`);
+      }
+      if (row.room_id && String(row.room_id) === m.roomId) {
+        add(m, `Room ${m.roomName} is already booked by a saved class during ${m.subject} (${when(m)}).`);
+      }
+    }
+  }
+
+  const facultyById = new Map((input.faculty || []).map(f => [String(f._id), f]));
+  for (const m of meetings) {
+    const f = facultyById.get(m.facultyId);
+    for (const w of f?.unavailable || []) {
+      const off = { day: w.day, start: toMin(w.start), end: toMin(w.end) };
+      if (overlaps(m, off)) add(m, `${m.facultyName} marked ${when(m)} as unavailable, but has ${m.subject} then.`);
+    }
+  }
+
+  const units = new Map();
+  for (const s of rawSchedules || []) {
+    if (!s.faculty?._id) continue;
+    const id = String(s.faculty._id);
+    units.set(id, (units.get(id) || 0) + (parseInt(s.subject?.units, 10) || 3));
+  }
+  for (const [id, total] of units) {
+    const f = facultyById.get(id);
+    if (!f) continue;
+    const cap = (parseInt(f.max_teaching_load, 10) || 24) - (parseInt(f.current_load, 10) || 0);
+    if (total > cap) {
+      found.set(`load-${id}`, {
+        subject: f.name,
+        reason: `${f.name} would get ${total} units but has only ${Math.max(0, cap)} left under the load limit.`,
+      });
+    }
+  }
+
+  return [...found.values()];
+}
+
+/**
+ * Run an engine on prepared input.
+ *
+ * engine 'auto' (the default) tries OR-Tools and, when it cannot run on this
+ * host - Python or the ortools package missing, or the process crashing - uses
+ * the built-in solver on the same input. A solver that ran and found no
+ * timetable is NOT a reason to fall back: that answer is real. 'builtin'
+ * skips OR-Tools entirely.
+ */
+async function solveWithEngine(pythonInput, engine, timeLimit) {
+  if (engine === 'builtin') {
+    return { result: await solveInWorker(pythonInput), engine: 'builtin' };
+  }
+  try {
+    return { result: await callPythonOptimizer(pythonInput, timeLimit + 15), engine: 'ortools' };
+  } catch (err) {
+    if (!err.unavailable) throw err;
+    console.warn('OR-Tools unavailable, using the built-in solver:', err.message.slice(0, 200));
+    const result = await solveInWorker(pythonInput);
+    result.diagnostics = [
+      'OR-Tools could not run on this server, so the built-in constraint solver produced this '
+      + 'timetable. It applies the same rules and priorities.',
+      ...(result.diagnostics || []),
+    ];
+    return { result, engine: 'builtin', fellBack: true };
+  }
+}
+
 /**
  * Build and solve, without touching the database.
  * @returns {Promise<{result, schedules, inputs}>}
@@ -401,7 +553,7 @@ function transformOptimizedSchedule(optimizerResult, params) {
 async function runSolver(params) {
   const {
     academicYear, semester, program, yearLevel,
-    section, timeLimit = 60, shift = 'Day', weights,
+    section, timeLimit = 60, shift = 'Day', weights, engine = 'auto',
   } = params;
 
   const inputs = await loadInputs({
@@ -420,12 +572,18 @@ async function runSolver(params) {
     weights,
   });
 
-  const result = await callPythonOptimizer(pythonInput, timeLimit + 15);
+  const solved = await solveWithEngine(pythonInput, engine, timeLimit);
+  const { result } = solved;
   const schedules = transformOptimizedSchedule(result, {
     academicYear, semester, program, yearLevel, shift,
   });
+  const conflicts = result.success ? findConflicts(pythonInput, result.schedules) : [];
 
-  return { result, schedules, inputs, pythonInput };
+  return {
+    result, schedules, inputs, pythonInput, conflicts,
+    engine: solved.engine,
+    fellBack: !!solved.fellBack,
+  };
 }
 
 /** Shared statistics block for both generate and preview. */
@@ -447,16 +605,21 @@ function buildStatistics(result, inputs, pythonInput, schedules) {
 }
 
 /**
- * Generate a schedule with CP-SAT. Does not persist; the caller saves.
+ * Generate a schedule. Does not persist; the caller saves.
+ *
+ * A result that fails the conflict check is refused rather than returned for
+ * saving - a clash-free timetable is the one guarantee generation makes.
  */
 async function generateWithORTools(params) {
   try {
-    const { result, schedules, inputs, pythonInput } = await runSolver(params);
+    const { result, schedules, inputs, pythonInput, conflicts, engine } = await runSolver(params);
+    const method = ENGINE_LABELS[engine];
 
     if (!result.success) {
       return {
         success: false,
-        method: 'OR-Tools CP-SAT',
+        method,
+        engine,
         status: result.status,
         error: result.error || 'The solver could not build a timetable.',
         blockers: result.blockers || [],
@@ -466,19 +629,35 @@ async function generateWithORTools(params) {
       };
     }
 
+    if (conflicts.length > 0) {
+      return {
+        success: false,
+        method,
+        engine,
+        status: 'CONFLICTS',
+        error: `The generated timetable failed the conflict check: ${conflicts[0].reason}`,
+        blockers: conflicts.map(c => c.reason),
+        conflicts,
+        diagnostics: result.diagnostics || [],
+        schedules: [],
+        statistics: {},
+      };
+    }
+
     return {
       success: true,
-      method: 'OR-Tools CP-SAT',
+      method,
+      engine,
       status: result.status,
       schedules,
       diagnostics: result.diagnostics || [],
       statistics: buildStatistics(result, inputs, pythonInput, schedules),
     };
   } catch (error) {
-    console.error('OR-Tools generation error:', error.message);
+    console.error('Schedule generation error:', error.message);
     return {
       success: false,
-      method: 'OR-Tools CP-SAT',
+      method: ENGINE_LABELS[params.engine === 'builtin' ? 'builtin' : 'ortools'],
       error: error.message,
       schedules: [],
       statistics: {},
@@ -494,15 +673,19 @@ async function generateWithORTools(params) {
  */
 async function previewWithORTools(params) {
   try {
-    const { result, schedules, inputs, pythonInput } = await runSolver(params);
+    const { result, schedules, inputs, pythonInput, conflicts, engine, fellBack } = await runSolver(params);
+    const method = ENGINE_LABELS[engine];
 
     if (!result.success) {
       return {
         success: false,
-        method: 'OR-Tools CP-SAT',
+        method,
+        engine,
+        fellBack,
         status: result.status,
         message: result.error || 'The solver could not build a timetable.',
         blockers: result.blockers || [],
+        diagnostics: result.diagnostics || [],
         preview: {
           schedules: [],
           failed: inputs.subjects.map(s => ({
@@ -529,34 +712,39 @@ async function previewWithORTools(params) {
     const skippedNote = skippedCodes.size > 0
       ? ` ${skippedCodes.size} subject(s) already scheduled and left untouched.`
       : '';
+    const checkNote = conflicts.length > 0
+      ? ` ${conflicts.length} conflict(s) found - review before saving.`
+      : ' Conflict check passed.';
 
     return {
       success: true,
-      method: 'OR-Tools CP-SAT',
+      method,
+      engine,
+      fellBack,
       status: result.status,
       message: schedules.length === 0 && skippedCodes.size > 0
         ? 'Every subject for this section already has a schedule. Nothing to generate.'
-        : `Solved in ${result.statistics?.solver_time || 0}s (${result.status}).${skippedNote}`,
+        : `Solved in ${result.statistics?.solver_time || 0}s (${result.status}).${skippedNote}${checkNote}`,
       diagnostics: result.diagnostics || [],
       skipped: result.skipped || [],
       preview: {
         schedules,
         failed,
-        // CP-SAT only returns feasible timetables, so a successful solve has no
-        // clashes by construction.
-        conflicts: [],
+        // Re-derived from the output by findConflicts, not assumed from the
+        // engine's status.
+        conflicts,
         statistics: {
           ...buildStatistics(result, inputs, pythonInput, schedules),
           failedSubjects: failed.length,
-          conflictsDetected: 0,
+          conflictsDetected: conflicts.length,
         },
       },
     };
   } catch (error) {
-    console.error('OR-Tools preview error:', error.message);
+    console.error('Schedule preview error:', error.message);
     return {
       success: false,
-      method: 'OR-Tools CP-SAT',
+      method: ENGINE_LABELS[params.engine === 'builtin' ? 'builtin' : 'ortools'],
       message: error.message,
       preview: {
         schedules: [], failed: [], conflicts: [],
@@ -634,4 +822,5 @@ module.exports = {
   preparePythonInput,
   transformOptimizedSchedule,
   experienceScore,
+  findConflicts,
 };

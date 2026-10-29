@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { facultyAPI, scheduleAPI, subjectAPI } from '../services/api';
+import { facultyAPI, scheduleAPI, subjectAPI, getErrorMessage } from '../services/api';
 import toast from 'react-hot-toast';
 import {
   User, GripVertical, Clock, X, Save, RefreshCw,
@@ -76,7 +76,7 @@ const FacultyDragDrop = ({ filters, onAssignmentChange }) => {
       setSchedules(sched);
       buildGrid(sched);
     } catch (error) {
-      toast.error('Failed to load data');
+      toast.error(getErrorMessage(error, 'Failed to load data'));
     } finally {
       setLoading(false);
     }

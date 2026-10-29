@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Layout from '../components/Layout';
-import { scheduleAPI, subjectAPI, sectionAPI, facultyAPI, roomAPI } from '../services/api';
+import { scheduleAPI, subjectAPI, sectionAPI, facultyAPI, roomAPI, getErrorMessage } from '../services/api';
 import useCachedData from '../hooks/useCachedData';
 import toast from 'react-hot-toast';
 import {
@@ -122,7 +122,7 @@ const SortHeader = ({ label, sortKey, activeKey, dir, onSort }) => {
 const TableSkeleton = () => (
   <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm py-2" aria-busy="true">
     {Array.from({ length: 7 }).map((_, i) => (
-      <div key={i} className="h-12 mx-4 my-3 rounded-lg bg-gray-100 dark:bg-gray-700 animate-pulse" />
+      <div key={i} className="h-12 mx-4 my-3 rounded-lg bg-gray-100 dark:bg-gray-700" />
     ))}
   </div>
 );
@@ -253,7 +253,7 @@ const SchedulePage = () => {
       enabled: usesManagementView,
       onError: (err) => {
         console.error('Failed to load schedules:', err);
-        toast.error('Failed to load schedules');
+        toast.error(getErrorMessage(err, 'Failed to load schedules'));
       }
     }
   );
@@ -697,7 +697,7 @@ const SchedulePage = () => {
       reloadSchedulesFromCache();
     } catch (error) {
       console.error('Batch publish error:', error);
-      toast.error('Failed to publish selected schedules');
+      toast.error(getErrorMessage(error, 'Failed to publish selected schedules'));
     } finally {
       setBulkBusy(false);
     }
@@ -758,7 +758,7 @@ const SchedulePage = () => {
       }
     } catch (error) {
       console.error('Check conflicts error:', error);
-      toast.error('Failed to check conflicts');
+      toast.error(getErrorMessage(error, 'Failed to check conflicts'));
     } finally {
       setCheckingConflicts(false);
     }
@@ -807,7 +807,7 @@ const SchedulePage = () => {
       }
     } catch (error) {
       console.error('Export error:', error);
-      toast.error('Failed to export schedule');
+      toast.error(getErrorMessage(error, 'Failed to export schedule'));
     }
   };
 
@@ -1000,26 +1000,21 @@ const SchedulePage = () => {
                 <option value={2}>2nd Sem</option>
               </select>
 
-              {/* Program: locked for program managers */}
-              <select
-                value={filters.program}
-                onChange={(e) => handleProgramChange(e.target.value)}
-                disabled={isProgramManager}
-                title="Program"
-                aria-label="Program"
-                className={`${SELECT_CLASS} disabled:bg-gray-100 disabled:cursor-not-allowed`}
-              >
-                {isProgramManager ? (
-                  <option value={user.program}>{user.program}</option>
-                ) : (
-                  <>
-                    <option value="">All Programs</option>
-                    {PROGRAMS.map((prog) => (
-                      <option key={prog} value={prog}>{prog}</option>
-                    ))}
-                  </>
-                )}
-              </select>
+              {/* Program: program managers are always in their own */}
+              {!isProgramManager && (
+                <select
+                  value={filters.program}
+                  onChange={(e) => handleProgramChange(e.target.value)}
+                  title="Program"
+                  aria-label="Program"
+                  className={SELECT_CLASS}
+                >
+                  <option value="">All Programs</option>
+                  {PROGRAMS.map((prog) => (
+                    <option key={prog} value={prog}>{prog}</option>
+                  ))}
+                </select>
+              )}
 
               {/* Section: the primary control. Choosing one sets program, year
                   level, semester and shift together. */}

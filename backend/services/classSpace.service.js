@@ -178,13 +178,36 @@ const syncSectionEnrollment = async (student) => {
     isActive: true,
   });
 
-  const spaces = [];
-  for (const schedule of schedules) {
-    const space = await ensureClassSpaceForSchedule(schedule);
-    if (!space) continue;
-    await addStudentToSpace(space, student, 'section');
-    spaces.push(space);
+  if (!schedules.length) return [];
+
+  // This runs on every "my classes" load, so do it in a few batched queries.
+  // One-by-one it was ~2 round trips per subject: 4+ seconds for a 9-subject
+  // section on a remote database, which held up the whole student dashboard.
+  const existing = await ClassSpace.find({ schedule: { $in: schedules.map((s) => s._id) } });
+  const bySchedule = new Map(existing.map((space) => [String(space.schedule), space]));
+
+  const inactive = existing.filter((space) => !space.isActive).map((space) => space._id);
+  if (inactive.length) {
+    await ClassSpace.updateMany({ _id: { $in: inactive } }, { $set: { isActive: true } });
   }
+
+  // Only schedules that have never had a space need creating (rare)
+  const spaces = [...existing];
+  for (const schedule of schedules) {
+    if (bySchedule.has(String(schedule._id))) continue;
+    const created = await ensureClassSpaceForSchedule(schedule);
+    if (created) spaces.push(created);
+  }
+
+  const ids = spaces.map((space) => space._id);
+  await ClassSpace.updateMany(
+    { _id: { $in: ids }, 'enrolledStudents.student': { $ne: student._id } },
+    { $push: { enrolledStudents: { student: student._id, enrollmentType: 'section', enrolledAt: new Date() } } }
+  );
+  await Student.updateOne(
+    { _id: student._id },
+    { $addToSet: { enrolledClasses: { $each: ids } } }
+  );
 
   return spaces;
 };

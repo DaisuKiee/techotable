@@ -181,6 +181,7 @@ const FacultyPicker = ({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search by name or employee ID"
+          data-modal-ignore-dirty
           className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
         />
       </div>

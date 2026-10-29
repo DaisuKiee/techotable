@@ -15,9 +15,11 @@ const {
   resendVerification,
   forgotPassword,
   resetPassword,
-  facultySignup
+  facultySignup,
+  createFacultyInvite,
+  checkFacultyInvite
 } = require('../controllers/auth.controller');
-const { protect } = require('../middleware/auth.middleware');
+const { protect, authorize } = require('../middleware/auth.middleware');
 
 // Validation middleware
 const registerValidation = [
@@ -52,7 +54,10 @@ const loginValidation = [
 router.post('/register', registerValidation, register);
 router.post('/login', loginValidation, login);
 router.post('/signup', signup); // Student signup with email verification
-router.post('/faculty-signup', facultySignup); // Faculty signup (pending approval)
+router.post('/faculty-signup', facultySignup); // Faculty signup - needs an invite token (pending approval)
+// Invite links: only the scheduling office can issue them; anyone holding one can check it
+router.post('/faculty-invite', protect, authorize('admin', 'scheduling_officer'), createFacultyInvite);
+router.get('/faculty-invite/:token', checkFacultyInvite);
 router.get('/verify-email/:token', verifyEmail); // Verify email
 router.post('/resend-verification', resendVerification); // Resend verification email
 router.post('/forgot-password', forgotPassword); // Request password reset

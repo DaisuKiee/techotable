@@ -1,4 +1,5 @@
 const User = require('../models/User.model');
+const { sendError } = require('../middleware/error.middleware');
 
 // @desc    Get all users
 // @route   GET /api/users
@@ -38,12 +39,7 @@ exports.getAllUsers = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get all users error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching users',
-      error: error.message
-    });
+    sendError(res, error, 'Error fetching users');
   }
 };
 
@@ -69,12 +65,7 @@ exports.getUserById = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get user by ID error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching user',
-      error: error.message
-    });
+    sendError(res, error, 'Error fetching user');
   }
 };
 
@@ -113,12 +104,7 @@ exports.updateUser = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Update user error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error updating user',
-      error: error.message
-    });
+    sendError(res, error, 'Error updating user');
   }
 };
 
@@ -154,12 +140,7 @@ exports.deleteUser = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Delete user error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error deleting user',
-      error: error.message
-    });
+    sendError(res, error, 'Error deleting user');
   }
 };
 
@@ -190,12 +171,7 @@ exports.getUsersByRole = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get users by role error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching users by role',
-      error: error.message
-    });
+    sendError(res, error, 'Error fetching users by role');
   }
 };
 
@@ -244,12 +220,7 @@ exports.uploadAvatar = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Upload avatar error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error uploading avatar',
-      error: error.message
-    });
+    sendError(res, error, 'Error uploading avatar');
   }
 };
 
@@ -299,11 +270,6 @@ exports.deleteAvatar = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Delete avatar error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error deleting avatar',
-      error: error.message
-    });
+    sendError(res, error, 'Error deleting avatar');
   }
 };

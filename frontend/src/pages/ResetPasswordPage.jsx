@@ -1,10 +1,21 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { Lock, Eye, EyeOff, ArrowLeft, AlertCircle } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { useNavigate, useParams, Link } from 'react-router-dom';
+import { Lock, KeyRound, CheckCircle2, ShieldCheck, Clock, LogIn } from 'lucide-react';
 import { authAPI } from '../services/api';
-import ctuLogo from '../assets/images/logos/ctulogo.png';
-import ctuBg from '../assets/images/backgrounds/ctu-bg.png';
-import AnimatedCheckIcon from '../components/AnimatedCheckIcon';
+import {
+  AuthLayout, PasswordField, AuthStatus, FormAlert, SubmitButton, SecondaryButton,
+} from '../components/auth/AuthLayout';
+import {
+  PasswordChecklist, passwordProblem, confirmProblem, liveConfirmProblem,
+} from '../components/auth/PasswordStrength';
+
+const FEATURES = [
+  { icon: ShieldCheck, title: 'Stronger password', text: 'Same rules as sign-up, checked as you type.' },
+  { icon: Clock, title: 'One-time link', text: 'The link stops working once it\'s used.' },
+  { icon: LogIn, title: 'Straight back in', text: 'Log in with the new password right after.' },
+];
+
+const REDIRECT_SECONDS = 5;
 
 const ResetPasswordPage = () => {
   const navigate = useNavigate();
@@ -13,61 +24,54 @@ const ResetPasswordPage = () => {
     password: '',
     confirmPassword: ''
   });
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
-  const [validationErrors, setValidationErrors] = useState({});
+  // The server's only failure here is a bad or expired link; offer a new one
+  const [linkInvalid, setLinkInvalid] = useState(false);
+  const [countdown, setCountdown] = useState(REDIRECT_SECONDS);
+  const passwordRef = useRef(null);
+  const confirmRef = useRef(null);
 
-  // Redirect countdown after success
   useEffect(() => {
-    if (success) {
-      const timer = setTimeout(() => {
-        navigate('/login');
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [success, navigate]);
+    passwordRef.current?.focus();
+  }, []);
 
-  const validateForm = () => {
-    const errors = {};
-    
-    if (!formData.password) {
-      errors.password = 'Password is required';
-    } else if (formData.password.length < 6) {
-      errors.password = 'Password must be at least 6 characters';
+  // Count down to the login page after success; the button skips the wait
+  useEffect(() => {
+    if (!success) return undefined;
+    if (countdown <= 0) {
+      navigate('/login', { state: { message: 'Password updated. Log in with your new password.' } });
+      return undefined;
     }
-    
-    if (!formData.confirmPassword) {
-      errors.confirmPassword = 'Please confirm your password';
-    } else if (formData.password !== formData.confirmPassword) {
-      errors.confirmPassword = 'Passwords do not match';
-    }
-    
-    setValidationErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
+    const t = setTimeout(() => setCountdown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [success, countdown, navigate]);
+
+  const passwordError = submitted ? passwordProblem(formData.password) : undefined;
+  const confirmError = (submitted ? confirmProblem(formData.password, formData.confirmPassword) : undefined)
+    || liveConfirmProblem(formData.password, formData.confirmPassword);
 
   const handleChange = (e) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value
     });
-    // Clear validation error when user types
-    if (validationErrors[e.target.name]) {
-      setValidationErrors({
-        ...validationErrors,
-        [e.target.name]: ''
-      });
-    }
+    setError('');
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setSubmitted(true);
     setError('');
 
-    if (!validateForm()) {
+    if (passwordProblem(formData.password)) {
+      passwordRef.current?.focus();
+      return;
+    }
+    if (confirmProblem(formData.password, formData.confirmPassword)) {
+      confirmRef.current?.focus();
       return;
     }
 
@@ -77,7 +81,7 @@ const ResetPasswordPage = () => {
       const response = await authAPI.resetPassword(token, {
         password: formData.password
       });
-      
+
       if (response.data.success) {
         setSuccess(true);
         setFormData({ password: '', confirmPassword: '' });
@@ -86,287 +90,123 @@ const ResetPasswordPage = () => {
       }
     } catch (err) {
       console.error('Reset password error:', err);
-      setError(err.response?.data?.message || 'Failed to reset password. The link may be invalid or expired.');
+      const message = err.response?.data?.message || 'Failed to reset password. Please try again.';
+      if (/invalid|expired/i.test(message)) setLinkInvalid(true);
+      else setError(message);
     } finally {
       setLoading(false);
     }
   };
 
+  const layout = {
+    eyebrow: 'Account recovery',
+    title: 'A fresh start',
+    highlight: 'for your account.',
+    description: 'Choose a new password, then log back in to your timetable.',
+    features: FEATURES,
+  };
+
   if (success) {
     return (
-      <div className="min-h-screen flex">
-        {/* Left Side - Success Message */}
-        <div className="w-full lg:w-2/5 bg-white flex items-center justify-center p-8">
-          <div className="w-full max-w-md">
-            {/* Success Icon */}
-            <div className="flex justify-center mb-6 animate-scaleIn">
-              <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center">
-                <AnimatedCheckIcon className="w-12 h-12" color="#16a34a" />
+      <AuthLayout {...layout}>
+        <AuthStatus
+          tone="success"
+          icon={<CheckCircle2 className="h-8 w-8" />}
+          title="Password updated"
+          actions={(
+            <>
+              <SubmitButton type="button" onClick={() => navigate('/login', { state: { message: 'Password updated. Log in with your new password.' } })}>
+                Log in now
+              </SubmitButton>
+              <div className="h-1 overflow-hidden rounded-full bg-gray-200 dark:bg-dark-border-default">
+                <div
+                  className="h-full rounded-full bg-emerald-500 transition-[width] duration-1000 ease-linear"
+                  style={{ width: `${(countdown / REDIRECT_SECONDS) * 100}%` }}
+                />
               </div>
-            </div>
+            </>
+          )}
+        >
+          <p>Your password has been changed. Use the new one next time you log in.</p>
+          <p className="text-xs text-gray-500 dark:text-dark-text-muted">Taking you to login in {countdown}s…</p>
+        </AuthStatus>
+      </AuthLayout>
+    );
+  }
 
-            {/* Success Message */}
-            <div className="text-center mb-8">
-              <h2 className="text-3xl font-bold text-gray-900 mb-3">
-                Password Reset Successful!
-              </h2>
-              <p className="text-gray-600 mb-4">
-                Your password has been changed successfully.
-              </p>
-              <p className="text-sm text-gray-500">
-                Redirecting to login page in 3 seconds...
-              </p>
-            </div>
-
-            {/* Action Button */}
-            <button
-              onClick={() => navigate('/login')}
-              className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold rounded-lg transition-all duration-300 shadow-md hover:shadow-lg"
-            >
-              Go to Login Now
-            </button>
-          </div>
-        </div>
-
-        {/* Right Side - Promotional Content */}
-        <div className="hidden lg:flex lg:w-3/5 bg-gradient-to-br from-green-900 via-green-800 to-green-900 relative overflow-hidden">
-          <div 
-            className="absolute inset-0 bg-cover bg-center opacity-10"
-            style={{ backgroundImage: `url(${ctuBg})` }}
-          ></div>
-          
-          <div className="absolute top-20 right-20 w-64 h-64 bg-green-400/10 rounded-full blur-3xl"></div>
-          <div className="absolute bottom-20 left-20 w-80 h-80 bg-green-500/20 rounded-full blur-3xl"></div>
-          
-          <div className="relative z-10 flex items-center justify-center p-16 w-full">
-            <div className="max-w-xl text-center">
-              <div className="w-24 h-24 bg-white/10 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-6">
-                <AnimatedCheckIcon className="w-12 h-12" color="#ffffff" />
-              </div>
-              <h2 className="text-4xl font-bold text-white mb-4">
-                All Set!
-              </h2>
-              <p className="text-xl text-green-100">
-                Your account is now secure. Sign in with your new password.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
+  if (linkInvalid) {
+    return (
+      <AuthLayout {...layout}>
+        <AuthStatus
+          tone="error"
+          icon={<Clock className="h-8 w-8" />}
+          title="This link has expired"
+          actions={(
+            <>
+              <SubmitButton type="button" onClick={() => navigate('/forgot-password')}>Send me a new link</SubmitButton>
+              <SecondaryButton onClick={() => navigate('/login')}>Back to login</SecondaryButton>
+            </>
+          )}
+        >
+          <p>Reset links work once and expire after 10 minutes. Request a new one and use it straight away.</p>
+        </AuthStatus>
+      </AuthLayout>
     );
   }
 
   return (
-    <div className="min-h-screen flex">
-      {/* Left Side - Form */}
-      <div className="w-full lg:w-2/5 bg-white flex items-center justify-center p-8 relative">
-        {/* Back Button */}
-        <button
-          onClick={() => navigate('/login')}
-          className="absolute top-6 left-6 flex items-center gap-2 px-3 py-2 text-gray-600 hover:text-blue-600 transition-colors duration-300 group"
-        >
-          <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
-          <span className="text-sm font-medium">Back to Login</span>
-        </button>
-
-        <div className="w-full max-w-md">
-          {/* Logo and Title */}
-          <div className="mb-8">
-            <div className="flex items-center gap-3 mb-6">
-              <img src={ctuLogo} alt="CTU Logo" className="w-12 h-12 object-contain" />
-              <div>
-                <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-yellow-500 bg-clip-text text-transparent">
-                  CTU Daanbantayan
-                </h1>
-                <p className="text-xs text-gray-500">Smart Timetabling System</p>
-              </div>
-            </div>
-            
-            <h2 className="text-3xl font-bold text-gray-900 mb-2">
-              Reset Your Password
-            </h2>
-            <p className="text-gray-600 text-sm">
-              Enter your new password below. Make sure it's strong and secure.
-            </p>
-          </div>
-
-          {/* Error Message */}
-          {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-red-800">{error}</p>
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Password Input */}
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                New Password
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className="h-5 w-5 text-gray-400" />
-                </div>
-                <input
-                  id="password"
-                  name="password"
-                  type={showPassword ? 'text' : 'password'}
-                  required
-                  value={formData.password}
-                  onChange={handleChange}
-                  className={`block w-full pl-10 pr-10 py-3 border ${
-                    validationErrors.password ? 'border-red-300' : 'border-gray-300'
-                  } rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all`}
-                  placeholder="••••••••"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600" />
-                  ) : (
-                    <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600" />
-                  )}
-                </button>
-              </div>
-              {validationErrors.password && (
-                <p className="mt-1 text-sm text-red-600">{validationErrors.password}</p>
-              )}
-            </div>
-
-            {/* Confirm Password Input */}
-            <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
-                Confirm New Password
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className="h-5 w-5 text-gray-400" />
-                </div>
-                <input
-                  id="confirmPassword"
-                  name="confirmPassword"
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  required
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                  className={`block w-full pl-10 pr-10 py-3 border ${
-                    validationErrors.confirmPassword ? 'border-red-300' : 'border-gray-300'
-                  } rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all`}
-                  placeholder="••••••••"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                >
-                  {showConfirmPassword ? (
-                    <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600" />
-                  ) : (
-                    <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600" />
-                  )}
-                </button>
-              </div>
-              {validationErrors.confirmPassword && (
-                <p className="mt-1 text-sm text-red-600">{validationErrors.confirmPassword}</p>
-              )}
-            </div>
-
-            {/* Password Requirements */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h4 className="text-sm font-semibold text-blue-900 mb-2">Password Requirements:</h4>
-              <ul className="text-xs text-blue-800 space-y-1">
-                <li className="flex items-center gap-2">
-                  <span className={formData.password.length >= 6 ? 'text-green-600' : 'text-gray-400'}>
-                    {formData.password.length >= 6 ? '✓' : '○'}
-                  </span>
-                  At least 6 characters long
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className={formData.password && formData.password === formData.confirmPassword ? 'text-green-600' : 'text-gray-400'}>
-                    {formData.password && formData.password === formData.confirmPassword ? '✓' : '○'}
-                  </span>
-                  Passwords match
-                </li>
-              </ul>
-            </div>
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg"
-            >
-              {loading ? (
-                <div className="flex items-center justify-center">
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                  Resetting Password...
-                </div>
-              ) : (
-                'Reset Password'
-              )}
-            </button>
-          </form>
+    <AuthLayout {...layout}>
+      <div className="auth-rise" style={{ animationDelay: '.05s' }}>
+        <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
+          <KeyRound className="h-6 w-6" />
         </div>
+        <h1 className="mb-1.5 text-3xl font-bold tracking-tight text-gray-900 dark:text-dark-text-primary">
+          Set a new password
+        </h1>
+        <p className="mb-7 text-sm text-gray-600 dark:text-dark-text-secondary">
+          Pick something you haven't used here before.
+        </p>
       </div>
 
-      {/* Right Side - Promotional Content */}
-      <div className="hidden lg:flex lg:w-3/5 bg-gradient-to-br from-blue-900 via-blue-800 to-blue-900 relative overflow-hidden">
-        <div 
-          className="absolute inset-0 bg-cover bg-center opacity-10"
-          style={{ backgroundImage: `url(${ctuBg})` }}
-        ></div>
-        
-        <div className="absolute top-20 right-20 w-64 h-64 bg-yellow-400/10 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-20 left-20 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl"></div>
-        
-        <div className="relative z-10 flex items-center justify-center p-16 w-full">
-          <div className="max-w-xl">
-            <h2 className="text-4xl lg:text-5xl font-black text-white mb-6 leading-tight">
-              Create a Strong
-              <span className="block bg-gradient-to-r from-yellow-400 to-yellow-200 bg-clip-text text-transparent">
-                New Password
-              </span>
-            </h2>
-            
-            <p className="text-lg text-blue-100 mb-8 leading-relaxed">
-              Protect your CTU Daanbantayan account with a secure password. We recommend using a combination of letters, numbers, and symbols.
-            </p>
+      {error && <FormAlert>{error}</FormAlert>}
 
-            <div className="space-y-4">
-              <div className="flex items-start gap-4 p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
-                <div className="w-12 h-12 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Lock className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-white mb-1">Secure & Unique</h3>
-                  <p className="text-sm text-blue-200">Use a password you haven't used elsewhere</p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-4 p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
-                <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-blue-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <AnimatedCheckIcon className="w-6 h-6" color="#ffffff" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-white mb-1">Easy to Remember</h3>
-                  <p className="text-sm text-blue-200">But hard for others to guess</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-8 pt-6 border-t border-white/20">
-              <p className="text-sm text-blue-200">
-                © 2026 Cebu Technological University - Daanbantayan Campus
-              </p>
-            </div>
-          </div>
+      <form onSubmit={handleSubmit} noValidate className="auth-rise space-y-5" style={{ animationDelay: '.1s' }}>
+        <div>
+          <PasswordField
+            ref={passwordRef}
+            label="New password"
+            icon={Lock}
+            name="password"
+            autoComplete="new-password"
+            placeholder="Create a password"
+            value={formData.password}
+            onChange={handleChange}
+            error={passwordError}
+          />
+          <PasswordChecklist password={formData.password} />
         </div>
-      </div>
-    </div>
+
+        <PasswordField
+          ref={confirmRef}
+          label="Confirm new password"
+          icon={Lock}
+          name="confirmPassword"
+          autoComplete="new-password"
+          placeholder="Re-enter your password"
+          value={formData.confirmPassword}
+          onChange={handleChange}
+          error={confirmError}
+          hint={formData.confirmPassword && formData.confirmPassword === formData.password ? '✓ Passwords match' : undefined}
+        />
+
+        <SubmitButton loading={loading} loadingText="Updating password…">Update password</SubmitButton>
+      </form>
+
+      <p className="auth-rise mt-8 border-t border-gray-200 pt-6 text-sm text-gray-600 dark:border-dark-border-subtle dark:text-dark-text-secondary" style={{ animationDelay: '.15s' }}>
+        Changed your mind?{' '}
+        <Link to="/login" className="font-semibold text-blue-700 hover:underline dark:text-dark-blue-info">Back to login</Link>
+      </p>
+    </AuthLayout>
   );
 };
 

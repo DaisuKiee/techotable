@@ -1,5 +1,6 @@
 const Subject = require('../models/Subject.model');
 const Faculty = require('../models/Faculty.model');
+const { sendError } = require('../middleware/error.middleware');
 const {
   recommendInstructorForSubject,
   analyzeWorkloadBalance,
@@ -35,12 +36,7 @@ exports.recommendInstructor = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Recommend instructor error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error generating instructor recommendations',
-      error: error.message
-    });
+    sendError(res, error, 'Error generating instructor recommendations');
   }
 };
 
@@ -118,12 +114,7 @@ exports.recommendInstructorsForCurriculum = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Recommend curriculum error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error generating curriculum recommendations',
-      error: error.message
-    });
+    sendError(res, error, 'Error generating curriculum recommendations');
   }
 };
 
@@ -141,12 +132,7 @@ exports.analyzeWorkloadBalance = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Analyze workload error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error analyzing workload',
-      error: error.message
-    });
+    sendError(res, error, 'Error analyzing workload');
   }
 };
 
@@ -183,12 +169,7 @@ exports.predictScheduleQuality = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Predict quality error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error predicting schedule quality',
-      error: error.message
-    });
+    sendError(res, error, 'Error predicting schedule quality');
   }
 };
 
@@ -223,11 +204,6 @@ exports.getRecommendationInsights = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get insights error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching insights',
-      error: error.message
-    });
+    sendError(res, error, 'Error fetching insights');
   }
 };

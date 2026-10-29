@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import Layout from '../components/Layout';
-import { subjectAPI } from '../services/api';
+import { subjectAPI, getErrorMessage } from '../services/api';
 import toast from 'react-hot-toast';
 import useCachedData from '../hooks/useCachedData';
 import { useCache } from '../context/CacheContext';
@@ -39,7 +39,7 @@ const CachedSubjectPage = () => {
         console.log('Subjects loaded:', data?.length);
       },
       onError: (err) => {
-        toast.error('Failed to load subjects');
+        toast.error(getErrorMessage(err, 'Failed to load subjects'));
       }
     }
   );
@@ -76,7 +76,7 @@ const CachedSubjectPage = () => {
       
       toast.success('Subject deleted');
     } catch (err) {
-      toast.error('Failed to delete subject');
+      toast.error(getErrorMessage(err, 'Failed to delete subject'));
     }
   };
 

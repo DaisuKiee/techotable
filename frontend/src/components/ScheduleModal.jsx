@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import BaseModal from './BaseModal';
+import { ModalButton } from './modal/ModalShell';
 import { scheduleAPI, facultyAPI, subjectAPI, roomAPI } from '../services/api';
 import toast from 'react-hot-toast';
 import { 
@@ -150,40 +151,18 @@ const ScheduleModal = ({ mode, schedule, subjects: propSubjects, sections: propS
   };
 
   const footerContent = (
-    <div className="flex gap-3">
+    <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
       {mode === 'edit' && (
-        <button
-          type="button"
-          onClick={handleDelete}
-          className="px-5 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all font-semibold"
-        >
+        <ModalButton variant="danger" onClick={handleDelete} className="sm:mr-auto">
           Delete
-        </button>
+        </ModalButton>
       )}
-      <div className="flex gap-3 ml-auto w-full">
-        <button
-          type="button"
-          onClick={() => onClose(false)}
-          className="flex-1 px-5 py-2.5 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all font-semibold"
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          form="schedule-form"
-          disabled={loading}
-          className="flex-1 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all flex items-center justify-center gap-2 font-semibold shadow-lg hover:shadow-xl disabled:opacity-50"
-        >
-          {loading ? (
-            'Saving...'
-          ) : (
-            <>
-              <Check className="w-5 h-5" />
-              {mode === 'create' ? 'Create Schedule' : 'Update Schedule'}
-            </>
-          )}
-        </button>
-      </div>
+      <ModalButton variant="secondary" onClick={() => onClose(false)} className="sm:ml-auto">
+        Cancel
+      </ModalButton>
+      <ModalButton type="submit" form="schedule-form" loading={loading} loadingText="Saving…" icon={Check}>
+        {mode === 'create' ? 'Create Schedule' : 'Update Schedule'}
+      </ModalButton>
     </div>
   );
 
@@ -198,7 +177,7 @@ const ScheduleModal = ({ mode, schedule, subjects: propSubjects, sections: propS
       formId="schedule-form"
       footerContent={footerContent}
     >
-      <form onSubmit={handleSubmit} id="schedule-form" className="space-y-6">
+      <form onSubmit={handleSubmit} id="schedule-form" className="space-y-6 p-5 sm:p-6">
         {/* Basic Assignment Section */}
         <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border-2 border-gray-200 dark:border-gray-700">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Bell, Check, CheckCheck, X, Trash2 } from 'lucide-react';
-import { notificationAPI } from '../services/api';
+import { notificationAPI, getErrorMessage } from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
@@ -89,7 +89,7 @@ const NotificationBell = () => {
       toast.success('All notifications marked as read');
     } catch (error) {
       console.error('Error marking all as read:', error);
-      toast.error('Failed to mark all as read');
+      toast.error(getErrorMessage(error, 'Failed to mark all as read'));
     } finally {
       setLoading(false);
     }
@@ -107,7 +107,7 @@ const NotificationBell = () => {
       }
     } catch (error) {
       console.error('Error deleting notification:', error);
-      toast.error('Failed to delete notification');
+      toast.error(getErrorMessage(error, 'Failed to delete notification'));
     }
   };
 

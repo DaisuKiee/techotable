@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { scheduleAPI, sectionAPI } from '../services/api';
 import toast from 'react-hot-toast';
 import { X, Wand2, Loader, CheckCircle, AlertTriangle, Calendar, Sparkles } from 'lucide-react';
+import { ModalShell } from './modal/ModalShell';
 
 const YEAR_LEVELS = [1, 2, 3, 4];
 const SEMESTERS = [1, 2];
@@ -71,57 +72,94 @@ const PreviewGrid = ({ schedules }) => {
   const hours = Array.from({ length: lastHour - firstHour }, (_, i) => firstHour + i);
   const days = GRID_DAYS.filter(d => placed.some(p => p.day === d));
 
+  // Every cell is placed explicitly on a 30-minute row grid. The grid used to
+  // rely on auto-flow with "covered" cells omitted, which only lines up when
+  // every class starts on the hour and none overlap - the old first-fit
+  // generator broke both, and one misplaced cell shifted the rest of the week.
+  const SLOT = 30;
+  const rowOf = (mins) => Math.floor((mins - firstHour * 60) / SLOT) + 2; // row 1 is the header
+
+  // Classes that overlap on the same day sit side by side in lanes rather
+  // than on top of each other.
+  const lanesByDay = {};
+  for (const day of days) {
+    const laneEnds = [];
+    placed
+      .filter(p => p.day === day)
+      .sort((a, b) => a.start - b.start || b.end - a.end)
+      .forEach(p => {
+        let lane = laneEnds.findIndex(end => end <= p.start);
+        if (lane === -1) lane = laneEnds.length;
+        laneEnds[lane] = p.end;
+        p.lane = lane;
+      });
+    lanesByDay[day] = laneEnds.length;
+  }
+  const colStart = {};
+  let col = 2; // column 1 is the time axis
+  for (const day of days) {
+    colStart[day] = col;
+    col += lanesByDay[day];
+  }
+  const dayColumns = days.map(d => `repeat(${lanesByDay[d]}, minmax(0, 1fr))`).join(' ');
+
   return (
     <div className="overflow-x-auto">
       <div
         className="grid min-w-[560px] gap-px rounded-lg bg-gray-200 p-px"
-        style={{ gridTemplateColumns: `3.25rem repeat(${days.length}, minmax(0, 1fr))` }}
+        style={{
+          gridTemplateColumns: `3.25rem ${dayColumns}`,
+          gridTemplateRows: `auto repeat(${hours.length * 2}, 1.4rem)`,
+        }}
       >
-        <div className="bg-gray-50" />
+        <div className="bg-gray-50" style={{ gridColumn: 1, gridRow: 1 }} />
         {days.map(day => (
-          <div key={day} className="bg-gray-50 py-1.5 text-center text-[11px] font-semibold uppercase tracking-wide text-gray-600">
+          <div
+            key={day}
+            className="bg-gray-50 py-1.5 text-center text-[11px] font-semibold uppercase tracking-wide text-gray-600"
+            style={{ gridColumn: `${colStart[day]} / span ${lanesByDay[day]}`, gridRow: 1 }}
+          >
             {day.slice(0, 3)}
           </div>
         ))}
 
         {hours.map(hour => (
           <React.Fragment key={hour}>
-            <div className="bg-gray-50 py-2 pr-1.5 text-right text-[10px] font-medium text-gray-500">
+            <div
+              className="bg-gray-50 pt-1 pr-1.5 text-right text-[10px] font-medium text-gray-500"
+              style={{ gridColumn: 1, gridRow: `${rowOf(hour * 60)} / span 2` }}
+            >
               {fmtHour(hour * 60)}
             </div>
-            {days.map(day => {
-              const startsHere = placed.find(
-                p => p.day === day && Math.floor(p.start / 60) === hour
-              );
-              const covered = placed.some(
-                p => p.day === day && p.start < (hour + 1) * 60 && p.end > hour * 60
-              );
-
-              if (startsHere) {
-                const span = Math.max(1, Math.round((startsHere.end - startsHere.start) / 60));
-                return (
-                  <div
-                    key={day}
-                    className={`border-l-2 px-1.5 py-1 ${blockColor(startsHere.code)}`}
-                    style={{ gridRow: `span ${span}` }}
-                    title={`${startsHere.code} · ${startsHere.faculty || 'TBA'} · ${startsHere.room || 'TBA'}`}
-                  >
-                    <p className="truncate text-[11px] font-bold leading-tight">{startsHere.code}</p>
-                    {span > 1 && startsHere.faculty && (
-                      <p className="truncate text-[9px] leading-tight opacity-80">{startsHere.faculty}</p>
-                    )}
-                    {startsHere.room && (
-                      <p className="truncate text-[9px] leading-tight opacity-70">{startsHere.room}</p>
-                    )}
-                  </div>
-                );
-              }
-              // A cell covered by the block above it emits nothing, so the
-              // rowSpan can occupy it.
-              return covered ? null : <div key={day} className="bg-white" />;
-            })}
+            {days.map(day => (
+              <div
+                key={day}
+                className="bg-white"
+                style={{ gridColumn: `${colStart[day]} / span ${lanesByDay[day]}`, gridRow: `${rowOf(hour * 60)} / span 2` }}
+              />
+            ))}
           </React.Fragment>
         ))}
+
+        {placed.map((p, i) => {
+          const span = Math.max(1, Math.ceil((p.end - p.start) / SLOT));
+          return (
+            <div
+              key={i}
+              className={`relative overflow-hidden border-l-2 px-1.5 py-1 ${blockColor(p.code)}`}
+              style={{ gridColumn: colStart[p.day] + p.lane, gridRow: `${rowOf(p.start)} / span ${span}` }}
+              title={`${p.code} · ${p.faculty || 'TBA'} · ${p.room || 'TBA'}`}
+            >
+              <p className="truncate text-[11px] font-bold leading-tight">{p.code}</p>
+              {span >= 2 && p.faculty && (
+                <p className="truncate text-[9px] leading-tight opacity-80">{p.faculty}</p>
+              )}
+              {span > 1 && p.room && (
+                <p className="truncate text-[9px] leading-tight opacity-70">{p.room}</p>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -135,7 +173,6 @@ const GenerateScheduleModal = ({ onClose }) => {
   const [ortoolsStatus, setOrtoolsStatus] = useState(null);
   const [availableSections, setAvailableSections] = useState([]);
   const [loadingSections, setLoadingSections] = useState(false);
-  const [showThinkingProcess, setShowThinkingProcess] = useState(false);
   // A constraint solve can run for the full time limit. Without a visible
   // counter a 60-second wait behind a static spinner looks like a hang.
   const [elapsed, setElapsed] = useState(0);
@@ -146,16 +183,14 @@ const GenerateScheduleModal = ({ onClose }) => {
   const [showSubjectList, setShowSubjectList] = useState(false);
   const [formData, setFormData] = useState({
     section: '', // Section ID
-    // The constraint solver is the default whenever it is installed - see the
-    // availability check below, which switches this on. It used to default to
-    // 'greedy', so the heuristic ran even on machines where the solver was
-    // ready: greedy places subjects one at a time and drops any that no longer
-    // fit, while the solver assigns them together and only fails when no valid
-    // timetable exists at all.
-    method: 'greedy',
-    timeLimit: 60, // seconds for OR-Tools
-    priority: 'balanced', // which objective the solver should favour
-    useAIRecommendations: true // greedy path only
+    // 'ortools' runs OR-Tools and falls back to the built-in solver on the
+    // server if it cannot run there; 'builtin' goes straight to the built-in
+    // solver. Both take the same input and enforce the same rules - the old
+    // 'greedy' first-fit heuristic, which skipped subjects that no longer fit,
+    // is gone.
+    method: 'ortools',
+    timeLimit: 60, // seconds; the built-in solver stops early once it stops improving
+    priority: 'balanced' // which objective the solver should favour
   });
 
   // Check OR-Tools availability on mount
@@ -204,10 +239,10 @@ const GenerateScheduleModal = ({ onClose }) => {
       const status = response.data.ortools;
       setOrtoolsStatus(status);
 
-      // Prefer the constraint solver whenever it is actually installed. The
-      // heuristic stays as the fallback for machines without it.
-      if (status?.available) {
-        setFormData(prev => ({ ...prev, method: 'ortools' }));
+      // Without OR-Tools on the server, say so up front by selecting the
+      // built-in solver rather than letting the fallback happen silently.
+      if (!status?.available) {
+        setFormData(prev => ({ ...prev, method: 'builtin' }));
       }
     } catch (error) {
       console.error('Failed to check OR-Tools status:', error);
@@ -255,8 +290,7 @@ const GenerateScheduleModal = ({ onClose }) => {
         academicYear: selectedSection.academicYear,
         method: formData.method,
         timeLimit: parseInt(formData.timeLimit),
-        priority: formData.priority,
-        useAIRecommendations: formData.useAIRecommendations
+        priority: formData.priority
       };
 
       console.log('Sending preview request:', generateData);
@@ -274,14 +308,13 @@ const GenerateScheduleModal = ({ onClose }) => {
           success: true,
           message: payload.message,
           method: payload.method,
-          // Which engine was asked for. `payload.method` is a display string
-          // ("Google OR-Tools CP-SAT"), so it can't be compared to a key.
-          engine: formData.method,
+          // The engine that actually ran - 'builtin' when OR-Tools was asked
+          // for but could not run on the server. `payload.method` is a display
+          // string ("Google OR-Tools CP-SAT"), so it can't be compared to a key.
+          engine: payload.engine || formData.method,
+          fellBack: !!payload.fellBack,
           methodNote: body.methodNote || preview.methodNote,
           priorityUsed: formData.priority,
-          aiUsed: payload.aiUsed || formData.useAIRecommendations,
-          thinkingProcess: payload.thinkingProcess || [],
-          aiPlan: payload.aiPlan || null,
           // Solver notes: relaxed room capacity, subjects left alone, and so on
           diagnostics: body.diagnostics || preview.diagnostics || [],
           skipped: body.skipped || preview.skipped || [],
@@ -291,11 +324,6 @@ const GenerateScheduleModal = ({ onClose }) => {
 
         // Hand the body over to the result; the settings fold into a summary.
         if (scheduled > 0) setShowSettings(false);
-
-        // Auto-expand thinking process if AI was used and steps exist
-        if (payload.thinkingProcess && payload.thinkingProcess.length > 0) {
-          setShowThinkingProcess(true);
-        }
 
         // A successful solve with nothing to place is not worth a success toast
         if (scheduled === 0) {
@@ -308,7 +336,6 @@ const GenerateScheduleModal = ({ onClose }) => {
           success: false,
           message: payload.message,
           method: payload.method,
-          thinkingProcess: payload.thinkingProcess || [],
           blockers: payload.blockers || body.blockers || [],
           diagnostics: payload.diagnostics || body.diagnostics || [],
         });
@@ -325,8 +352,8 @@ const GenerateScheduleModal = ({ onClose }) => {
 
       if (error.code === 'ECONNABORTED' || /timeout/i.test(error.message || '')) {
         message = `The request timed out after about ${formData.timeLimit + 45}s.`;
-        hint = 'Lower the optimization time limit, or pick the Smart Scheduler for a fast result.';
-      } else if (!error.response) {
+        hint = 'Lower the time limit, or switch to the built-in solver, which usually finishes in a few seconds.';
+      } else if (!error.response || error.isNetworkError) {
         message = 'Could not reach the server.';
         hint = 'Check that the backend is running, then try again.';
       } else {
@@ -386,6 +413,7 @@ const GenerateScheduleModal = ({ onClose }) => {
   };
 
   const isORTools = formData.method === 'ortools';
+  const engineName = (engine) => (engine === 'builtin' ? 'Built-in solver' : 'OR-Tools');
   // Both generators nest their numbers differently; read once, guarded, so a
   // missing field can't blow up the whole panel.
   const stats = previewData?.preview?.statistics || {};
@@ -422,18 +450,19 @@ const GenerateScheduleModal = ({ onClose }) => {
      * with its content and rely on the page scrolling, so once a preview was
      * rendered the action buttons were pushed off screen.
      */
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
-      <div
-        className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm"
-        onClick={handleClose}
-      />
-
-      {/* Widens once there is a timetable to look at. */}
-      <div className={`relative bg-white rounded-xl text-left shadow-2xl w-full max-h-[92vh] flex flex-col overflow-hidden transition-[max-width] duration-300 ${
-        previewData?.success ? 'max-w-5xl' : 'max-w-2xl'
-      }`}>
+    // The panel widens once there is a timetable to look at. A solve in
+    // progress can't be dismissed by a stray Escape or backdrop click.
+    <ModalShell
+      onClose={handleClose}
+      size={previewData?.success ? 'xl' : 'lg'}
+      label="Schedule generator"
+      busy={generating || saving}
+      guardDirty={false}
+      focusFirstField={false}
+      panelClassName="transition-[max-width] duration-300"
+    >
         {/* Header */}
-        <div className="bg-purple-600 px-4 sm:px-6 py-4 flex-shrink-0">
+        <div className="bg-purple-600 px-4 sm:px-6 py-4 flex-shrink-0 sm:rounded-t-2xl">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center min-w-0">
               <Wand2 className="text-white mr-3 flex-shrink-0" size={22} />
@@ -442,7 +471,7 @@ const GenerateScheduleModal = ({ onClose }) => {
                   Schedule Generator
                 </h3>
                 <p className="text-xs text-purple-200 truncate">
-                  {isORTools ? 'Google OR-Tools constraint solver' : 'AI-Enhanced Smart Scheduler'}
+                  {isORTools ? 'Google OR-Tools constraint solver' : 'Built-in constraint solver'}
                 </p>
               </div>
             </div>
@@ -468,7 +497,7 @@ const GenerateScheduleModal = ({ onClose }) => {
                   {previewData.sectionInfo?.sectionCode}
                 </span>
                 <span className="text-gray-300">·</span>
-                <span>{isORTools ? 'Constraint solver' : 'Heuristic'}</span>
+                <span>{engineName(previewData.engine)}</span>
                 <span className="text-gray-300">·</span>
                 <span className="capitalize">{formData.priority}</span>
                 <span className="text-gray-300">·</span>
@@ -516,15 +545,15 @@ const GenerateScheduleModal = ({ onClose }) => {
               </div>
 
               {/* What the solver optimises for. These map to objective weights
-                  the solver already supported but nothing ever set, so every
-                  run used the same defaults. */}
-              {isORTools && (
+                  that both engines share, so a preset means the same thing
+                  whichever one runs. */}
+              {(
                 <div className="mt-6 pt-6 border-t border-gray-200">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     What should it optimise for?
                   </label>
                   <p className="text-xs text-gray-500 mb-3">
-                    Clash-free timetabling is guaranteed either way. This only changes
+                    Every result is checked for clashes before you see it. This only changes
                     which trade-off the solver prefers when several valid timetables exist.
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -596,19 +625,20 @@ const GenerateScheduleModal = ({ onClose }) => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 disabled:opacity-50"
                     >
                       <option value="ortools" disabled={!ortoolsStatus?.available}>
-                        Constraint solver — optimal {!ortoolsStatus?.available && '(not installed)'}
+                        OR-Tools constraint solver {!ortoolsStatus?.available && '(not installed)'}
                       </option>
-                      <option value="greedy">Fast heuristic — fallback</option>
+                      <option value="builtin">Built-in constraint solver</option>
                     </select>
                     <p className="text-xs text-gray-500 mt-1">
                       {isORTools
-                        ? 'Places every subject together and only fails when no valid timetable exists.'
-                        : 'Places subjects one at a time and skips any that no longer fit. Faster, but can leave subjects unscheduled.'}
+                        ? 'Google CP-SAT. Searches for the full time limit and can prove a timetable is optimal. Falls back to the built-in solver if it cannot run.'
+                        : 'Same rules and priorities as OR-Tools, no Python needed. Usually finishes in seconds and stops once the timetable stops improving.'}
                     </p>
                   </div>
 
-                  {/* Time Limit (OR-Tools only) */}
-                  {isORTools && (
+                  {/* Time limit: a fixed budget for OR-Tools, a ceiling for the
+                      built-in solver */}
+                  {(
                     <div className="md:col-span-2">
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Optimization time limit
@@ -642,8 +672,9 @@ const GenerateScheduleModal = ({ onClose }) => {
                         />
                       </div>
                       <p className="text-xs text-gray-500 mt-1.5">
-                        The solver searches for up to this long, so generating will take
-                        about {formData.timeLimit}s. Longer budgets can find better timetables.
+                        {isORTools
+                          ? `OR-Tools searches for up to this long, so generating will take about ${formData.timeLimit}s. Longer budgets can find better timetables.`
+                          : `The built-in solver stops early once its result stops improving, and never runs past ${formData.timeLimit}s.`}
                       </p>
                     </div>
                   )}
@@ -670,7 +701,8 @@ const GenerateScheduleModal = ({ onClose }) => {
                         <>
                           <AlertTriangle size={16} className="text-yellow-600 mr-2" />
                           <span className="text-yellow-800">
-                            Google OR-Tools is not installed. Install with: pip install ortools
+                            OR-Tools is not installed on the server, so the built-in solver is used.
+                            Same rules and priorities. To enable it: pip install ortools
                           </span>
                         </>
                       )}
@@ -679,114 +711,6 @@ const GenerateScheduleModal = ({ onClose }) => {
                 )}
               </div>
             </div>
-
-            {/* AI Thinking Process */}
-            {generating && formData.useAIRecommendations && (
-              <div className="mb-6 p-4 bg-gradient-to-br from-purple-50 to-blue-50 rounded-lg border border-purple-200">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="animate-spin">
-                    <Sparkles className="text-purple-600" size={20} />
-                  </div>
-                  <h4 className="text-sm font-semibold text-purple-900">
-                    AI Thinking Process
-                  </h4>
-                </div>
-                <div className="space-y-1.5 text-xs">
-                  <p className="text-purple-700 flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-pulse"></span>
-                    Analyzing constraints and subjects...
-                  </p>
-                  <p className="text-purple-700 flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-pulse animation-delay-200"></span>
-                    Evaluating faculty expertise and workload...
-                  </p>
-                  <p className="text-purple-700 flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-pulse animation-delay-400"></span>
-                    Optimizing room allocation and time slots...
-                  </p>
-                  <p className="text-purple-700 flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-pulse animation-delay-600"></span>
-                    Enforcing NSTP Saturday 8:00-11:00AM rule...
-                  </p>
-                </div>
-                {elapsed > 0 && (
-                  <p className="text-xs text-purple-600 mt-3 font-medium">
-                    ⏱️ Elapsed time: {elapsed}s
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* Thinking Process Log (after generation) */}
-            {previewData?.thinkingProcess && previewData.thinkingProcess.length > 0 && (
-              <div className="mb-6">
-                <button
-                  type="button"
-                  onClick={() => setShowThinkingProcess(!showThinkingProcess)}
-                  className="w-full flex items-center justify-between p-3 bg-purple-50 hover:bg-purple-100 rounded-lg border border-purple-200 transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="text-purple-600" size={18} />
-                    <h4 className="text-sm font-semibold text-purple-900">
-                      AI Thinking Process Log ({previewData.thinkingProcess.length} steps)
-                    </h4>
-                  </div>
-                  <svg
-                    className={`w-4 h-4 text-purple-600 transition-transform ${showThinkingProcess ? 'rotate-180' : ''}`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-
-                {showThinkingProcess && (
-                  <div className="mt-2 p-4 bg-white rounded-lg border border-purple-200 max-h-80 overflow-y-auto">
-                    <div className="space-y-2">
-                      {previewData.thinkingProcess.map((step, idx) => {
-                        const timestamp = step.timestamp ? new Date(step.timestamp).toLocaleTimeString() : '';
-                        return (
-                          <div key={idx} className="flex gap-3 text-xs">
-                            <span className="text-gray-400 flex-shrink-0 font-mono">
-                              {timestamp || `Step ${idx + 1}`}
-                            </span>
-                            <div className="flex-1">
-                              <p className="text-gray-900">{step.message}</p>
-                              {step.data && Object.keys(step.data).length > 0 && (
-                                <div className="mt-1 pl-3 border-l-2 border-purple-200">
-                                  {Object.entries(step.data).map(([key, value]) => (
-                                    <p key={key} className="text-gray-600">
-                                      <span className="font-medium">{key}:</span>{' '}
-                                      {typeof value === 'object' ? JSON.stringify(value) : value}
-                                    </p>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* AI Plan Summary */}
-            {previewData?.aiPlan && (
-              <div className="mb-6 p-4 bg-gradient-to-br from-purple-50 to-blue-50 rounded-lg border border-purple-200">
-                <div className="flex items-center gap-2 mb-2">
-                  <Sparkles className="text-purple-600" size={18} />
-                  <h4 className="text-sm font-semibold text-purple-900">
-                    AI Optimization Strategy
-                  </h4>
-                </div>
-                <p className="text-xs text-purple-800 whitespace-pre-wrap leading-relaxed">
-                  {previewData.aiPlan.strategy}
-                </p>
-              </div>
-            )}
 
             {/* Preview Results */}
             {previewData && previewData.success && previewData.preview && (
@@ -805,7 +729,7 @@ const GenerateScheduleModal = ({ onClose }) => {
                             pure constraint solve. */}
                         <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-200 text-purple-900">
                           <Sparkles size={12} className="mr-1" />
-                          {previewData.engine === 'ortools' ? 'Constraint solver' : 'Heuristic'}
+                          {engineName(previewData.engine)}
                         </span>
                       </div>
                       <p className="text-xs text-purple-700">
@@ -1094,26 +1018,22 @@ const GenerateScheduleModal = ({ onClose }) => {
                 <div className="flex flex-col items-center justify-center">
                   <Loader className="animate-spin text-purple-600" size={40} />
                   <p className="mt-4 text-sm font-medium text-purple-900">
-                    {isORTools ? 'Solving the timetable' : 'Building the schedule'}
+                    Solving the timetable
                     {elapsed > 0 && ` · ${elapsed}s`}
                   </p>
-                  {isORTools ? (
-                    <>
-                      <div className="w-full max-w-xs h-1.5 bg-purple-200 rounded-full mt-3 overflow-hidden">
-                        <div
-                          className="h-full bg-purple-600 transition-all duration-1000"
-                          style={{
-                            width: `${Math.min(100, (elapsed / Math.max(1, formData.timeLimit)) * 100)}%`,
-                          }}
-                        />
-                      </div>
-                      <p className="text-xs text-purple-700 mt-2">
-                        The solver uses up to {formData.timeLimit}s to search for the best timetable.
-                      </p>
-                    </>
-                  ) : (
-                    <p className="text-xs text-purple-700 mt-1">This usually takes a moment.</p>
-                  )}
+                  <div className="w-full max-w-xs h-1.5 bg-purple-200 rounded-full mt-3 overflow-hidden">
+                    <div
+                      className="h-full bg-purple-600 transition-all duration-1000"
+                      style={{
+                        width: `${Math.min(100, (elapsed / Math.max(1, formData.timeLimit)) * 100)}%`,
+                      }}
+                    />
+                  </div>
+                  <p className="text-xs text-purple-700 mt-2">
+                    {isORTools
+                      ? `OR-Tools uses up to ${formData.timeLimit}s to search for the best timetable.`
+                      : `The built-in solver usually finishes in a few seconds (at most ${formData.timeLimit}s).`}
+                  </p>
                 </div>
               </div>
             )}
@@ -1131,7 +1051,7 @@ const GenerateScheduleModal = ({ onClose }) => {
                 <p className="text-xs text-purple-800 mb-2">
                   {isORTools
                     ? 'A constraint solver (Google OR-Tools CP-SAT) places every class at once, searching for the best timetable that breaks none of these rules:'
-                    : 'The fast heuristic places classes one at a time, skipping any that no longer fit. It respects the same rules, but can leave subjects unscheduled:'}
+                    : 'The built-in constraint solver places every class, moving any that clash until none do, then keeps improving the timetable for your chosen priority. It breaks none of these rules:'}
                 </p>
                 <ul className="text-xs text-purple-800 space-y-1">
                   <li>• One teacher and one room per class, never double-booked</li>
@@ -1139,6 +1059,7 @@ const GenerateScheduleModal = ({ onClose }) => {
                   <li>• Teaching load stays within each faculty member's remaining cap</li>
                   <li>• Declared unavailable hours and existing classes are worked around</li>
                   <li>• Labs only go in lab rooms, and rooms must fit the section</li>
+                  <li>• A section with a home room has all its non-lab classes there</li>
                 </ul>
                 <p className="text-xs text-purple-800 mt-2">
                   Among the timetables that satisfy all of that, it prefers the one matching
@@ -1207,7 +1128,9 @@ const GenerateScheduleModal = ({ onClose }) => {
                 <button
                   type="button"
                   onClick={handleSaveSchedules}
-                  disabled={saving || generating}
+                  // A preview that failed the conflict check is not saveable
+                  disabled={saving || generating || (stats.conflictsDetected ?? 0) > 0}
+                  title={(stats.conflictsDetected ?? 0) > 0 ? 'Resolve the conflicts listed above first' : undefined}
                   className="flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {saving ? (
@@ -1227,8 +1150,7 @@ const GenerateScheduleModal = ({ onClose }) => {
             )}
           </div>
         </form>
-      </div>
-    </div>
+    </ModalShell>
   );
 };
 

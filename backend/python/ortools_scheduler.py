@@ -141,6 +141,7 @@ class TimetableOptimizer:
                 'letter': s.get('letter') or chr(65 + i),
                 'code': s.get('code'),
                 'max_students': s.get('max_students') or 40,
+                'home_room': s.get('home_room'),
             })
         return sections or [{'letter': 'A', 'code': None, 'max_students': 40}]
 
@@ -256,6 +257,18 @@ class TimetableOptimizer:
         needed = klass['section']['max_students']
         wants_lab = klass['needs_lab']
         code = klass['subject']['subject_code']
+
+        # A section with a home room takes every non-lab class there. Lab
+        # subjects fall through to the lab-room search below.
+        home = klass['section'].get('home_room')
+        if home and not wants_lab:
+            idx = next((i for i, r in enumerate(self.rooms) if str(r.get('_id')) == str(home)), None)
+            if idx is not None:
+                return [idx]
+            self.diagnostics.append(
+                f"{code}: section {klass['section'].get('code') or klass['section']['letter']}'s "
+                f'home room is inactive or missing, so another room was chosen.'
+            )
 
         def shortlist(rooms):
             # Smallest room that still fits, so big halls stay free for big sections

@@ -16,6 +16,7 @@ const {
   labelFor,
 } = require('../utils/roomLabel');
 const { notifyScheduleChange } = require('../services/emailNotification.service');
+const { sendError, sendValidationErrors } = require('../middleware/error.middleware');
 // One subject for one section in one term is ONE Schedule document holding all
 // of its meeting times, so it maps to exactly one class space.
 const {
@@ -24,29 +25,6 @@ const {
   findExistingOffering,
   appendSlotsToOffering,
 } = require('../services/scheduleOffering.service');
-
-/**
- * Calculate total teaching hours from time slots
- * @param {Array} timeSlots - Array of time slot objects with startTime and endTime
- * @returns {Number} Total hours
- */
-function calculateScheduleHours(timeSlots) {
-  if (!Array.isArray(timeSlots) || timeSlots.length === 0) {
-    return 0;
-  }
-  
-  let totalHours = 0;
-  timeSlots.forEach(slot => {
-    if (slot.startTime && slot.endTime) {
-      const startMinutes = timeToMinutes(slot.startTime);
-      const endMinutes = timeToMinutes(slot.endTime);
-      const durationHours = (endMinutes - startMinutes) / 60;
-      totalHours += durationHours;
-    }
-  });
-  
-  return totalHours;
-}
 
 // @desc    Get all schedules
 // @route   GET /api/schedules
@@ -130,12 +108,7 @@ exports.getAllSchedules = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get all schedules error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching schedules',
-      error: error.message
-    });
+    sendError(res, error, 'Error fetching schedules');
   }
 };
 
@@ -168,12 +141,7 @@ exports.getScheduleById = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get schedule by ID error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching schedule',
-      error: error.message
-    });
+    sendError(res, error, 'Error fetching schedule');
   }
 };
 
@@ -184,10 +152,7 @@ exports.createSchedule = async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        errors: errors.array()
-      });
+      return sendValidationErrors(res, errors);
     }
 
     const {
@@ -287,11 +252,7 @@ exports.createSchedule = async (req, res) => {
         generatedBy: 'manual'
       });
 
-      // Update faculty load
-      const totalHours = calculateScheduleHours(timeSlots);
-      await Faculty.findByIdAndUpdate(faculty, {
-        $inc: { currentTeachingHours: totalHours }
-      });
+      // Faculty load is computed from saved schedules (utils/facultyLoad), not kept in a counter.
     }
 
     // Every subject offering gets its class space, so the teacher can post and
@@ -313,12 +274,7 @@ exports.createSchedule = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Create schedule error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error creating schedule',
-      error: error.message
-    });
+    sendError(res, error, 'Error creating schedule');
   }
 };
 
@@ -372,36 +328,12 @@ exports.updateSchedule = async (req, res) => {
       }
     }
 
-    // Update faculty load if faculty changed
-    if (faculty && faculty !== schedule.faculty.toString()) {
-      // Calculate hours from old schedule
-      const oldHours = calculateScheduleHours(schedule.timeSlots);
-      
-      // Calculate hours from new schedule (if timeSlots changed, use new ones)
-      const newHours = calculateScheduleHours(timeSlots || schedule.timeSlots);
-
-      // Decrease old faculty hours
-      await Faculty.findByIdAndUpdate(schedule.faculty, {
-        $inc: { currentTeachingHours: -oldHours }
-      });
-
-      // Increase new faculty hours
-      await Faculty.findByIdAndUpdate(faculty, {
-        $inc: { currentTeachingHours: newHours }
-      });
-
+    // Faculty load is computed from saved schedules (utils/facultyLoad), not kept in a counter.
+    // The counter this used to adjust drifted below zero (generated classes
+    // never added to it, but deleting them subtracted), and a negative value
+    // then failed validation on every save of that faculty profile.
+    if (faculty && faculty !== String(schedule.faculty)) {
       schedule.faculty = faculty;
-    } else if (timeSlots && timeSlots !== schedule.timeSlots) {
-      // Faculty didn't change but timeSlots did - adjust hours
-      const oldHours = calculateScheduleHours(schedule.timeSlots);
-      const newHours = calculateScheduleHours(timeSlots);
-      const hoursDiff = newHours - oldHours;
-      
-      if (hoursDiff !== 0) {
-        await Faculty.findByIdAndUpdate(schedule.faculty, {
-          $inc: { currentTeachingHours: hoursDiff }
-        });
-      }
     }
 
     // Update other fields
@@ -440,12 +372,7 @@ exports.updateSchedule = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Update schedule error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error updating schedule',
-      error: error.message
-    });
+    sendError(res, error, 'Error updating schedule');
   }
 };
 
@@ -464,15 +391,7 @@ exports.deleteSchedule = async (req, res) => {
       });
     }
 
-    // Calculate total hours from time slots
-    const totalHours = calculateScheduleHours(schedule.timeSlots);
-
-    // Decrease faculty teaching hours
-    if (schedule.faculty && totalHours > 0) {
-      await Faculty.findByIdAndUpdate(schedule.faculty, {
-        $inc: { currentTeachingHours: -totalHours }
-      });
-    }
+    // Faculty load is computed from saved schedules (utils/facultyLoad), not kept in a counter.
 
     // Soft delete
     schedule.isActive = false;
@@ -489,12 +408,7 @@ exports.deleteSchedule = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Delete schedule error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error deleting schedule',
-      error: error.message
-    });
+    sendError(res, error, 'Error deleting schedule');
   }
 };
 
@@ -696,12 +610,7 @@ exports.getSchedulesByProgramAndYear = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get schedules by program error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching schedules',
-      error: error.message
-    });
+    sendError(res, error, 'Error fetching schedules');
   }
 };
 
@@ -764,12 +673,7 @@ exports.getFacultySchedule = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get faculty schedule error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching faculty schedule',
-      error: error.message
-    });
+    sendError(res, error, 'Error fetching faculty schedule');
   }
 };
 
@@ -921,12 +825,7 @@ exports.checkConflicts = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Check conflicts error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error checking conflicts',
-      error: error.message
-    });
+    sendError(res, error, 'Error checking conflicts');
   }
 };
 
@@ -963,12 +862,7 @@ exports.publishSchedule = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Publish schedule error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error publishing schedule',
-      error: error.message
-    });
+    sendError(res, error, 'Error publishing schedule');
   }
 };
 
@@ -1034,12 +928,7 @@ exports.batchPublishSchedules = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Batch publish error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error publishing schedules',
-      error: error.message
-    });
+    sendError(res, error, 'Error publishing schedules');
   }
 };
 
@@ -1062,16 +951,7 @@ exports.batchDeleteSchedules = async (req, res) => {
 
     let deletedCount = 0;
     for (const schedule of schedules) {
-      // Calculate total hours from time slots
-      const totalHours = calculateScheduleHours(schedule.timeSlots);
-      
-      // Decrease faculty teaching hours
-      if (schedule.faculty && totalHours > 0) {
-        await Faculty.findByIdAndUpdate(schedule.faculty, {
-          $inc: { currentTeachingHours: -totalHours }
-        });
-      }
-      
+      // Faculty load is computed from saved schedules (utils/facultyLoad), not kept in a counter.
       schedule.isActive = false;
       await schedule.save();
       await deactivateClassSpaceForSchedule(schedule);
@@ -1085,12 +965,7 @@ exports.batchDeleteSchedules = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Batch delete schedules error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error deleting schedules',
-      error: error.message
-    });
+    sendError(res, error, 'Error deleting schedules');
   }
 };
 
@@ -1112,6 +987,17 @@ const SOLVER_PRIORITIES = {
 const resolveSolverWeights = (priority) =>
   SOLVER_PRIORITIES[priority] || undefined;
 
+/**
+ * Which engine a request runs on.
+ *
+ * 'ortools' means "OR-Tools, falling back to the built-in solver if it cannot
+ * run here". 'builtin' forces the built-in solver. 'greedy' is what older
+ * clients send; it used to select a first-fit heuristic and now gets the
+ * built-in solver, which honours the same rules and priorities as OR-Tools.
+ */
+const resolveEngine = (method) =>
+  (method === 'builtin' || method === 'greedy' ? 'builtin' : 'auto');
+
 // @desc    Generate schedule automatically
 // @route   POST /api/schedules/generate
 // @access  Private/Admin
@@ -1123,11 +1009,10 @@ exports.generateSchedule = async (req, res) => {
       program, 
       yearLevel, 
       section,            // Single section identifier (e.g., 'A', 'B', 'C')
-      method = 'greedy',  // 'greedy' or 'ortools'
+      method = 'ortools', // 'ortools' (with automatic fallback) or 'builtin'
       shift = 'Day',      // 'Day' or 'Night'
       timeLimit = 60,     // seconds for OR-Tools
-      priority = 'balanced',  // which objective preset the solver should favour
-      useAIRecommendations = false  // greedy path only
+      priority = 'balanced'  // which objective preset the solver should favour
     } = req.body;
 
     if (!academicYear || !semester || !program || !yearLevel || !section) {
@@ -1137,84 +1022,49 @@ exports.generateSchedule = async (req, res) => {
       });
     }
 
-    let result;
+    // Both engines take the same input and enforce the same rules; see
+    // resolveEngine. The old first-fit heuristic is no longer reachable from
+    // here - it skipped any subject that no longer fit and could double-book.
+    const { generateWithORTools } = require('../services/ortoolsBridge.service');
 
-    // Choose generation method
-    if (method === 'ortools') {
-      // Use Google OR-Tools constraint solver
-      const { generateWithORTools } = require('../services/ortoolsBridge.service');
-      
-      result = await generateWithORTools({
-        academicYear,
-        semester,
-        program,
-        yearLevel,
-        section,
-        shift,
-        timeLimit,
-        weights: resolveSolverWeights(priority)
-      });
+    const result = await generateWithORTools({
+      academicYear,
+      semester,
+      program,
+      yearLevel,
+      section,
+      shift,
+      timeLimit,
+      weights: resolveSolverWeights(priority),
+      engine: resolveEngine(method)
+    });
 
-      // If OR-Tools succeeded, save the schedules
-      if (result.success && result.schedules) {
-        const savedSchedules = [];
-        const errors = [];
+    if (result.success && result.schedules) {
+      const savedSchedules = [];
+      const errors = [];
 
-        for (const scheduleData of result.schedules) {
-          try {
-            const schedule = await Schedule.create(scheduleData);
-            savedSchedules.push(schedule);
+      for (const scheduleData of result.schedules) {
+        try {
+          const schedule = await Schedule.create(scheduleData);
+          savedSchedules.push(schedule);
 
-            // Update faculty load
-            if (scheduleData.faculty) {
-              const subject = await Subject.findById(scheduleData.subject);
-              if (subject) {
-                await Faculty.findByIdAndUpdate(scheduleData.faculty, {
-                  $inc: { currentLoad: subject.units }
-                });
-              }
-            }
-          } catch (error) {
-            errors.push({
-              subject: scheduleData.metadata?.subjectCode || 'Unknown',
-              error: error.message
-            });
-          }
+          // Faculty load is computed from saved schedules (utils/facultyLoad).
+          // The $inc on currentLoad that used to be here was dropped by
+          // Mongoose: the field isn't in the Faculty schema.
+        } catch (error) {
+          errors.push({
+            subject: scheduleData.metadata?.subjectCode || 'Unknown',
+            error: error.message
+          });
         }
-
-        // One class space per saved offering. Failures here are logged and
-        // counted rather than thrown, so a partial save still succeeds.
-        await ensureClassSpacesForSchedules(savedSchedules);
-
-        result.savedSchedules = savedSchedules;
-        result.saveErrors = errors;
       }
 
-    } else {
-      // Use greedy algorithm with AI enhancements
-      const { generateScheduleForProgram } = require('../services/scheduleGenerator.service');
+      // One class space per saved offering. Failures here are logged and
+      // counted rather than thrown, so a partial save still succeeds.
+      await ensureClassSpacesForSchedules(savedSchedules);
 
-      // Optional: Set up status callback for real-time progress (future SSE implementation)
-      const statusUpdates = [];
-      const statusCallback = (update) => {
-        statusUpdates.push(update);
-        // Future: Send via Server-Sent Events (SSE) for real-time updates
-      };
-
-      result = await generateScheduleForProgram({
-        academicYear,
-        semester,
-        program,
-        yearLevel,
-        section,
-        shift,
-        useAIRecommendations: useAIRecommendations === true || useAIRecommendations === 'true'
-      }, statusCallback);
-
-      // Attach thinking process to response
-      if (result.results && result.results.thinkingProcess) {
-        result.thinkingProcess = result.results.thinkingProcess;
-      }
+      result.savedSchedules = savedSchedules;
+      result.saveErrors = errors;
     }
 
     res.status(200).json({
@@ -1225,22 +1075,16 @@ exports.generateSchedule = async (req, res) => {
       message: result.message
         || result.error
         || (result.success ? 'Schedule generated successfully' : 'Schedule generation failed'),
-      method: method === 'ortools' ? 'Google OR-Tools CP-SAT' : 'AI-Enhanced Smart Scheduler',
-      aiUsed: result.aiUsed || false,
-      thinkingProcess: result.thinkingProcess || [],
-      aiPlan: result.results?.aiPlan || null,
+      method: result.method,
+      engine: result.engine,
       blockers: result.blockers || [],
+      conflicts: result.conflicts || [],
       diagnostics: result.diagnostics || [],
       data: result
     });
 
   } catch (error) {
-    console.error('Generate schedule error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error generating schedule',
-      error: error.message
-    });
+    sendError(res, error, 'Error generating schedule');
   }
 };
 
@@ -1255,11 +1099,10 @@ exports.previewSchedule = async (req, res) => {
       program, 
       yearLevel, 
       section,
-      method = 'greedy',
+      method = 'ortools',
       shift = 'Day',
       timeLimit = 60,
-      priority = 'balanced',
-      useAIRecommendations = false
+      priority = 'balanced'
     } = req.body;
 
     if (!academicYear || !semester || !program || !yearLevel || !section) {
@@ -1269,82 +1112,47 @@ exports.previewSchedule = async (req, res) => {
       });
     }
 
-    let preview;
+    const { previewWithORTools } = require('../services/ortoolsBridge.service');
 
-    // Choose generation method
-    if (method === 'ortools') {
-      // Previously this silently fell back to the greedy algorithm, so choosing
-      // OR-Tools in the preview dialog produced a greedy timetable and then
-      // saving it ran the solver - a different schedule from the one reviewed.
-      const { previewWithORTools } = require('../services/ortoolsBridge.service');
+    // Previewing and saving must run the same engine on the same input, or the
+    // timetable saved is not the one that was reviewed.
+    const solved = await previewWithORTools({
+      academicYear,
+      semester,
+      program,
+      yearLevel,
+      section,
+      shift,
+      timeLimit,
+      weights: resolveSolverWeights(priority),
+      engine: resolveEngine(method)
+    });
 
-      const solved = await previewWithORTools({
-        academicYear,
-        semester,
-        program,
-        yearLevel,
-        section,
-        shift,
-        timeLimit,
-        weights: resolveSolverWeights(priority),
-      });
-
-      preview = {
-        ...solved.preview,
-        success: solved.success,
-        message: solved.message,
-        status: solved.status,
-        blockers: solved.blockers || [],
-        diagnostics: solved.diagnostics || [],
-        skipped: solved.skipped || [],
-        methodNote: 'Preview generated with Google OR-Tools CP-SAT',
-      };
-    } else {
-      // Use greedy algorithm - preview only
-      const { previewScheduleForProgram } = require('../services/scheduleGenerator.service');
-
-      // Status callback for thinking process
-      const statusUpdates = [];
-      const statusCallback = (update) => {
-        statusUpdates.push(update);
-      };
-
-      preview = await previewScheduleForProgram({
-        academicYear,
-        semester,
-        program,
-        yearLevel,
-        section,
-        shift,
-        useAIRecommendations: useAIRecommendations === true || useAIRecommendations === 'true'
-      }, statusCallback);
-
-      // Attach thinking process
-      if (preview.results && preview.results.thinkingProcess) {
-        preview.thinkingProcess = preview.results.thinkingProcess;
-      }
-      if (preview.results && preview.results.aiPlan) {
-        preview.aiPlan = preview.results.aiPlan;
-      }
-    }
+    const preview = {
+      ...solved.preview,
+      success: solved.success,
+      message: solved.message,
+      status: solved.status,
+      blockers: solved.blockers || [],
+      diagnostics: solved.diagnostics || [],
+      skipped: solved.skipped || [],
+      methodNote: solved.fellBack
+        ? 'OR-Tools is unavailable on this server, so the built-in constraint solver was used'
+        : `Preview generated with the ${solved.method}`,
+    };
 
     res.status(200).json({
       success: preview.success,
       message: preview.message || (preview.success ? 'Schedule preview generated successfully' : 'Schedule preview generation failed'),
-      method: method === 'ortools' ? 'Google OR-Tools CP-SAT' : 'AI-Enhanced Smart Scheduler',
-      aiUsed: preview.aiUsed || false,
-      thinkingProcess: preview.thinkingProcess || [],
-      aiPlan: preview.aiPlan || null,
+      method: solved.method,
+      // The engine that actually ran - 'builtin' when OR-Tools fell back
+      engine: solved.engine,
+      fellBack: !!solved.fellBack,
       data: preview
     });
 
   } catch (error) {
-    console.error('Preview schedule error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error previewing schedule',
-      error: error.message
-    });
+    sendError(res, error, 'Error previewing schedule');
   }
 };
 
@@ -1384,15 +1192,9 @@ exports.savePreviewedSchedules = async (req, res) => {
         const schedule = await Schedule.create(scheduleData);
         savedSchedules.push(schedule);
 
-        // Update faculty load
-        if (scheduleData.faculty) {
-          const subject = await Subject.findById(scheduleData.subject);
-          if (subject) {
-            await Faculty.findByIdAndUpdate(scheduleData.faculty, {
-              $inc: { currentLoad: subject.units }
-            });
-          }
-        }
+        // Faculty load is computed from saved schedules (utils/facultyLoad).
+        // The $inc on currentLoad that used to be here was dropped by
+        // Mongoose: the field isn't in the Faculty schema.
       } catch (error) {
         errors.push({
           subject: scheduleData.metadata?.subjectCode || scheduleData.subjectCode || 'Unknown',
@@ -1416,12 +1218,7 @@ exports.savePreviewedSchedules = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Save previewed schedules error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error saving schedules',
-      error: error.message
-    });
+    sendError(res, error, 'Error saving schedules');
   }
 };
 
@@ -1439,11 +1236,7 @@ exports.checkORToolsStatus = async (req, res) => {
       ortools: status
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error checking OR-Tools status',
-      error: error.message
-    });
+    sendError(res, error, 'Error checking OR-Tools status');
   }
 };
 
@@ -1665,7 +1458,6 @@ exports.bulkCreateSchedules = async (req, res) => {
         generatedBy: 'manual'
       });
 
-      await Faculty.findByIdAndUpdate(row.faculty, { $inc: { currentLoad: subjectDoc.units } });
       created.push(schedule);
     }
 
@@ -1705,12 +1497,7 @@ exports.bulkCreateSchedules = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Bulk create schedules error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error saving schedules',
-      error: error.message
-    });
+    sendError(res, error, 'Error saving schedules');
   }
 };
 
@@ -1737,11 +1524,6 @@ exports.getConflicts = async (req, res) => {
       data: conflicts
     });
   } catch (error) {
-    console.error('Get conflicts error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to detect conflicts',
-      error: error.message
-    });
+    sendError(res, error, 'Failed to detect conflicts');
   }
 };

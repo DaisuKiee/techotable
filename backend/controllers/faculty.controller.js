@@ -3,34 +3,47 @@ const User = require('../models/User.model');
 const Schedule = require('../models/Schedule.model');
 const { validationResult } = require('express-validator');
 
+const { getFacultyLoads, EMPTY_LOAD } = require('../utils/facultyLoad');
+const { sendError, sendValidationErrors } = require('../middleware/error.middleware');
+
 /**
- * Calculate actual teaching hours from faculty's active schedules
- * @param {String} facultyId - Faculty ObjectId
- * @returns {Promise<Number>} Total teaching hours per week
+ * Attach the real load (computed from saved classes) to faculty documents.
+ *
+ * This used to run one Schedule query per faculty member - 81 extra round
+ * trips for the faculty list - and added each subject's nominal hours rather
+ * than the time actually scheduled. One aggregate now covers the whole list.
  */
-const calculateActualWorkload = async (facultyId) => {
-  try {
-    const schedules = await Schedule.find({
-      faculty: facultyId,
-      isActive: true
-    }).populate('subject', 'lectureHours labHours');
-
-    let totalHours = 0;
-    
-    for (const schedule of schedules) {
-      if (schedule.subject) {
-        const lectureHours = Number(schedule.subject.lectureHours) || 0;
-        const labHours = Number(schedule.subject.labHours) || 0;
-        totalHours += lectureHours + labHours;
-      }
-    }
-
-    return totalHours;
-  } catch (error) {
-    console.error('Error calculating workload:', error);
-    return 0;
-  }
+/**
+ * The stored currentTeachingHours is a leftover counter that drifted negative
+ * on 18 profiles. Load is computed now, so the stored value is meaningless -
+ * but Mongoose still validated it (min: 0) on every save, which made those
+ * profiles impossible to edit or deactivate. Zero it before saving.
+ */
+const clearStoredLoad = (faculty) => {
+  if (!(faculty.currentTeachingHours >= 0)) faculty.currentTeachingHours = 0;
 };
+
+const withLoads = async (docs) => {
+  const loads = await getFacultyLoads({ facultyIds: docs.map((f) => f._id) });
+  return docs.map((f) => {
+    const obj = typeof f.toObject === 'function' ? f.toObject() : f;
+    const load = loads.get(String(f._id)) || EMPTY_LOAD;
+    obj.currentTeachingHours = load.hours;
+    obj.currentLoad = load.hours; // older clients read currentLoad as hours
+    obj.assignedUnits = load.units;
+    obj.assignedClasses = load.classes;
+    return obj;
+  });
+};
+
+// Fields a faculty member may change on their own profile. Everything else -
+// active status, load limits, position, programs, employee ID - is set by the
+// scheduling office. A faculty account could previously PUT any of them,
+// including reactivating itself or raising its own load limit.
+const SELF_EDITABLE = new Set([
+  'contactNumber', 'qualifications', 'specializations',
+  'preferredTimeSlots', 'unavailableTimeSlots',
+]);
 
 // @desc    Get all faculty members
 // @route   GET /api/faculty
@@ -64,44 +77,46 @@ exports.getAllFaculty = async (req, res) => {
 
     // Filter by program: only faculty who can teach in this program, meaning
     // they are either qualified for it or have taught it before.
+    // Same rule as the schedule generator, which also counts faculty with no
+    // program set as able to teach anywhere. Leaving them out here meant the
+    // generator could assign someone this list said wasn't in the program.
     if (program) {
       query.$or = [
         { programs: program },
         { 'teachingHistory.program': program },
+        { programs: { $size: 0 } },
       ];
     }
 
-    // Load filtering
-    if (minLoad !== undefined || maxLoad !== undefined) {
-      query.currentLoad = {};
-      if (minLoad !== undefined) query.currentLoad.$gte = parseInt(minLoad);
-      if (maxLoad !== undefined) query.currentLoad.$lte = parseInt(maxLoad);
-    }
-
     let faculty = await Faculty.find(query)
-      .populate('user', 'firstName lastName middleName email profilePicture')
+      .populate('user', 'firstName lastName middleName email profilePicture isPending')
       .sort({ createdAt: -1 });
+
+    // Applicants awaiting approval are inactive too, but they belong on the
+    // Pending Approvals page - listing them as "inactive" would let someone
+    // reactivate them and skip approval.
+    if (isActive === 'false') {
+      faculty = faculty.filter((f) => !f.user?.isPending);
+    }
 
     // Search by name (after population)
     if (search) {
+      // A faculty profile whose user was removed has no populated user; that
+      // used to throw here and fail the whole list.
+      const searchLower = search.toLowerCase();
       faculty = faculty.filter(f => {
-        const fullName = `${f.user.firstName} ${f.user.middleName || ''} ${f.user.lastName}`.toLowerCase();
-        const searchLower = search.toLowerCase();
-        return fullName.includes(searchLower) || 
-               f.employeeId.toLowerCase().includes(searchLower);
+        const fullName = `${f.user?.firstName || ''} ${f.user?.middleName || ''} ${f.user?.lastName || ''}`.toLowerCase();
+        return fullName.includes(searchLower) ||
+               String(f.employeeId || '').toLowerCase().includes(searchLower);
       });
     }
 
-    // Calculate actual workload from schedules for each faculty
-    const facultyWithWorkload = await Promise.all(
-      faculty.map(async (f) => {
-        const actualWorkload = await calculateActualWorkload(f._id);
-        const facultyObj = f.toObject();
-        facultyObj.currentTeachingHours = actualWorkload;
-        facultyObj.currentLoad = actualWorkload; // For backward compatibility
-        return facultyObj;
-      })
-    );
+    let facultyWithWorkload = await withLoads(faculty);
+
+    // Load filtering, on the computed hours. It used to query a stored
+    // currentLoad field that isn't in the schema, so it never matched.
+    if (minLoad !== undefined) facultyWithWorkload = facultyWithWorkload.filter((f) => f.currentTeachingHours >= Number(minLoad));
+    if (maxLoad !== undefined) facultyWithWorkload = facultyWithWorkload.filter((f) => f.currentTeachingHours <= Number(maxLoad));
 
     res.status(200).json({
       success: true,
@@ -110,12 +125,7 @@ exports.getAllFaculty = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get all faculty error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching faculty members',
-      error: error.message
-    });
+    sendError(res, error, 'Error fetching faculty members');
   }
 };
 
@@ -134,11 +144,7 @@ exports.getFacultyById = async (req, res) => {
       });
     }
 
-    // Calculate actual workload from schedules
-    const actualWorkload = await calculateActualWorkload(faculty._id);
-    const facultyObj = faculty.toObject();
-    facultyObj.currentTeachingHours = actualWorkload;
-    facultyObj.currentLoad = actualWorkload; // For backward compatibility
+    const [facultyObj] = await withLoads([faculty]);
 
     res.status(200).json({
       success: true,
@@ -146,12 +152,7 @@ exports.getFacultyById = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get faculty by ID error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching faculty member',
-      error: error.message
-    });
+    sendError(res, error, 'Error fetching faculty member');
   }
 };
 
@@ -163,10 +164,7 @@ exports.createFaculty = async (req, res) => {
     // Validate request
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        errors: errors.array()
-      });
+      return sendValidationErrors(res, errors);
     }
 
     const {
@@ -243,12 +241,7 @@ exports.createFaculty = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Create faculty error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error creating faculty member',
-      error: error.message
-    });
+    sendError(res, error, 'Error creating faculty member');
   }
 };
 
@@ -282,13 +275,22 @@ exports.updateFaculty = async (req, res) => {
       });
     }
 
-    // If user is faculty role, they can only update their own profile
+    // If user is faculty role, they can only update their own profile, and
+    // only the fields in SELF_EDITABLE
     if (req.user.role === 'faculty') {
       const userFacultyId = req.user.facultyProfile?._id || req.user.facultyProfile;
-      if (userFacultyId.toString() !== req.params.id) {
+      // No linked profile used to crash here (.toString() of undefined)
+      if (!userFacultyId || userFacultyId.toString() !== req.params.id) {
         return res.status(403).json({
           success: false,
           message: 'You can only update your own profile'
+        });
+      }
+      const blocked = Object.keys(req.body).filter((k) => req.body[k] !== undefined && !SELF_EDITABLE.has(k));
+      if (blocked.length > 0) {
+        return res.status(403).json({
+          success: false,
+          message: `Only the scheduling office can change: ${blocked.join(', ')}`
         });
       }
     }
@@ -317,9 +319,27 @@ exports.updateFaculty = async (req, res) => {
     if (preferredTimeSlots) faculty.preferredTimeSlots = preferredTimeSlots;
     if (unavailableTimeSlots) faculty.unavailableTimeSlots = unavailableTimeSlots;
     if (contactNumber !== undefined) faculty.contactNumber = contactNumber;
+    clearStoredLoad(faculty);
+    const reactivating = isActive === true && faculty.isActive === false;
+    if (reactivating) {
+      const account = await User.findById(faculty.user).select('isPending');
+      if (account?.isPending) {
+        return res.status(400).json({
+          success: false,
+          message: 'This account is still awaiting approval. Approve it from Pending Approvals instead.'
+        });
+      }
+    }
     if (isActive !== undefined) faculty.isActive = isActive;
 
     await faculty.save();
+
+    // Deactivating also deactivates the login (see deleteFaculty), so
+    // reactivating has to restore it - otherwise the profile comes back but
+    // the person still can't sign in.
+    if (reactivating) {
+      await User.findByIdAndUpdate(faculty.user, { isActive: true });
+    }
     await faculty.populate('user', 'firstName lastName middleName email');
 
     res.status(200).json({
@@ -329,12 +349,7 @@ exports.updateFaculty = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Update faculty error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error updating faculty member',
-      error: error.message
-    });
+    sendError(res, error, 'Error updating faculty member');
   }
 };
 
@@ -352,9 +367,13 @@ exports.deleteFaculty = async (req, res) => {
       });
     }
 
-    // Soft delete by deactivating
+    // Soft delete by deactivating. Their classes keep the assignment so the
+    // timetable doesn't silently lose a teacher; the response says how many
+    // need reassigning.
     faculty.isActive = false;
+    clearStoredLoad(faculty);
     await faculty.save();
+    const stillAssigned = await Schedule.countDocuments({ faculty: faculty._id, isActive: true });
 
     // Also deactivate user account
     const user = await User.findById(faculty.user);
@@ -365,16 +384,14 @@ exports.deleteFaculty = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: 'Faculty member deactivated successfully'
+      message: stillAssigned > 0
+        ? `Faculty member deactivated. ${stillAssigned} class${stillAssigned === 1 ? ' is' : 'es are'} still assigned to them and need a new teacher.`
+        : 'Faculty member deactivated successfully',
+      data: { assignedClasses: stillAssigned }
     });
 
   } catch (error) {
-    console.error('Delete faculty error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error deleting faculty member',
-      error: error.message
-    });
+    sendError(res, error, 'Error deleting faculty member');
   }
 };
 
@@ -418,12 +435,7 @@ exports.addQualification = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Add qualification error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error adding qualification',
-      error: error.message
-    });
+    sendError(res, error, 'Error adding qualification');
   }
 };
 
@@ -476,12 +488,7 @@ exports.addTeachingHistory = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Add teaching history error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error adding teaching history',
-      error: error.message
-    });
+    sendError(res, error, 'Error adding teaching history');
   }
 };
 
@@ -500,16 +507,23 @@ exports.getFacultyWorkload = async (req, res) => {
       });
     }
 
-    const workloadPercentage = (faculty.currentLoad / faculty.maxTeachingLoad) * 100;
-    const remainingLoad = faculty.maxTeachingLoad - faculty.currentLoad;
+    // Read fields that aren't in the schema, so it always answered NaN
+    const [withLoad] = await withLoads([faculty]);
+    const maxHours = faculty.maxTeachingHours || 36;
+    const totalHours = withLoad.currentTeachingHours + (faculty.positionHours || 0);
+    const workloadPercentage = (totalHours / maxHours) * 100;
+    const remainingLoad = Math.max(0, maxHours - totalHours);
 
     res.status(200).json({
       success: true,
       data: {
-        facultyName: faculty.user.firstName + ' ' + faculty.user.lastName,
+        facultyName: `${faculty.user?.firstName || ''} ${faculty.user?.lastName || ''}`.trim(),
         employeeId: faculty.employeeId,
-        currentLoad: faculty.currentLoad,
-        maxTeachingLoad: faculty.maxTeachingLoad,
+        currentLoad: withLoad.currentTeachingHours,
+        positionHours: faculty.positionHours || 0,
+        totalHours,
+        assignedClasses: withLoad.assignedClasses,
+        maxTeachingLoad: maxHours,
         remainingLoad,
         workloadPercentage: workloadPercentage.toFixed(2),
         status: workloadPercentage >= 100 ? 'overloaded' : 
@@ -518,12 +532,7 @@ exports.getFacultyWorkload = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get faculty workload error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching faculty workload',
-      error: error.message
-    });
+    sendError(res, error, 'Error fetching faculty workload');
   }
 };
 
@@ -548,12 +557,7 @@ exports.getFacultyBySpecialization = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get faculty by specialization error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching faculty by specialization',
-      error: error.message
-    });
+    sendError(res, error, 'Error fetching faculty by specialization');
   }
 };
 
@@ -564,10 +568,8 @@ exports.getAvailableFaculty = async (req, res) => {
   try {
     const { program } = req.query;
 
-    const query = {
-      isActive: true,
-      $expr: { $lt: ['$currentLoad', '$maxTeachingLoad'] }
-    };
+    // Compared two fields that aren't in the schema, so nobody ever matched
+    const query = { isActive: true };
 
     // Restrict to faculty qualified for (or previously teaching) this program.
     // For program managers this is injected by checkProgramAccess.
@@ -578,9 +580,11 @@ exports.getAvailableFaculty = async (req, res) => {
       ];
     }
 
-    const faculty = await Faculty.find(query)
-    .populate('user', 'firstName lastName middleName email')
-    .sort({ currentLoad: 1 });
+    const docs = await Faculty.find(query)
+      .populate('user', 'firstName lastName middleName email');
+    const faculty = (await withLoads(docs))
+      .filter((f) => f.currentTeachingHours + (f.positionHours || 0) < (f.maxTeachingHours || 36))
+      .sort((a, b) => a.currentTeachingHours - b.currentTeachingHours);
 
     res.status(200).json({
       success: true,
@@ -589,12 +593,7 @@ exports.getAvailableFaculty = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get available faculty error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching available faculty',
-      error: error.message
-    });
+    sendError(res, error, 'Error fetching available faculty');
   }
 };
 
@@ -638,12 +637,7 @@ exports.updateFacultyLoad = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Update faculty load error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error updating faculty load',
-      error: error.message
-    });
+    sendError(res, error, 'Error updating faculty load');
   }
 };
 
@@ -729,12 +723,7 @@ exports.analyzeFacultySubjectCompatibility = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Analyze faculty subject compatibility error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error analyzing faculty-subject compatibility',
-      error: error.message
-    });
+    sendError(res, error, 'Error analyzing faculty-subject compatibility');
   }
 };
 
@@ -791,12 +780,7 @@ exports.getFacultyBackgroundSummary = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get faculty background summary error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error generating faculty background summary',
-      error: error.message
-    });
+    sendError(res, error, 'Error generating faculty background summary');
   }
 };
 
@@ -821,12 +805,7 @@ exports.getPendingFaculty = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get pending faculty error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching pending faculty accounts',
-      error: error.message
-    });
+    sendError(res, error, 'Error fetching pending faculty accounts');
   }
 };
 
@@ -892,12 +871,7 @@ exports.approveFaculty = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Approve faculty error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error approving faculty account',
-      error: error.message
-    });
+    sendError(res, error, 'Error approving faculty account');
   }
 };
 
@@ -966,11 +940,6 @@ exports.rejectFaculty = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Reject faculty error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error rejecting faculty account',
-      error: error.message
-    });
+    sendError(res, error, 'Error rejecting faculty account');
   }
 };

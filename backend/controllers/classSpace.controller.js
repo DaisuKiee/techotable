@@ -40,6 +40,7 @@ const getStudentFor = (user) => Student.findOne({ user: user._id });
 // Shared with the schedule controller: `Schedule.room` is a String holding a
 // Room id, so it can't be populated and needs resolving to a label.
 const { attachNestedScheduleRoomLabels: attachRoomLabels } = require('../utils/roomLabel');
+const { sendError, sendValidationErrors } = require('../middleware/error.middleware');
 
 
 const {
@@ -144,12 +145,7 @@ exports.getAllClassSpaces = async (req, res) => {
       data: classSpaces,
     });
   } catch (error) {
-    console.error('Get all class spaces error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching class spaces',
-      error: error.message,
-    });
+    sendError(res, error, 'Error fetching class spaces');
   }
 };
 
@@ -299,12 +295,7 @@ exports.getMyClassSpaces = async (req, res) => {
       data: classSpaces,
     });
   } catch (error) {
-    console.error('Get my classes error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching class spaces',
-      error: error.message,
-    });
+    sendError(res, error, 'Error fetching class spaces');
   }
 };
 
@@ -360,12 +351,7 @@ exports.getClassSpaceById = async (req, res) => {
 
     res.status(200).json({ success: true, canPost: access.canPost, data });
   } catch (error) {
-    console.error('Get class space error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching class space',
-      error: error.message,
-    });
+    sendError(res, error, 'Error fetching class space');
   }
 };
 
@@ -567,12 +553,7 @@ exports.joinByCode = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Join by code error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error joining class',
-      error: error.message,
-    });
+    sendError(res, error, 'Error joining class');
   }
 };
 
@@ -623,12 +604,7 @@ exports.leaveClassSpace = async (req, res) => {
       message: `Left ${classSpace.subject?.subjectCode || 'class'}`,
     });
   } catch (error) {
-    console.error('Leave class space error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error leaving class',
-      error: error.message,
-    });
+    sendError(res, error, 'Error leaving class');
   }
 };
 
@@ -656,12 +632,7 @@ exports.regenerateClassCode = async (req, res) => {
       data: { classCode: classSpace.classCode },
     });
   } catch (error) {
-    console.error('Regenerate class code error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error regenerating class code',
-      error: error.message,
-    });
+    sendError(res, error, 'Error regenerating class code');
   }
 };
 
@@ -676,7 +647,7 @@ exports.postAnnouncement = async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, errors: errors.array() });
+      return sendValidationErrors(res, errors);
     }
 
     const classSpace = await ClassSpace.findById(req.params.id);
@@ -727,12 +698,7 @@ exports.postAnnouncement = async (req, res) => {
       data: newAnnouncement,
     });
   } catch (error) {
-    console.error('Post announcement error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error posting announcement',
-      error: error.message,
-    });
+    sendError(res, error, 'Error posting announcement');
   }
 };
 
@@ -770,12 +736,7 @@ exports.updateAnnouncement = async (req, res) => {
 
     res.status(200).json({ success: true, message: 'Announcement updated', data: announcement });
   } catch (error) {
-    console.error('Update announcement error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error updating announcement',
-      error: error.message,
-    });
+    sendError(res, error, 'Error updating announcement');
   }
 };
 
@@ -808,12 +769,7 @@ exports.deleteAnnouncement = async (req, res) => {
 
     res.status(200).json({ success: true, message: 'Announcement deleted' });
   } catch (error) {
-    console.error('Delete announcement error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error deleting announcement',
-      error: error.message,
-    });
+    sendError(res, error, 'Error deleting announcement');
   }
 };
 
@@ -884,13 +840,8 @@ exports.uploadMaterial = async (req, res) => {
       data: newMaterial,
     });
   } catch (error) {
-    console.error('Upload material error:', error);
     if (req.file) await fs.unlink(req.file.path).catch(() => {});
-    res.status(500).json({
-      success: false,
-      message: 'Error uploading material',
-      error: error.message,
-    });
+    sendError(res, error, 'Error uploading material');
   }
 };
 
@@ -931,12 +882,7 @@ exports.deleteMaterial = async (req, res) => {
 
     res.status(200).json({ success: true, message: 'Material deleted' });
   } catch (error) {
-    console.error('Delete material error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error deleting material',
-      error: error.message,
-    });
+    sendError(res, error, 'Error deleting material');
   }
 };
 
@@ -981,12 +927,7 @@ exports.createClassSpace = async (req, res) => {
 
     res.status(201).json({ success: true, message: 'Class space created', data: classSpace });
   } catch (error) {
-    console.error('Create class space error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error creating class space',
-      error: error.message,
-    });
+    sendError(res, error, 'Error creating class space');
   }
 };
 
@@ -1019,12 +960,7 @@ exports.updateClassSpace = async (req, res) => {
 
     res.status(200).json({ success: true, message: 'Class space updated', data: classSpace });
   } catch (error) {
-    console.error('Update class space error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error updating class space',
-      error: error.message,
-    });
+    sendError(res, error, 'Error updating class space');
   }
 };
 
@@ -1043,12 +979,7 @@ exports.deleteClassSpace = async (req, res) => {
 
     res.status(200).json({ success: true, message: 'Class space deactivated' });
   } catch (error) {
-    console.error('Delete class space error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error deleting class space',
-      error: error.message,
-    });
+    sendError(res, error, 'Error deleting class space');
   }
 };
 
@@ -1173,12 +1104,7 @@ exports.enrollByCode = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Enroll by code error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error enrolling in class',
-      error: error.message
-    });
+    sendError(res, error, 'Error enrolling in class');
   }
 };
 
@@ -1265,11 +1191,6 @@ exports.unenrollFromClass = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Unenroll from class error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error dropping class',
-      error: error.message
-    });
+    sendError(res, error, 'Error dropping class');
   }
 };

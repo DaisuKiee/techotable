@@ -6,6 +6,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import { PageStateProvider } from './context/PageStateContext';
 import { CacheProvider } from './context/CacheContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import ErrorBoundary from './components/ErrorBoundary';
 import './i18n'; // Initialize i18n
 
 // Pages
@@ -31,7 +32,7 @@ import ClassSpacePage from './pages/ClassSpacePage';
 import StudentPage from './pages/StudentPage';
 import ProfilePage from './pages/ProfilePage';
 import AnalyticsPage from './pages/AnalyticsPage';
-import AIInsightsPage from './pages/AIInsightsPage';
+import FacultyAnalyticsPage from './pages/FacultyAnalyticsPage';
 import ActivityLogPage from './pages/ActivityLogPage';
 import SettingsPage from './pages/SettingsPage';
 import AccessDeniedPage from './pages/AccessDeniedPage';
@@ -73,6 +74,7 @@ function App() {
               zIndex: 999999, // Container also needs high z-index to appear above modals
             }}
           />
+          <ErrorBoundary>
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/simple-test" element={<SimpleTestPage />} />
@@ -191,13 +193,15 @@ function App() {
               } 
             />
             <Route 
-              path="/ai" 
+              path="/faculty-analytics" 
               element={
                 <ProtectedRoute allowedRoles={['admin', 'scheduling_officer', 'program_manager']}>
-                  <AIInsightsPage />
+                  <FacultyAnalyticsPage />
                 </ProtectedRoute>
               } 
             />
+            {/* Old AI Insights address */}
+            <Route path="/ai" element={<Navigate to="/faculty-analytics" replace />} />
             <Route 
               path="/activity" 
               element={
@@ -209,6 +213,7 @@ function App() {
             <Route path="/access-denied" element={<AccessDeniedPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
+          </ErrorBoundary>
         </div>
       </Router>
       </PageStateProvider>

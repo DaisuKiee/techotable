@@ -6,11 +6,15 @@ const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
+const { requestId, notFound, errorHandler } = require('./middleware/error.middleware');
+
 const app = express();
 
 // Trust proxy - Required for Render deployment
 // This allows Express to trust the X-Forwarded-* headers from the proxy
 app.set('trust proxy', 1);
+
+app.use(requestId);
 
 // Security middleware
 app.use(helmet());
@@ -42,14 +46,15 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id'],
+  exposedHeaders: ['X-Request-Id']
 }));
 
 // Rate limiting - More lenient for development
 const limiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW) * 60 * 1000 || 15 * 60 * 1000,
   max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 500,
-  message: 'Too many requests from this IP, please try again later.',
+  message: { success: false, code: 'RATE_LIMITED', message: 'Too many requests. Please wait a few minutes and try again.' },
   standardHeaders: true,
   legacyHeaders: false,
   // Skip rate limiting in development for localhost
@@ -61,7 +66,7 @@ const limiter = rateLimit({
 app.use('/api/', limiter);
 
 // Body parser middleware
-app.use(express.json());
+app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // Serve static files from uploads folder with CORS headers.
@@ -86,9 +91,9 @@ if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
 
-// Database connection
+// Database connection (awaited in the startup report below)
 const connectDB = require('./config/database');
-connectDB();
+const dbReady = connectDB();
 
 // Activity logger middleware - logs all authenticated actions
 const { activityLoggerMiddleware } = require('./services/activityLogger.service');
@@ -126,54 +131,75 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    message: 'Route not found'
-  });
+// 404 for unknown API routes, then one handler for every error
+app.use(notFound);
+app.use(errorHandler);
+
+// Log crashes with context instead of dying silently
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled promise rejection:', reason && reason.stack ? reason.stack : reason);
 });
-
-// Global error handler
-app.use((err, req, res, next) => {
-  // Multer failures are client errors, not 500s. Without this an oversized or
-  // wrong-type upload surfaces as "Internal Server Error" with no explanation.
-  if (err && err.name === 'MulterError') {
-    const message = err.code === 'LIMIT_FILE_SIZE'
-      ? 'File is too large.'
-      : err.code === 'LIMIT_UNEXPECTED_FILE'
-      ? 'Unexpected file field.'
-      : err.message;
-    return res.status(400).json({ success: false, message });
-  }
-
-  // fileFilter rejections arrive as plain Errors
-  if (err && /Unsupported file type/i.test(err.message || '')) {
-    return res.status(400).json({ success: false, message: err.message });
-  }
-
-  console.error(err.stack);
-  res.status(err.status || 500).json({
-    success: false,
-    message: err.message || 'Internal Server Error',
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
-  });
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception:', err && err.stack ? err.stack : err);
+  process.exit(1);
 });
 
 const PORT = process.env.PORT || 5000;
+const startedAt = Date.now() - process.uptime() * 1000;
 
-app.listen(PORT, () => {
-  console.log('\n' + '═'.repeat(60));
-  console.log('🎓 CoTE Timetabling System - Backend Server');
-  console.log('═'.repeat(60));
-  console.log(`📍 Mode:        ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🚀 Port:        ${PORT}`);
-  console.log(`🌐 API:         http://localhost:${PORT}/api`);
-  console.log(`💚 Health:      http://localhost:${PORT}/api/health`);
-  console.log(`📊 Endpoints:   91 API endpoints active`);
-  console.log('═'.repeat(60) + '\n');
-  console.log('✓ Server is ready to handle requests');
-  console.log('✓ Press Ctrl+C to stop\n');
-});
+// When nodemon restarts, the old process can take a moment to release the
+// port (especially on Windows), so wait for it instead of crashing at once.
+const PORT_RETRIES = 10;
+const PORT_RETRY_MS = 500;
+
+const onReady = async () => {
+  const { printStartupReport } = require('./utils/startupReport');
+  const { checkORToolsAvailability } = require('./services/ortoolsBridge.service');
+
+  const [db, solver] = await Promise.all([
+    dbReady,
+    checkORToolsAvailability().catch((err) => ({ available: false, error: err.message })),
+  ]);
+
+  printStartupReport({
+    app,
+    port: PORT,
+    startedAt,
+    db,
+    solver,
+    ai: { keys: new Set(['', '_1', '_2', '_3', '_4', '_5'].map((n) => process.env[`GEMINI_API_KEY${n}`]).filter(Boolean)).size },
+    email: {
+      consoleMode: process.env.EMAIL_CONSOLE_MODE === 'true',
+      service: process.env.EMAIL_SERVICE || 'gmail',
+      user: process.env.EMAIL_USER,
+    },
+  });
+
+  // Without a database every request fails; stop so nodemon shows the crash
+  if (!db.ok) process.exit(1);
+};
+
+const listen = (attempt = 1) => {
+  const server = app.listen(PORT, onReady);
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE' && attempt < PORT_RETRIES) {
+      if (attempt === 1) console.log(`  … port ${PORT} is busy, waiting for it to free up`);
+      setTimeout(() => listen(attempt + 1), PORT_RETRY_MS);
+      return;
+    }
+    if (err.code === 'EADDRINUSE') {
+      console.error(`
+✗ Port ${PORT} is still in use after ${(PORT_RETRIES * PORT_RETRY_MS) / 1000}s.`
+        + `
+  Another server is running there: stop it (netstat -ano | findstr :${PORT}), or set PORT in backend/.env.
+`);
+    } else {
+      console.error('✗ Server failed to start:', err.message);
+    }
+    process.exit(1);
+  });
+};
+
+listen();
 
 module.exports = app;

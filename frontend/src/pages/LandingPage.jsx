@@ -7,7 +7,8 @@ import {
   UserCheck, Building2
 } from 'lucide-react';
 import ctuLogo from '../assets/images/logos/ctulogo.png';
-import ctuBg1 from '../assets/images/backgrounds/ctu-bg.png';
+import CampusWalkLoader from '../components/CampusWalkLoader';
+import ctuBg1 from '../assets/images/backgrounds/ctu-bg.jpg';
 import ctuBg2 from '../assets/images/backgrounds/662332107_1498119255017069_2427715418324433071_n.jpg';
 import ctuBg3 from '../assets/images/backgrounds/680448563_4304916549747910_4856050542134784312_n.jpg';
 import ctuBg4 from '../assets/images/backgrounds/682398065_803515886114740_8967130645743866506_n.jpg';
@@ -71,6 +72,15 @@ const PROGRAMS = [
 const prefersReducedMotion = () =>
   typeof window !== 'undefined' &&
   window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+/**
+ * Desktop-class device: precise pointer that can hover, on a wide screen.
+ * Gates the expensive per-frame scroll effects (motion blur, parallax), which
+ * cost phones roughly a quarter of their frame rate for no visible benefit.
+ */
+const hasRichScrollEffects = () =>
+  typeof window !== 'undefined' &&
+  !!window.matchMedia?.('(hover: hover) and (pointer: fine) and (min-width: 1024px)').matches;
 
 /**
  * True once the element has scrolled into view. Fires once and disconnects,
@@ -221,8 +231,10 @@ const SampleWeek = () => {
 
 const LandingPage = () => {
   const navigate = useNavigate();
-  const [scrolled, setScrolled] = useState(false);
-  const [currentSlide, setCurrentSlide] = useState(0);
+  const navRef = useRef(null);
+  const [slide, setSlide] = useState({ current: 0, fading: null });
+  const currentSlide = slide.current;
+  const fadingSlide = slide.fading;
   const [loading, setLoading] = useState(true);
   const [fadeOut, setFadeOut] = useState(false);
   const [heroVisible, setHeroVisible] = useState(false);
@@ -278,6 +290,11 @@ const LandingPage = () => {
     if (loading) return undefined;
 
     const reduce = prefersReducedMotion();
+    // Blur and parallax only where they pay off. Measured on an emulated phone
+    // with a throttled CPU, the full-page motion blur dropped scrolling from
+    // ~37 to ~29 fps and doubled janky frames, and parallax driven from touch
+    // scroll lags behind the finger. Phones already scroll smoothly natively.
+    const richMotion = !reduce && hasRichScrollEffects();
     const lenis = reduce
       ? null
       : new Lenis({
@@ -290,13 +307,29 @@ const LandingPage = () => {
 
     // Per-frame scroll effects are written straight to the DOM rather than
     // through React state, so they never trigger a re-render while scrolling.
+    // Page height is read once (and on resize), not on every scroll frame:
+    // reading scrollHeight there forces a layout per frame.
+    let maxScroll = 0;
+    const onResize = () => { maxScroll = document.documentElement.scrollHeight - window.innerHeight; };
+    onResize();
+    window.addEventListener('resize', onResize);
+    // Content can grow after mount (images finishing), not only on resize.
+    const heightWatch = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(onResize) : null;
+    heightWatch?.observe(document.body);
+
+    let wasScrolled = null; // null = not yet written, so the first call always applies
     const applyScrollEffects = (y) => {
-      setScrolled(y > 50);
-      const max = document.documentElement.scrollHeight - window.innerHeight;
-      if (progressRef.current) {
-        progressRef.current.style.transform = `scaleX(${max > 0 ? y / max : 0})`;
+      // Only touch React state when the nav actually changes style, instead
+      // of queueing an update on every scroll frame.
+      const isScrolled = y > 50;
+      if (isScrolled !== wasScrolled) {
+        wasScrolled = isScrolled;
+        if (navRef.current) navRef.current.dataset.scrolled = String(isScrolled);
       }
-      if (parallaxRef.current && !reduce) {
+      if (progressRef.current) {
+        progressRef.current.style.transform = `scaleX(${maxScroll > 0 ? Math.min(1, y / maxScroll) : 0})`;
+      }
+      if (parallaxRef.current && richMotion) {
         // Background drifts at ~35% of scroll speed for depth
         parallaxRef.current.style.transform = `translate3d(0, ${y * 0.35}px, 0)`;
       }
@@ -313,7 +346,7 @@ const LandingPage = () => {
     const applyMotionBlur = (velocity) => {
       const target = blurTargetRef.current;
       const filter = blurFilterRef.current;
-      if (!target || !filter) return;
+      if (!target || !filter || !richMotion) return;
       const amount = Math.min(MAX_BLUR, Math.abs(velocity) * 0.09);
       if (amount < 0.25) {
         if (blurOnRef.current) {
@@ -347,6 +380,9 @@ const LandingPage = () => {
       rafId = requestAnimationFrame(raf);
     }
 
+    // Correct state immediately, e.g. after a reload part-way down the page
+    applyScrollEffects(window.scrollY);
+
     const onNativeScroll = () => applyScrollEffects(window.scrollY);
     if (!lenis) window.addEventListener('scroll', onNativeScroll, { passive: true });
 
@@ -354,6 +390,8 @@ const LandingPage = () => {
       cancelAnimationFrame(rafId);
       clearTimeout(blurClearTimer);
       window.removeEventListener('scroll', onNativeScroll);
+      window.removeEventListener('resize', onResize);
+      heightWatch?.disconnect();
       lenis?.destroy();
       lenisRef.current = null;
       if (blurTarget) blurTarget.style.filter = 'none';
@@ -376,66 +414,51 @@ const LandingPage = () => {
   // Auto-rotate slideshow
   useEffect(() => {
     const interval = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % heroImages.length);
+      setSlide((s) => ({ current: (s.current + 1) % heroImages.length, fading: s.current }));
     }, 5000);
     return () => clearInterval(interval);
   }, [heroImages.length]);
 
-  // Show preloader
+  /*
+   * Only the visible slide and the one fading out are rendered. All five used
+   * to stay mounted as full-screen layers at opacity 0, which on a phone means
+   * five screen-sized textures held in GPU memory and scrolled together.
+   *
+   * The outgoing slide is recorded in the SAME state update as the new one, so
+   * it never unmounts mid-transition; it sits on top and fades out over the
+   * incoming slide, giving the crossfade. It is dropped once the fade is done.
+   */
+  useEffect(() => {
+    if (fadingSlide === null) return undefined;
+    const t = setTimeout(() => setSlide((s) => ({ ...s, fading: null })), 1100);
+    return () => clearTimeout(t);
+  }, [currentSlide, fadingSlide]);
+
+  const goToSlide = (index) =>
+    setSlide((s) => (s.current === index ? s : { current: index, fading: s.current }));
+
+  // Warm the cache once the page is up, so a slide never appears blank while
+  // its image downloads. Cached bytes only - nothing is kept on screen.
+  useEffect(() => {
+    if (loading) return;
+    heroImages.forEach((src) => { const img = new Image(); img.src = src; });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
+
+  const [richMotion] = useState(() => !prefersReducedMotion() && hasRichScrollEffects());
+
+  // Show preloader. The walk is timed to finish just as the fade-out starts
+  // at 1.8s, so the student steps through the gate as the page appears.
   if (loading) {
-    return (
-      <div className="fixed inset-0 bg-gradient-to-br from-blue-900 via-blue-950 to-slate-950 flex items-center justify-center z-50 px-4">
-        <div className="flex flex-col items-center justify-center text-center">
-          {/* Animated Logo */}
-          <div className="relative mb-6 sm:mb-8 flex items-center justify-center">
-            <div className="absolute inset-0 bg-yellow-400 rounded-full blur-3xl opacity-40 animate-pulse"></div>
-            <img 
-              src={ctuLogo} 
-              alt="CTU Logo" 
-              className="w-24 h-24 sm:w-32 sm:h-32 object-contain relative z-10 animate-bounce mx-auto"
-            />
-          </div>
-          
-          {/* Loading Text */}
-          <h2 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-blue-400 to-yellow-400 bg-clip-text text-transparent mb-3 sm:mb-4">
-            CTU Daanbantayan
-          </h2>
-          <p className="text-sm sm:text-base text-gray-300 mb-6 sm:mb-8">Smart Timetabling System</p>
-          
-          {/* Spinner */}
-          <div className="flex items-center justify-center gap-2">
-            <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-            <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-yellow-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-            <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-white rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-          </div>
-        </div>
-      </div>
-    );
+    return <CampusWalkLoader duration={1.9} fading={fadeOut} />;
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-950 to-slate-950 text-white overflow-hidden">
-      {/* Navigation Loading Overlay */}
-      {navigating && (
-        <div className="fixed inset-0 bg-gradient-to-br from-blue-900 via-blue-950 to-slate-950 z-50 flex items-center justify-center px-4">
-          <div className="flex flex-col items-center justify-center text-center">
-            <div className="relative mb-4 sm:mb-6">
-              <div className="absolute inset-0 bg-yellow-400 rounded-full blur-3xl opacity-40 animate-pulse"></div>
-              <img 
-                src={ctuLogo} 
-                alt="CTU Logo" 
-                className="w-20 h-20 sm:w-24 sm:h-24 object-contain relative z-10 animate-bounce"
-              />
-            </div>
-            <div className="flex items-center justify-center gap-2">
-              <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-              <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-yellow-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-              <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-white rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-            </div>
-          </div>
-        </div>
-      )}
-      
+      {/* Navigation overlay: the same walk, compressed into the 0.8s before
+          the route changes */}
+      {navigating && <CampusWalkLoader duration={0.8} compact />}
+
       {/* Lenis's required rules, inlined because the package does not export
           its stylesheet. Only present while this page is mounted. */}
       <style>{`
@@ -461,11 +484,18 @@ const LandingPage = () => {
       />
 
       {/* Navigation */}
-      <nav className={`fixed w-full z-50 transition-all duration-300 ${
-        scrolled 
-          ? 'bg-blue-900/80 backdrop-blur-xl border-b border-yellow-400/20 shadow-lg' 
-          : 'bg-transparent'
-      }`}>
+      {/* The scrolled style is switched by a data attribute set straight on
+          the DOM node from the scroll handler. It used to be React state on
+          this page, so crossing the 50px threshold re-rendered every section
+          of the page just to restyle the bar - a visible hitch on phones.
+          Frosted glass is desktop-only: on phones the backdrop blur over the
+          hero photo cost a ~350ms frame when it switched on, and a near-opaque
+          bar looks the same at that size. */}
+      <nav
+        ref={navRef}
+        data-scrolled="false"
+        className="fixed w-full z-50 border-b border-transparent bg-transparent transition-all duration-300 data-[scrolled=true]:border-yellow-400/20 data-[scrolled=true]:bg-blue-900/95 data-[scrolled=true]:shadow-lg lg:data-[scrolled=true]:bg-blue-900/80 lg:data-[scrolled=true]:backdrop-blur-xl"
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16 sm:h-20">
             <div className="flex items-center gap-2 sm:gap-3 group cursor-pointer">
@@ -522,16 +552,22 @@ const LandingPage = () => {
       <section className="relative min-h-screen flex items-center overflow-hidden">
         {/* Parallax layer. Separate from the slideshow's own scale-in so the
             drift follows the scroll exactly instead of easing behind it. */}
-        <div ref={parallaxRef} className="absolute inset-0 will-change-transform">
+        {/* will-change only where parallax runs: it promotes the whole hero to
+            its own GPU layer, which is wasted memory on a phone. */}
+        <div ref={parallaxRef} className={`absolute inset-0 ${richMotion ? 'will-change-transform' : ''}`}>
         {/* Slideshow Background */}
         <div className={`absolute inset-0 transition-transform duration-1000 ease-out ${
           heroVisible ? 'scale-100' : 'scale-110'
         }`}>
-          {heroImages.map((image, index) => (
+          {heroImages.map((image, index) => {
+            const isCurrent = index === currentSlide;
+            const isFading = index === fadingSlide;
+            if (!isCurrent && !isFading) return null;
+            return (
             <div
               key={index}
               className={`absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ${
-                index === currentSlide ? 'opacity-100' : 'opacity-0'
+                isCurrent ? 'z-0 opacity-100' : 'z-10 opacity-0'
               }`}
               style={{ backgroundImage: `url(${image})` }}
             >
@@ -540,14 +576,15 @@ const LandingPage = () => {
               {/* Bottom blend overlay */}
               <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-b from-transparent to-slate-950"></div>
             </div>
-          ))}
-          
+            );
+          })}
+
           {/* Slideshow Indicators */}
           <div className="absolute bottom-4 sm:bottom-8 left-1/2 transform -translate-x-1/2 z-20 flex gap-1.5 sm:gap-2">
             {heroImages.map((_, index) => (
               <button
                 key={index}
-                onClick={() => setCurrentSlide(index)}
+                onClick={() => goToSlide(index)}
                 className={`h-1.5 sm:h-2 rounded-full transition-all duration-300 ${
                   index === currentSlide 
                     ? 'w-6 sm:w-8 bg-yellow-400' 

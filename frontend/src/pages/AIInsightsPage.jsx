@@ -7,9 +7,10 @@ import {
   Target, BarChart3, Activity, Zap, RefreshCw,
   ChevronRight, Info, AlertTriangle, Star
 } from 'lucide-react';
-import { scheduleAPI, subjectAPI, studentAPI, facultyAPI, roomAPI } from '../services/api';
+import { scheduleAPI, subjectAPI, studentAPI, facultyAPI, roomAPI, getErrorMessage } from '../services/api';
 import toast from 'react-hot-toast';
 import AnimatedCheckIcon from '../components/AnimatedCheckIcon';
+import StatCard from '../components/StatCard';
 
 const AIInsightsPage = () => {
   const { user } = useAuth();
@@ -72,7 +73,7 @@ const AIInsightsPage = () => {
 
     } catch (error) {
       console.error('Load AI insights error:', error);
-      toast.error('Failed to load AI insights');
+      toast.error(getErrorMessage(error, 'Failed to load AI insights'));
     } finally {
       setLoading(false);
     }
@@ -287,35 +288,6 @@ const AIInsightsPage = () => {
     }
   };
 
-  const StatCard = ({ icon: Icon, label, value, sublabel, trend, iconColor, iconBg }) => (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <p className="text-sm font-medium text-gray-600 mb-1">{label}</p>
-          <div className="text-3xl font-bold text-gray-900">
-            {loading ? (
-              <div className="animate-pulse h-9 w-20 bg-gray-200 rounded"></div>
-            ) : (
-              value
-            )}
-          </div>
-          {sublabel && (
-            <p className="text-xs text-gray-500 mt-2">{sublabel}</p>
-          )}
-          {trend && (
-            <div className="flex items-center gap-1 mt-2">
-              <TrendingUp className="w-4 h-4 text-green-600" />
-              <span className="text-xs font-medium text-green-600">{trend}</span>
-            </div>
-          )}
-        </div>
-        <div className={`p-3 rounded-xl ${iconBg}`}>
-          <Icon className={`w-6 h-6 ${iconColor}`} />
-        </div>
-      </div>
-    </div>
-  );
-
   return (
     <Layout>
       {/* Header */}
@@ -364,40 +336,11 @@ const AIInsightsPage = () => {
       </div>
 
       {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <StatCard
-          icon={Calendar}
-          label="Total Schedules"
-          value={stats.totalSchedules}
-          sublabel="Active schedules"
-          iconColor="text-blue-600"
-          iconBg="bg-blue-50"
-        />
-        <StatCard
-          icon={Target}
-          label="Optimization Score"
-          value={`${stats.optimizationScore}%`}
-          sublabel="Schedule efficiency"
-          trend="+5% this month"
-          iconColor="text-green-600"
-          iconBg="bg-green-50"
-        />
-        <StatCard
-          icon={AlertCircle}
-          label="Conflicts Detected"
-          value={stats.conflictsDetected}
-          sublabel="Requires attention"
-          iconColor="text-orange-600"
-          iconBg="bg-orange-50"
-        />
-        <StatCard
-          icon={Activity}
-          label="Room Utilization"
-          value={`${stats.utilizationRate}%`}
-          sublabel="Resource efficiency"
-          iconColor="text-purple-600"
-          iconBg="bg-purple-50"
-        />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-8">
+        <StatCard icon={Calendar} label="Schedules" value={stats.totalSchedules} hint="active classes" tone="blue" loading={loading} />
+        <StatCard icon={Target} label="Optimization" value={`${stats.optimizationScore}%`} hint="schedule efficiency" tone="emerald" loading={loading} />
+        <StatCard icon={AlertCircle} label="Conflicts" value={stats.conflictsDetected} hint={stats.conflictsDetected ? 'need attention' : 'none found'} tone={stats.conflictsDetected ? 'orange' : 'gray'} loading={loading} />
+        <StatCard icon={Activity} label="Room use" value={`${stats.utilizationRate}%`} hint="of room hours booked" tone="purple" loading={loading} />
       </div>
 
       {/* Main Content Grid */}
@@ -417,7 +360,7 @@ const AIInsightsPage = () => {
           {loading ? (
             <div className="space-y-3">
               {[1, 2, 3].map(i => (
-                <div key={i} className="animate-pulse h-24 bg-gray-200 rounded-lg"></div>
+                <div key={i} className="h-24 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
               ))}
             </div>
           ) : insights.scheduleOptimization.length > 0 ? (
@@ -466,7 +409,7 @@ const AIInsightsPage = () => {
           {loading ? (
             <div className="space-y-3">
               {[1, 2].map(i => (
-                <div key={i} className="animate-pulse h-24 bg-gray-200 rounded-lg"></div>
+                <div key={i} className="h-24 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
               ))}
             </div>
           ) : (
@@ -506,7 +449,7 @@ const AIInsightsPage = () => {
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {[1, 2].map(i => (
-              <div key={i} className="animate-pulse h-32 bg-gray-200 rounded-lg"></div>
+              <div key={i} className="h-32 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
             ))}
           </div>
         ) : (
@@ -551,7 +494,7 @@ const AIInsightsPage = () => {
         {loading ? (
           <div className="space-y-3">
             {[1, 2, 3, 4].map(i => (
-              <div key={i} className="animate-pulse h-20 bg-gray-200 rounded-lg"></div>
+              <div key={i} className="h-20 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
             ))}
           </div>
         ) : (

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { classSpaceAPI } from '../services/api';
 import toast from 'react-hot-toast';
-import { X, Bell, Pin } from 'lucide-react';
+import { Bell, Pin, Send } from 'lucide-react';
+import { ModalShell, ModalHeader, ModalBody, ModalFooter, ModalButton, useModalTitleId } from './modal/ModalShell';
 
 const CreateAnnouncementModal = ({ classSpaceId, announcement, onClose }) => {
   const [loading, setLoading] = useState(false);
@@ -53,110 +54,87 @@ const CreateAnnouncementModal = ({ classSpaceId, announcement, onClose }) => {
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-        <div
-          className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
-          onClick={() => onClose(false)}
-        ></div>
+  const titleId = useModalTitleId();
+  const canSubmit = formData.title.trim() && formData.content.trim();
 
-        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
-          {/* Header */}
-          <div className="bg-blue-600 px-6 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <Bell className="text-white mr-3" size={24} />
-                <h3 className="text-lg font-medium text-white">
-                  {isEdit ? 'Edit Announcement' : 'Create Announcement'}
-                </h3>
-              </div>
-              <button onClick={() => onClose(false)} className="text-white hover:text-gray-200">
-                <X size={24} />
-              </button>
-            </div>
+  return (
+    <ModalShell onClose={() => onClose(false)} size="md" labelledBy={titleId} busy={loading}>
+      <ModalHeader
+        id={titleId}
+        icon={Bell}
+        title={isEdit ? 'Edit announcement' : 'New announcement'}
+        subtitle="Everyone in this class space will see it"
+        onClose={() => onClose(false)}
+        closeDisabled={loading}
+      />
+
+      <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+        <ModalBody className="space-y-4">
+          <div>
+            <label htmlFor="ann-title" className="mb-1.5 flex items-center justify-between text-sm font-medium text-gray-700 dark:text-gray-300">
+              <span>Title</span>
+              <span className="text-xs font-normal text-gray-400">{formData.title.length}/200</span>
+            </label>
+            <input
+              id="ann-title"
+              type="text"
+              name="title"
+              value={formData.title}
+              onChange={handleChange}
+              required
+              maxLength={200}
+              placeholder="e.g. Quiz moved to Friday"
+              className="w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+            />
           </div>
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="p-6">
-            <div className="space-y-4">
-              {/* Title */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Title *
-                </label>
-                <input
-                  type="text"
-                  name="title"
-                  value={formData.title}
-                  onChange={handleChange}
-                  required
-                  maxLength={200}
-                  placeholder="Enter announcement title"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
+          <div>
+            <label htmlFor="ann-content" className="mb-1.5 flex items-center justify-between text-sm font-medium text-gray-700 dark:text-gray-300">
+              <span>Message</span>
+              <span className="text-xs font-normal text-gray-400">{formData.content.length} characters</span>
+            </label>
+            <textarea
+              id="ann-content"
+              name="content"
+              value={formData.content}
+              onChange={handleChange}
+              required
+              rows={7}
+              onKeyDown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); e.currentTarget.form?.requestSubmit(); } }}
+              placeholder="Write your announcement here..."
+              className="w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 dark:border-gray-600 dark:bg-gray-700 dark:text-white resize-y"
+            />
+          </div>
 
-              {/* Content */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Content *
-                </label>
-                <textarea
-                  name="content"
-                  value={formData.content}
-                  onChange={handleChange}
-                  required
-                  rows={8}
-                  placeholder="Write your announcement here..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  {formData.content.length} characters
-                </p>
-              </div>
+          {/* Pin as a switch: one clear control instead of a checkbox inside a grey box */}
+          <label htmlFor="isPinned" className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-gray-200 p-4 dark:border-gray-700">
+            <span className="flex items-start gap-3">
+              <Pin className="mt-0.5 h-4 w-4 text-amber-500" />
+              <span>
+                <span className="block text-sm font-medium text-gray-900 dark:text-white">Pin to top</span>
+                <span className="block text-xs text-gray-500 dark:text-gray-400">Stays above newer posts until unpinned</span>
+              </span>
+            </span>
+            <input
+              type="checkbox"
+              id="isPinned"
+              name="isPinned"
+              checked={formData.isPinned}
+              onChange={handleChange}
+              className="peer sr-only"
+            />
+            <span className="relative h-6 w-11 flex-shrink-0 rounded-full bg-gray-300 transition-colors after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:bg-amber-500 peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-amber-400 dark:bg-gray-600" aria-hidden="true" />
+          </label>
+        </ModalBody>
 
-              {/* Pin Option */}
-              <div className="flex items-center p-4 bg-gray-50 rounded-lg">
-                <input
-                  type="checkbox"
-                  id="isPinned"
-                  name="isPinned"
-                  checked={formData.isPinned}
-                  onChange={handleChange}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                />
-                <label htmlFor="isPinned" className="ml-3 flex items-center cursor-pointer">
-                  <Pin size={16} className="text-gray-600 mr-2" />
-                  <div>
-                    <span className="text-sm font-medium text-gray-900">Pin this announcement</span>
-                    <p className="text-xs text-gray-500">Pinned announcements appear at the top</p>
-                  </div>
-                </label>
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => onClose(false)}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={loading}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-              >
-                {loading ? 'Saving...' : isEdit ? 'Update Announcement' : 'Post Announcement'}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
+        <ModalFooter info={<span className="hidden sm:inline">Ctrl + Enter to post</span>}>
+          <ModalButton variant="secondary" onClick={() => onClose(false)} disabled={loading}>Cancel</ModalButton>
+          <ModalButton type="submit" loading={loading} loadingText="Saving..." disabled={!canSubmit} icon={Send}>
+            {isEdit ? 'Save changes' : 'Post announcement'}
+          </ModalButton>
+        </ModalFooter>
+      </form>
+    </ModalShell>
   );
 };
 

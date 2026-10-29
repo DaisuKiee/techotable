@@ -1,14 +1,17 @@
-import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
-import { X, Send, Sparkles, RotateCcw } from 'lucide-react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
+import { X, Send, Square, Copy, Check, RotateCcw, ArrowDown, MessageSquarePlus } from 'lucide-react';
 import AnimatedRobotHead from './AnimatedRobotHead';
 import AnimatedRobotHeadNoChatBubble from './AnimatedRobotHeadNoChatBubble';
+import { useAuth } from '../context/AuthContext';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 // Final size of the chat window (same value is used for the content layer so
-// the content never reflows while the window is growing/shrinking)
-const CHAT_W = 'min(24rem, calc(100vw - 3rem))';
-const CHAT_H = 'min(32rem, calc(100vh - 3rem))';
+// the content never reflows while the window is growing/shrinking). On phones
+// it fills almost the whole screen.
+const CHAT_W = 'min(26rem, calc(100vw - 1rem))';
+const CHAT_H = 'min(38rem, calc(100dvh - 1rem))';
+const EDGE = 'clamp(0.5rem, 2vw, 1.5rem)';
 const OPEN_MS = 650;
 const CLOSE_MS = 850;
 const EASE = 'cubic-bezier(0.22, 1, 0.36, 1)';
@@ -17,61 +20,175 @@ const EASE_CLOSE = 'cubic-bezier(0.65, 0, 0.35, 1)';
 const MORPH_START = 0.2;
 const MORPH_END = 0.7;
 
-// Simple markdown renderer for streaming text
-const renderMarkdown = (text) => {
-  if (!text) return '';
+// How many earlier messages go with each question, so follow-ups ("what
+// about Tuesday?") make sense. Nothing was sent before, so every message was
+// answered as if it were the first.
+const HISTORY_LIMIT = 12;
+// The conversation lives in sessionStorage: the bubble is rendered by
+// Layout, which every page mounts separately, so navigating used to wipe it.
+const STORE_KEY = 'blo.chat.v1';
 
-  let html = text;
+/* ─── Markdown ──────────────────────────────────────────────────────────── */
 
-  // Escape HTML to prevent XSS
-  html = html
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+const escapeHtml = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-  // Headers: ### text (must come before bold)
-  html = html.replace(/^### (.+)$/gm, '<h3 class="font-bold text-base mt-2 mb-1">$1</h3>');
-  html = html.replace(/^## (.+)$/gm, '<h2 class="font-bold text-lg mt-2 mb-1">$1</h2>');
-  html = html.replace(/^# (.+)$/gm, '<h1 class="font-bold text-xl mt-2 mb-1">$1</h1>');
+// Only web, in-app and mail links. A model-written [x](javascript:...) used
+// to be rendered as a live link.
+const safeHref = (url) => (/^(https?:\/\/|\/|#|mailto:)/i.test(url) ? url : null);
 
-  // Bold: **text**
-  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-
-  // Code: `code`
-  html = html.replace(/`([^`]+)`/g, '<code class="bg-gray-100 px-1 py-0.5 rounded text-xs font-mono">$1</code>');
-
-  // Bullet points: • or - at start of line
-  html = html.replace(/^[•\-] (.+)$/gm, '<li class="ml-4">$1</li>');
-
-  // Links: [text](url)
-  html = html.replace(/\[([^\]]+)\]\(([^\)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">$1</a>');
-
-  // Line breaks (preserve formatting)
-  html = html.replace(/\n/g, '<br/>');
-
-  return html;
+const inline = (raw) => {
+  let s = escapeHtml(raw);
+  s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
+  s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  s = s.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1<em>$2</em>');
+  s = s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (m, text, url) => {
+    const href = safeHref(url.replace(/&amp;/g, '&'));
+    return href ? `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${text}</a>` : text;
+  });
+  return s;
 };
 
+/**
+ * Block-level markdown: paragraphs, headings, bullet and numbered lists, code
+ * fences. The old renderer turned every newline into <br/> and emitted bare
+ * <li> elements with no list around them, so lists rendered with stray gaps
+ * and numbered lists didn't render at all.
+ */
+const renderMarkdown = (text) => {
+  if (!text) return '';
+  const lines = text.replace(/\r/g, '').split('\n');
+  const out = [];
+  let para = [];
+  let list = null; // { type: 'ul'|'ol', items: [], start }
+  let code = null;
+
+  const flushPara = () => {
+    if (para.length) out.push(`<p>${para.map(inline).join('<br/>')}</p>`);
+    para = [];
+  };
+  const flushList = () => {
+    // Numbered lists keep the number the text used, so "1. ... (bullets) 2. ..."
+    // reads 1, 2 instead of restarting at 1 after each run of bullets
+    const start = list && list.type === 'ol' && list.start > 1 ? ` start="${list.start}"` : '';
+    if (list) out.push(`<${list.type}${start}>${list.items.map((i) => `<li>${inline(i)}</li>`).join('')}</${list.type}>`);
+    list = null;
+  };
+
+  for (const line of lines) {
+    if (code) {
+      if (/^```/.test(line.trim())) {
+        out.push(`<pre><code>${escapeHtml(code.join('\n'))}</code></pre>`);
+        code = null;
+      } else {
+        code.push(line);
+      }
+      continue;
+    }
+    if (/^```/.test(line.trim())) { flushPara(); flushList(); code = []; continue; }
+
+    const h = line.match(/^(#{1,3})\s+(.+)$/);
+    const ul = line.match(/^\s*[-*•]\s+(.+)$/);
+    const ol = line.match(/^\s*(\d+)[.)]\s+(.+)$/);
+
+    if (h) { flushPara(); flushList(); out.push(`<h4>${inline(h[2])}</h4>`); }
+    else if (ul || ol) {
+      flushPara();
+      const type = ul ? 'ul' : 'ol';
+      if (list && list.type !== type) flushList();
+      if (!list) list = { type, items: [], start: ol ? parseInt(ol[1], 10) : 1 };
+      list.items.push(ul ? ul[1] : ol[2]);
+    } else if (!line.trim()) { flushPara(); flushList(); }
+    else { flushList(); para.push(line); }
+  }
+  if (code) out.push(`<pre><code>${escapeHtml(code.join('\n'))}</code></pre>`);
+  flushPara();
+  flushList();
+  return out.join('');
+};
+
+/* ─── Conversation helpers ──────────────────────────────────────────────── */
+
+const greeting = (name) => ({
+  id: 'greeting',
+  role: 'assistant',
+  content: `Hi${name ? ` ${name}` : ''}! I'm **B-LO**, your scheduling assistant. Ask me about schedules, faculty, rooms or subjects - or pick a question below.`,
+  timestamp: Date.now(),
+  greeting: true,
+});
+
+// Starter questions for the people who'll actually use them
+const SUGGESTIONS = {
+  manager: [
+    'Which faculty are close to their maximum load?',
+    'Who is best suited to teach CC 112?',
+    'How does automatic schedule generation work?',
+    'Which rooms are free on Monday morning?',
+  ],
+  faculty: [
+    'What classes do I teach this week?',
+    'How many teaching hours do I have?',
+    'How do I post materials to my class?',
+  ],
+  student: [
+    'What is my next class?',
+    'How do I join a class with an enrollment code?',
+    'Where can I see my weekly schedule?',
+  ],
+};
+
+const suggestionsFor = (role) => {
+  if (role === 'faculty') return SUGGESTIONS.faculty;
+  if (role === 'student') return SUGGESTIONS.student;
+  return SUGGESTIONS.manager;
+};
+
+/**
+ * Turn the visible conversation into the history the API expects. Gemini
+ * requires history to start with a user turn, and errors / the greeting are
+ * UI only, so those are dropped.
+ */
+const toHistory = (messages) => {
+  const turns = messages.filter((m) => !m.greeting && !m.isError && m.content && !m.streaming);
+  const recent = turns.slice(-HISTORY_LIMIT);
+  while (recent.length && recent[0].role !== 'user') recent.shift();
+  return recent.map(({ role, content }) => ({ role, content }));
+};
+
+const loadStored = () => {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(STORE_KEY) || 'null');
+    if (Array.isArray(saved) && saved.length) {
+      // A reply that was mid-stream when the page changed can't resume
+      return saved.map((m) => (m.streaming ? { ...m, streaming: false, content: m.content || '_(interrupted)_' } : m));
+    }
+  } catch {
+    /* storage unavailable */
+  }
+  return null;
+};
+
+const timeOf = (ts) => new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+/* ─── Component ─────────────────────────────────────────────────────────── */
+
 const AIChatBubble = () => {
+  const { user } = useAuth();
   // 'closed' | 'opening' | 'open' | 'closing'
   const [phase, setPhase] = useState('closed');
-  const [messages, setMessages] = useState([
-    {
-      role: 'assistant',
-      content: 'Hi! I\'m B-LO. I can help you with:\n\n• Understanding faculty recommendations\n• Schedule generation tips\n• Subject and faculty information\n• General scheduling questions\n\nWhat would you like to know?',
-      timestamp: new Date()
-    }
-  ]);
+  const [messages, setMessages] = useState(() => loadStored() || [greeting(user?.firstName)]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const messagesEndRef = useRef(null);
+  const [copiedId, setCopiedId] = useState(null);
+  const [atBottom, setAtBottom] = useState(true);
+  const listRef = useRef(null);
   const inputRef = useRef(null);
+  const abortRef = useRef(null);
 
   // Refs/state for the bubble -> chat window morph and the flying robot head
   const fabRef = useRef(null);         // floating bubble button (fixed size)
   const flyHeadRef = useRef(null);     // flying layer 1: robot head without bubble
   const flyBubbleRef = useRef(null);   // flying layer 2: full bubble icon (fades in mid-flight when closing)
-  const shellRef = useRef(null);       // the white window that grows out of the bubble
+  const shellRef = useRef(null);       // the window that grows out of the bubble
   const innerRef = useRef(null);       // chat content (fixed final size, clipped by the shell)
   const headerIconRef = useRef(null);  // header icon slot (where the head lands)
   const flyerRef = useRef(null);       // the flying robot head
@@ -80,19 +197,44 @@ const AIChatBubble = () => {
   const isMounted = phase !== 'closed';
   const fabVisible = phase === 'closed';
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(STORE_KEY, JSON.stringify(messages.slice(-60)));
+    } catch {
+      /* storage unavailable */
+    }
+  }, [messages]);
+
+  // Follow new text only while the reader is already at the bottom. It used
+  // to scroll on every streamed chunk, yanking you away from anything you
+  // were reading further up.
+  useEffect(() => {
+    const el = listRef.current;
+    if (el && atBottom) el.scrollTop = el.scrollHeight;
+  }, [messages, atBottom, phase]);
+
+  const onScroll = () => {
+    const el = listRef.current;
+    if (el) setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 40);
+  };
+
+  const jumpToLatest = () => {
+    const el = listRef.current;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+    setAtBottom(true);
   };
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  useEffect(() => {
-    if (phase === 'open' && inputRef.current) {
-      inputRef.current.focus();
-    }
+    if (phase === 'open' && inputRef.current) inputRef.current.focus();
   }, [phase]);
+
+  // The text box grows with its content, up to a few lines
+  useLayoutEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 132)}px`;
+  }, [input, phase]);
 
   // Measure everything once the window is mounted (it is still at its final size here)
   const measure = () => {
@@ -145,7 +287,7 @@ const AIChatBubble = () => {
     const full = {
       width: `${flight.sw}px`,
       height: `${flight.sh}px`,
-      borderRadius: '16px',
+      borderRadius: '18px',
     };
     const shellAnim = shellRef.current.animate(
       isOpen
@@ -234,130 +376,130 @@ const AIChatBubble = () => {
     };
   }, [flight]);
 
-  const handleSend = async () => {
-    if (!input.trim() || loading) return;
+  /* ── Sending ── */
 
-    const userMessage = {
-      role: 'user',
-      content: input.trim(),
-      timestamp: new Date()
-    };
+  const ask = async (text, base) => {
+    const question = text.trim();
+    if (!question || loading) return;
 
-    setMessages(prev => [...prev, userMessage]);
-    const userInput = input.trim();
-    setInput('');
+    const history = toHistory(base);
+    const userMessage = { id: `u${Date.now()}`, role: 'user', content: question, timestamp: Date.now() };
+    const aiId = `a${Date.now()}`;
+    setMessages([...base, userMessage, { id: aiId, role: 'assistant', content: '', timestamp: Date.now(), streaming: true }]);
     setLoading(true);
+    setAtBottom(true);
 
-    // Add placeholder for AI message that will stream immediately
-    const aiMessageId = Date.now();
-    const placeholderMessage = {
-      id: aiMessageId,
-      role: 'assistant',
-      content: '',
-      timestamp: new Date(),
-      streaming: true
-    };
-    setMessages(prev => [...prev, placeholderMessage]);
+    const patch = (fields) => setMessages((prev) => prev.map((m) => (m.id === aiId ? { ...m, ...fields } : m)));
+    const controller = new AbortController();
+    abortRef.current = controller;
+    let fullText = '';
 
     try {
-      const token = localStorage.getItem('token');
-
-      // Use fetch for SSE streaming
       const response = await fetch(`${API_URL}/ai/chat/stream`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
         },
-        body: JSON.stringify({
-          message: userInput,
-          context: 'schedule_generator'
-        })
+        body: JSON.stringify({ message: question, conversationHistory: history }),
+        signal: controller.signal,
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to get response');
-      }
+      if (!response.ok) throw new Error(response.status === 401 ? 'Your session has expired. Log in again.' : 'B-LO could not be reached.');
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
-      let fullText = '';
-      let chunkCount = 0;
+      // Network reads don't line up with SSE events: a JSON line can arrive
+      // in two pieces. Each read used to be parsed on its own and the broken
+      // halves were silently dropped, losing words from the reply.
+      let buffer = '';
+      let serverError = null;
 
-      console.log('🎯 Starting SSE stream...');
-
-      while (true) {
+      for (;;) {
         const { done, value } = await reader.read();
-
-        if (done) {
-          console.log('✅ Stream complete. Total chunks:', chunkCount);
-          break;
-        }
-
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
-
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
         for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.slice(6));
-
-              if (data.type === 'chunk') {
-                chunkCount++;
-                fullText += data.content;
-                console.log(`📝 Chunk ${chunkCount}:`, data.content);
-
-                // Update the streaming message immediately
-                setMessages(prev => prev.map(msg =>
-                  msg.id === aiMessageId
-                    ? { ...msg, content: fullText }
-                    : msg
-                ));
-              } else if (data.type === 'done') {
-                console.log('🎉 Done event received');
-                // Mark streaming as complete
-                setMessages(prev => prev.map(msg =>
-                  msg.id === aiMessageId
-                    ? { ...msg, streaming: false }
-                    : msg
-                ));
-              } else if (data.type === 'error') {
-                throw new Error(data.message);
-              }
-            } catch (parseError) {
-              // Ignore parse errors for incomplete chunks
-              if (!parseError.message.includes('Unexpected')) {
-                console.warn('Parse warning:', parseError.message);
-              }
-            }
+          if (!line.startsWith('data: ')) continue;
+          let data;
+          try {
+            data = JSON.parse(line.slice(6));
+          } catch {
+            continue;
+          }
+          if (data.type === 'chunk') {
+            fullText += data.content;
+            patch({ content: fullText });
+          } else if (data.type === 'error') {
+            // This used to be thrown inside the JSON try/catch and swallowed,
+            // leaving the reply stuck "typing" forever.
+            serverError = data.message || 'B-LO ran into a problem.';
           }
         }
       }
 
+      if (serverError && !fullText) throw new Error(serverError);
+      patch({ streaming: false, content: fullText || '_(No answer came back. Try rephrasing the question.)_' });
     } catch (error) {
-      console.error('Chat error:', error);
-      // Remove placeholder and add error message
-      setMessages(prev => prev.filter(msg => msg.id !== aiMessageId));
-      const errorMessage = {
-        role: 'assistant',
-        content: 'I apologize, but I encountered an error. Please try again or contact support if the issue persists.',
-        timestamp: new Date(),
-        isError: true
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      if (error.name === 'AbortError') {
+        patch({ streaming: false, content: fullText ? `${fullText}\n\n_(stopped)_` : '_(stopped)_', stopped: true });
+      } else {
+        console.error('Chat error:', error);
+        patch({
+          streaming: false,
+          isError: true,
+          content: error.message || 'Something went wrong. Please try again.',
+          retry: question,
+        });
+      }
     } finally {
+      abortRef.current = null;
       setLoading(false);
     }
   };
 
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+  const handleSend = () => {
+    if (!input.trim() || loading) return;
+    const text = input;
+    setInput('');
+    ask(text, messages);
+  };
+
+  const stop = () => abortRef.current?.abort();
+
+  const retry = (msg) => {
+    // Drop the failed reply and the question before it, then ask again
+    const idx = messages.findIndex((m) => m.id === msg.id);
+    const base = messages.slice(0, Math.max(0, idx - 1));
+    ask(msg.retry, base);
+  };
+
+  const copy = async (msg) => {
+    try {
+      await navigator.clipboard.writeText(msg.content);
+      setCopiedId(msg.id);
+      setTimeout(() => setCopiedId((id) => (id === msg.id ? null : id)), 1500);
+    } catch {
+      /* clipboard blocked */
+    }
+  };
+
+  const newChat = () => {
+    stop();
+    setMessages([greeting(user?.firstName)]);
+    setInput('');
+    inputRef.current?.focus();
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault();
       handleSend();
     }
   };
 
-  const toggleChat = () => {
+  const toggleChat = useCallback(() => {
     // Ignore clicks while an animation is running
     if (phase === 'opening' || phase === 'closing') return;
 
@@ -374,17 +516,19 @@ const AIChatBubble = () => {
     }
     setPhase('closing');
     setFlight({ dir: 'close', ...m });
-  };
+  }, [phase]);
 
-  const clearChat = () => {
-    setMessages([
-      {
-        role: 'assistant',
-        content: 'Chat cleared! How can I help you?',
-        timestamp: new Date()
-      }
-    ]);
-  };
+  // Escape closes the chat (unless a modal on top is handling it)
+  useEffect(() => {
+    if (phase !== 'open') return undefined;
+    const onKey = (e) => {
+      if (e.key === 'Escape' && !document.querySelector('[role="dialog"][aria-modal="true"]')) toggleChat();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [phase, toggleChat]);
+
+  const onlyGreeting = messages.length === 1 && messages[0].greeting;
 
   return (
     <>
@@ -392,14 +536,10 @@ const AIChatBubble = () => {
       {isMounted && (
         <div
           ref={shellRef}
-          className="fixed bg-white shadow-2xl ring-1 ring-gray-200 overflow-hidden z-[99999]"
-          style={{
-            right: '1.5rem',
-            bottom: '1.5rem',
-            width: CHAT_W,
-            height: CHAT_H,
-            borderRadius: '1rem',
-          }}
+          role="dialog"
+          aria-label="B-LO assistant"
+          className="fixed overflow-hidden bg-white shadow-2xl ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700 z-[99999]"
+          style={{ right: EDGE, bottom: EDGE, width: CHAT_W, height: CHAT_H, borderRadius: '18px' }}
         >
           {/* Content layer keeps its final size and is clipped by the shell, so nothing reflows mid-animation */}
           <div
@@ -408,117 +548,178 @@ const AIChatBubble = () => {
             style={{ width: CHAT_W, height: CHAT_H }}
           >
             {/* Header */}
-            <div className="px-4 py-3 flex items-center justify-between relative overflow-hidden">
-              {/* Robot head background */}
-              <div className="absolute inset-0 flex items-center justify-center opacity-20 pointer-events-none">
-                <AnimatedRobotHeadNoChatBubble className="w-32 h-32" />
-              </div>
-
-              <div className="flex items-center gap-2 relative z-10">
+            <div className="relative flex flex-shrink-0 items-center justify-between overflow-hidden border-b border-gray-100 bg-gradient-to-r from-blue-50 via-white to-indigo-50 px-4 py-3 dark:border-gray-800 dark:from-blue-950/60 dark:via-gray-900 dark:to-indigo-950/60">
+              <div className="relative z-10 flex items-center gap-2.5">
                 <div
                   ref={headerIconRef}
-                  className="relative w-10 h-10"
+                  className="relative h-10 w-10"
                   style={{ visibility: flight ? 'hidden' : 'visible' }}
                 >
-                  <AnimatedRobotHeadNoChatBubble className="w-10 h-10" />
-                  <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border-2 border-white"></span>
+                  <AnimatedRobotHeadNoChatBubble className="h-10 w-10" />
+                  <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-white bg-green-400 dark:border-gray-900" />
                 </div>
                 <div>
-                  <h3 className="text-gray-900 font-bold text-lg">B-LO</h3>
-                  <p className="text-xs text-gray-500">AI ASSISTANT</p>
+                  <h3 className="text-base font-bold leading-tight text-gray-900 dark:text-white">B-LO</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {loading ? 'Thinking...' : 'Scheduling assistant · online'}
+                  </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 relative z-10">
+              <div className="relative z-10 flex items-center gap-1">
                 <button
-                  onClick={clearChat}
-                  className="text-gray-600 hover:text-blue-600 transition-colors p-1 rounded hover:bg-blue-50"
-                  title="Clear chat"
+                  onClick={newChat}
+                  disabled={onlyGreeting}
+                  className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-white hover:text-blue-600 disabled:opacity-40 dark:text-gray-400 dark:hover:bg-gray-800"
+                  title="New chat"
+                  aria-label="Start a new chat"
                 >
-                  <RotateCcw size={18} />
+                  <MessageSquarePlus size={17} />
                 </button>
                 <button
                   onClick={toggleChat}
-                  className="text-gray-600 hover:text-blue-600 transition-colors p-1 rounded hover:bg-blue-50"
-                  title="Close chat"
+                  className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-white hover:text-blue-600 dark:text-gray-400 dark:hover:bg-gray-800"
+                  title="Close (Esc)"
+                  aria-label="Close chat"
                 >
-                  <X size={20} />
+                  <X size={19} />
                 </button>
               </div>
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
-              {messages.map((message, index) => (
-                <div
-                  key={message.id || index}
-                  className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div
-                    className={`max-w-[80%] rounded-2xl px-4 py-2 ${
-                      message.role === 'user'
-                        ? 'bg-blue-600 text-white rounded-br-sm'
-                        : message.isError
-                        ? 'bg-red-50 text-red-800 border border-red-200 rounded-bl-sm'
-                        : 'bg-white text-gray-800 border border-gray-200 rounded-bl-sm shadow-sm'
-                    }`}
-                  >
-                    {message.role === 'assistant' && !message.isError && (
-                      <div className="flex items-center gap-1 mb-1">
-                        <Sparkles size={12} className="text-blue-600" />
-                        <span className="text-xs font-medium text-blue-600">B-LO</span>
-                        {message.streaming && (
-                          <span className="ml-2 flex gap-0.5">
-                            <span className="w-1 h-1 bg-blue-500 rounded-full animate-typing-dot" style={{ animationDelay: '0ms' }}></span>
-                            <span className="w-1 h-1 bg-blue-500 rounded-full animate-typing-dot" style={{ animationDelay: '150ms' }}></span>
-                            <span className="w-1 h-1 bg-blue-500 rounded-full animate-typing-dot" style={{ animationDelay: '300ms' }}></span>
-                          </span>
+            <div className="relative min-h-0 flex-1">
+              <div
+                ref={listRef}
+                onScroll={onScroll}
+                className="h-full space-y-4 overflow-y-auto bg-gray-50 px-4 py-4 dark:bg-gray-950/40"
+                aria-live="polite"
+              >
+                {messages.map((message) => {
+                  const mine = message.role === 'user';
+                  return (
+                    <div key={message.id} className={`blo-in group flex gap-2 ${mine ? 'justify-end' : 'justify-start'}`}>
+                      {!mine && (
+                        <span className="mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-100 dark:bg-blue-900/50" aria-hidden="true">
+                          <AnimatedRobotHeadNoChatBubble className="h-6 w-6" />
+                        </span>
+                      )}
+                      <div className={`min-w-0 max-w-[82%] ${mine ? 'items-end' : 'items-start'} flex flex-col`}>
+                        <div
+                          className={`rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
+                            mine
+                              ? 'rounded-br-md bg-blue-600 text-white'
+                              : message.isError
+                              ? 'rounded-bl-md border border-red-200 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200'
+                              : 'rounded-bl-md border border-gray-200 bg-white text-gray-800 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100'
+                          }`}
+                        >
+                          {message.streaming && !message.content ? (
+                            <span className="flex items-center gap-1 py-1" aria-label="B-LO is typing">
+                              {[0, 150, 300].map((d) => (
+                                <span key={d} className="blo-dot h-1.5 w-1.5 rounded-full bg-blue-500" style={{ animationDelay: `${d}ms` }} />
+                              ))}
+                            </span>
+                          ) : mine ? (
+                            <p className="whitespace-pre-wrap break-words">{message.content}</p>
+                          ) : (
+                            <div
+                              className={`blo-md ${message.streaming ? 'blo-streaming' : ''}`}
+                              dangerouslySetInnerHTML={{ __html: renderMarkdown(message.content) }}
+                            />
+                          )}
+                        </div>
+
+                        {/* Meta row: time, and actions on B-LO's replies */}
+                        {!message.streaming && (
+                          <div className={`mt-1 flex items-center gap-2 px-1 text-[11px] text-gray-400 ${mine ? 'justify-end' : ''}`}>
+                            <span>{timeOf(message.timestamp)}</span>
+                            {!mine && !message.greeting && !message.isError && (
+                              <button
+                                onClick={() => copy(message)}
+                                className="flex items-center gap-1 rounded px-1 opacity-0 transition-opacity hover:text-blue-600 focus:opacity-100 group-hover:opacity-100"
+                                aria-label="Copy answer"
+                              >
+                                {copiedId === message.id ? <><Check size={12} /> Copied</> : <><Copy size={12} /> Copy</>}
+                              </button>
+                            )}
+                            {message.isError && message.retry && (
+                              <button
+                                onClick={() => retry(message)}
+                                disabled={loading}
+                                className="flex items-center gap-1 rounded px-1 font-semibold text-red-600 hover:underline disabled:opacity-50 dark:text-red-400"
+                              >
+                                <RotateCcw size={12} /> Retry
+                              </button>
+                            )}
+                          </div>
                         )}
                       </div>
-                    )}
-                    <div
-                      className="text-sm markdown-content"
-                      dangerouslySetInnerHTML={{ __html: renderMarkdown(message.content || '') }}
-                    />
-                    {message.streaming && message.content && (
-                      <span className="inline-block w-0.5 h-4 ml-0.5 bg-blue-600 animate-blink"></span>
-                    )}
-                    {!message.streaming && (
-                      <span className={`text-xs mt-1 block ${
-                        message.role === 'user' ? 'text-blue-200' : 'text-gray-400'
-                      }`}>
-                        {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))}
+                    </div>
+                  );
+                })}
 
-              <div ref={messagesEndRef} />
+                {/* Starter questions until the conversation begins */}
+                {onlyGreeting && (
+                  <div className="blo-in flex flex-col items-start gap-2 pl-9">
+                    {suggestionsFor(user?.role).map((q) => (
+                      <button
+                        key={q}
+                        onClick={() => ask(q, messages)}
+                        className="rounded-xl border border-blue-200 bg-white px-3 py-2 text-left text-sm text-blue-700 shadow-sm transition-colors hover:border-blue-400 hover:bg-blue-50 dark:border-blue-900 dark:bg-gray-800 dark:text-blue-300 dark:hover:bg-blue-950/50"
+                      >
+                        {q}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {!atBottom && (
+                <button
+                  onClick={jumpToLatest}
+                  className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-full bg-gray-900/85 px-3 py-1.5 text-xs font-medium text-white shadow-lg backdrop-blur hover:bg-gray-900 dark:bg-white/90 dark:text-gray-900"
+                >
+                  <ArrowDown size={13} /> {loading ? 'New reply' : 'Jump to latest'}
+                </button>
+              )}
             </div>
 
-            {/* Input */}
-            <div className="p-4 border-t border-gray-200 bg-white">
-              <div className="flex gap-2">
-                <input
+            {/* Composer */}
+            <div className="flex-shrink-0 border-t border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-gray-900">
+              <div className="flex items-end gap-2 rounded-2xl border border-gray-300 bg-white px-3 py-1.5 transition-colors focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800">
+                <textarea
                   ref={inputRef}
-                  type="text"
+                  rows={1}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Ask me anything..."
-                  disabled={loading}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-full focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 text-sm"
+                  onKeyDown={handleKeyDown}
+                  placeholder={loading ? 'B-LO is answering...' : 'Ask B-LO anything...'}
+                  aria-label="Message B-LO"
+                  className="max-h-[132px] flex-1 resize-none border-0 bg-transparent dark:bg-transparent py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-0 dark:text-white"
                 />
-                <button
-                  onClick={handleSend}
-                  disabled={!input.trim() || loading}
-                  className="bg-blue-600 text-white p-2 rounded-full hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  <Send size={20} />
-                </button>
+                {loading ? (
+                  <button
+                    onClick={stop}
+                    className="mb-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gray-900 text-white transition-colors hover:bg-gray-700 dark:bg-white dark:text-gray-900"
+                    title="Stop answering"
+                    aria-label="Stop answering"
+                  >
+                    <Square size={12} fill="currentColor" />
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleSend}
+                    disabled={!input.trim()}
+                    className="mb-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-blue-600 text-white transition-colors hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-400 dark:disabled:bg-gray-700"
+                    title="Send (Enter)"
+                    aria-label="Send message"
+                  >
+                    <Send size={15} />
+                  </button>
+                )}
               </div>
-              <p className="text-xs text-gray-500 mt-2 text-center">
-                Press Enter to send • Shift+Enter for new line
+              <p className="mt-1.5 text-center text-[11px] text-gray-400">
+                Enter to send · Shift + Enter for a new line · B-LO can make mistakes
               </p>
             </div>
           </div>
@@ -563,8 +764,8 @@ const AIChatBubble = () => {
           transition: phase === 'opening' ? 'opacity 200ms' : 'none',
           pointerEvents: phase === 'closed' ? 'auto' : 'none',
         }}
-        title="Open AI Assistant"
-        aria-label="Open AI Assistant"
+        title="Ask B-LO"
+        aria-label="Open the B-LO assistant"
       >
         <div className="relative transition-transform duration-300 group-hover:scale-110 group-active:scale-95 group-active:rotate-12">
           <AnimatedRobotHead className="w-20 h-20 drop-shadow-lg" />
@@ -573,63 +774,29 @@ const AIChatBubble = () => {
       </button>
 
       <style>{`
-        @keyframes blink {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0; }
-        }
-        .animate-blink {
-          animation: blink 1s ease-in-out infinite;
-        }
-        @keyframes typing-dot {
-          0%, 60%, 100% {
-            opacity: 0.3;
-            transform: translateY(0);
-          }
-          30% {
-            opacity: 1;
-            transform: translateY(-4px);
-          }
-        }
-        .animate-typing-dot {
-          animation: typing-dot 1.4s ease-in-out infinite;
-        }
-        .markdown-content {
-          word-wrap: break-word;
-          overflow-wrap: break-word;
-        }
-        .markdown-content strong {
-          font-weight: 600;
-          color: inherit;
-        }
-        .markdown-content em {
-          font-style: italic;
-        }
-        .markdown-content code {
-          background-color: #f3f4f6;
-          padding: 2px 4px;
-          border-radius: 3px;
-          font-family: 'Courier New', monospace;
-          font-size: 0.85em;
-        }
-        .markdown-content li {
-          margin-left: 1rem;
-          list-style-type: disc;
-          list-style-position: inside;
-        }
-        .markdown-content h1,
-        .markdown-content h2,
-        .markdown-content h3 {
-          font-weight: 600;
-          margin-top: 0.5rem;
-          margin-bottom: 0.25rem;
-        }
-        .markdown-content a {
-          color: #7c3aed;
-          text-decoration: none;
-        }
-        .markdown-content a:hover {
-          text-decoration: underline;
-        }
+        @keyframes blo-dot { 0%, 60%, 100% { opacity: .3; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-3px); } }
+        @keyframes blo-in  { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+        @keyframes blo-caret { 50% { opacity: 0; } }
+        .blo-dot { animation: blo-dot 1.3s ease-in-out infinite; }
+        .blo-in  { animation: blo-in .22s ease-out both; }
+        @media (prefers-reduced-motion: reduce) { .blo-dot, .blo-in { animation: none; } }
+
+        .blo-md { overflow-wrap: anywhere; }
+        .blo-md > * + * { margin-top: .5rem; }
+        .blo-md h4 { font-weight: 600; font-size: .95em; }
+        .blo-md ul, .blo-md ol { padding-left: 1.15rem; }
+        .blo-md ul { list-style: disc; }
+        .blo-md ol { list-style: decimal; }
+        .blo-md li + li { margin-top: .2rem; }
+        .blo-md strong { font-weight: 600; }
+        .blo-md em { font-style: italic; }
+        .blo-md a { color: #2563eb; text-decoration: underline; text-underline-offset: 2px; }
+        .dark .blo-md a { color: #93c5fd; }
+        .blo-md code { background: rgba(100, 116, 139, .15); padding: .05rem .3rem; border-radius: .3rem; font-size: .85em; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+        .blo-md pre { background: #0f172a; color: #e2e8f0; padding: .6rem .75rem; border-radius: .5rem; overflow-x: auto; font-size: .8em; }
+        .blo-md pre code { background: none; padding: 0; }
+        /* Blinking caret at the end of a reply that's still arriving */
+        .blo-streaming > :last-child::after { content: ''; display: inline-block; width: 2px; height: 1em; margin-left: 2px; vertical-align: -2px; background: #2563eb; animation: blo-caret 1s steps(1) infinite; }
       `}</style>
     </>
   );

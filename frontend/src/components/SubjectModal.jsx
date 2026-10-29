@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { subjectAPI } from '../services/api';
+import { subjectAPI, getErrorMessage } from '../services/api';
 import toast from 'react-hot-toast';
 import { BookOpen, GraduationCap, CheckSquare, X } from 'lucide-react';
 import { usePrograms } from '../hooks/usePrograms';
+import { ModalShell } from './modal/ModalShell';
 import { useAuth } from '../context/AuthContext';
 
 const SEMESTERS = [1, 2];
@@ -51,12 +52,7 @@ const SubjectModal = ({ mode, subject, onClose }) => {
     }
   }, [mode, subject, initialProgram]);
 
-  // Escape closes the panel
-  useEffect(() => {
-    const onKey = (e) => e.key === 'Escape' && onClose(false);
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  // Escape, focus and scroll lock come from ModalShell
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -78,7 +74,7 @@ const SubjectModal = ({ mode, subject, onClose }) => {
       toast.success(`Generated code: ${generatedCode}`);
     } catch (error) {
       console.error('Generate code error:', error);
-      toast.error('Could not generate code');
+      toast.error(getErrorMessage(error, 'Could not generate code'));
     }
   };
 
@@ -131,11 +127,7 @@ const SubjectModal = ({ mode, subject, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-[100001] flex justify-end" role="dialog" aria-modal="true">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/40" onClick={() => onClose(false)} />
-
-      <aside className="relative w-full sm:max-w-2xl h-full bg-white dark:bg-gray-800 shadow-2xl flex flex-col overflow-hidden">
+    <ModalShell variant="drawer" size="lg" onClose={() => onClose(false)} label={mode === 'edit' ? 'Edit subject' : 'Add subject'} busy={loading}>
         {/* Header */}
         <div className="px-6 py-4 bg-gradient-to-br from-blue-600 to-indigo-600 text-white flex-shrink-0">
           <div className="flex items-start justify-between gap-3">
@@ -478,8 +470,7 @@ const SubjectModal = ({ mode, subject, onClose }) => {
             </button>
           </div>
         </div>
-      </aside>
-    </div>
+    </ModalShell>
   );
 };
 

@@ -1,11 +1,46 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Mail, Lock, Eye, EyeOff, ArrowLeft, User, Calendar, Brain, Users } from 'lucide-react';
+import { Mail, Lock, User, Contact, GraduationCap, Calendar, Bell, Users } from 'lucide-react';
 import toast from 'react-hot-toast';
-import ctuLogo from '../assets/images/logos/ctulogo.png';
-import ctuBg from '../assets/images/backgrounds/ctu-bg.png';
 import { usePrograms } from '../hooks/usePrograms';
+import { AuthLayout, AuthField, PasswordField, FormAlert, SubmitButton } from '../components/auth/AuthLayout';
+import { PasswordChecklist, passwordProblem, confirmProblem, liveConfirmProblem } from '../components/auth/PasswordStrength';
+
+const FEATURES = [
+  { icon: Calendar, title: 'Your schedule', text: 'Your whole week, on any device.' },
+  { icon: Bell, title: 'Change alerts', text: 'Notified when a class moves or a room changes.' },
+  { icon: Users, title: 'Class spaces', text: 'Announcements and materials from your instructors.' },
+];
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Field order matters: on submit, focus jumps to the first invalid one
+const FIELDS = ['firstName', 'lastName', 'studentId', 'program', 'email', 'password', 'confirmPassword'];
+
+const validate = (data) => {
+  const errors = {};
+  if (!data.firstName.trim()) errors.firstName = 'Enter your first name';
+  if (!data.lastName.trim()) errors.lastName = 'Enter your last name';
+  if (!data.studentId.trim()) errors.studentId = 'Enter your student ID';
+  if (!data.program) errors.program = 'Choose your program';
+  if (!data.email.trim()) errors.email = 'Enter your email address';
+  else if (!EMAIL_RE.test(data.email.trim())) errors.email = 'That doesn\'t look like an email address';
+  const pw = passwordProblem(data.password);
+  if (pw) errors.password = pw;
+  const confirm = confirmProblem(data.password, data.confirmPassword);
+  if (confirm) errors.confirmPassword = confirm;
+  return errors;
+};
+
+const SectionLabel = ({ step, children }) => (
+  <div className="mb-3 flex items-center gap-2">
+    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 text-[11px] font-bold text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
+      {step}
+    </span>
+    <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-dark-text-muted">{children}</span>
+  </div>
+);
 
 const SignupPage = () => {
   const navigate = useNavigate();
@@ -20,25 +55,13 @@ const SignupPage = () => {
     password: '',
     confirmPassword: ''
   });
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  // Errors only show once a field has been left (or on submit), so nobody is
+  // told off for a field they haven't reached yet.
+  const [touched, setTouched] = useState({});
+  const [serverErrors, setServerErrors] = useState({});
   const [loading, setLoading] = useState(false);
-  const [pageLoading, setPageLoading] = useState(true);
   const [error, setError] = useState('');
-  const [passwordStrength, setPasswordStrength] = useState({
-    score: 0,
-    label: '',
-    color: ''
-  });
-  const [passwordMatch, setPasswordMatch] = useState(true);
-
-  // Page entrance animation
-  React.useEffect(() => {
-    const timer = setTimeout(() => {
-      setPageLoading(false);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, []);
+  const refs = useRef({});
 
   // Default the program selection to the first program from the database,
   // and reset it if the current pick is no longer an active program.
@@ -51,84 +74,50 @@ const SignupPage = () => {
   }, [programs, formData.program]);
 
   // Redirect if already authenticated
-  React.useEffect(() => {
+  useEffect(() => {
     if (isAuthenticated) {
       navigate('/dashboard');
     }
   }, [isAuthenticated, navigate]);
 
+  useEffect(() => {
+    refs.current.firstName?.focus();
+  }, []);
+
+  const errors = { ...validate(formData), ...serverErrors };
+  const shown = (name) => (touched[name] ? errors[name] : undefined);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData({
-      ...formData,
-      [name]: value
-    });
+    setFormData(prev => ({ ...prev, [name]: value }));
+    if (serverErrors[name]) setServerErrors(prev => ({ ...prev, [name]: undefined }));
     setError('');
-
-    // Check password strength
-    if (name === 'password') {
-      checkPasswordStrength(value);
-      // Check if passwords match
-      if (formData.confirmPassword) {
-        setPasswordMatch(value === formData.confirmPassword);
-      }
-    }
-
-    // Check if confirm password matches
-    if (name === 'confirmPassword') {
-      setPasswordMatch(value === formData.password);
-    }
   };
 
-  const checkPasswordStrength = (password) => {
-    let score = 0;
-    if (!password) {
-      setPasswordStrength({ score: 0, label: '', color: '' });
-      return;
-    }
-
-    // Length check
-    if (password.length >= 8) score++;
-    if (password.length >= 12) score++;
-
-    // Contains lowercase and uppercase
-    if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score++;
-
-    // Contains numbers
-    if (/\d/.test(password)) score++;
-
-    // Contains special characters
-    if (/[^A-Za-z0-9]/.test(password)) score++;
-
-    // Set strength label and color
-    if (score <= 2) {
-      setPasswordStrength({ score, label: 'Weak', color: 'text-red-600' });
-    } else if (score === 3) {
-      setPasswordStrength({ score, label: 'Fair', color: 'text-yellow-600' });
-    } else if (score === 4) {
-      setPasswordStrength({ score, label: 'Good', color: 'text-blue-600' });
-    } else {
-      setPasswordStrength({ score, label: 'Strong', color: 'text-green-600' });
-    }
+  // Leaving a field you've typed in checks it; skipping past an empty one
+  // doesn't - that is flagged on submit instead.
+  const handleBlur = (e) => {
+    if (e.target.value === '') return;
+    setTouched(prev => ({ ...prev, [e.target.name]: true }));
   };
+
+  const field = (name) => ({
+    name,
+    ref: (el) => { refs.current[name] = el; },
+    value: formData[name],
+    onChange: handleChange,
+    onBlur: handleBlur,
+    error: shown(name),
+  });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setTouched(Object.fromEntries(FIELDS.map((f) => [f, true])));
 
-    // Validation
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
-
-    if (formData.password.length < 8) {
-      setError('Password must be at least 8 characters');
-      return;
-    }
-
-    if (passwordStrength.score < 3) {
-      setError('Please use a stronger password (mix of uppercase, lowercase, numbers, and special characters)');
+    const invalid = FIELDS.find((f) => errors[f]);
+    if (invalid) {
+      refs.current[invalid]?.focus();
       return;
     }
 
@@ -141,11 +130,11 @@ const SignupPage = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          email: formData.email,
+          email: formData.email.trim(),
           password: formData.password,
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          studentId: formData.studentId,
+          firstName: formData.firstName.trim(),
+          lastName: formData.lastName.trim(),
+          studentId: formData.studentId.trim(),
           program: formData.program
         })
       });
@@ -153,32 +142,32 @@ const SignupPage = () => {
       const data = await response.json();
 
       if (data.success) {
-        // Show success toast notification
         toast.success(
-          `Account created successfully! Please check your email (${formData.email}) to verify your account.`,
-          {
-            duration: 5000,
-            icon: '📧',
-            style: {
-              background: '#10B981',
-              color: '#fff',
-              padding: '16px',
-              borderRadius: '10px',
-            },
-          }
+          `Account created! Check ${formData.email.trim()} to verify your account.`,
+          { duration: 5000, icon: '📧' }
         );
-        
-        navigate('/login', { 
-          state: { 
+
+        navigate('/login', {
+          state: {
             message: 'Account created! Please check your email to verify your account.',
-            email: formData.email 
-          } 
+            email: formData.email.trim()
+          }
         });
       } else {
-        setError(data.message || 'Failed to create account');
+        const message = data.message || 'Failed to create account';
+        // Put "already registered" errors on the field they belong to
+        if (/email/i.test(message)) {
+          setServerErrors({ email: message });
+          refs.current.email?.focus();
+        } else if (/student id/i.test(message)) {
+          setServerErrors({ studentId: message });
+          refs.current.studentId?.focus();
+        } else {
+          setError(message);
+        }
       }
     } catch (err) {
-      setError('An error occurred during signup. Please try again.');
+      setError('Could not reach the server. Check your connection and try again.');
       console.error('Signup error:', err);
     } finally {
       setLoading(false);
@@ -186,391 +175,93 @@ const SignupPage = () => {
   };
 
   return (
-    <div className="min-h-screen h-screen flex relative overflow-hidden">
-      {/* Page Loading Overlay with Skeleton */}
-      <div className={`fixed inset-0 z-50 transition-opacity duration-500 ${pageLoading ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-        <div className="flex h-full">
-          {/* Left side - Skeleton for Signup Form */}
-          <div className="w-full lg:w-2/5 bg-white flex items-center justify-center p-8">
-            <div className="w-full max-w-md animate-pulse">
-              {/* Logo skeleton */}
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-12 h-12 bg-gray-200 rounded-full"></div>
-                <div>
-                  <div className="h-5 w-40 bg-gray-200 rounded mb-2"></div>
-                  <div className="h-3 w-32 bg-gray-200 rounded"></div>
-                </div>
-              </div>
-              
-              {/* Title skeleton */}
-              <div className="mb-8">
-                <div className="h-9 w-64 bg-gray-200 rounded mb-2"></div>
-                <div className="h-4 w-48 bg-gray-200 rounded"></div>
-              </div>
-
-              {/* Input skeletons */}
-              <div className="space-y-4 mb-5">
-                <div className="h-12 w-full bg-gray-200 rounded-lg"></div>
-                <div className="h-12 w-full bg-gray-200 rounded-lg"></div>
-                <div className="h-12 w-full bg-gray-200 rounded-lg"></div>
-                <div className="h-12 w-full bg-gray-200 rounded-lg"></div>
-                <div className="h-12 w-full bg-gray-200 rounded-lg"></div>
-              </div>
-
-              {/* Button skeleton */}
-              <div className="h-12 w-full bg-gray-300 rounded-lg"></div>
-            </div>
-          </div>
-
-          {/* Right side - Skeleton for Promo Content */}
-          <div className="hidden lg:flex lg:w-3/5 bg-gradient-to-br from-blue-900 via-blue-800 to-blue-900 relative overflow-hidden">
-            <div className="absolute top-20 right-20 w-64 h-64 bg-yellow-400/10 rounded-full blur-3xl"></div>
-            <div className="absolute bottom-20 left-20 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl"></div>
-            
-            <div className="relative z-10 flex items-center justify-center p-16 w-full">
-              <div className="max-w-xl animate-pulse">
-                <div className="mb-6">
-                  <div className="h-12 w-96 bg-white/10 rounded mb-3"></div>
-                  <div className="h-12 w-80 bg-white/10 rounded"></div>
-                </div>
-                
-                <div className="mb-8">
-                  <div className="h-5 w-full bg-white/10 rounded mb-2"></div>
-                  <div className="h-5 w-5/6 bg-white/10 rounded"></div>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="flex items-start gap-4 p-4 bg-white/5 backdrop-blur-sm rounded-xl border border-white/10">
-                    <div className="w-12 h-12 bg-white/10 rounded-lg"></div>
-                    <div className="flex-1">
-                      <div className="h-5 w-40 bg-white/10 rounded mb-2"></div>
-                      <div className="h-4 w-full bg-white/10 rounded"></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+    <AuthLayout
+      eyebrow="For students"
+      title="Join your classes"
+      highlight="at CTU Daanbantayan."
+      description="Create your student account to see your timetable, get notified about changes and follow your class spaces."
+      features={FEATURES}
+    >
+      <div className="auth-rise" style={{ animationDelay: '.05s' }}>
+        <h1 className="mb-1.5 text-3xl font-bold tracking-tight text-gray-900 dark:text-dark-text-primary">
+          Create your student account
+        </h1>
+        <p className="mb-7 text-sm text-gray-600 dark:text-dark-text-secondary">
+          Already have one?{' '}
+          <Link to="/login" className="font-semibold text-blue-700 hover:underline dark:text-dark-blue-info">Log in</Link>
+        </p>
       </div>
 
-      {/* Left Side - Signup Form */}
-      <div className={`w-full lg:w-2/5 bg-white flex items-start justify-center p-8 relative transition-all duration-700 delay-300 overflow-y-auto ${
-        pageLoading ? 'opacity-0 translate-x-[-50px]' : 'opacity-100 translate-x-0'
-      }`}>
-        <div className="w-full max-w-md py-8">
-          {/* Logo and Title */}
-          <div className="mb-8 pt-4">
-            <div className="flex items-center gap-3 mb-6">
-              <img src={ctuLogo} alt="CTU Logo" className="w-12 h-12 object-contain" />
-              <div>
-                <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-yellow-500 bg-clip-text text-transparent">
-                  CTU Daanbantayan
-                </h1>
-                <p className="text-xs text-gray-500">Smart Timetabling System</p>
-              </div>
-            </div>
-            
-            <h2 className="text-3xl font-bold text-gray-900 mb-2">
-              Create student account
-            </h2>
-            <p className="text-gray-600 text-sm">
-              Already have an account? <button onClick={() => navigate('/login')} className="text-blue-600 hover:underline cursor-pointer font-medium">Sign in</button>
-            </p>
+      {error && <FormAlert>{error}</FormAlert>}
+
+      <form onSubmit={handleSubmit} noValidate className="auth-rise" style={{ animationDelay: '.1s' }}>
+        <SectionLabel step={1}>About you</SectionLabel>
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <AuthField label="First name" icon={User} autoComplete="given-name" placeholder="Juan" {...field('firstName')} />
+            <AuthField label="Last name" autoComplete="family-name" placeholder="Dela Cruz" {...field('lastName')} />
+          </div>
+          <AuthField
+            label="Student ID"
+            icon={Contact}
+            autoComplete="off"
+            placeholder="2024-12345"
+            hint="As printed on your school ID"
+            {...field('studentId')}
+          />
+          <AuthField label="Program" icon={GraduationCap} as="select" disabled={programs.length === 0} {...field('program')}>
+            {programs.length === 0 && <option value="">Loading programs…</option>}
+            {programs.map(prog => (
+              <option key={prog._id} value={prog.code}>
+                {prog.code} - {prog.name}
+              </option>
+            ))}
+          </AuthField>
+        </div>
+
+        <div className="my-6 border-t border-gray-200 dark:border-dark-border-subtle" />
+
+        <SectionLabel step={2}>Your login</SectionLabel>
+        <div className="space-y-4">
+          <AuthField
+            label="Email address"
+            icon={Mail}
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            placeholder="you@ctu.edu.ph"
+            hint="We'll send a verification link here"
+            {...field('email')}
+          />
+
+          <div>
+            <PasswordField
+              label="Password"
+              icon={Lock}
+              autoComplete="new-password"
+              placeholder="Create a password"
+              {...field('password')}
+            />
+            <PasswordChecklist password={formData.password} />
           </div>
 
-          {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-sm text-red-600">{error}</p>
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Name Fields */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-1.5">
-                  First Name
-                </label>
-                <input
-                  id="firstName"
-                  name="firstName"
-                  type="text"
-                  required
-                  value={formData.firstName}
-                  onChange={handleChange}
-                  className="block w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                  placeholder="Juan"
-                />
-              </div>
-              <div>
-                <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Last Name
-                </label>
-                <input
-                  id="lastName"
-                  name="lastName"
-                  type="text"
-                  required
-                  value={formData.lastName}
-                  onChange={handleChange}
-                  className="block w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                  placeholder="Dela Cruz"
-                />
-              </div>
-            </div>
-
-            {/* Email Input */}
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">
-                Email Address
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                required
-                value={formData.email}
-                onChange={handleChange}
-                className="block w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                placeholder="you@ctu.edu.ph"
-              />
-            </div>
-
-            {/* Student ID */}
-            <div>
-              <label htmlFor="studentId" className="block text-sm font-medium text-gray-700 mb-1.5">
-                Student ID
-              </label>
-              <input
-                id="studentId"
-                name="studentId"
-                type="text"
-                required
-                value={formData.studentId}
-                onChange={handleChange}
-                className="block w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                placeholder="2024-12345"
-              />
-            </div>
-
-            {/* Program */}
-            <div>
-              <label htmlFor="program" className="block text-sm font-medium text-gray-700 mb-1.5">
-                Program
-              </label>
-              <select
-                id="program"
-                name="program"
-                value={formData.program}
-                onChange={handleChange}
-                className="block w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white"
-              >
-                {programs.map(prog => (
-                  <option key={prog._id} value={prog.code}>
-                    {prog.code} - {prog.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Password Input */}
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1.5">
-                Password
-              </label>
-              <div className="relative">
-                <input
-                  id="password"
-                  name="password"
-                  type={showPassword ? 'text' : 'password'}
-                  required
-                  value={formData.password}
-                  onChange={handleChange}
-                  className="block w-full px-3 py-2.5 pr-10 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                  placeholder="••••••••"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600" />
-                  ) : (
-                    <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600" />
-                  )}
-                </button>
-              </div>
-              {/* Password Strength Indicator */}
-              {formData.password && (
-                <div className="mt-2">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs text-gray-600">Password Strength:</span>
-                    <span className={`text-xs font-semibold ${passwordStrength.color}`}>
-                      {passwordStrength.label}
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-1.5">
-                    <div 
-                      className={`h-1.5 rounded-full transition-all duration-300 ${
-                        passwordStrength.score <= 2 ? 'bg-red-500' :
-                        passwordStrength.score === 3 ? 'bg-yellow-500' :
-                        passwordStrength.score === 4 ? 'bg-blue-500' : 'bg-green-500'
-                      }`}
-                      style={{ width: `${(passwordStrength.score / 5) * 100}%` }}
-                    ></div>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Use 8+ characters with uppercase, lowercase, numbers & symbols
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Confirm Password Input */}
-            <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1.5">
-                Confirm Password
-              </label>
-              <div className="relative">
-                <input
-                  id="confirmPassword"
-                  name="confirmPassword"
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  required
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                  className={`block w-full px-3 py-2.5 pr-10 text-sm border rounded-lg focus:ring-2 transition-all ${
-                    formData.confirmPassword && !passwordMatch
-                      ? 'border-red-500 focus:ring-red-500 focus:border-red-500'
-                      : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
-                  }`}
-                  placeholder="••••••••"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                >
-                  {showConfirmPassword ? (
-                    <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600" />
-                  ) : (
-                    <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600" />
-                  )}
-                </button>
-              </div>
-              {/* Password Match Indicator */}
-              {formData.confirmPassword && (
-                <div className="mt-1.5">
-                  {passwordMatch ? (
-                    <p className="text-xs text-green-600 flex items-center gap-1">
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                      </svg>
-                      Passwords match
-                    </p>
-                  ) : (
-                    <p className="text-xs text-red-600 flex items-center gap-1">
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                      </svg>
-                      Passwords do not match
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-2.5 px-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg mt-2"
-            >
-              {loading ? (
-                <div className="flex items-center justify-center">
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                  Creating account...
-                </div>
-              ) : (
-                'Create Account'
-              )}
-            </button>
-          </form>
+          <PasswordField
+            label="Confirm password"
+            icon={Lock}
+            autoComplete="new-password"
+            placeholder="Re-enter your password"
+            hint={formData.confirmPassword && formData.confirmPassword === formData.password ? '✓ Passwords match' : undefined}
+            {...field('confirmPassword')}
+            // Mismatch shows while typing once there's something to compare
+            error={shown('confirmPassword') || liveConfirmProblem(formData.password, formData.confirmPassword)}
+          />
         </div>
-      </div>
 
-      {/* Right Side - Promotional Content */}
-      <div className={`hidden lg:flex lg:w-3/5 bg-gradient-to-br from-blue-900 via-blue-800 to-blue-900 relative overflow-hidden transition-all duration-700 delay-300 ${
-        pageLoading ? 'opacity-0 translate-x-[50px]' : 'opacity-100 translate-x-0'
-      }`}>
-        {/* Background Image Overlay */}
-        <div 
-          className="absolute inset-0 bg-cover bg-center opacity-10"
-          style={{ backgroundImage: `url(${ctuBg})` }}
-        ></div>
-        
-        {/* Decorative Elements */}
-        <div className="absolute top-20 right-20 w-64 h-64 bg-yellow-400/10 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-20 left-20 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl"></div>
-        
-        {/* Content */}
-        <div className="relative z-10 flex items-center justify-center p-16 w-full">
-          <div className="max-w-xl">
-            <h2 className="text-4xl lg:text-5xl font-black text-white mb-6 leading-tight">
-              Join CTU Daanbantayan
-              <span className="block bg-gradient-to-r from-yellow-400 to-yellow-200 bg-clip-text text-transparent">
-                Student Community
-              </span>
-            </h2>
-            
-            <p className="text-lg text-blue-100 mb-8 leading-relaxed">
-              Register as a student to access your personalized schedule, view class updates, and stay connected with your academic journey at CTU Daanbantayan.
-            </p>
-
-            {/* Benefits */}
-            <div className="space-y-4">
-              <div className="flex items-start gap-4 p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
-                <div className="w-12 h-12 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Calendar className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-white mb-1">Your Schedule, Anytime</h3>
-                  <p className="text-sm text-blue-200">Access your class schedule 24/7 from any device</p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-4 p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
-                <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-blue-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Brain className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-white mb-1">Real-Time Updates</h3>
-                  <p className="text-sm text-blue-200">Get instant notifications about schedule changes</p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-4 p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
-                <div className="w-12 h-12 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Users className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-white mb-1">Connect with Classmates</h3>
-                  <p className="text-sm text-blue-200">Stay connected with your peers and instructors</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-8 pt-6 border-t border-white/20">
-              <p className="text-sm text-blue-200">
-                © 2026 Cebu Technological University - Daanbantayan Campus
-              </p>
-            </div>
-          </div>
+        <div className="mt-7">
+          <SubmitButton loading={loading} loadingText="Creating account…">Create account</SubmitButton>
         </div>
-      </div>
-    </div>
+      </form>
+    </AuthLayout>
   );
 };
 

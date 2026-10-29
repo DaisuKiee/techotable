@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Sun, Moon, CheckCircle } from 'lucide-react';
-import { authAPI } from '../services/api';
+import { authAPI, getErrorMessage } from '../services/api';
 import toast from 'react-hot-toast';
 
 const ShiftSelectionModal = ({ user, onShiftSelected }) => {
@@ -29,7 +29,7 @@ const ShiftSelectionModal = ({ user, onShiftSelected }) => {
       }
     } catch (error) {
       console.error('Shift selection error:', error);
-      toast.error('Failed to save shift selection');
+      toast.error(getErrorMessage(error, 'Failed to save shift selection'));
       setSaving(false);
     }
   };

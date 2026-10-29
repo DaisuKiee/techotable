@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { authAPI, facultyAPI } from '../services/api';
+import { authAPI, facultyAPI, getErrorMessage } from '../services/api';
 import useCachedData from '../hooks/useCachedData';
 import toast from 'react-hot-toast';
 import Layout from '../components/Layout';
 import AvatarUpload from '../components/AvatarUpload';
+import { useAuth } from '../context/AuthContext';
 import { X, Plus, Star, Loader2 } from 'lucide-react';
-import ctuBg from '../assets/images/backgrounds/ctu-bg.png';
+import ctuBg from '../assets/images/backgrounds/ctu-bg.jpg';
 
 /* ---------- shared styles ---------- */
 const inputClass =
@@ -147,6 +148,8 @@ const ProfilePage = () => {
   // Last-saved snapshot, used to detect unsaved changes and to support "Discard"
   const [initial, setInitial] = useState(null);
 
+  const { loadUser } = useAuth();
+
   // ✅ CACHE: User profile with 10-minute cache
   const {
     data: profileResponse,
@@ -165,7 +168,7 @@ const ProfilePage = () => {
       },
       onError: (err) => {
         console.error('Failed to load profile:', err);
-        toast.error('Could not load your profile. Refresh the page to try again.');
+        toast.error(getErrorMessage(err, 'Could not load your profile. Refresh the page to try again.'));
       }
     }
   );
@@ -254,10 +257,15 @@ const ProfilePage = () => {
       [key]: prev[key].map((row, i) => (i === index ? { ...row, [field]: value } : row))
     }));
 
+  // There is no setUser in this component (the user comes from the cached
+  // profile query), so a successful upload used to throw "setUser is not
+  // defined". Refresh the profile and the signed-in user instead, so the new
+  // photo shows here and in the header.
   const handleAvatarUpdate = (updatedUser) => {
-    setUser(updatedUser);
     const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
     localStorage.setItem('user', JSON.stringify({ ...storedUser, ...updatedUser }));
+    reloadProfile();
+    loadUser();
   };
 
   const handleDiscard = () => {

@@ -1,10 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { UserX, Clock, Mail, Building2, GraduationCap, BookOpen, AlertCircle, XCircle, RefreshCw } from 'lucide-react';
+import { ModalShell, ModalHeader, ModalBody, ModalFooter, ModalButton } from '../components/modal/ModalShell';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import Layout from '../components/Layout';
 import dashboardBg from '../assets/images/backgrounds/bg.jpg';
 import AnimatedUserCheck from '../components/AnimatedUserCheck';
+
+import { getErrorMessage } from '../services/api';
+const REJECT_REASONS = [
+  'Not a CTU Daanbantayan faculty member',
+  'Duplicate of an existing account',
+  'Details are incomplete or incorrect',
+];
 
 const FacultyApprovalPage = () => {
   const [pendingFaculty, setPendingFaculty] = useState([]);
@@ -25,7 +33,7 @@ const FacultyApprovalPage = () => {
       setPendingFaculty(response.data.data || []);
     } catch (error) {
       console.error('Error fetching pending faculty:', error);
-      toast.error('Failed to load pending faculty accounts');
+      toast.error(getErrorMessage(error, 'Failed to load pending faculty accounts'));
     } finally {
       setLoading(false);
     }
@@ -107,6 +115,12 @@ const FacultyApprovalPage = () => {
       </Layout>
     );
   }
+
+  const closeReject = () => {
+    setShowRejectModal(false);
+    setSelectedFaculty(null);
+    setRejectionReason('');
+  };
 
   return (
     <Layout>
@@ -393,62 +407,62 @@ const FacultyApprovalPage = () => {
 
         {/* Reject Modal */}
         {showRejectModal && selectedFaculty && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md">
-              {/* Modal Header */}
-              <div className="bg-gradient-to-r from-red-600 to-rose-600 p-6 text-white rounded-t-2xl">
-                <div className="flex items-center gap-3">
-                  <div className="p-3 bg-white bg-opacity-20 rounded-xl">
-                    <UserX className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h2 className="text-2xl font-bold">Reject Faculty Account</h2>
-                    <p className="text-red-100 text-sm mt-1">
-                      {selectedFaculty.fullName || `${selectedFaculty.firstName} ${selectedFaculty.lastName}`}
-                    </p>
-                  </div>
-                </div>
+          <ModalShell onClose={closeReject} size="sm" label="Reject faculty account" busy={actionLoading === selectedFaculty._id}>
+            <ModalHeader
+              icon={UserX}
+              tone="red"
+              title="Reject faculty account"
+              subtitle={selectedFaculty.fullName || `${selectedFaculty.firstName} ${selectedFaculty.lastName}`}
+              onClose={closeReject}
+              closeDisabled={actionLoading === selectedFaculty._id}
+            />
+            <ModalBody className="space-y-3">
+              <label htmlFor="reject-reason" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Reason
+              </label>
+              {/* One tap for the usual reasons; still editable */}
+              <div className="flex flex-wrap gap-2">
+                {REJECT_REASONS.map((reason) => (
+                  <button
+                    key={reason}
+                    type="button"
+                    onClick={() => setRejectionReason(reason)}
+                    aria-pressed={rejectionReason === reason}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                      rejectionReason === reason
+                        ? 'border-red-500 bg-red-50 text-red-700 dark:bg-red-500/15 dark:text-red-300'
+                        : 'border-gray-300 text-gray-600 hover:border-red-300 hover:text-red-700 dark:border-gray-600 dark:text-gray-300'
+                    }`}
+                  >
+                    {reason}
+                  </button>
+                ))}
               </div>
-
-              {/* Modal Content */}
-              <div className="p-6">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Rejection Reason *
-                </label>
-                <textarea
-                  value={rejectionReason}
-                  onChange={(e) => setRejectionReason(e.target.value)}
-                  placeholder="Please provide a reason for rejecting this application..."
-                  rows={4}
-                  className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 dark:bg-gray-700 dark:text-white resize-none"
-                />
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  This reason will be recorded in the system logs
-                </p>
-              </div>
-
-              {/* Modal Footer */}
-              <div className="bg-gray-50 dark:bg-gray-700 px-6 py-4 flex items-center justify-end gap-3 rounded-b-2xl">
-                <button
-                  onClick={() => {
-                    setShowRejectModal(false);
-                    setSelectedFaculty(null);
-                    setRejectionReason('');
-                  }}
-                  className="px-6 py-2.5 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors font-medium"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleRejectConfirm}
-                  disabled={!rejectionReason.trim() || actionLoading === selectedFaculty._id}
-                  className="px-6 py-2.5 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white rounded-lg transition-all font-medium shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {actionLoading === selectedFaculty._id ? 'Rejecting...' : 'Confirm Rejection'}
-                </button>
-              </div>
-            </div>
-          </div>
+              <textarea
+                id="reject-reason"
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                placeholder="Or write a reason..."
+                rows={4}
+                className="w-full resize-y rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/30 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Recorded in the activity log. The applicant's login is not created.
+              </p>
+            </ModalBody>
+            <ModalFooter>
+              <ModalButton variant="secondary" onClick={closeReject} disabled={actionLoading === selectedFaculty._id}>Cancel</ModalButton>
+              <ModalButton
+                variant="danger"
+                onClick={handleRejectConfirm}
+                disabled={!rejectionReason.trim()}
+                loading={actionLoading === selectedFaculty._id}
+                loadingText="Rejecting..."
+              >
+                Reject account
+              </ModalButton>
+            </ModalFooter>
+          </ModalShell>
         )}
       </div>
     </Layout>

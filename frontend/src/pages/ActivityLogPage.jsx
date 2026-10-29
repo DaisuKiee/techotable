@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
-import { activityLogAPI } from '../services/api';
+import { activityLogAPI, getErrorMessage } from '../services/api';
 import toast from 'react-hot-toast';
 import {
   Activity, User, Calendar, Filter, Download, RefreshCw,
   XCircle, AlertTriangle, Clock, Search,
-  TrendingUp, Users, FileText, Settings, ChevronLeft, ChevronRight
-} from 'lucide-react';
+  TrendingUp, Users, FileText, Settings, ChevronLeft, ChevronRight, CheckCircle2 } from 'lucide-react';
 import AnimatedCheckIcon from '../components/AnimatedCheckIcon';
+import StatCard from '../components/StatCard';
 
 const ActivityLogPage = () => {
   const [logs, setLogs] = useState([]);
@@ -47,7 +47,7 @@ const ActivityLogPage = () => {
       setHasMore(newLogs.length === limit);
     } catch (error) {
       console.error('Error loading activity logs:', error);
-      toast.error('Failed to load activity logs');
+      toast.error(getErrorMessage(error, 'Failed to load activity logs'));
     } finally {
       setLoading(false);
     }
@@ -184,72 +184,13 @@ const ActivityLogPage = () => {
           </div>
         </div>
 
-        {/* Statistics Cards - More Modern */}
+        {/* Statistics */}
         {stats && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <div className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-md hover:shadow-xl transition-all p-6 border border-gray-200 dark:border-gray-700">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">
-                    Total Activities
-                  </p>
-                  <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">
-                    {stats.totalActivities || 0}
-                  </p>
-                </div>
-                <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-                  <TrendingUp className="w-6 h-6 text-white" />
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-gradient-to-br from-white to-green-50 dark:from-gray-800 dark:to-green-900/20 rounded-2xl shadow-md hover:shadow-xl transition-all p-6 border border-green-200 dark:border-green-900">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-medium text-green-600 dark:text-green-400 uppercase tracking-wide">
-                    Successful
-                  </p>
-                  <p className="text-3xl font-bold text-green-600 dark:text-green-400 mt-2">
-                    {stats.successCount || 0}
-                  </p>
-                </div>
-                <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg">
-                  <AnimatedCheckIcon className="w-6 h-6" color="#ffffff" />
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-gradient-to-br from-white to-red-50 dark:from-gray-800 dark:to-red-900/20 rounded-2xl shadow-md hover:shadow-xl transition-all p-6 border border-red-200 dark:border-red-900">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-medium text-red-600 dark:text-red-400 uppercase tracking-wide">
-                    Failed
-                  </p>
-                  <p className="text-3xl font-bold text-red-600 dark:text-red-400 mt-2">
-                    {stats.failureCount || 0}
-                  </p>
-                </div>
-                <div className="w-12 h-12 bg-gradient-to-br from-red-500 to-rose-600 rounded-xl flex items-center justify-center shadow-lg">
-                  <XCircle className="w-6 h-6 text-white" />
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-gradient-to-br from-white to-blue-50 dark:from-gray-800 dark:to-blue-900/20 rounded-2xl shadow-md hover:shadow-xl transition-all p-6 border border-blue-200 dark:border-blue-900">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-medium text-blue-600 dark:text-blue-400 uppercase tracking-wide">
-                    Active Users
-                  </p>
-                  <p className="text-3xl font-bold text-blue-600 dark:text-blue-400 mt-2">
-                    {stats.uniqueUsers || 0}
-                  </p>
-                </div>
-                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl flex items-center justify-center shadow-lg">
-                  <Users className="w-6 h-6 text-white" />
-                </div>
-              </div>
-            </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6">
+            <StatCard icon={TrendingUp} label="Activities" value={stats.totalActivities || 0} hint="recorded actions" tone="indigo" />
+            <StatCard icon={CheckCircle2} label="Successful" value={stats.successCount || 0} hint="completed without errors" tone="emerald" />
+            <StatCard icon={XCircle} label="Failed" value={stats.failureCount || 0} hint={stats.failureCount ? 'worth a look' : 'nothing failed'} tone="red" />
+            <StatCard icon={Users} label="Active users" value={stats.uniqueUsers || 0} hint="people who did something" tone="blue" />
           </div>
         )}
 

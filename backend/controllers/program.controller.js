@@ -1,5 +1,6 @@
 const Program = require('../models/Program.model');
 const { invalidateProgramCache } = require('../utils/programValidator');
+const { sendError } = require('../middleware/error.middleware');
 
 // @desc    Get all programs
 // @route   GET /api/programs
@@ -21,12 +22,7 @@ exports.getAllPrograms = async (req, res) => {
       data: programs
     });
   } catch (error) {
-    console.error('Get all programs error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching programs',
-      error: error.message
-    });
+    sendError(res, error, 'Error fetching programs');
   }
 };
 
@@ -49,12 +45,7 @@ exports.getProgramById = async (req, res) => {
       data: program
     });
   } catch (error) {
-    console.error('Get program by ID error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching program',
-      error: error.message
-    });
+    sendError(res, error, 'Error fetching program');
   }
 };
 
@@ -91,12 +82,7 @@ exports.createProgram = async (req, res) => {
       data: program
     });
   } catch (error) {
-    console.error('Create program error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error creating program',
-      error: error.message
-    });
+    sendError(res, error, 'Error creating program');
   }
 };
 
@@ -144,12 +130,7 @@ exports.updateProgram = async (req, res) => {
       data: program
     });
   } catch (error) {
-    console.error('Update program error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error updating program',
-      error: error.message
-    });
+    sendError(res, error, 'Error updating program');
   }
 };
 
@@ -176,11 +157,6 @@ exports.deleteProgram = async (req, res) => {
       message: 'Program deleted successfully'
     });
   } catch (error) {
-    console.error('Delete program error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error deleting program',
-      error: error.message
-    });
+    sendError(res, error, 'Error deleting program');
   }
 };

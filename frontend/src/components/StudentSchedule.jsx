@@ -6,6 +6,7 @@ import {
   Calendar, Clock, MapPin, User, Users, BookOpen, UserPlus, List, Grid3x3,
   AlertTriangle, RefreshCw, Search, X, ExternalLink
 } from 'lucide-react';
+import { ModalShell } from './modal/ModalShell';
 
 // Import background images (same as ClassSpacePage)
 import bg1 from '../assets/images/class-spaces-bg/GOOGLE-BLUES.jpe';
@@ -130,7 +131,7 @@ const layoutDay = (list) => {
 /* ─── Small presentational pieces ───────────────────────────────────────── */
 
 const Skeleton = () => (
-  <div className="space-y-4 animate-pulse" aria-label="Loading your schedule">
+  <div className="space-y-4" aria-label="Loading your schedule">
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
       {[0, 1, 2, 3].map((i) => (
         <div key={i} className="h-20 rounded-xl bg-gray-200 dark:bg-gray-700" />
@@ -156,16 +157,7 @@ const StatTile = ({ icon: Icon, label, value, tone }) => (
 const MeetingModal = ({ meeting, conflictsWith, onClose, onOpenClass }) => {
   const conflicted = conflictsWith.length > 0;
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-    >
-      <div
-        className="w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <ModalShell onClose={onClose} size="sm" label="Class details" guardDirty={false} focusFirstField={false}>
         <div
           className="relative p-5 text-white bg-cover bg-center"
           style={{
@@ -226,8 +218,7 @@ const MeetingModal = ({ meeting, conflictsWith, onClose, onOpenClass }) => {
             Open class
           </button>
         </div>
-      </div>
-    </div>
+    </ModalShell>
   );
 };
 
@@ -274,13 +265,7 @@ const StudentSchedule = () => {
     return () => clearInterval(id);
   }, []);
 
-  // Escape closes the detail dialog
-  useEffect(() => {
-    if (!activeMeeting) return undefined;
-    const onKey = (e) => e.key === 'Escape' && setActiveMeeting(null);
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [activeMeeting]);
+  // Escape closes the detail dialog via ModalShell
 
   const todayName = DAYS[(now.getDay() + 6) % 7];
   const nowHours = now.getHours() + now.getMinutes() / 60;

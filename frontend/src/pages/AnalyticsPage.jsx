@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { activityLogAPI, facultyAPI, studentAPI, subjectAPI, scheduleAPI } from '../services/api';
+import { activityLogAPI, facultyAPI, studentAPI, subjectAPI, scheduleAPI, getErrorMessage } from '../services/api';
 import toast from 'react-hot-toast';
+import StatCard from '../components/StatCard';
 import {
   TrendingUp, Users, BookOpen, Calendar, Activity,
   BarChart3, PieChart, Clock, AlertCircle
@@ -67,7 +68,7 @@ const AnalyticsPage = () => {
       });
     } catch (error) {
       console.error('Fetch analytics error:', error);
-      toast.error('Failed to load analytics');
+      toast.error(getErrorMessage(error, 'Failed to load analytics'));
     } finally {
       setLoading(false);
     }
@@ -127,33 +128,11 @@ const AnalyticsPage = () => {
       </div>
 
       {/* Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-        <StatCard
-          title="Total Students"
-          value={stats.students.total || 0}
-          icon={Users}
-          color="blue"
-          trend={"+12% from last month"}
-        />
-        <StatCard
-          title="Total Faculty"
-          value={stats.faculty.total || 0}
-          icon={Users}
-          color="green"
-          trend={"+5% from last month"}
-        />
-        <StatCard
-          title="Total Subjects"
-          value={stats.subjects.total || 0}
-          icon={BookOpen}
-          color="purple"
-        />
-        <StatCard
-          title="Active Schedules"
-          value={stats.schedules.total || 0}
-          icon={Calendar}
-          color="orange"
-        />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6">
+        <StatCard icon={Users} label="Students" value={(stats.students.total || 0).toLocaleString()} hint="student records" tone="blue" />
+        <StatCard icon={Users} label="Faculty" value={(stats.faculty.total || 0).toLocaleString()} hint="faculty members" tone="emerald" />
+        <StatCard icon={BookOpen} label="Subjects" value={(stats.subjects.total || 0).toLocaleString()} hint="in the catalog" tone="purple" />
+        <StatCard icon={Calendar} label="Schedules" value={(stats.schedules.total || 0).toLocaleString()} hint="active classes" tone="orange" />
       </div>
 
       {/* Activity Statistics */}
@@ -319,34 +298,6 @@ const AnalyticsPage = () => {
             ))}
           </div>
         </div>
-      )}
-    </div>
-  );
-};
-
-// Stat Card Component
-const StatCard = ({ title, value, icon: Icon, color, trend }) => {
-  const colorClasses = {
-    blue: 'bg-blue-100 text-blue-600',
-    green: 'bg-green-100 text-green-600',
-    purple: 'bg-purple-100 text-purple-600',
-    orange: 'bg-orange-100 text-orange-600'
-  };
-
-  return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-      <div className="flex items-center justify-between mb-4">
-        <div className={`p-3 rounded-lg ${colorClasses[color]}`}>
-          <Icon className="w-6 h-6" />
-        </div>
-      </div>
-      <h3 className="text-sm font-medium text-gray-600 mb-1">{title}</h3>
-      <p className="text-3xl font-bold text-gray-900 mb-2">{value.toLocaleString()}</p>
-      {trend && (
-        <p className="text-xs text-green-600 flex items-center gap-1">
-          <TrendingUp className="w-3 h-3" />
-          {trend}
-        </p>
       )}
     </div>
   );

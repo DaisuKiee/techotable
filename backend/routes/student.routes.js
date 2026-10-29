@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
+const { AppError } = require('../middleware/error.middleware');
 const {
   getAllStudents,
   getStudentById,
@@ -20,11 +21,13 @@ const storage = multer.memoryStorage();
 const upload = multer({
   storage,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  // Browsers report CSVs as text/csv, application/vnd.ms-excel, text/plain or
+  // application/octet-stream depending on the OS, so check the extension
   fileFilter: (req, file, cb) => {
-    if (file.mimetype === 'text/csv' || file.mimetype === 'application/vnd.ms-excel') {
+    if (/\.csv$/i.test(file.originalname || '')) {
       cb(null, true);
     } else {
-      cb(new Error('Only CSV files are allowed'));
+      cb(new AppError('Only .csv files can be imported. In Excel use File > Save As > CSV.', 400));
     }
   }
 });

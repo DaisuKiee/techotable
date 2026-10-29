@@ -6,10 +6,55 @@ import {
   Plus, Trash2, AlertCircle, Undo2, Redo2, Search,
   User, ChevronDown, CheckCircle
 } from 'lucide-react';
+import { ModalShell } from './modal/ModalShell';
 import EditScheduleModal from './EditScheduleModal';
 import FacultyPicker from './FacultyPicker';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+// Room types a lab-only subject may use (matches the solver's LAB_ROOM_TYPES)
+const LAB_ROOM_TYPES = new Set(['Laboratory', 'Computer Lab', 'Workshop']);
+
+/**
+ * The room a class dropped for a section should start in.
+ *
+ *  1. The section's home room, when one is set on the section.
+ *  2. Otherwise the room the section's existing classes use most - so it works
+ *     on sections that were scheduled before home rooms existed.
+ *
+ * Lab-only subjects (lab hours, no lecture hours) must go in a lab-type room,
+ * which the solver also enforces; everything else goes in a non-lab room. A
+ * room of the wrong kind is never chosen - if none fits, the room is left for
+ * the manager to pick.
+ *
+ * Pure (no component state) so it can be tested directly.
+ *
+ * @param {object}   args.subject   the subject being placed
+ * @param {object}   args.section   the selected section (may carry `room`)
+ * @param {object[]} args.rooms     all rooms
+ * @param {object[]} args.schedules this section's saved classes
+ * @returns {{roomId: string|null, room: object|null}}
+ */
+export const pickDefaultRoom = ({ subject, section, rooms = [], schedules = [] }) => {
+  const roomById = (id) => rooms.find((r) => String(r._id) === String(id)) || null;
+  const isLab = (r) => !!r && LAB_ROOM_TYPES.has(r.roomType);
+  const needsLab = (subject?.labHours || 0) > 0 && !((subject?.lectureHours || 0) > 0);
+  const fits = (r) => (needsLab ? isLab(r) : !isLab(r));
+
+  const home = section?.room ? roomById(section.room) : null;
+  if (home && fits(home)) return { roomId: String(home._id), room: home };
+
+  const counts = new Map();
+  for (const s of schedules) {
+    const r = roomById(s.room);
+    if (r && fits(r)) counts.set(String(r._id), (counts.get(String(r._id)) || 0) + 1);
+  }
+  let best = null;
+  for (const [id, n] of counts) if (!best || n > best[1]) best = [id, n];
+  if (best) return { roomId: best[0], room: roomById(best[0]) };
+
+  return { roomId: null, room: null };
+};
 
 /**
  * Fixed height of one hour row, in pixels.
@@ -743,12 +788,14 @@ const ScheduleBuilder = ({
       if (!proceed) return;
     }
 
+    const { roomId: defaultRoomId, room: defaultRoom } = defaultRoomFor(draggedSubject);
+
     const newSchedule = {
       tempId: nextTempId(),
       subject: draggedSubject._id,
       subjectData: draggedSubject,
       faculty: assignedFacultyId,
-      room: null,
+      room: defaultRoomId,
       program: filters.program,
       yearLevel: selectedSection?.yearLevel || filters.yearLevel,
       section: selectedSection?.sectionLetter || 'A',
@@ -766,12 +813,17 @@ const ScheduleBuilder = ({
     const next = [...pendingSchedules, newSchedule];
     setPendingSchedules(next);
     pushHistory(next);
+    const roomLabel = defaultRoom ? (defaultRoom.roomCode || defaultRoom.roomNumber) : null;
+    const missing = [!assignedFacultyId && 'faculty', !defaultRoomId && 'room'].filter(Boolean);
     toast.success(
-      assignedFacultyId
-        ? `Added ${draggedSubject.subjectCode} (${selectedHours}h) — assign room`
-        : `Added ${draggedSubject.subjectCode} (${selectedHours}h) — assign faculty & room`
+      `Added ${draggedSubject.subjectCode} (${selectedHours}h)` +
+        (roomLabel ? ` in ${roomLabel}` : '') +
+        (missing.length ? ` — assign ${missing.join(' & ')}` : ' — ready to save')
     );
   };
+
+  const defaultRoomFor = (subject) =>
+    pickDefaultRoom({ subject, section: selectedSection, rooms, schedules: savedSchedules });
 
   const removePending = (tempId) => {
     // Compare as strings: temp ids are now strings, and dataTransfer values
@@ -1110,7 +1162,7 @@ const ScheduleBuilder = ({
               </li>
               <li className="flex items-center gap-1">
                 <span className="w-4 h-4 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-[10px] font-bold flex items-center justify-center">4</span>
-                Click the card to assign a room
+                Check the room (pre-filled from the section)
               </li>
               <li className="flex items-center gap-1">
                 <span className="w-4 h-4 rounded-full bg-green-600 text-white text-[10px] font-bold flex items-center justify-center">5</span>
@@ -1636,8 +1688,16 @@ const ScheduleBuilder = ({
                                         : <span className="italic">Needs faculty</span>}
                                     </p>
                                     <p className={`${color.ink} text-[9px] leading-tight truncate opacity-60`}>
+                                      {/* roomCode first: these rooms have no
+                                          roomNumber, so the old lookup fell
+                                          through to printing the raw id. */}
                                       {ps.room
-                                        ? (typeof ps.room === 'object' ? ps.room?.roomNumber : rooms.find(r => r._id === ps.room)?.roomNumber || ps.room)
+                                        ? (() => {
+                                            const r = typeof ps.room === 'object'
+                                              ? ps.room
+                                              : rooms.find(x => String(x._id) === String(ps.room));
+                                            return r?.roomCode || r?.roomNumber || 'Room set';
+                                          })()
                                         : 'Needs room'}
                                     </p>
 
@@ -1775,16 +1835,15 @@ const ScheduleBuilder = ({
         const chosen = subjectFaculty[pickerSubject._id] || '';
 
         return (
-          <div
-            className="fixed inset-0 z-[100001] flex items-center justify-center p-4"
-            role="dialog"
-            aria-modal="true"
-            aria-label={`Assign faculty to ${code}`}
+          // Picking is a choice, not a form: no "discard changes?" for its search box
+          <ModalShell
+            onClose={() => setPickerSubject(null)}
+            size="md"
+            label={`Assign faculty to ${code}`}
+            guardDirty={false}
+            panelClassName="bg-gray-50 dark:bg-gray-900"
           >
-            <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" onClick={() => setPickerSubject(null)} />
-
-            <div className="relative flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-gray-50 shadow-2xl dark:bg-gray-900">
-              <div className={`${color.bg} flex-shrink-0 px-6 pb-5 pt-6`}>
+              <div className={`${color.bg} flex-shrink-0 px-6 pb-5 pt-6 sm:rounded-t-2xl`}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <p className="mb-1 text-xs font-medium text-white/70">Assign faculty before scheduling</p>
@@ -1855,8 +1914,7 @@ const ScheduleBuilder = ({
                   Done
                 </button>
               </div>
-            </div>
-          </div>
+          </ModalShell>
         );
       })()}
 

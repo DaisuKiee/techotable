@@ -5,10 +5,15 @@ import {
   Sun, Moon, Check
 } from 'lucide-react';
 import { usePrograms } from '../hooks/usePrograms';
+import { roomAPI } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 const SectionModal = ({ section, faculty, onClose, onSubmit }) => {
+  const { user } = useAuth();
+  // The server rejects other programs for a program manager, so don't offer them
+  const lockedProgram = user?.role === 'program_manager' ? user?.program || '' : '';
   const [formData, setFormData] = useState({
-    program: 'BSIT',
+    program: lockedProgram || 'BSIT',
     yearLevel: 1,
     sectionLetter: 'A',
     shift: 'Day',
@@ -16,8 +21,10 @@ const SectionModal = ({ section, faculty, onClose, onSubmit }) => {
     semester: 1,
     maxStudents: 40,
     adviser: '',
+    room: '',
     description: ''
   });
+  const [rooms, setRooms] = useState([]);
   
   const [errors, setErrors] = useState({});
 
@@ -29,7 +36,7 @@ const SectionModal = ({ section, faculty, onClose, onSubmit }) => {
   useEffect(() => {
     if (section) {
       setFormData({
-        program: section.program || 'BSIT',
+        program: section.program || lockedProgram || 'BSIT',
         yearLevel: section.yearLevel || 1,
         sectionLetter: section.sectionLetter || 'A',
         shift: section.shift || 'Day',
@@ -37,10 +44,18 @@ const SectionModal = ({ section, faculty, onClose, onSubmit }) => {
         semester: section.semester || 1,
         maxStudents: section.maxStudents || 40,
         adviser: section.adviser?._id || section.adviser || '',
+        room: section.room || '',
         description: section.description || ''
       });
     }
   }, [section]);
+
+  // Rooms for the home-room picker. Loaded here so callers need not pass them.
+  useEffect(() => {
+    roomAPI.getAll()
+      .then((res) => setRooms((res.data.data || []).filter((rm) => rm.isActive !== false)))
+      .catch((err) => console.error('Failed to load rooms:', err));
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -56,25 +71,6 @@ const SectionModal = ({ section, faculty, onClose, onSubmit }) => {
     }
   };
 
-  const footerContent = (
-    <div className="flex gap-3">
-      <button
-        type="button"
-        onClick={onClose}
-        className="flex-1 px-5 py-2.5 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all font-semibold"
-      >
-        Cancel
-      </button>
-      <button
-        type="submit"
-        form="section-form"
-        className="flex-1 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all flex items-center justify-center gap-2 font-semibold shadow-lg hover:shadow-xl"
-      >
-        <Check className="w-5 h-5" />
-        {section ? 'Update Section' : 'Create Section'}
-      </button>
-    </div>
-  );
 
   return (
     <BaseModal
@@ -85,9 +81,10 @@ const SectionModal = ({ section, faculty, onClose, onSubmit }) => {
       icon={GraduationCap}
       size="lg"
       formId="section-form"
-      footerContent={footerContent}
+      submitText={section ? 'Update Section' : 'Create Section'}
+      submitIcon={Check}
     >
-      <form onSubmit={handleSubmit} id="section-form" className="space-y-6">
+      <form onSubmit={handleSubmit} id="section-form" className="space-y-6 p-5 sm:p-6">
         {/* Section Code Preview */}
         <div className="bg-blue-600 text-white rounded-xl p-4">
           <div className="text-sm font-medium opacity-90 mb-1">Section Code Preview</div>
@@ -111,16 +108,22 @@ const SectionModal = ({ section, faculty, onClose, onSubmit }) => {
               <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                 Program <span className="text-red-500">*</span>
               </label>
-              <select
-                value={formData.program}
-                onChange={(e) => setFormData({ ...formData, program: e.target.value })}
-                className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
-                required
-              >
-                {programs.map(prog => (
-                  <option key={prog} value={prog}>{prog}</option>
-                ))}
-              </select>
+              {lockedProgram ? (
+                <div className="w-full px-4 py-2.5 border-2 border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700/60 text-gray-900 dark:text-white font-semibold" title="You manage this program">
+                  {lockedProgram}
+                </div>
+              ) : (
+                <select
+                  value={formData.program}
+                  onChange={(e) => setFormData({ ...formData, program: e.target.value })}
+                  className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
+                  required
+                >
+                  {programs.map(prog => (
+                    <option key={prog} value={prog}>{prog}</option>
+                  ))}
+                </select>
+              )}
             </div>
 
             {/* Year Level */}
@@ -290,6 +293,30 @@ const SectionModal = ({ section, faculty, onClose, onSubmit }) => {
                   <span>{errors.adviser}</span>
                 </p>
               )}
+            </div>
+
+            {/* Home room */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                Home Room <span className="text-gray-400 font-normal text-xs">(Optional)</span>
+              </label>
+              <select
+                value={formData.room}
+                onChange={(e) => setFormData({ ...formData, room: e.target.value })}
+                className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
+              >
+                <option value="">No home room</option>
+                {rooms.map((rm) => (
+                  <option key={rm._id} value={rm._id}>
+                    {rm.roomCode || rm.roomNumber}
+                    {rm.roomName ? ` — ${rm.roomName}` : ''}
+                    {rm.capacity ? ` (cap. ${rm.capacity})` : ''}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                Classes dropped for this section in the Schedule Builder start in this room.
+              </p>
             </div>
 
             {/* Description */}

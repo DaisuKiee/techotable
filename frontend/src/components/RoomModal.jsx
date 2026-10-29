@@ -153,35 +153,10 @@ const RoomModal = ({ mode, room, onClose }) => {
       subtitle={mode === 'create' ? 'Create a new room or facility' : 'Update room information'}
       icon={DoorOpen}
       size="large"
-      footerContent={
-        <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={() => onClose(false)}
-            className="flex-1 px-5 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 font-medium transition-all"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            form="room-form"
-            disabled={loading}
-            className="flex-1 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
-            {loading ? (
-              <>
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                <span>{mode === 'create' ? 'Creating...' : 'Updating...'}</span>
-              </>
-            ) : (
-              <>
-                <DoorOpen className="w-5 h-5" />
-                <span>{mode === 'create' ? 'Create Room' : 'Update Room'}</span>
-              </>
-            )}
-          </button>
-        </div>
-      }
+      formId="room-form"
+      loading={loading}
+      submitText={mode === 'create' ? 'Create Room' : 'Update Room'}
+      submitIcon={DoorOpen}
     >
       <div className="bg-gray-50 dark:bg-gray-900">
           <form onSubmit={handleSubmit} className="p-6" id="room-form">

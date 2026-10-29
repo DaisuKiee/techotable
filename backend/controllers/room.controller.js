@@ -1,5 +1,6 @@
 const Room = require('../models/Room.model');
 const { validationResult } = require('express-validator');
+const { sendError, sendValidationErrors } = require('../middleware/error.middleware');
 
 // @desc    Get all rooms
 // @route   GET /api/rooms
@@ -63,12 +64,7 @@ exports.getAllRooms = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get all rooms error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching rooms',
-      error: error.message
-    });
+    sendError(res, error, 'Error fetching rooms');
   }
 };
 
@@ -92,12 +88,7 @@ exports.getRoomById = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get room by ID error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching room',
-      error: error.message
-    });
+    sendError(res, error, 'Error fetching room');
   }
 };
 
@@ -108,10 +99,7 @@ exports.createRoom = async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        errors: errors.array()
-      });
+      return sendValidationErrors(res, errors);
     }
 
     const {
@@ -164,12 +152,7 @@ exports.createRoom = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Create room error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error creating room',
-      error: error.message
-    });
+    sendError(res, error, 'Error creating room');
   }
 };
 
@@ -243,12 +226,7 @@ exports.updateRoom = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Update room error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error updating room',
-      error: error.message
-    });
+    sendError(res, error, 'Error updating room');
   }
 };
 
@@ -275,12 +253,7 @@ exports.deleteRoom = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Delete room error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error deleting room',
-      error: error.message
-    });
+    sendError(res, error, 'Error deleting room');
   }
 };
 
@@ -303,12 +276,7 @@ exports.getRoomsByType = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get rooms by type error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching rooms',
-      error: error.message
-    });
+    sendError(res, error, 'Error fetching rooms');
   }
 };
 
@@ -331,12 +299,7 @@ exports.getAvailableRooms = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get available rooms error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching available rooms',
-      error: error.message
-    });
+    sendError(res, error, 'Error fetching available rooms');
   }
 };
 
@@ -391,11 +354,6 @@ exports.getRoomStats = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get room stats error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching room statistics',
-      error: error.message
-    });
+    sendError(res, error, 'Error fetching room statistics');
   }
 };

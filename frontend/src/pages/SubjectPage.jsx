@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
-import { subjectAPI, classSpaceAPI } from '../services/api';
+import { subjectAPI, classSpaceAPI, getErrorMessage } from '../services/api';
 import useCachedData from '../hooks/useCachedData';
 import toast from 'react-hot-toast';
 import { 
@@ -18,6 +18,7 @@ import AnimatedLayers from '../components/AnimatedLayers';
 import AnimatedTrendingUp from '../components/AnimatedTrendingUp';
 import { useAuth } from '../context/AuthContext';
 import { usePrograms } from '../hooks/usePrograms';
+import StatCard from '../components/StatCard';
 
 const YEAR_LEVELS = [1, 2, 3, 4];
 const SEMESTERS = [1, 2];
@@ -73,7 +74,7 @@ const SubjectPage = () => {
       },
       onError: (err) => {
         console.error('Failed to load subjects:', err);
-        toast.error('Failed to load subjects');
+        toast.error(getErrorMessage(err, 'Failed to load subjects'));
       }
     }
   );
@@ -268,43 +269,13 @@ const SubjectPage = () => {
 
         {/* Statistics Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
-          <div className="bg-indigo-600 text-white rounded-xl p-4 shadow-md">
-            <div className="flex items-center justify-between mb-2">
-              <AnimatedBookOpen className="w-5 h-5 opacity-80" />
-              <span className="text-xs font-medium opacity-80">TOTAL</span>
-            </div>
-            <div className="text-2xl md:text-3xl font-bold">{stats.total}</div>
-            <div className="text-xs opacity-80 mt-1">Subjects</div>
-          </div>
+          <StatCard icon={AnimatedBookOpen} label="Total" value={stats.total} hint="Subjects" tone="indigo" />
 
-          <div className="bg-green-600 text-white rounded-xl p-4 shadow-md">
-            <div className="flex items-center justify-between mb-2">
-              <AnimatedUserCheck className="w-5 h-5 opacity-80" />
-              <span className="text-xs font-medium opacity-80">ACTIVE</span>
-            </div>
-            <div className="text-2xl md:text-3xl font-bold">{stats.active}</div>
-            <div className="text-xs opacity-80 mt-1">Available</div>
-          </div>
+          <StatCard icon={AnimatedUserCheck} label="Active" value={stats.active} hint="Available" tone="emerald" />
 
-          <div className="bg-blue-600 text-white rounded-xl p-4 shadow-md">
-            <div className="flex items-center justify-between mb-2">
-              <AnimatedLayers className="w-5 h-5 opacity-80" />
-              <span className="text-xs font-medium opacity-80">PROGRAMS</span>
-            </div>
-            <div className="text-2xl md:text-3xl font-bold">{PROGRAMS.length}</div>
-            <div className="text-xs opacity-80 mt-1">Total Programs</div>
-          </div>
+          <StatCard icon={AnimatedLayers} label="Programs" value={PROGRAMS.length} hint="Total Programs" tone="blue" />
 
-          <div className="bg-orange-600 text-white rounded-xl p-4 shadow-md">
-            <div className="flex items-center justify-between mb-2">
-              <AnimatedTrendingUp className="w-5 h-5 opacity-80" />
-              <span className="text-xs font-medium opacity-80">AVERAGE</span>
-            </div>
-            <div className="text-2xl md:text-3xl font-bold">
-              {stats.total > 0 && PROGRAMS.length > 0 ? Math.round(stats.total / PROGRAMS.length) : 0}
-            </div>
-            <div className="text-xs opacity-80 mt-1">Per Program</div>
-          </div>
+          <StatCard icon={AnimatedTrendingUp} label="Average" value={stats.total > 0 && PROGRAMS.length > 0 ? Math.round(stats.total / PROGRAMS.length) : 0} hint="Per Program" tone="orange" />
         </div>
 
         {/* Search and Filters */}
@@ -324,23 +295,19 @@ const SubjectPage = () => {
 
             {/* Filters */}
             <div className="flex flex-wrap gap-2">
-              <select
-                value={filters.program}
-                onChange={(e) => setFilters({ ...filters, program: e.target.value })}
-                disabled={user?.role === 'program_manager'}
-                className="px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm transition-all disabled:bg-gray-100 dark:disabled:bg-gray-600"
-              >
-                {user?.role === 'program_manager' ? (
-                  <option value={user.program}>{user.program}</option>
-                ) : (
-                  <>
-                    <option value="">All Programs</option>
-                    {PROGRAMS.map(prog => (
-                      <option key={prog} value={prog}>{prog}</option>
-                    ))}
-                  </>
-                )}
-              </select>
+              {user?.role !== 'program_manager' && (
+                <select
+                  value={filters.program}
+                  onChange={(e) => setFilters({ ...filters, program: e.target.value })}
+                  aria-label="Program"
+                  className="px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm transition-all"
+                >
+                  <option value="">All Programs</option>
+                  {PROGRAMS.map(prog => (
+                    <option key={prog} value={prog}>{prog}</option>
+                  ))}
+                </select>
+              )}
 
               <select
                 value={filters.yearLevel}

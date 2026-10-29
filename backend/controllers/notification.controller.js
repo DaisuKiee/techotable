@@ -1,4 +1,5 @@
 const Notification = require('../models/Notification.model');
+const { sendError } = require('../middleware/error.middleware');
 
 // @desc    Get user notifications
 // @route   GET /api/notifications
@@ -28,12 +29,7 @@ exports.getNotifications = async (req, res) => {
       unreadCount
     });
   } catch (error) {
-    console.error('Get notifications error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching notifications',
-      error: error.message
-    });
+    sendError(res, error, 'Error fetching notifications');
   }
 };
 
@@ -52,12 +48,7 @@ exports.getUnreadCount = async (req, res) => {
       count
     });
   } catch (error) {
-    console.error('Get unread count error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching unread count',
-      error: error.message
-    });
+    sendError(res, error, 'Error fetching unread count');
   }
 };
 
@@ -87,12 +78,7 @@ exports.markAsRead = async (req, res) => {
       data: notification
     });
   } catch (error) {
-    console.error('Mark as read error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error marking notification as read',
-      error: error.message
-    });
+    sendError(res, error, 'Error marking notification as read');
   }
 };
 
@@ -111,12 +97,7 @@ exports.markAllAsRead = async (req, res) => {
       message: 'All notifications marked as read'
     });
   } catch (error) {
-    console.error('Mark all as read error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error marking notifications as read',
-      error: error.message
-    });
+    sendError(res, error, 'Error marking notifications as read');
   }
 };
 
@@ -142,11 +123,6 @@ exports.deleteNotification = async (req, res) => {
       message: 'Notification deleted'
     });
   } catch (error) {
-    console.error('Delete notification error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error deleting notification',
-      error: error.message
-    });
+    sendError(res, error, 'Error deleting notification');
   }
 };

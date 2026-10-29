@@ -1,5 +1,6 @@
 const Section = require('../models/Section.model');
 const ClassSpace = require('../models/ClassSpace.model');
+const { sendError } = require('../middleware/error.middleware');
 
 // @desc    Get all sections
 // @route   GET /api/sections
@@ -20,7 +21,9 @@ exports.getAllSections = async (req, res) => {
     // This is MUCH faster for dropdowns and lists
     if (lightweight === 'true') {
       const sections = await Section.find(query)
-        .select('_id sectionCode program yearLevel sectionLetter shift academicYear semester enrollmentCode isActive')
+        // `room` is needed by the schedule builder to pre-fill a section's
+        // home room on dropped classes; it's one short id, so it stays light.
+        .select('_id sectionCode program yearLevel sectionLetter shift academicYear semester enrollmentCode isActive room')
         .sort({ program: 1, yearLevel: 1, sectionLetter: 1 })
         .lean(); // Use lean() for faster queries
 
@@ -49,12 +52,7 @@ exports.getAllSections = async (req, res) => {
       data: sections
     });
   } catch (error) {
-    console.error('Get sections error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching sections',
-      error: error.message
-    });
+    sendError(res, error, 'Error fetching sections');
   }
 };
 
@@ -85,12 +83,7 @@ exports.getSectionById = async (req, res) => {
       data: section
     });
   } catch (error) {
-    console.error('Get section error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching section',
-      error: error.message
-    });
+    sendError(res, error, 'Error fetching section');
   }
 };
 
@@ -99,7 +92,7 @@ exports.getSectionById = async (req, res) => {
 // @access  Private (Admin, Scheduling Officer)
 exports.createSection = async (req, res) => {
   try {
-    const { program, yearLevel, sectionLetter, shift, academicYear, semester, maxStudents, adviser, description } = req.body;
+    const { program, yearLevel, sectionLetter, shift, academicYear, semester, maxStudents, adviser, room, description } = req.body;
 
     // Validate that faculty can only have one advisory role
     if (adviser && adviser !== '') {
@@ -178,18 +171,13 @@ exports.createSection = async (req, res) => {
       data: populatedSection
     });
   } catch (error) {
-    console.error('Create section error:', error);
     console.error('Error stack:', error.stack);
     console.error('Error details:', {
       message: error.message,
       name: error.name,
       code: error.code
     });
-    res.status(500).json({
-      success: false,
-      message: 'Error creating section',
-      error: error.message
-    });
+    sendError(res, error, 'Error creating section');
   }
 };
 
@@ -207,7 +195,7 @@ exports.updateSection = async (req, res) => {
       });
     }
 
-    const { program, yearLevel, sectionLetter, shift, academicYear, semester, maxStudents, adviser, description, isActive, currentStudents } = req.body;
+    const { program, yearLevel, sectionLetter, shift, academicYear, semester, maxStudents, adviser, room, description, isActive, currentStudents } = req.body;
 
     // Validate that faculty can only have one advisory role
     // Only check if adviser is being changed and is not empty
@@ -241,6 +229,7 @@ exports.updateSection = async (req, res) => {
     if (semester) section.semester = semester;
     if (maxStudents !== undefined) section.maxStudents = maxStudents;
     if (adviser !== undefined) section.adviser = adviser && adviser !== '' ? adviser : null;
+    if (room !== undefined) section.room = room && room !== '' ? room : null;
     if (description !== undefined) section.description = description;
     if (isActive !== undefined) section.isActive = isActive;
     if (currentStudents !== undefined) section.currentStudents = currentStudents;
@@ -268,12 +257,7 @@ exports.updateSection = async (req, res) => {
       data: updatedSection
     });
   } catch (error) {
-    console.error('Update section error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error updating section',
-      error: error.message
-    });
+    sendError(res, error, 'Error updating section');
   }
 };
 
@@ -298,12 +282,7 @@ exports.deleteSection = async (req, res) => {
       message: 'Section deleted successfully'
     });
   } catch (error) {
-    console.error('Delete section error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error deleting section',
-      error: error.message
-    });
+    sendError(res, error, 'Error deleting section');
   }
 };
 
@@ -342,12 +321,7 @@ exports.getSectionsByProgramAndYear = async (req, res) => {
       data: sections
     });
   } catch (error) {
-    console.error('Get sections by program and year error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching sections',
-      error: error.message
-    });
+    sendError(res, error, 'Error fetching sections');
   }
 };
 
@@ -384,12 +358,7 @@ exports.getSectionStats = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Get section stats error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching section statistics',
-      error: error.message
-    });
+    sendError(res, error, 'Error fetching section statistics');
   }
 };
 
@@ -441,11 +410,6 @@ exports.regenerateEnrollmentCode = async (req, res) => {
       data: updatedSection
     });
   } catch (error) {
-    console.error('Regenerate enrollment code error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error regenerating enrollment code',
-      error: error.message
-    });
+    sendError(res, error, 'Error regenerating enrollment code');
   }
 };

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Layout from '../components/Layout';
 import SectionModal from '../components/SectionModal';
 import ConfirmDialog from '../components/ConfirmDialog';
-import { sectionAPI, facultyAPI, studentAPI } from '../services/api';
+import { sectionAPI, facultyAPI, studentAPI, getErrorMessage } from '../services/api';
 import useCachedData from '../hooks/useCachedData';
 import toast from 'react-hot-toast';
 import {
@@ -11,7 +11,10 @@ import {
   Calendar, Grid3x3, List, RefreshCw, Copy, AlertTriangle,
   TrendingUp, UserCheck
 } from 'lucide-react';
+import { ModalShell } from '../components/modal/ModalShell';
 import { usePrograms } from '../hooks/usePrograms';
+import StatCard from '../components/StatCard';
+import { useAuth } from '../context/AuthContext';
 
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
 
@@ -168,12 +171,7 @@ const SectionStudentsPanel = ({ section, onClose, onEdit, onCopyCode }) => {
     load();
   }, [load]);
 
-  // Escape closes the panel
-  useEffect(() => {
-    const onKey = (e) => e.key === 'Escape' && onClose();
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  // Escape, focus and scroll lock come from ModalShell
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -196,10 +194,8 @@ const SectionStudentsPanel = ({ section, onClose, onEdit, onCopyCode }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-40 flex justify-end" role="dialog" aria-modal="true">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-
-      <aside className="relative w-full sm:max-w-md h-full bg-white dark:bg-gray-800 shadow-2xl flex flex-col">
+    // Read-only roster: its search box shouldn't trigger "discard changes?"
+    <ModalShell variant="drawer" size="sm" onClose={onClose} label={`Section ${section.sectionCode}`} guardDirty={false} focusFirstField={false}>
         {/* Header */}
         <div className="p-5 bg-gradient-to-br from-indigo-600 to-blue-600 text-white">
           <div className="flex items-start justify-between gap-3">
@@ -393,8 +389,7 @@ const SectionStudentsPanel = ({ section, onClose, onEdit, onCopyCode }) => {
             Close
           </button>
         </div>
-      </aside>
-    </div>
+    </ModalShell>
   );
 };
 
@@ -404,6 +399,10 @@ const SectionPage = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingSection, setEditingSection] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const { user } = useAuth();
+  // Program managers only ever work in their own program: the server already
+  // limits them to it, so there's nothing to pick
+  const lockedProgram = user?.role === 'program_manager' ? user?.program || '' : '';
   const [filterProgram, setFilterProgram] = useState('');
   const [filterShift, setFilterShift] = useState('');
   const [filterYear, setFilterYear] = useState('');
@@ -439,7 +438,7 @@ const SectionPage = () => {
       enabled: true,
       onError: (err) => {
         console.error('Failed to load sections:', err);
-        toast.error('Failed to load sections');
+        toast.error(getErrorMessage(err, 'Failed to load sections'));
       }
     }
   );
@@ -604,7 +603,9 @@ const SectionPage = () => {
         (section.program || '').toLowerCase().includes(q) ||
         adviserNameOf(section).toLowerCase().includes(q) ||
         (section.enrollmentCode || '').toLowerCase().includes(q);
-      const matchesProgram = !filterProgram || section.program === filterProgram;
+      const matchesProgram = lockedProgram
+        ? section.program === lockedProgram
+        : !filterProgram || section.program === filterProgram;
       const matchesShift = !filterShift || section.shift === filterShift;
       const matchesYear = !filterYear || section.yearLevel === parseInt(filterYear, 10);
 
@@ -625,7 +626,7 @@ const SectionPage = () => {
           return (a.sectionCode || '').localeCompare(b.sectionCode || '');
       }
     });
-  }, [sections, searchTerm, filterProgram, filterShift, filterYear, sortKey]);
+  }, [sections, searchTerm, filterProgram, lockedProgram, filterShift, filterYear, sortKey]);
 
   // Calculate statistics
   const stats = useMemo(() => {
@@ -694,68 +695,15 @@ const SectionPage = () => {
 
         {/* Statistics Cards. Day and Night double as quick shift filters. */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4 mb-6">
-          <button
-            onClick={clearFilters}
-            title="Show all sections"
-            className="text-left bg-indigo-600 text-white rounded-xl p-4 shadow-md hover:shadow-lg transition-shadow"
-          >
-            <div className="flex items-center justify-between mb-2">
-              <BookOpen className="w-5 h-5 opacity-80" />
-              <span className="text-xs font-medium opacity-80">TOTAL</span>
-            </div>
-            <div className="text-2xl md:text-3xl font-bold">{stats.total}</div>
-            <div className="text-xs opacity-80 mt-1">Sections</div>
-          </button>
+          <StatCard icon={BookOpen} label="Total" value={stats.total} hint="Sections" tone="indigo" onClick={clearFilters} title="Show all sections" />
 
-          <button
-            onClick={() => toggleShift('Day')}
-            aria-pressed={filterShift === 'Day'}
-            title="Filter Day shift"
-            className={`text-left bg-amber-600 text-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all ${
-              filterShift === 'Day' ? 'ring-4 ring-yellow-300 dark:ring-yellow-700' : ''
-            }`}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <Sun className="w-5 h-5 opacity-80" />
-              <span className="text-xs font-medium opacity-80">DAY</span>
-            </div>
-            <div className="text-2xl md:text-3xl font-bold">{stats.day}</div>
-            <div className="text-xs opacity-80 mt-1">Day Shift</div>
-          </button>
+          <StatCard icon={Sun} label="Day" value={stats.day} hint="Day shift · click to filter" tone="amber" active={filterShift === 'Day'} onClick={() => toggleShift('Day')} title="Filter Day shift" />
 
-          <button
-            onClick={() => toggleShift('Night')}
-            aria-pressed={filterShift === 'Night'}
-            title="Filter Night shift"
-            className={`text-left bg-blue-600 text-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all ${
-              filterShift === 'Night' ? 'ring-4 ring-blue-300 dark:ring-blue-700' : ''
-            }`}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <Moon className="w-5 h-5 opacity-80" />
-              <span className="text-xs font-medium opacity-80">NIGHT</span>
-            </div>
-            <div className="text-2xl md:text-3xl font-bold">{stats.night}</div>
-            <div className="text-xs opacity-80 mt-1">Night Shift</div>
-          </button>
+          <StatCard icon={Moon} label="Night" value={stats.night} hint="Night shift · click to filter" tone="blue" active={filterShift === 'Night'} onClick={() => toggleShift('Night')} title="Filter Night shift" />
 
-          <div className="bg-green-600 text-white rounded-xl p-4 shadow-md">
-            <div className="flex items-center justify-between mb-2">
-              <Users className="w-5 h-5 opacity-80" />
-              <span className="text-xs font-medium opacity-80">STUDENTS</span>
-            </div>
-            <div className="text-2xl md:text-3xl font-bold">{stats.totalStudents}</div>
-            <div className="text-xs opacity-80 mt-1">Total Enrolled</div>
-          </div>
+          <StatCard icon={Users} label="Students" value={stats.totalStudents} hint="Total Enrolled" tone="emerald" />
 
-          <div className="bg-orange-600 text-white rounded-xl p-4 shadow-md col-span-2 md:col-span-1">
-            <div className="flex items-center justify-between mb-2">
-              <TrendingUp className="w-5 h-5 opacity-80" />
-              <span className="text-xs font-medium opacity-80">CAPACITY</span>
-            </div>
-            <div className="text-2xl md:text-3xl font-bold">{stats.averageCapacity}%</div>
-            <div className="text-xs opacity-80 mt-1">Avg. Filled</div>
-          </div>
+          <StatCard icon={TrendingUp} label="Capacity" value={<>{stats.averageCapacity}%</>} hint="Avg. Filled" tone="orange" className="col-span-2 md:col-span-1" />
         </div>
 
         {/* Search and Filters */}
@@ -784,17 +732,20 @@ const SectionPage = () => {
 
             {/* Filters */}
             <div className="flex flex-wrap gap-2">
-              <select
-                value={filterProgram}
-                onChange={(e) => setFilterProgram(e.target.value)}
-                title="Program"
-                className={selectClass}
-              >
-                <option value="">All Programs</option>
-                {programs.map(prog => (
-                  <option key={prog} value={prog}>{prog}</option>
-                ))}
-              </select>
+              {!lockedProgram && (
+                <select
+                  value={filterProgram}
+                  onChange={(e) => setFilterProgram(e.target.value)}
+                  title="Program"
+                  aria-label="Program"
+                  className={selectClass}
+                >
+                  <option value="">All Programs</option>
+                  {programs.map(prog => (
+                    <option key={prog} value={prog}>{prog}</option>
+                  ))}
+                </select>
+              )}
 
               <select
                 value={filterYear}

@@ -1,5 +1,6 @@
 const Subject = require('../models/Subject.model');
 const { validationResult } = require('express-validator');
+const { sendError, sendValidationErrors } = require('../middleware/error.middleware');
 
 // @desc    Get all subjects
 // @route   GET /api/subjects
@@ -51,12 +52,7 @@ exports.getAllSubjects = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get all subjects error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching subjects',
-      error: error.message
-    });
+    sendError(res, error, 'Error fetching subjects');
   }
 };
 
@@ -81,12 +77,7 @@ exports.getSubjectById = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get subject by ID error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching subject',
-      error: error.message
-    });
+    sendError(res, error, 'Error fetching subject');
   }
 };
 
@@ -98,10 +89,7 @@ exports.createSubject = async (req, res) => {
     // Validate request
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        errors: errors.array()
-      });
+      return sendValidationErrors(res, errors);
     }
 
     let {
@@ -192,12 +180,7 @@ exports.createSubject = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Create subject error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error creating subject',
-      error: error.message
-    });
+    sendError(res, error, 'Error creating subject');
   }
 };
 
@@ -290,12 +273,7 @@ exports.updateSubject = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Update subject error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error updating subject',
-      error: error.message
-    });
+    sendError(res, error, 'Error updating subject');
   }
 };
 
@@ -323,12 +301,7 @@ exports.deleteSubject = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Delete subject error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error deleting subject',
-      error: error.message
-    });
+    sendError(res, error, 'Error deleting subject');
   }
 };
 
@@ -362,12 +335,7 @@ exports.getSubjectsByProgramAndYear = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get subjects by program and year error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching subjects',
-      error: error.message
-    });
+    sendError(res, error, 'Error fetching subjects');
   }
 };
 
@@ -422,12 +390,7 @@ exports.getSubjectStats = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get subject stats error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching subject statistics',
-      error: error.message
-    });
+    sendError(res, error, 'Error fetching subject statistics');
   }
 };
 
@@ -498,12 +461,7 @@ exports.bulkImportSubjects = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Bulk import error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error performing bulk import',
-      error: error.message
-    });
+    sendError(res, error, 'Error performing bulk import');
   }
 };
 
@@ -528,12 +486,7 @@ exports.getSubjectsByQualification = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get subjects by qualification error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching subjects',
-      error: error.message
-    });
+    sendError(res, error, 'Error fetching subjects');
   }
 };
 
@@ -548,12 +501,7 @@ exports.generateSubjectCode = async (req, res) => {
       data: { subjectCode: code }
     });
   } catch (error) {
-    console.error('Generate subject code error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error generating subject code',
-      error: error.message
-    });
+    sendError(res, error, 'Error generating subject code');
   }
 };
 
@@ -586,11 +534,6 @@ exports.regenerateSubjectCode = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Regenerate subject enrollment code error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error regenerating subject enrollment code',
-      error: error.message
-    });
+    sendError(res, error, 'Error regenerating subject enrollment code');
   }
 };

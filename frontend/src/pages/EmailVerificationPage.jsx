@@ -1,146 +1,150 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { XCircle, Loader } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { MailX, MailCheck, Mail, Loader2, Calendar, Bell, Users } from 'lucide-react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import ctuLogo from '../assets/images/logos/ctulogo.png';
-import AnimatedCheckIcon from '../components/AnimatedCheckIcon';
+import {
+  AuthLayout, AuthField, AuthStatus, FormAlert, SubmitButton, SecondaryButton,
+} from '../components/auth/AuthLayout';
+import CampusWalkLoader from '../components/CampusWalkLoader';
+
+const FEATURES = [
+  { icon: Calendar, title: 'Your schedule', text: 'Your whole week, on any device.' },
+  { icon: Bell, title: 'Change alerts', text: 'Notified when a class moves or a room changes.' },
+  { icon: Users, title: 'Class spaces', text: 'Announcements and materials from your instructors.' },
+];
 
 const EmailVerificationPage = () => {
   const { token } = useParams();
   const navigate = useNavigate();
   const { setAuth } = useAuth();
-  const [status, setStatus] = useState('verifying'); // verifying, success, error
+  const [status, setStatus] = useState('verifying'); // verifying | success | error
   const [message, setMessage] = useState('');
+  const [resendEmail, setResendEmail] = useState('');
+  const [resendState, setResendState] = useState({ loading: false, sent: false, error: '' });
+  // A verification token works once. React runs effects twice in development,
+  // and the second request found the token already used and showed
+  // "verification failed" over a verification that had just succeeded.
+  const requested = useRef(null);
 
   useEffect(() => {
-    verifyEmail();
-  }, [token]);
+    if (requested.current === token) return;
+    requested.current = token;
 
-  const verifyEmail = async () => {
-    try {
-      const response = await api.get(`/auth/verify-email/${token}`);
-      
-      if (response.data.success) {
-        setStatus('success');
+    api.get(`/auth/verify-email/${token}`)
+      .then((response) => {
+        if (!response.data.success) throw new Error(response.data.message);
         setMessage(response.data.message);
-        
-        // Show success toast
-        toast.success('Email verified successfully! Welcome to CTU Daanbantayan! 🎉', {
-          duration: 4000,
-          icon: '✅',
-          style: {
-            background: '#10B981',
-            color: '#fff',
-            padding: '16px',
-            borderRadius: '10px',
-          },
-        });
-        
-        // Auto-login user
         if (response.data.token) {
-          // Save to localStorage first
           localStorage.setItem('token', response.data.token);
           localStorage.setItem('user', JSON.stringify(response.data.user));
-          
-          // Set auth state
           setAuth(response.data.user, response.data.token);
-          
-          // Wait a bit longer to ensure state updates, then redirect to login with success message
-          setTimeout(() => {
-            navigate('/login', {
-              state: {
-                message: 'Email verified successfully! Please log in with your credentials.',
-                email: response.data.user.email,
-                autoVerified: true
-              }
-            });
-          }, 2000);
         }
-      }
-    } catch (error) {
-      setStatus('error');
-      const errorMessage = error.response?.data?.message || 'Email verification failed';
-      setMessage(errorMessage);
-      
-      // Show error toast
-      toast.error(errorMessage, {
-        duration: 5000,
-        icon: '❌',
-        style: {
-          background: '#EF4444',
-          color: '#fff',
-          padding: '16px',
-          borderRadius: '10px',
-        },
+        setStatus('success');
+      })
+      .catch((error) => {
+        setMessage(error.response?.data?.message || error.message || 'Email verification failed');
+        setStatus('error');
+      });
+  }, [token, setAuth]);
+
+  // Verification signs the user in, so go straight to the dashboard. This
+  // used to send them to the login page with "please log in", which the login
+  // page then skipped because they already were.
+  useEffect(() => {
+    if (status !== 'success') return undefined;
+    const t = setTimeout(() => navigate('/dashboard'), 1400);
+    return () => clearTimeout(t);
+  }, [status, navigate]);
+
+  const resend = async (e) => {
+    e.preventDefault();
+    setResendState({ loading: true, sent: false, error: '' });
+    try {
+      await api.post('/auth/resend-verification', { email: resendEmail.trim() });
+      setResendState({ loading: false, sent: true, error: '' });
+    } catch (err) {
+      setResendState({
+        loading: false,
+        sent: false,
+        error: err.response?.data?.message || 'Could not send the email. Try again.',
       });
     }
   };
 
+  if (status === 'success') {
+    return (
+      <CampusWalkLoader
+        duration={1.4}
+        title="Email verified"
+        subtitle="Welcome to CTU Daanbantayan"
+        caption="Opening your dashboard…"
+      />
+    );
+  }
+
+  const alreadyVerified = /already verified/i.test(resendState.error);
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-950 to-slate-950 flex items-center justify-center px-4">
-      <div className="max-w-md w-full bg-white rounded-3xl shadow-2xl p-8 text-center">
-        {/* Logo */}
-        <div className="flex justify-center mb-6">
-          <div className="relative">
-            <div className="absolute inset-0 bg-yellow-400 rounded-full blur-2xl opacity-40"></div>
-            <img src={ctuLogo} alt="CTU Logo" className="w-20 h-20 object-contain relative z-10" />
-          </div>
-        </div>
-
-        <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-yellow-500 bg-clip-text text-transparent mb-2">
-          CTU Daanbantayan
-        </h1>
-        <p className="text-sm text-gray-500 mb-8">Smart Timetabling System</p>
-
-        {/* Status Display */}
-        {status === 'verifying' && (
-          <div>
-            <div className="flex justify-center mb-4">
-              <Loader className="w-16 h-16 text-blue-600 animate-spin" />
-            </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Verifying Your Email</h2>
-            <p className="text-gray-600">Please wait while we verify your email address...</p>
-          </div>
-        )}
-
-        {status === 'success' && (
-          <div>
-            <div className="flex justify-center mb-4">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
-                <AnimatedCheckIcon className="w-10 h-10" color="#16a34a" />
-              </div>
-            </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Email Verified!</h2>
-            <p className="text-gray-600 mb-6">{message}</p>
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <p className="text-sm text-blue-800">
-                🎉 Redirecting you to login page...
-              </p>
-            </div>
-          </div>
-        )}
-
-        {status === 'error' && (
-          <div>
-            <div className="flex justify-center mb-4">
-              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
-                <XCircle className="w-10 h-10 text-red-600" />
-              </div>
-            </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Verification Failed</h2>
-            <p className="text-gray-600 mb-6">{message}</p>
-            <button
-              onClick={() => navigate('/login')}
-              className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-300"
-            >
-              Go to Login
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
+    <AuthLayout
+      eyebrow="For students"
+      title="One last step"
+      highlight="before your timetable."
+      description="Confirming your email keeps your account and your schedule notifications going to the right place."
+      features={FEATURES}
+    >
+      {status === 'verifying' ? (
+        <AuthStatus tone="info" icon={<Loader2 className="h-8 w-8 animate-spin" />} title="Verifying your email">
+          <p>This only takes a moment.</p>
+        </AuthStatus>
+      ) : resendState.sent ? (
+        <AuthStatus
+          tone="success"
+          icon={<MailCheck className="h-8 w-8" />}
+          title="New link sent"
+          actions={<SecondaryButton onClick={() => navigate('/login')}>Back to login</SecondaryButton>}
+        >
+          <p>We've sent a fresh verification link to</p>
+          <p className="font-semibold text-gray-900 dark:text-dark-text-primary">{resendEmail.trim()}</p>
+          <p className="pt-2 text-xs text-gray-500 dark:text-dark-text-muted">Open the newest email - earlier links no longer work.</p>
+        </AuthStatus>
+      ) : (
+        <AuthStatus
+          tone="error"
+          icon={<MailX className="h-8 w-8" />}
+          title="This link didn't work"
+          actions={(
+            <form onSubmit={resend} className="space-y-4">
+              {resendState.error && (
+                <FormAlert>
+                  {resendState.error}
+                  {alreadyVerified && ' You can log in now.'}
+                </FormAlert>
+              )}
+              <AuthField
+                label="Send a new link to"
+                icon={Mail}
+                name="email"
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                required
+                value={resendEmail}
+                onChange={(e) => { setResendEmail(e.target.value); setResendState((s) => ({ ...s, error: '' })); }}
+                placeholder="you@ctu.edu.ph"
+              />
+              <SubmitButton loading={resendState.loading} loadingText="Sending…">Resend verification email</SubmitButton>
+              <SecondaryButton onClick={() => navigate('/login', alreadyVerified ? { state: { email: resendEmail.trim() } } : undefined)}>
+                Back to login
+              </SecondaryButton>
+            </form>
+          )}
+        >
+          <p>{message || 'The verification link is invalid or has expired.'}</p>
+          <p className="text-xs text-gray-500 dark:text-dark-text-muted">Links expire after a while, and each one works only once.</p>
+        </AuthStatus>
+      )}
+    </AuthLayout>
   );
 };
 

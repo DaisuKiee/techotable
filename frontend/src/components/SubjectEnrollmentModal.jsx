@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Copy, Clock, Users, MapPin, Calendar, Loader, Sparkles, CheckCircle2, BookOpen, Ticket } from 'lucide-react';
-import { scheduleAPI, classSpaceAPI } from '../services/api';
+import { scheduleAPI, classSpaceAPI, getErrorMessage } from '../services/api';
 import toast from 'react-hot-toast';
 import BaseModal from './BaseModal';
+import { ModalButton } from './modal/ModalShell';
 
 const SubjectEnrollmentModal = ({ subject, onClose }) => {
   const [loading, setLoading] = useState(true);
@@ -67,7 +68,7 @@ const SubjectEnrollmentModal = ({ subject, onClose }) => {
       setLoading(false);
     } catch (error) {
       console.error('Error fetching schedules:', error);
-      toast.error('Failed to load schedule information');
+      toast.error(getErrorMessage(error, 'Failed to load schedule information'));
       setLoading(false);
     }
   };
@@ -176,7 +177,7 @@ const SubjectEnrollmentModal = ({ subject, onClose }) => {
       setGeneratingCode(null);
     } catch (error) {
       console.error('Error generating code:', error);
-      toast.error('Failed to generate subject code');
+      toast.error(getErrorMessage(error, 'Failed to generate subject code'));
       setGeneratingCode(null);
     }
   };
@@ -207,7 +208,7 @@ const SubjectEnrollmentModal = ({ subject, onClose }) => {
         }
       );
     } catch (error) {
-      toast.error('Failed to copy code');
+      toast.error(getErrorMessage(error, 'Failed to copy code'));
     }
   };
 
@@ -221,12 +222,9 @@ const SubjectEnrollmentModal = ({ subject, onClose }) => {
       onClose={onClose}
       showFooter={true}
       footerContent={
-        <button
-          onClick={onClose}
-          className="w-full px-6 py-2.5 bg-gray-600 hover:bg-gray-700 text-white rounded-xl transition-colors font-medium"
-        >
-          Close
-        </button>
+        <div className="flex justify-end">
+          <ModalButton variant="secondary" onClick={onClose}>Close</ModalButton>
+        </div>
       }
       headerColor="navy"
     >

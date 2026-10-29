@@ -14,6 +14,30 @@ const {
   currentAcademicYearStart,
   formatAcademicYear,
 } = require('../utils/teachingExperience');
+const { getFacultyLoads, EMPTY_LOAD } = require('../utils/facultyLoad');
+const { sendError } = require('../middleware/error.middleware');
+
+/**
+ * Give faculty records their real load, computed from saved classes.
+ *
+ * The assistant used to read currentLoad / maxTeachingLoad straight off the
+ * documents. currentLoad isn't in the Faculty schema, so it was never updated
+ * and stayed 0 - B-LO told people every teacher had nothing assigned.
+ */
+const withRealLoads = async (faculty) => {
+  const loads = await getFacultyLoads({ facultyIds: faculty.map((f) => f._id) });
+  return faculty.map((f) => {
+    const load = loads.get(String(f._id)) || EMPTY_LOAD;
+    return {
+      ...f,
+      currentLoad: load.units,
+      assignedUnits: load.units,
+      teachingHours: load.hours,
+      assignedClasses: load.classes,
+      maxTeachingHours: f.maxTeachingHours || 36,
+    };
+  });
+};
 
 /**
  * Helper function to load comprehensive RAG context from database
@@ -29,9 +53,9 @@ const loadRAGContext = async () => {
       .lean(),
     
     // Faculty with complete profile and teaching history
-    Faculty.find()
+    Faculty.find({ isActive: true })
       .populate('user', 'firstName lastName email')
-      .select('employeeId specializations currentLoad maxTeachingLoad teachingHistory averageRating qualifications')
+      .select('employeeId specializations maxTeachingLoad maxTeachingHours position teachingHistory averageRating qualifications')
       .lean(),
     
     // Rooms with full specifications
@@ -40,7 +64,7 @@ const loadRAGContext = async () => {
       .lean(),
     
     // Schedules with relationships
-    Schedule.find()
+    Schedule.find({ isActive: true })
       .populate('subject', 'subjectCode subjectName units')
       .populate('faculty', 'employeeId')
       .populate('room', 'roomNumber building')
@@ -80,7 +104,8 @@ const loadRAGContext = async () => {
   ]);
 
   // Build rich context with statistics
-  const facultyStats = faculty.map(f => {
+  const facultyWithLoads = await withRealLoads(faculty);
+  const facultyStats = facultyWithLoads.map(f => {
     const fullName = `${f.user?.firstName || ''} ${f.user?.lastName || ''}`.trim();
     const schedulesCount = schedules.filter(s => 
       s.faculty && f._id && s.faculty._id && s.faculty._id.toString() === f._id.toString()
@@ -101,7 +126,8 @@ const loadRAGContext = async () => {
       ...f,
       fullName,
       currentSchedules: schedulesCount,
-      availableLoad: (f.maxTeachingLoad || 24) - (f.currentLoad || 0),
+      availableLoad: Math.max(0, (f.maxTeachingLoad || 24) - f.assignedUnits),
+      availableHours: Math.max(0, f.maxTeachingHours - f.teachingHours),
       subjectExperience,
       experienceYears: f.teachingHistory?.length || 0
     };
@@ -276,12 +302,7 @@ exports.recommendFacultyForSubject = async (req, res) => {
       })),
     });
   } catch (error) {
-    console.error('Faculty Recommendation Error:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to generate faculty recommendations',
-      error: error.message,
-    });
+    return sendError(res, error, 'Failed to generate faculty recommendations');
   }
 };
 
@@ -410,12 +431,7 @@ exports.sendChatMessage = async (req, res) => {
       });
     }
   } catch (error) {
-    console.error('AI Chat Error:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to process your message',
-      error: error.message,
-    });
+    return sendError(res, error, 'Failed to process your message');
   }
 };
 
@@ -438,11 +454,12 @@ exports.getSchedulingRecommendation = async (req, res) => {
     // Fetch context data with teaching history
     const [subjects, faculty, rooms, schedules] = await Promise.all([
       Subject.find().select('subjectCode subjectName units').limit(50).lean(),
-      Faculty.find()
+      Faculty.find({ isActive: true })
         .populate('user', 'firstName lastName')
-        .select('employeeId specializations currentLoad maxTeachingLoad teachingHistory')
+        .select('employeeId specializations maxTeachingLoad maxTeachingHours teachingHistory')
         .limit(100)
-        .lean(),
+        .lean()
+        .then(withRealLoads),
       Room.find().select('roomNumber building capacity roomType').limit(50).lean(),
       Schedule.find().populate('subject', 'subjectCode').select('program yearLevel semester shift timeSlots').limit(100).lean(),
     ]);
@@ -473,12 +490,7 @@ exports.getSchedulingRecommendation = async (req, res) => {
       });
     }
   } catch (error) {
-    console.error('Recommendation Error:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to generate recommendation',
-      error: error.message,
-    });
+    return sendError(res, error, 'Failed to generate recommendation');
   }
 };
 
@@ -508,12 +520,7 @@ exports.getApiStats = async (req, res) => {
       data: stats,
     });
   } catch (error) {
-    console.error('Stats Error:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to retrieve API statistics',
-      error: error.message,
-    });
+    return sendError(res, error, 'Failed to retrieve API statistics');
   }
 };
 
@@ -581,11 +588,6 @@ exports.getQuickHelp = async (req, res) => {
       data: quickHelp,
     });
   } catch (error) {
-    console.error('Help Error:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to retrieve help information',
-      error: error.message,
-    });
+    return sendError(res, error, 'Failed to retrieve help information');
   }
 };

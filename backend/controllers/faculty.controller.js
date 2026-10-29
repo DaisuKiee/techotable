@@ -5,6 +5,7 @@ const { validationResult } = require('express-validator');
 
 const { getFacultyLoads, EMPTY_LOAD } = require('../utils/facultyLoad');
 const { sendError, sendValidationErrors } = require('../middleware/error.middleware');
+const { notifyAccountApproved } = require('../services/inAppNotification.service');
 
 /**
  * Attach the real load (computed from saved classes) to faculty documents.
@@ -863,6 +864,8 @@ exports.approveFaculty = async (req, res) => {
       console.error('Activity log error:', logError);
       // Don't fail the approval if logging fails
     }
+
+    notifyAccountApproved(user._id);
 
     res.status(200).json({
       success: true,

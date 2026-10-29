@@ -660,8 +660,9 @@ const Layout = ({ children }) => {
       </main>
 
       {/* AI Chat Bubble */}
-      {(user?.role === 'admin' || user?.role === 'scheduling_officer' || user?.role === 'program_manager') && (
-        <AIChatBubble />
+      {/* Staff get the data assistant; students get B-LO in help mode (no records) */}
+      {['admin', 'scheduling_officer', 'program_manager', 'student'].includes(user?.role) && (
+        <AIChatBubble key={user?._id} />
       )}
 
       {/* Custom Scrollbar */}

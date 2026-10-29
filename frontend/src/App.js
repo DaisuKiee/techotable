@@ -4,6 +4,7 @@ import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { PageStateProvider } from './context/PageStateContext';
+import { NotificationProvider } from './context/NotificationContext';
 import { CacheProvider } from './context/CacheContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -37,6 +38,8 @@ import ActivityLogPage from './pages/ActivityLogPage';
 import SettingsPage from './pages/SettingsPage';
 import AccessDeniedPage from './pages/AccessDeniedPage';
 import NotFoundPage from './pages/NotFoundPage';
+import TermsPage from './pages/TermsPage';
+import TermsGate from './components/TermsGate';
 
 function App() {
   return (
@@ -45,6 +48,7 @@ function App() {
         <CacheProvider>
           <PageStateProvider>
           <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <NotificationProvider>
             <div className="min-h-screen bg-gray-50">
             <Toaster 
               position="top-right"
@@ -74,11 +78,13 @@ function App() {
               zIndex: 999999, // Container also needs high z-index to appear above modals
             }}
           />
+          <TermsGate />
           <ErrorBoundary>
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/simple-test" element={<SimpleTestPage />} />
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/terms" element={<TermsPage />} />
             <Route path="/test-login" element={<TestLoginPage />} />
             <Route path="/signup" element={<SignupPage />} />
             <Route path="/faculty-signup" element={<FacultySignupPage />} />
@@ -215,6 +221,7 @@ function App() {
           </Routes>
           </ErrorBoundary>
         </div>
+      </NotificationProvider>
       </Router>
       </PageStateProvider>
         </CacheProvider>

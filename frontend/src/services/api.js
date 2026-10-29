@@ -147,7 +147,8 @@ export const authAPI = {
   forgotPassword: (data) => api.post('/auth/forgot-password', data),
   resetPassword: (token, data) => api.post(`/auth/reset-password/${token}`, data),
   createFacultyInvite: (hours) => api.post('/auth/faculty-invite', { hours }),
-  checkFacultyInvite: (token) => api.get(`/auth/faculty-invite/${encodeURIComponent(token)}`)
+  checkFacultyInvite: (token) => api.get(`/auth/faculty-invite/${encodeURIComponent(token)}`),
+  acceptTerms: (version) => api.post('/auth/accept-terms', { version })
 };
 
 // ============== USER ENDPOINTS ==============
@@ -374,6 +375,7 @@ export const notificationAPI = {
   markAsRead: (id) => api.put(`/notifications/${id}/read`),
   markAllAsRead: () => api.put('/notifications/mark-all-read'),
   delete: (id) => api.delete(`/notifications/${id}`),
+  clearRead: () => api.delete('/notifications/read'),
 };
 
 

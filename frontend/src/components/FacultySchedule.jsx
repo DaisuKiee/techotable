@@ -13,6 +13,7 @@ import bg1 from '../assets/images/class-spaces-bg/GOOGLE-BLUES.jpe';
 import bg2 from '../assets/images/class-spaces-bg/Google-Green.jpe';
 import bg3 from '../assets/images/class-spaces-bg/Google-Red.jpe';
 import bg4 from '../assets/images/class-spaces-bg/Google-Yellows.jpe';
+import { useLiveRefresh } from '../context/NotificationContext';
 
 /**
  * A faculty member's teaching schedule - shows only classes they are teaching.
@@ -220,14 +221,14 @@ const FacultySchedule = () => {
   // Faculty ID from the user's facultyProfile
   const facultyId = user?.facultyProfile?._id || user?.facultyProfile;
 
-  const load = useCallback(async () => {
+  const load = useCallback(async ({ silent } = {}) => {
     if (!facultyId) {
       setSchedules([]);
       setLoading(false);
       return;
     }
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       setError(null);
       const response = await scheduleAPI.getAll({ isActive: true, faculty: facultyId });
       setSchedules(response.data.data || []);
@@ -244,6 +245,8 @@ const FacultySchedule = () => {
   useEffect(() => {
     if (user) load();
   }, [user, load]);
+
+  useLiveRefresh(['schedule', 'classes'], () => load({ silent: true }));
 
   // Keep "now" fresh so the time line and "up next" stay accurate
   useEffect(() => {

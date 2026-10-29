@@ -22,6 +22,7 @@ import bg1 from '../assets/images/class-spaces-bg/GOOGLE-BLUES.jpe';
 import bg2 from '../assets/images/class-spaces-bg/Google-Green.jpe';
 import bg3 from '../assets/images/class-spaces-bg/Google-Red.jpe';
 import bg4 from '../assets/images/class-spaces-bg/Google-Yellows.jpe';
+import { useLiveRefresh } from '../context/NotificationContext';
 
 /* Fields are denormalised onto the ClassSpace, so read subject/faculty/section
    directly and fall back to the populated schedule only for time/room. */
@@ -249,6 +250,9 @@ const ClassSpacePage = () => {
       }
     }
   );
+
+  // Announcements, materials and class changes pushed from the server
+  useLiveRefresh(['classes', 'schedule'], () => reloadClassSpaces());
 
   // Extract data from response (handle both cached and fresh formats)
   useEffect(() => {

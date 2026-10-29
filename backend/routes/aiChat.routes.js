@@ -8,7 +8,7 @@ const {
   getApiStats,
   getQuickHelp,
 } = require('../controllers/aiChat.controller');
-const { protect } = require('../middleware/auth.middleware');
+const { protect, authorize } = require('../middleware/auth.middleware');
 
 /**
  * @route   POST /api/ai/chat/stream
@@ -29,21 +29,21 @@ router.post('/chat', protect, sendChatMessage);
  * @desc    Get AI scheduling recommendation for conflicts
  * @access  Private (All authenticated users)
  */
-router.post('/recommend', protect, getSchedulingRecommendation);
+router.post('/recommend', protect, authorize('admin', 'scheduling_officer', 'program_manager'), getSchedulingRecommendation);
 
 /**
  * @route   POST /api/ai/recommend-faculty
  * @desc    Get faculty recommendations based on teaching experience
  * @access  Private (All authenticated users)
  */
-router.post('/recommend-faculty', protect, recommendFacultyForSubject);
+router.post('/recommend-faculty', protect, authorize('admin', 'scheduling_officer', 'program_manager'), recommendFacultyForSubject);
 
 /**
  * @route   GET /api/ai/stats
  * @desc    Get API usage statistics
  * @access  Private (Admin only)
  */
-router.get('/stats', protect, getApiStats);
+router.get('/stats', protect, authorize('admin', 'scheduling_officer', 'program_manager'), getApiStats);
 
 /**
  * @route   GET /api/ai/help

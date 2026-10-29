@@ -447,7 +447,9 @@ Remember: You are a DATA-DRIVEN assistant. Every answer must be grounded in the 
 /**
  * Generate chat response with streaming support
  */
-const generateChatResponseStream = async (userMessage, context = {}, conversationHistory = [], onChunk) => {
+// options.systemPrompt replaces the data-driven staff prompt (used for the
+// student help-desk mode, which must never see database records)
+const generateChatResponseStream = async (userMessage, context = {}, conversationHistory = [], onChunk, options = {}) => {
   let lastError = null;
   let attemptCount = 0;
   let currentAttemptIndex = 0;
@@ -459,13 +461,13 @@ const generateChatResponseStream = async (userMessage, context = {}, conversatio
       console.log(`Streaming with API key ${index + 1}/${API_KEYS.length}`);
 
       const genAI = new GoogleGenerativeAI(key);
-      const systemContext = getSystemPrompt(context);
+      const systemContext = options.systemPrompt || getSystemPrompt(context);
 
       const model = genAI.getGenerativeModel({ 
         model: 'gemini-3.6-flash',
         systemInstruction: systemContext,
         generationConfig: {
-          temperature: 0.7,
+          temperature: options.temperature ?? 0.7,
           topK: 40,
           topP: 0.95,
           maxOutputTokens: 2048,
@@ -551,7 +553,7 @@ const generateChatResponseStream = async (userMessage, context = {}, conversatio
 /**
  * Generate chat response with automatic fallback
  */
-const generateChatResponse = async (userMessage, context = {}, conversationHistory = []) => {
+const generateChatResponse = async (userMessage, context = {}, conversationHistory = [], options = {}) => {
   let lastError = null;
   let attemptCount = 0;
   let currentAttemptIndex = 0; // Track current attempt index
@@ -564,14 +566,14 @@ const generateChatResponse = async (userMessage, context = {}, conversationHisto
       console.log(`Attempting with API key ${index + 1}/${API_KEYS.length}`);
 
       const genAI = new GoogleGenerativeAI(key);
-      const systemContext = getSystemPrompt(context);
+      const systemContext = options.systemPrompt || getSystemPrompt(context);
 
       // Use gemini-3.6-flash - latest stable model
       const model = genAI.getGenerativeModel({ 
         model: 'gemini-3.6-flash',
         systemInstruction: systemContext,
         generationConfig: {
-          temperature: 0.7,
+          temperature: options.temperature ?? 0.7,
           topK: 40,
           topP: 0.95,
           maxOutputTokens: 1024,

@@ -5,6 +5,7 @@ const {
   register,
   login,
   getMe,
+  acceptTerms,
   updateProfile,
   changePassword,
   logout,
@@ -65,6 +66,8 @@ router.post('/reset-password/:token', resetPassword); // Reset password with tok
 
 // Protected routes
 router.get('/me', protect, getMe);
+router.post('/accept-terms', protect, acceptTerms);
+router.get('/terms-version', (req, res) => res.json({ success: true, version: require('../config/terms').TERMS_VERSION }));
 router.put('/profile', protect, updateProfile);
 router.put('/change-password', protect, changePassword);
 router.get('/settings', protect, getSettings);

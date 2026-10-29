@@ -8,6 +8,7 @@ import { studentAPI, classSpaceAPI, getErrorMessage } from '../services/api';
 import StatCard from './StatCard';
 import AnimatedClock from './AnimatedClock';
 import dashboardBg from '../assets/images/backgrounds/bg.jpg';
+import { useLiveRefresh } from '../context/NotificationContext';
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -109,6 +110,9 @@ const StudentDashboard = ({ user }) => {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Schedule or class changes pushed from the server
+  useLiveRefresh(['schedule', 'classes', 'profile'], load);
 
   const todayName = DAYS[now.getDay()];
   const nowMins = now.getHours() * 60 + now.getMinutes();

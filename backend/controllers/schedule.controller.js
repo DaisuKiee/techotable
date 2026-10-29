@@ -16,6 +16,13 @@ const {
   labelFor,
 } = require('../utils/roomLabel');
 const { notifyScheduleChange } = require('../services/emailNotification.service');
+const {
+  notifyScheduleEvent,
+  notifyTimetableBatch,
+  snapshotSchedule,
+} = require('../services/inAppNotification.service');
+
+const actorOf = (req) => (req.user ? `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim() || undefined : undefined);
 const { sendError, sendValidationErrors } = require('../middleware/error.middleware');
 // One subject for one section in one term is ONE Schedule document holding all
 // of its meeting times, so it maps to exactly one class space.
@@ -228,6 +235,7 @@ exports.createSchedule = async (req, res) => {
     }
 
     let schedule;
+    const existingBefore = existing ? snapshotSchedule(existing) : null;
 
     if (existing) {
       // Faculty load stays as it is: the offering was counted when it was first
@@ -264,6 +272,9 @@ exports.createSchedule = async (req, res) => {
       { path: 'faculty', populate: { path: 'user', select: 'firstName lastName' } }
     ]);
 
+    // Students of the section and the teacher hear about it right away
+    notifyScheduleEvent(schedule, existing ? 'updated' : 'created', { before: existingBefore, actor: actorOf(req) });
+
     res.status(201).json({
       success: true,
       message: existing
@@ -292,6 +303,8 @@ exports.updateSchedule = async (req, res) => {
         message: 'Schedule not found'
       });
     }
+
+    const before = snapshotSchedule(schedule);
 
     const {
       faculty,
@@ -354,6 +367,9 @@ exports.updateSchedule = async (req, res) => {
       { path: 'faculty', populate: { path: 'user', select: 'firstName lastName' } }
     ]);
 
+    // In-app + live: says exactly what changed (time, room, instructor)
+    notifyScheduleEvent(schedule, 'updated', { before, actor: actorOf(req) });
+
     // Send email notifications for schedule updates (async, don't wait)
     if (schedule.status === 'published') {
       notifyScheduleChange(schedule._id, 'updated')
@@ -401,6 +417,8 @@ exports.deleteSchedule = async (req, res) => {
     // class kept appearing in the students' and teacher's class list with no way
     // to remove it, and syncSectionEnrollment kept re-enrolling students.
     await deactivateClassSpaceForSchedule(schedule);
+
+    notifyScheduleEvent(schedule, 'removed', { actor: actorOf(req) });
 
     res.status(200).json({
       success: true,
@@ -846,6 +864,8 @@ exports.publishSchedule = async (req, res) => {
     schedule.status = 'published';
     await schedule.save();
 
+    notifyScheduleEvent(schedule, 'published', { actor: actorOf(req) });
+
     // Send email notifications when schedule is published (async, don't wait)
     notifyScheduleChange(schedule._id, 'published')
       .then(result => {
@@ -904,6 +924,14 @@ exports.batchPublishSchedules = async (req, res) => {
       }
     );
 
+    if (schedulesToPublish.length > 0) {
+      Schedule.find({ _id: { $in: schedulesToPublish.map((s) => s._id) } })
+        .select('sectionCode faculty')
+        .lean()
+        .then((list) => notifyTimetableBatch(list, 'published'))
+        .catch(() => {});
+    }
+
     // Send notifications for all newly published schedules (async, don't wait)
     if (schedulesToPublish.length > 0) {
       console.log(`📧 Sending notifications for ${schedulesToPublish.length} published schedules...`);
@@ -957,6 +985,8 @@ exports.batchDeleteSchedules = async (req, res) => {
       await deactivateClassSpaceForSchedule(schedule);
       deletedCount++;
     }
+
+    notifyTimetableBatch(schedules, 'removed');
 
     res.status(200).json({
       success: true,
@@ -1065,6 +1095,7 @@ exports.generateSchedule = async (req, res) => {
 
       result.savedSchedules = savedSchedules;
       result.saveErrors = errors;
+      notifyTimetableBatch(savedSchedules, 'generated');
     }
 
     res.status(200).json({
@@ -1206,6 +1237,7 @@ exports.savePreviewedSchedules = async (req, res) => {
     // One class space per saved offering, so the classes appear for the
     // teacher and the section's students without any extra step.
     const spaces = await ensureClassSpacesForSchedules(savedSchedules);
+    notifyTimetableBatch(savedSchedules, 'generated');
 
     res.status(201).json({
       success: true,
@@ -1464,6 +1496,7 @@ exports.bulkCreateSchedules = async (req, res) => {
     // Each subject offering gets its class space so the teacher can post and the
     // section's students are enrolled automatically.
     const spaces = await ensureClassSpacesForSchedules(created);
+    notifyTimetableBatch(created, 'generated');
 
     const populated = await Schedule.find({ _id: { $in: created.map(c => c._id) } })
       .populate('subject', 'subjectCode subjectName units')

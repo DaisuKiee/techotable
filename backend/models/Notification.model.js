@@ -9,7 +9,9 @@ const NotificationSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['schedule', 'announcement', 'material', 'system'],
+    // schedule: a class was added/moved/changed/removed; enrollment: section or
+    // class membership; account: approvals and sign-ups
+    enum: ['schedule', 'announcement', 'material', 'enrollment', 'account', 'system'],
     required: true
   },
   title: {
@@ -28,7 +30,7 @@ const NotificationSchema = new mongoose.Schema({
   relatedResource: {
     resourceType: {
       type: String,
-      enum: ['Schedule', 'ClassSpace', 'Announcement', 'Material']
+      enum: ['Schedule', 'ClassSpace', 'Announcement', 'Material', 'Section', 'Student', 'Faculty', 'User']
     },
     resourceId: {
       type: mongoose.Schema.Types.ObjectId
@@ -39,7 +41,17 @@ const NotificationSchema = new mongoose.Schema({
     icon: String,
     color: String,
     subjectCode: String,
-    className: String
+    className: String,
+    // What happened, for icons and filtering: created, moved, updated,
+    // reassigned, removed, published, generated, assigned, approved, ...
+    kind: String,
+    sectionCode: String,
+    // Short "before -> after" lines shown under the message
+    changes: [String]
+  },
+  // Who caused it (shown as "by Maria Santos"), when known
+  actorName: {
+    type: String
   },
   isRead: {
     type: Boolean,

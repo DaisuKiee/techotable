@@ -1,5 +1,5 @@
 import React, { useId, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Eye, EyeOff, AlertCircle, CheckCircle2, X, Clock } from 'lucide-react';
 import ctuLogo from '../../assets/images/logos/ctulogo.png';
 import ctuBg from '../../assets/images/backgrounds/ctu-bg.jpg';
@@ -119,6 +119,10 @@ export const AuthLayout = ({
               </div>
             </div>
             {children}
+            <p className="mt-6 text-center text-xs text-gray-500 dark:text-dark-text-muted">
+              By using the system you agree to the{' '}
+              <Link to="/terms" className="font-medium text-blue-700 hover:underline dark:text-blue-400">Terms of Use &amp; Privacy Notice</Link>.
+            </p>
           </div>
         </div>
 

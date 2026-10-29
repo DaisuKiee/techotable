@@ -100,6 +100,16 @@ const UserSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  // Which Terms of Use / Privacy Notice version this user accepted, and when
+  // (see config/terms.js). Null until they accept on first login.
+  termsAcceptedVersion: {
+    type: String,
+    default: null
+  },
+  termsAcceptedAt: {
+    type: Date,
+    default: null
+  },
   pendingApprovalDate: {
     type: Date,
     default: null

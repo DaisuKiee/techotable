@@ -26,7 +26,11 @@ const MORPH_END = 0.7;
 const HISTORY_LIMIT = 12;
 // The conversation lives in sessionStorage: the bubble is rendered by
 // Layout, which every page mounts separately, so navigating used to wipe it.
+// Per user: with one shared key, a student signing in on the same tab after
+// a staff member saw that staff conversation (and the data in it).
 const STORE_KEY = 'blo.chat.v1';
+const storeKey = (userId) => `${STORE_KEY}.${userId || 'anon'}`;
+const STAFF = ['admin', 'scheduling_officer', 'program_manager'];
 
 /* ─── Markdown ──────────────────────────────────────────────────────────── */
 
@@ -108,10 +112,12 @@ const renderMarkdown = (text) => {
 
 /* ─── Conversation helpers ──────────────────────────────────────────────── */
 
-const greeting = (name) => ({
+const greeting = (name, role) => ({
   id: 'greeting',
   role: 'assistant',
-  content: `Hi${name ? ` ${name}` : ''}! I'm **B-LO**, your scheduling assistant. Ask me about schedules, faculty, rooms or subjects - or pick a question below.`,
+  content: STAFF.includes(role) || !role
+    ? `Hi${name ? ` ${name}` : ''}! I'm **B-LO**, your scheduling assistant. Ask me about schedules, faculty, rooms or subjects - or pick a question below.`
+    : `Hi${name ? ` ${name}` : ''}! I'm **B-LO**, your guide to the CoTE Timetabling System. Ask me what the system is for or how to do something in it.`,
   timestamp: Date.now(),
   greeting: true,
 });
@@ -125,14 +131,16 @@ const SUGGESTIONS = {
     'Which rooms are free on Monday morning?',
   ],
   faculty: [
-    'What classes do I teach this week?',
-    'How many teaching hours do I have?',
+    'What can I do in this system?',
     'How do I post materials to my class?',
+    'Where do I see my teaching load?',
   ],
+  // Help-desk questions only: B-LO has no access to records in this mode
   student: [
-    'What is my next class?',
-    'How do I join a class with an enrollment code?',
+    'What is this system for?',
+    'How do I join my section?',
     'Where can I see my weekly schedule?',
+    'How do notifications work?',
   ],
 };
 
@@ -154,9 +162,9 @@ const toHistory = (messages) => {
   return recent.map(({ role, content }) => ({ role, content }));
 };
 
-const loadStored = () => {
+const loadStored = (userId) => {
   try {
-    const saved = JSON.parse(sessionStorage.getItem(STORE_KEY) || 'null');
+    const saved = JSON.parse(sessionStorage.getItem(storeKey(userId)) || 'null');
     if (Array.isArray(saved) && saved.length) {
       // A reply that was mid-stream when the page changed can't resume
       return saved.map((m) => (m.streaming ? { ...m, streaming: false, content: m.content || '_(interrupted)_' } : m));
@@ -175,7 +183,7 @@ const AIChatBubble = () => {
   const { user } = useAuth();
   // 'closed' | 'opening' | 'open' | 'closing'
   const [phase, setPhase] = useState('closed');
-  const [messages, setMessages] = useState(() => loadStored() || [greeting(user?.firstName)]);
+  const [messages, setMessages] = useState(() => loadStored(user?._id) || [greeting(user?.firstName, user?.role)]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
@@ -199,7 +207,7 @@ const AIChatBubble = () => {
 
   useEffect(() => {
     try {
-      sessionStorage.setItem(STORE_KEY, JSON.stringify(messages.slice(-60)));
+      sessionStorage.setItem(storeKey(user?._id), JSON.stringify(messages.slice(-60)));
     } catch {
       /* storage unavailable */
     }
@@ -487,7 +495,7 @@ const AIChatBubble = () => {
 
   const newChat = () => {
     stop();
-    setMessages([greeting(user?.firstName)]);
+    setMessages([greeting(user?.firstName, user?.role)]);
     setInput('');
     inputRef.current?.focus();
   };

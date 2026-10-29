@@ -7,6 +7,7 @@ const csv = require('csv-parser');
 const { Readable } = require('stream');
 const { sendError, AppError } = require('../middleware/error.middleware');
 const { currentAcademicYearStart, formatAcademicYear } = require('../utils/teachingExperience');
+const { notifySectionAssigned } = require('../services/inAppNotification.service');
 
 // Never send password hashes or verification / reset tokens to the browser
 const USER_FIELDS = 'firstName lastName middleName email profilePicture phoneNumber isActive isEmailVerified';
@@ -49,6 +50,24 @@ const syncSectionCounts = async (...codes) => {
     });
     await Section.updateOne({ sectionCode }, { currentStudents: count });
   }));
+};
+
+/**
+ * Take a student out of the class spaces they joined through an old section.
+ * Without this, moving a student from BSIT-2A-D to BSIT-4A-D added the new
+ * section's classes and kept every old one (9 + 6 = 15 "subjects").
+ * Classes joined individually (irregular, by class code) are left alone.
+ */
+const leaveSectionClasses = async (student, oldSectionCode) => {
+  if (!oldSectionCode || oldSectionCode === student.sectionCode) return;
+  const spaces = await ClassSpace.find({ sectionCode: oldSectionCode, 'enrolledStudents.student': student._id }).select('_id').lean();
+  if (!spaces.length) return;
+  const ids = spaces.map((s) => s._id);
+  await ClassSpace.updateMany(
+    { _id: { $in: ids } },
+    { $pull: { enrolledStudents: { student: student._id, enrollmentType: 'section' } } }
+  );
+  await Student.updateOne({ _id: student._id }, { $pull: { enrolledClasses: { $in: ids } } });
 };
 
 /**
@@ -272,7 +291,10 @@ exports.createStudent = async (req, res) => {
     });
     if (section) applySection(student, section);
     await student.save();
-    if (section) await syncSectionCounts(section.sectionCode);
+    if (section) {
+      await syncSectionCounts(section.sectionCode);
+      notifySectionAssigned(student, { from: null, to: section.sectionCode });
+    }
 
     res.status(201).json({
       success: true,
@@ -360,7 +382,9 @@ exports.updateStudent = async (req, res) => {
       if (user.isModified()) await user.save();
     }
 
+    await leaveSectionClasses(student, previousSection);
     await syncSectionCounts(previousSection, student.sectionCode);
+    notifySectionAssigned(student, { from: previousSection, to: student.sectionCode });
 
     res.status(200).json({
       success: true,
@@ -393,7 +417,10 @@ exports.deleteStudent = async (req, res) => {
       { 'enrolledStudents.student': student._id },
       { $pull: { enrolledStudents: { student: student._id } } }
     );
-    if (student.user) await User.deleteOne({ _id: student.user, role: 'student' });
+    if (student.user) {
+      await User.deleteOne({ _id: student.user, role: 'student' });
+      await require('../models/Notification.model').deleteMany({ recipient: student.user });
+    }
     await Student.deleteOne({ _id: student._id });
     await syncSectionCounts(student.sectionCode);
 
@@ -603,7 +630,9 @@ exports.assignSectionCode = async (req, res) => {
     if (studentType) student.studentType = studentType;
 
     await student.save();
+    await leaveSectionClasses(student, previous);
     await syncSectionCounts(previous, student.sectionCode);
+    notifySectionAssigned(student, { from: previous, to: student.sectionCode });
 
     res.status(200).json({
       success: true,

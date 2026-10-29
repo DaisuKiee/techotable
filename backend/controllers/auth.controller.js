@@ -2,6 +2,8 @@ const User = require('../models/User.model');
 const jwt = require('jsonwebtoken');
 const { validationResult } = require('express-validator');
 const { sendError, AppError, sendValidationErrors } = require('../middleware/error.middleware');
+const { notifyFacultySignup } = require('../services/inAppNotification.service');
+const { TERMS_VERSION } = require('../config/terms');
 
 // Generate JWT Token
 const generateToken = (userId) => {
@@ -152,6 +154,42 @@ exports.login = async (req, res) => {
 // @desc    Get current logged in user
 // @route   GET /api/auth/me
 // @access  Private
+// @desc    Accept the current Terms of Use and Privacy Notice
+// @route   POST /api/auth/accept-terms
+// @access  Private
+exports.acceptTerms = async (req, res) => {
+  try {
+    const { version } = req.body || {};
+    // The page the user read must be the current one
+    if (version && version !== TERMS_VERSION) {
+      return res.status(409).json({
+        success: false,
+        code: 'TERMS_OUTDATED',
+        message: 'The terms were updated while you were reading. Please review the latest version.',
+        termsCurrentVersion: TERMS_VERSION,
+      });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { termsAcceptedVersion: TERMS_VERSION, termsAcceptedAt: new Date() },
+      { new: true }
+    ).select('termsAcceptedVersion termsAcceptedAt');
+
+    res.status(200).json({
+      success: true,
+      message: 'Thank you. You can now use the system.',
+      data: {
+        termsAcceptedVersion: user.termsAcceptedVersion,
+        termsAcceptedAt: user.termsAcceptedAt,
+        termsCurrentVersion: TERMS_VERSION,
+      },
+    });
+  } catch (error) {
+    sendError(res, error, 'Could not record your acceptance');
+  }
+};
+
 exports.getMe = async (req, res) => {
   try {
     const user = await User.findById(req.user._id)
@@ -167,7 +205,8 @@ exports.getMe = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      data: user
+      // termsCurrentVersion tells the app whether to show the agreement
+      data: { ...user.toObject(), termsCurrentVersion: TERMS_VERSION }
     });
 
   } catch (error) {
@@ -880,6 +919,8 @@ exports.facultySignup = async (req, res) => {
     // Link faculty profile to user
     user.facultyProfile = facultyProfile._id;
     await user.save();
+
+    notifyFacultySignup(user, null);
 
     res.status(201).json({
       success: true,

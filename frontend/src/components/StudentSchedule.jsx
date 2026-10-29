@@ -13,6 +13,7 @@ import bg1 from '../assets/images/class-spaces-bg/GOOGLE-BLUES.jpe';
 import bg2 from '../assets/images/class-spaces-bg/Google-Green.jpe';
 import bg3 from '../assets/images/class-spaces-bg/Google-Red.jpe';
 import bg4 from '../assets/images/class-spaces-bg/Google-Yellows.jpe';
+import { useLiveRefresh } from '../context/NotificationContext';
 
 /**
  * A student's own timetable, built from the classes they are enrolled in.
@@ -237,9 +238,10 @@ const StudentSchedule = () => {
   const [activeMeeting, setActiveMeeting] = useState(null);
   const [now, setNow] = useState(() => new Date());
 
-  const load = useCallback(async () => {
+  // `silent` is for live refreshes: keep the timetable on screen while it updates
+  const load = useCallback(async ({ silent } = {}) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       setError(null);
       const response = await classSpaceAPI.getMyClasses();
       setClasses(response.data.data || []);
@@ -258,6 +260,9 @@ const StudentSchedule = () => {
   useEffect(() => {
     load();
   }, [load]);
+
+  // A class moved, was added or removed: update without a reload
+  useLiveRefresh(['schedule', 'classes'], () => load({ silent: true }));
 
   // Keep "now" fresh so the time line and "up next" stay accurate
   useEffect(() => {

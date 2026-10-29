@@ -16,6 +16,31 @@ const {
 } = require('../utils/teachingExperience');
 const { getFacultyLoads, EMPTY_LOAD } = require('../utils/facultyLoad');
 const { sendError } = require('../middleware/error.middleware');
+const helpAssistant = require('../services/helpAssistant.service');
+
+// Only staff get the data-driven assistant. Students and faculty get the
+// help-desk mode, which never receives database records.
+const STAFF_ROLES = ['admin', 'scheduling_officer', 'program_manager'];
+const isStaff = (user) => STAFF_ROLES.includes(user?.role);
+
+/**
+ * Work out how to answer a non-staff message.
+ * Returns { reply } for a fixed answer (limit hit or data request), or
+ * { options, history } to ask the AI in help mode.
+ */
+const prepareHelpMode = (req, message, conversationHistory) => {
+  const role = req.user.role === 'faculty' ? 'faculty' : 'student';
+  const limit = helpAssistant.checkLimit(req.user._id);
+  if (!limit.ok) return { reply: limit.message, limited: true };
+  if (message.length > helpAssistant.MAX_LENGTH) {
+    return { reply: `Please keep your question under ${helpAssistant.MAX_LENGTH} characters.` };
+  }
+  if (helpAssistant.isDataProbe(message)) return { reply: helpAssistant.dataWarning(role), guarded: true };
+  return {
+    options: { systemPrompt: helpAssistant.buildHelpPrompt(role, req.user.firstName), temperature: 0.3 },
+    history: (Array.isArray(conversationHistory) ? conversationHistory : []).slice(-helpAssistant.HISTORY_LIMIT),
+  };
+};
 
 /**
  * Give faculty records their real load, computed from saved classes.
@@ -44,25 +69,25 @@ const withRealLoads = async (faculty) => {
  */
 const loadRAGContext = async () => {
   console.log('Loading comprehensive RAG context...');
-  
+
   // Fetch ALL relevant data for deep knowledge
   const [subjects, faculty, rooms, schedules, sections, students, classSpaces, users, programs] = await Promise.all([
     // Subjects with full details
     Subject.find()
       .select('subjectCode subjectName description units lectureHours labHours program yearLevel semester prerequisite')
       .lean(),
-    
+
     // Faculty with complete profile and teaching history
     Faculty.find({ isActive: true })
       .populate('user', 'firstName lastName email')
       .select('employeeId specializations maxTeachingLoad maxTeachingHours position teachingHistory averageRating qualifications')
       .lean(),
-    
+
     // Rooms with full specifications
     Room.find()
       .select('roomNumber building capacity roomType features availability')
       .lean(),
-    
+
     // Schedules with relationships
     Schedule.find({ isActive: true })
       .populate('subject', 'subjectCode subjectName units')
@@ -71,12 +96,12 @@ const loadRAGContext = async () => {
       .populate('section', 'sectionCode')
       .select('program yearLevel semester shift day startTime endTime timeSlots isPublished status createdAt')
       .lean(),
-    
+
     // Sections with enrollment data
     Section.find()
       .select('sectionCode program yearLevel semester shift maxStudents currentStudents')
       .lean(),
-    
+
     // Students with enrollment info
     Student.find()
       .populate('user', 'firstName lastName email')
@@ -84,13 +109,13 @@ const loadRAGContext = async () => {
       .select('studentId program studentType sectionCode subjectCodes enrollmentStatus academicYear semester gpa')
       .limit(500) // Limit for performance
       .lean(),
-    
+
     // ClassSpace schedules (published/active schedules)
     ClassSpace.find()
       .populate('schedule', 'subject faculty room section day startTime endTime program yearLevel semester shift')
       .select('sectionCode enrollmentCode isActive enrolledStudents')
       .lean(),
-    
+
     // Users (for authentication and role management)
     User.find()
       .select('firstName lastName email role program department isActive createdAt')
@@ -110,7 +135,7 @@ const loadRAGContext = async () => {
     const schedulesCount = schedules.filter(s => 
       s.faculty && f._id && s.faculty._id && s.faculty._id.toString() === f._id.toString()
     ).length;
-    
+
     // Analyze teaching history for experience
     const subjectExperience = {};
     if (f.teachingHistory && f.teachingHistory.length > 0) {
@@ -198,7 +223,7 @@ const loadRAGContext = async () => {
   };
 
   console.log(`RAG Context loaded: ${programs.length} programs, ${subjects.length} subjects, ${faculty.length} faculty, ${rooms.length} rooms, ${schedules.length} schedules, ${sections.length} sections, ${students.length} students, ${classSpaces.length} classSpaces, ${users.length} users`);
-  
+
   return context;
 };
 
@@ -327,14 +352,26 @@ exports.sendChatMessageStream = async (req, res) => {
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Accel-Buffering', 'no');
-    
+
     // Force headers to be sent immediately
     res.flushHeaders();
 
-    // Build comprehensive context from database with RAG
     let context = {};
-    
-    if (includeContext) {
+    let history = conversationHistory;
+    let aiOptions = {};
+
+    if (!isStaff(req.user)) {
+      // Help-desk mode: no records are loaded at all
+      const help = prepareHelpMode(req, message, conversationHistory);
+      if (help.reply) {
+        res.write(`data: ${JSON.stringify({ type: 'chunk', content: help.reply })}\n\n`);
+        res.write(`data: ${JSON.stringify({ type: 'done', metadata: { guarded: !!help.guarded, limited: !!help.limited } })}\n\n`);
+        return res.end();
+      }
+      history = help.history;
+      aiOptions = help.options;
+    } else if (includeContext) {
+      // Build comprehensive context from database with RAG
       try {
         context = await loadRAGContext();
       } catch (contextError) {
@@ -346,19 +383,18 @@ exports.sendChatMessageStream = async (req, res) => {
     const result = await geminiService.generateChatResponseStream(
       message,
       context,
-      conversationHistory,
+      history,
       (chunk) => {
         // Send each chunk as SSE with immediate flush
         const sseData = `data: ${JSON.stringify({ type: 'chunk', content: chunk })}\n\n`;
         res.write(sseData);
-        
+
         // Force flush if available (for Node.js streams)
         if (typeof res.flush === 'function') {
           res.flush();
         }
-        
-        console.log(`📤 Sent chunk (${chunk.length} chars):`, chunk.substring(0, 50) + '...');
-      }
+      },
+      aiOptions
     );
 
     console.log('✅ Streaming completed. Result:', { success: result.success, messageLength: result.message?.length });
@@ -395,10 +431,19 @@ exports.sendChatMessage = async (req, res) => {
       });
     }
 
-    // Build comprehensive context from database with RAG
     let context = {};
-    
-    if (includeContext) {
+    let history = conversationHistory;
+    let aiOptions = {};
+
+    if (!isStaff(req.user)) {
+      const help = prepareHelpMode(req, message, conversationHistory);
+      if (help.reply) {
+        return res.status(help.limited ? 429 : 200).json({ success: !help.limited, message: help.reply, metadata: { guarded: !!help.guarded } });
+      }
+      history = help.history;
+      aiOptions = help.options;
+    } else if (includeContext) {
+      // Build comprehensive context from database with RAG
       try {
         context = await loadRAGContext();
       } catch (contextError) {
@@ -410,7 +455,8 @@ exports.sendChatMessage = async (req, res) => {
     const result = await geminiService.generateChatResponse(
       message,
       context,
-      conversationHistory
+      history,
+      aiOptions
     );
 
     if (result.success) {
@@ -420,7 +466,7 @@ exports.sendChatMessage = async (req, res) => {
         metadata: {
           keyUsed: result.keyUsed,
           totalKeys: result.totalKeys,
-          contextLoaded: includeContext,
+          contextLoaded: isStaff(req.user) && includeContext,
         },
       });
     } else {

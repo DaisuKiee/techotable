@@ -17,9 +17,13 @@ const {
   forgotPassword,
   resetPassword,
   facultySignup,
-  createFacultyInvite,
-  checkFacultyInvite
+  checkFacultyInvite,
+  getSessions,
+  revokeSession,
+  revokeOtherSessions,
+  getLoginActivity
 } = require('../controllers/auth.controller');
+const rateLimit = require('express-rate-limit');
 const { protect, authorize } = require('../middleware/auth.middleware');
 
 // Validation middleware
@@ -53,16 +57,29 @@ const loginValidation = [
 
 // Public routes
 router.post('/register', registerValidation, register);
-router.post('/login', loginValidation, login);
+// Per-IP cap on password guessing and reset-email spam, on top of the
+// per-account lock in the login controller. Unlike the global limiter it
+// also applies on localhost.
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  // Only failures count: a campus shares one public IP, and 30 successful
+  // sign-ins in 15 minutes is a normal morning
+  skipSuccessfulRequests: true,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, code: 'RATE_LIMITED', message: 'Too many sign-in attempts from this network. Wait 15 minutes and try again.' },
+});
+
+router.post('/login', authLimiter, loginValidation, login);
 router.post('/signup', signup); // Student signup with email verification
 router.post('/faculty-signup', facultySignup); // Faculty signup - needs an invite token (pending approval)
 // Invite links: only the scheduling office can issue them; anyone holding one can check it
-router.post('/faculty-invite', protect, authorize('admin', 'scheduling_officer'), createFacultyInvite);
 router.get('/faculty-invite/:token', checkFacultyInvite);
 router.get('/verify-email/:token', verifyEmail); // Verify email
 router.post('/resend-verification', resendVerification); // Resend verification email
-router.post('/forgot-password', forgotPassword); // Request password reset
-router.post('/reset-password/:token', resetPassword); // Reset password with token
+router.post('/forgot-password', authLimiter, forgotPassword); // Request password reset
+router.post('/reset-password/:token', authLimiter, resetPassword); // Reset password with token
 
 // Protected routes
 router.get('/me', protect, getMe);
@@ -73,5 +90,9 @@ router.put('/change-password', protect, changePassword);
 router.get('/settings', protect, getSettings);
 router.put('/settings', protect, updateSettings);
 router.post('/logout', protect, logout);
+router.get('/sessions', protect, getSessions);
+router.post('/sessions/revoke-others', protect, revokeOtherSessions);
+router.delete('/sessions/:id', protect, revokeSession);
+router.get('/login-activity', protect, getLoginActivity);
 
 module.exports = router;

@@ -35,10 +35,28 @@ const createTransporter = () => {
 };
 
 /**
- * Send email notification
+ * Whether this address wants the email: its owner can turn email off
+ * altogether (emailNotifications) or one kind of notice (`preference`).
+ * Addresses without an account get it.
  */
-const sendEmail = async (to, subject, html) => {
+const wantsEmail = async (to, preference) => {
+  const User = require('../models/User.model');
+  const user = await User.findOne({ email: String(to).toLowerCase() }).select('settings.notifications').lean();
+  const prefs = user?.settings?.notifications || {};
+  if (prefs.emailNotifications === false) return false;
+  return !(preference && prefs[preference] === false);
+};
+
+/**
+ * Send email notification
+ * @param {object} [options]  { preference } - the Settings switch that covers it
+ */
+const sendEmail = async (to, subject, html, { preference } = {}) => {
   try {
+    if (!(await wantsEmail(to, preference))) {
+      return { success: true, skipped: 'recipient turned these emails off' };
+    }
+
     const consoleMode = process.env.EMAIL_CONSOLE_MODE === 'true';
 
     if (consoleMode) {
@@ -442,7 +460,7 @@ const notifyStudents = async (scheduleId, type = 'published') => {
           ? `📅 New Schedule Published - ${schedule.subject?.subjectCode || 'Schedule'}`
           : `🔄 Schedule Updated - ${schedule.subject?.subjectCode || 'Schedule'}`;
         
-        return sendEmail(student.user.email, subject, html);
+        return sendEmail(student.user.email, subject, html, { preference: 'scheduleUpdates' });
       })
     );
 
@@ -487,7 +505,7 @@ const notifyFaculty = async (scheduleId, type = 'published') => {
 
     console.log(`📧 Sending notification to faculty: ${schedule.faculty.user.email}`);
 
-    const result = await sendEmail(schedule.faculty.user.email, subject, html);
+    const result = await sendEmail(schedule.faculty.user.email, subject, html, { preference: 'facultyAssignments' });
 
     return { 
       sent: result.success ? 1 : 0, 
@@ -645,7 +663,7 @@ const notifyAnnouncement = async (classSpaceId, announcementId) => {
         const html = generateAnnouncementEmailHTML(announcement, classData, studentName);
         const subject = `📢 New Announcement in ${classData.subjectCode}`;
         
-        return sendEmail(student.user.email, subject, html);
+        return sendEmail(student.user.email, subject, html, { preference: 'classPosts' });
       })
     );
 
@@ -706,7 +724,7 @@ const notifyMaterial = async (classSpaceId, materialId) => {
         const html = generateMaterialEmailHTML(material, classData, studentName);
         const subject = `📎 New Material in ${classData.subjectCode}`;
         
-        return sendEmail(student.user.email, subject, html);
+        return sendEmail(student.user.email, subject, html, { preference: 'classPosts' });
       })
     );
 

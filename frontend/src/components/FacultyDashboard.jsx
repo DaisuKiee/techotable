@@ -3,12 +3,87 @@ import { Link } from 'react-router-dom';
 import {
   BookOpen, Calendar, Clock, DoorOpen, Users, GraduationCap, AlertTriangle, ArrowRight,
   RefreshCw, CalendarDays, Coffee, Megaphone, FileText, Briefcase, User, CheckCircle2, AlertCircle,
+  UserCog, Circle, X,
 } from 'lucide-react';
 import { facultyAPI, classSpaceAPI, getErrorMessage } from '../services/api';
 import StatCard from './StatCard';
 import AnimatedClock from './AnimatedClock';
 import dashboardBg from '../assets/images/backgrounds/bg.jpg';
 import { useLiveRefresh } from '../context/NotificationContext';
+import { profileCompleteness } from '../utils/profileCompleteness';
+
+const PROFILE_SNOOZE_KEY = 'facultyDashboard.profileSnoozedUntil';
+
+/**
+ * Shown until the teacher's profile is complete: a new account only has a
+ * name and email, and the generator works better with degrees, subjects and
+ * blocked times. "Remind me later" hides it for three days.
+ */
+const ProfilePrompt = ({ user, faculty }) => {
+  const [snoozed, setSnoozed] = useState(() => {
+    try { return Number(localStorage.getItem(PROFILE_SNOOZE_KEY) || 0) > Date.now(); } catch { return false; }
+  });
+  const { items, percent, missing } = useMemo(() => profileCompleteness({
+    profilePicture: user?.profilePicture,
+    phoneNumber: user?.phoneNumber,
+    bio: user?.bio,
+    faculty,
+  }), [user, faculty]);
+
+  if (!faculty || percent >= 100 || snoozed) return null;
+
+  const snooze = () => {
+    try { localStorage.setItem(PROFILE_SNOOZE_KEY, String(Date.now() + 3 * 24 * 60 * 60 * 1000)); } catch { /* shows again next visit */ }
+    setSnoozed(true);
+  };
+  const isNew = percent < 50;
+  const facultyItems = items.filter((i) => !['photo', 'phone', 'bio'].includes(i.id) && !i.recommended);
+
+  return (
+    <section className="rounded-xl border border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 p-5 dark:border-blue-900/50 dark:from-blue-900/20 dark:to-indigo-900/20" aria-label="Complete your profile">
+      <div className="flex flex-wrap items-start gap-4">
+        <div className="relative flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full bg-white shadow-sm dark:bg-gray-800">
+          <svg viewBox="0 0 36 36" className="absolute inset-0 h-14 w-14 -rotate-90">
+            <circle cx="18" cy="18" r="15.5" fill="none" strokeWidth="3" className="stroke-blue-100 dark:stroke-gray-700" />
+            <circle cx="18" cy="18" r="15.5" fill="none" strokeWidth="3" strokeLinecap="round" className="stroke-blue-600"
+              strokeDasharray={`${(percent / 100) * 97.4} 97.4`} />
+          </svg>
+          <span className="text-sm font-bold text-gray-900 dark:text-white">{percent}%</span>
+        </div>
+        <div className="min-w-0 flex-1">
+          <h2 className="flex items-center gap-2 font-semibold text-gray-900 dark:text-white">
+            <UserCog className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            {isNew ? 'Welcome! Set up your faculty profile' : 'Finish your faculty profile'}
+          </h2>
+          <p className="mt-0.5 text-sm text-gray-600 dark:text-gray-300">
+            The scheduling office uses it to give you subjects you’re qualified for and to keep classes out of times you can’t teach.
+            {missing.length > 0 && ` ${missing.length} thing${missing.length === 1 ? '' : 's'} left.`}
+          </p>
+          <ul className="mt-3 grid gap-1.5 sm:grid-cols-2">
+            {facultyItems.map((item) => (
+              <li key={item.id} className="flex items-center gap-2 text-sm">
+                {item.done
+                  ? <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-emerald-500" />
+                  : <Circle className="h-4 w-4 flex-shrink-0 text-blue-400" />}
+                <span className={item.done ? 'text-gray-400 line-through dark:text-gray-500' : 'text-gray-800 dark:text-gray-200'} title={item.why}>
+                  {item.label}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className="flex w-full flex-shrink-0 items-center gap-2 sm:w-auto sm:flex-col sm:items-stretch">
+          <Link to="/profile" className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+            Complete my profile <ArrowRight className="h-4 w-4" />
+          </Link>
+          <button type="button" onClick={snooze} className="inline-flex items-center justify-center gap-1 rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-white/60 dark:text-gray-300 dark:hover:bg-gray-800/60">
+            <X className="h-4 w-4" /> Remind me later
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+};
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -277,6 +352,8 @@ const FacultyDashboard = ({ user }) => {
   return (
     <div className={`space-y-5 transition-opacity ${refreshing ? 'opacity-80' : ''}`}>
       {header}
+
+      <ProfilePrompt user={user} faculty={faculty} />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
         <StatCard icon={CalendarDays} label="Today" value={today.length} hint={today.length ? `${fmtSpan(Math.round(totals.todayHours * 60))} of teaching` : 'no classes today'} tone="blue" />

@@ -44,7 +44,59 @@ const withLoads = async (docs) => {
 const SELF_EDITABLE = new Set([
   'contactNumber', 'qualifications', 'specializations',
   'preferredTimeSlots', 'unavailableTimeSlots',
+  'experiencedSubjects', 'bachelorsDegree', 'mastersDegree', 'doctoralDegree',
+  'specialTraining', 'researchInvolvement', 'extensionInvolvement', 'productionInvolvement',
 ]);
+
+const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+/** Time slots must name a teaching day and run forwards; returns an error or null. */
+const invalidSlots = (slots, label) => {
+  if (!Array.isArray(slots)) return `${label} must be a list`;
+  for (const s of slots) {
+    if (!DAYS.includes(s?.day)) return `${label}: "${s?.day}" isn't a teaching day`;
+    if (!TIME.test(s.startTime || '') || !TIME.test(s.endTime || '')) return `${label}: times must look like 07:30`;
+    if (s.startTime >= s.endTime) return `${label}: ${s.day} ends before it starts`;
+  }
+  return null;
+};
+
+/**
+ * A teacher editing their own subject list. They can add subjects, remove
+ * the ones they added, and rate themselves - but the semesters taught and
+ * evaluation rating on record stay as the office imported them, and a
+ * subject with a record can't be dropped from their history.
+ */
+const mergeOwnSubjects = (current, incoming) => {
+  const byCode = new Map((current || []).map((s) => [String(s.subjectCode).trim().toUpperCase(), s]));
+  const seen = new Set();
+  const merged = [];
+  for (const row of incoming || []) {
+    const code = String(row?.subjectCode || '').trim();
+    const key = code.toUpperCase();
+    if (!code || seen.has(key)) continue;
+    seen.add(key);
+    const existing = byCode.get(key);
+    const selfRating = Math.max(0, Math.min(5, Math.round(Number(row.selfRating) || 0)));
+    const plain = existing?.toObject ? existing.toObject() : existing;
+    merged.push({
+      ...(plain || {}),
+      subjectCode: plain?.subjectCode || code,
+      frequency: row.frequency ?? plain?.frequency,
+      period: row.period ?? plain?.period,
+      semestersTaught: plain?.semestersTaught || 0,
+      rating: plain?.rating || 0,
+      selfRating,
+      selfRatedAt: selfRating !== (plain?.selfRating || 0) ? new Date() : plain?.selfRatedAt,
+    });
+  }
+  // Recorded experience the request left out is kept
+  for (const [key, s] of byCode) {
+    if (!seen.has(key) && (s.semestersTaught > 0 || s.rating > 0)) merged.push(s);
+  }
+  return merged;
+};
 
 // @desc    Get all faculty members
 // @route   GET /api/faculty
@@ -93,6 +145,10 @@ exports.getAllFaculty = async (req, res) => {
       .populate('user', 'firstName lastName middleName email profilePicture isPending')
       .sort({ createdAt: -1 });
 
+    // A profile whose login account was deleted has no name, email or
+    // anything to show - it listed as a blank "Unnamed Faculty" card
+    faculty = faculty.filter((f) => f.user);
+
     // Applicants awaiting approval are inactive too, but they belong on the
     // Pending Approvals page - listing them as "inactive" would let someone
     // reactivate them and skip approval.
@@ -136,7 +192,7 @@ exports.getAllFaculty = async (req, res) => {
 exports.getFacultyById = async (req, res) => {
   try {
     const faculty = await Faculty.findById(req.params.id)
-      .populate('user', 'firstName lastName middleName email profilePicture contactNumber');
+      .populate('user', 'firstName lastName middleName email profilePicture phoneNumber lastLogin createdAt isActive');
 
     if (!faculty) {
       return res.status(404).json({
@@ -146,6 +202,27 @@ exports.getFacultyById = async (req, res) => {
     }
 
     const [facultyObj] = await withLoads([faculty]);
+
+    // For the profile: the classes they teach now, and names for the subject
+    // codes in their history (experiencedSubjects only stores the code)
+    const Subject = require('../models/Subject.model');
+    const codes = [...new Set([
+      ...(faculty.experiencedSubjects || []).map((s) => s.subjectCode),
+      ...(faculty.teachingHistory || []).map((h) => h.subjectCode),
+    ].filter(Boolean))];
+    const [classes, subjects] = await Promise.all([
+      Schedule.find({ faculty: faculty._id, isActive: true })
+        .populate('subject', 'subjectCode subjectName units lectureHours labHours')
+        .populate('room', 'roomCode roomName building')
+        .select('academicYear semester program yearLevel sectionCode shift subject room timeSlots status')
+        .sort({ sectionCode: 1 })
+        .lean(),
+      codes.length
+        ? Subject.find({ subjectCode: { $in: codes } }).select('subjectCode subjectName program').lean()
+        : [],
+    ]);
+    facultyObj.classes = classes;
+    facultyObj.subjectNames = Object.fromEntries(subjects.map((s) => [s.subjectCode, s.subjectName]));
 
     res.status(200).json({
       success: true,
@@ -308,13 +385,32 @@ exports.updateFaculty = async (req, res) => {
       faculty.employeeId = employeeId;
     }
 
+    const slotError = (preferredTimeSlots && invalidSlots(preferredTimeSlots, 'Preferred times'))
+      || (unavailableTimeSlots && invalidSlots(unavailableTimeSlots, 'Unavailable times'));
+    if (slotError) {
+      return res.status(400).json({ success: false, message: slotError });
+    }
+
     // Update fields
     if (department) faculty.department = department;
     if (position) faculty.position = position;
     if (qualifications) faculty.qualifications = qualifications;
     if (specializations) faculty.specializations = specializations;
     if (programs) faculty.programs = programs;
-    if (experiencedSubjects) faculty.experiencedSubjects = experiencedSubjects;
+    if (experiencedSubjects) {
+      faculty.experiencedSubjects = req.user.role === 'faculty'
+        ? mergeOwnSubjects(faculty.experiencedSubjects, experiencedSubjects)
+        : experiencedSubjects;
+    }
+    ['bachelorsDegree', 'mastersDegree', 'doctoralDegree'].forEach((key) => {
+      const d = req.body[key];
+      if (d && typeof d === 'object') {
+        faculty[key] = { degree: String(d.degree || '').trim(), major: String(d.major || '').trim(), minor: String(d.minor || '').trim() };
+      }
+    });
+    ['specialTraining', 'researchInvolvement', 'extensionInvolvement', 'productionInvolvement'].forEach((key) => {
+      if (typeof req.body[key] === 'string') faculty[key] = req.body[key].trim().slice(0, 2000);
+    });
     if (maxTeachingHours !== undefined) faculty.maxTeachingHours = maxTeachingHours;
     if (maxTeachingLoad !== undefined) faculty.maxTeachingLoad = maxTeachingLoad;
     if (preferredTimeSlots) faculty.preferredTimeSlots = preferredTimeSlots;
@@ -669,7 +765,7 @@ exports.analyzeFacultySubjectCompatibility = async (req, res) => {
 
     // Use Gemini AI to analyze compatibility
     const geminiService = require('../services/gemini.service');
-    
+
     // Build comprehensive faculty background for AI analysis
     const facultyBackground = {
       name: `${faculty.user.firstName} ${faculty.user.lastName}`,
@@ -745,7 +841,7 @@ exports.getFacultyBackgroundSummary = async (req, res) => {
 
     // Use Gemini AI to generate comprehensive background summary
     const geminiService = require('../services/gemini.service');
-    
+
     const facultyBackground = {
       name: `${faculty.user.firstName} ${faculty.user.lastName}`,
       position: faculty.position,
@@ -790,14 +886,23 @@ exports.getFacultyBackgroundSummary = async (req, res) => {
 // @access  Private (Admin/Program Manager)
 exports.getPendingFaculty = async (req, res) => {
   try {
-    const pendingUsers = await User.find({
+    let pendingUsers = await User.find({
       role: 'faculty',
       isPending: true,
       isActive: false
     })
       .populate('facultyProfile')
-      .select('-password')
+      .select('-password -passwordResetToken -passwordResetExpires -emailVerificationToken -emailVerificationExpires')
       .sort({ pendingApprovalDate: -1 });
+
+    // A program manager approves the teachers who signed up with their
+    // program's link (and older sign-ups that have no program)
+    if (req.user.role === 'program_manager') {
+      pendingUsers = pendingUsers.filter((u) => {
+        const programs = u.facultyProfile?.programs || [];
+        return programs.length === 0 || programs.includes(req.user.program);
+      });
+    }
 
     res.status(200).json({
       success: true,

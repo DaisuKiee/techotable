@@ -5,7 +5,7 @@ import {
   Sun, Moon, Check
 } from 'lucide-react';
 import { usePrograms } from '../hooks/usePrograms';
-import { roomAPI } from '../services/api';
+import { roomAPI, termAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
 const SectionModal = ({ section, faculty, onClose, onSubmit }) => {
@@ -25,7 +25,7 @@ const SectionModal = ({ section, faculty, onClose, onSubmit }) => {
     description: ''
   });
   const [rooms, setRooms] = useState([]);
-  
+
   const [errors, setErrors] = useState({});
 
   const { programCodes: programs } = usePrograms();
@@ -49,6 +49,21 @@ const SectionModal = ({ section, faculty, onClose, onSubmit }) => {
       });
     }
   }, [section]);
+
+  // A new section starts in the current term (Semesters page); it then moves
+  // to each new term automatically, so the period isn't typed in by hand.
+  const [termIsSet, setTermIsSet] = useState(true);
+  useEffect(() => {
+    if (section || !formData.program) return;
+    // Each program has its own semesters
+    termAPI.current({ program: formData.program })
+      .then((res) => {
+        const t = res.data.data;
+        setTermIsSet(res.data.isSet);
+        if (t?.academicYear) setFormData((f) => ({ ...f, academicYear: t.academicYear, semester: t.semester }));
+      })
+      .catch(() => {});
+  }, [section, formData.program]);
 
   // Rooms for the home-room picker. Loaded here so callers need not pass them.
   useEffect(() => {
@@ -200,44 +215,17 @@ const SectionModal = ({ section, faculty, onClose, onSubmit }) => {
             <Calendar className="w-5 h-5 text-blue-600" />
             Academic Period
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Academic Year */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                Academic Year <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={formData.academicYear}
-                onChange={(e) => setFormData({ ...formData, academicYear: e.target.value })}
-                placeholder="2024-2025"
-                className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
-                required
-              />
-            </div>
-
-            {/* Semester */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                Semester <span className="text-red-500">*</span>
-              </label>
-              <div className="grid grid-cols-2 gap-3">
-                {[1, 2].map(sem => (
-                  <button
-                    key={sem}
-                    type="button"
-                    onClick={() => setFormData({ ...formData, semester: sem })}
-                    className={`px-4 py-2.5 rounded-lg font-semibold transition-all ${
-                      formData.semester === sem
-                        ? 'bg-blue-600 text-white shadow-md scale-105'
-                        : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                    }`}
-                  >
-                    {sem === 1 ? '1st' : '2nd'} Sem
-                  </button>
-                ))}
-              </div>
-            </div>
+          <div className="rounded-lg bg-gray-50 px-4 py-3 text-sm dark:bg-gray-700/50">
+            <p className="font-semibold text-gray-900 dark:text-white">
+              {formData.semester === 3 ? 'Summer' : formData.semester === 2 ? '2nd Semester' : '1st Semester'} · AY {formData.academicYear}
+            </p>
+            <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+              {section
+                ? 'Sections move to each new term automatically when it starts. Earlier terms are kept in the Archive.'
+                : termIsSet
+                ? 'New sections join the current term and then follow each new term automatically.'
+                : 'No current term is set yet, so this uses the latest term in use. Set terms on the Semesters page.'}
+            </p>
           </div>
         </div>
 

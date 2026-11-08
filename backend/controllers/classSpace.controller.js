@@ -19,9 +19,31 @@ const {
 /** Populate spec used wherever a class space is returned to the client. */
 const CLASS_POPULATE = [
   { path: 'subject', select: 'subjectCode subjectName units description' },
-  { path: 'faculty', select: 'employeeId', populate: { path: 'user', select: 'firstName lastName email profilePicture' } },
+  { path: 'faculty', select: 'employeeId', populate: { path: 'user', select: 'firstName lastName email phoneNumber profilePicture settings.privacy' } },
   { path: 'schedule', select: 'timeSlots room shift academicYear semester status' },
 ];
+
+const STAFF_ROLES = ['admin', 'scheduling_officer', 'program_manager'];
+
+/**
+ * The teacher's email and phone reach students only when the teacher shares
+ * them (Settings > Privacy). Staff and the teacher themselves always see
+ * them. The privacy settings themselves never leave the server.
+ */
+const applyContactPrivacy = (classSpaces, viewer) => {
+  const isStaff = STAFF_ROLES.includes(viewer?.role);
+  (Array.isArray(classSpaces) ? classSpaces : [classSpaces]).forEach((cs) => {
+    const u = cs?.faculty?.user;
+    if (!u || typeof u !== 'object') return;
+    const privacy = u.settings?.privacy || {};
+    if (!isStaff && String(u._id) !== String(viewer?._id)) {
+      if (!privacy.showEmail) delete u.email;
+      if (!privacy.showPhone) delete u.phoneNumber;
+    }
+    delete u.settings;
+  });
+  return classSpaces;
+};
 
 const DETAIL_POPULATE = [
   ...CLASS_POPULATE,
@@ -75,12 +97,12 @@ const resolveAccess = async (user, classSpace) => {
     const userFacultyId = user.facultyProfile?._id || user.facultyProfile;
     // classSpace.faculty might also be populated or just an ObjectId
     const classFacultyId = classSpace.faculty?._id || classSpace.faculty;
-    
+
     const owns =
       userFacultyId &&
       classFacultyId &&
       userFacultyId.toString() === classFacultyId.toString();
-    
+
     return {
       canRead: true,
       canPost: !!owns,
@@ -138,6 +160,7 @@ exports.getAllClassSpaces = async (req, res) => {
       .lean();
 
     await attachRoomLabels(classSpaces);
+    applyContactPrivacy(classSpaces, req.user);
 
     res.status(200).json({
       success: true,
@@ -183,6 +206,7 @@ exports.getMyClassSpaces = async (req, res) => {
         .lean();
 
       await attachRoomLabels(classSpaces);
+      applyContactPrivacy(classSpaces, req.user);
 
       return res.status(200).json({
         success: true,
@@ -252,6 +276,7 @@ exports.getMyClassSpaces = async (req, res) => {
         .lean();
 
       await attachRoomLabels(classSpaces);
+      applyContactPrivacy(classSpaces, req.user);
 
       return res.status(200).json({
         success: true,
@@ -287,6 +312,7 @@ exports.getMyClassSpaces = async (req, res) => {
       .lean();
 
     await attachRoomLabels(classSpaces);
+    applyContactPrivacy(classSpaces, req.user);
 
     return res.status(200).json({
       success: true,
@@ -309,7 +335,7 @@ exports.getClassSpaceById = async (req, res) => {
   try {
     // OPTIMIZATION: Support a 'quick' query parameter for faster initial load
     const quick = req.query.quick === 'true';
-    
+
     const populate = quick ? CLASS_POPULATE : DETAIL_POPULATE;
     const classSpace = await ClassSpace.findById(req.params.id).populate(populate);
 
@@ -327,6 +353,7 @@ exports.getClassSpaceById = async (req, res) => {
 
     const data = classSpace.toObject();
     await attachRoomLabels([data]);
+    applyContactPrivacy(data, req.user);
 
     // OPTIMIZATION: For quick loads, return limited data
     if (quick) {
@@ -334,7 +361,7 @@ exports.getClassSpaceById = async (req, res) => {
       data.announcementCount = classSpace.announcements?.length || 0;
       data.materialCount = classSpace.materials?.length || 0;
       data.enrolledCount = classSpace.enrolledStudents?.length || 0;
-      
+
       // Don't send full arrays for quick load
       delete data.announcements;
       delete data.materials;
@@ -388,7 +415,7 @@ exports.joinByCode = async (req, res) => {
       if (!classSpace) {
         const Subject = require('../models/Subject.model');
         const subject = await Subject.findOne({ subjectEnrollmentCode: raw, isActive: true });
-        
+
         if (subject) {
           // Found a subject with this code
           // Try to find an existing ClassSpace for it
@@ -398,7 +425,7 @@ exports.joinByCode = async (req, res) => {
           })
             .populate('subject', 'subjectCode subjectName units program')
             .populate('section', 'sectionCode program yearLevel');
-          
+
           // If no ClassSpace exists, create one on-demand for irregular students
           if (!classSpace) {
             // Create a new ClassSpace without schedule (for irregular students)
@@ -411,21 +438,20 @@ exports.joinByCode = async (req, res) => {
               }
               return code;
             };
-            
+
             classSpace = await ClassSpace.create({
               subject: subject._id,
               classCode: generateClassCode(),
               sectionCode: 'IRREGULAR', // Special marker for irregular student classes
-              academicYear: '2024-2025', // Default, can be updated later
-              semester: 1, // Default
+              ...(await require('../services/academicTerm.service').getDefaultTerm(subject.program)),
               schedule: [], // No schedule yet
               isActive: true,
               createdForIrregular: true // Flag to identify irregular-only classes
             });
-            
+
             // Populate the subject data
             await classSpace.populate('subject', 'subjectCode subjectName units program');
-            
+
             console.log(`Created on-demand ClassSpace for irregular student: ${classSpace.classCode} for subject ${subject.subjectCode}`);
           }
         }
@@ -925,7 +951,7 @@ exports.createClassSpace = async (req, res) => {
     await Schedule.updateOne({ _id: schedule._id }, { classSpace: classSpace._id });
     await classSpace.populate(CLASS_POPULATE);
 
-    res.status(201).json({ success: true, message: 'Class space created', data: classSpace });
+    res.status(201).json({ success: true, message: 'Class space created', data: applyContactPrivacy(classSpace.toObject(), req.user) });
   } catch (error) {
     sendError(res, error, 'Error creating class space');
   }
@@ -949,7 +975,7 @@ exports.updateClassSpace = async (req, res) => {
     if (req.body.isActive !== undefined) {
       classSpace.isActive = req.body.isActive === true || req.body.isActive === 'true';
     }
-    
+
     // Allow updating the class code
     if (req.body.classCode !== undefined) {
       classSpace.classCode = req.body.classCode;
@@ -958,7 +984,7 @@ exports.updateClassSpace = async (req, res) => {
     await classSpace.save();
     await classSpace.populate(CLASS_POPULATE);
 
-    res.status(200).json({ success: true, message: 'Class space updated', data: classSpace });
+    res.status(200).json({ success: true, message: 'Class space updated', data: applyContactPrivacy(classSpace.toObject(), req.user) });
   } catch (error) {
     sendError(res, error, 'Error updating class space');
   }
@@ -1100,7 +1126,7 @@ exports.enrollByCode = async (req, res) => {
     res.status(200).json({
       success: true,
       message: `Successfully enrolled in ${classSpace.subject?.subjectName}!`,
-      data: updatedClassSpace
+      data: applyContactPrivacy(updatedClassSpace.toObject(), req.user)
     });
 
   } catch (error) {

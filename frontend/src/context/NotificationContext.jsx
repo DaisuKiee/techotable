@@ -148,8 +148,15 @@ export const NotificationProvider = ({ children }) => {
     }
   }, [announce]);
 
-  // The live connection, with backoff, reconnecting when the tab comes back
-  // online. Rebuilt when the signed-in user changes.
+  // The live connection.
+  //
+  // Only ONE tab per browser holds it: browsers allow ~6 connections per
+  // server over HTTP/1.1, and with one stream per tab, opening a 6th tab of
+  // the app left every further request (in any tab) hanging. Tabs elect a
+  // leader with the Web Locks API; the leader streams and relays every event
+  // to the other tabs over a BroadcastChannel. When the leader tab closes,
+  // the lock passes to another tab, which connects. Browsers without these
+  // APIs fall back to one connection per tab.
   useEffect(() => {
     if (!isAuthenticated || !user?._id) {
       setItems([]);
@@ -162,49 +169,87 @@ export const NotificationProvider = ({ children }) => {
     let attempt = 0;
     let controller;
     let timer;
+    let isLeader = false;
+    const shared = typeof BroadcastChannel !== 'undefined' && typeof navigator !== 'undefined' && navigator.locks;
+    const channel = shared ? new BroadcastChannel(`blo-live-${user._id}`) : null;
+    const lockAbort = new AbortController();
 
-    const connect = async () => {
-      if (stopped) return;
-      controller = new AbortController();
-      setStatus(attempt ? 'connecting' : 'connecting');
-      try {
-        const res = await fetch(`${API_BASE}/notifications/stream`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}`, Accept: 'text/event-stream' },
-          signal: controller.signal,
-          cache: 'no-store',
-        });
-        if (res.status === 401) { setStatus('offline'); return; } // signed out elsewhere
-        if (!res.ok || !res.body) throw new Error(`stream ${res.status}`);
-        attempt = 0;
-        // Anything that arrived while disconnected
-        if (!stopped) load();
-        await readEvents(res.body, handleEvent, controller.signal);
-      } catch (_) {
-        // network drop, server restart, or abort
-      }
-      if (stopped) return;
-      setStatus('offline');
-      attempt += 1;
-      const delay = Math.min(30000, 1000 * 2 ** Math.min(attempt, 5)) + Math.random() * 1000;
-      timer = setTimeout(connect, delay);
+    const relay = (event, data) => {
+      handleEvent(event, data);
+      if (channel) channel.postMessage({ event, data });
+    };
+    const setShared = (value) => {
+      setStatus(value);
+      if (channel && isLeader) channel.postMessage({ status: value });
     };
 
+    // Leader: stream until stopped, reconnecting with backoff
+    const runStream = () => new Promise((resolve) => {
+      const connect = async () => {
+        if (stopped) { resolve(); return; }
+        controller = new AbortController();
+        setShared('connecting');
+        try {
+          const res = await fetch(`${API_BASE}/notifications/stream`, {
+            headers: { Authorization: `Bearer ${localStorage.getItem('token')}`, Accept: 'text/event-stream' },
+            signal: controller.signal,
+            cache: 'no-store',
+          });
+          if (res.status === 401) { setShared('offline'); resolve(); return; } // signed out elsewhere
+          if (!res.ok || !res.body) throw new Error(`stream ${res.status}`);
+          attempt = 0;
+          // Anything that arrived while disconnected
+          if (!stopped) load();
+          await readEvents(res.body, relay, controller.signal);
+        } catch (_) {
+          // network drop, server restart, or abort
+        }
+        if (stopped) { resolve(); return; }
+        setShared('offline');
+        attempt += 1;
+        const delay = Math.min(30000, 1000 * 2 ** Math.min(attempt, 5)) + Math.random() * 1000;
+        timer = setTimeout(connect, delay);
+      };
+      connect();
+    });
+
     const reconnectNow = () => {
-      if (stopped) return;
+      if (stopped || !isLeader) return;
       clearTimeout(timer);
       controller?.abort();
       attempt = 0;
-      connect();
     };
 
     load();
-    connect();
+
+    if (shared) {
+      // Followers: take events and status from the leader tab
+      channel.onmessage = ({ data: msg }) => {
+        if (!msg) return;
+        if (msg.ask === 'status' && isLeader) { channel.postMessage({ status: 'live' }); return; }
+        if (msg.status) { if (!isLeader) setStatus(msg.status); return; }
+        if (msg.event && !isLeader) handleEvent(msg.event, msg.data);
+      };
+      setStatus('connecting');
+      channel.postMessage({ ask: 'status' });
+      navigator.locks.request(`blo-live-${user._id}`, { signal: lockAbort.signal }, async () => {
+        if (stopped) return;
+        isLeader = true;
+        await runStream();
+        isLeader = false;
+      }).catch(() => { /* aborted on unmount */ });
+    } else {
+      isLeader = true;
+      runStream();
+    }
     window.addEventListener('online', reconnectNow);
 
     return () => {
       stopped = true;
       clearTimeout(timer);
       controller?.abort();
+      lockAbort.abort();
+      if (channel) channel.close();
       window.removeEventListener('online', reconnectNow);
     };
   }, [isAuthenticated, user?._id, load, handleEvent]);

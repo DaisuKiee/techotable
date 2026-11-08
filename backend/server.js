@@ -119,6 +119,8 @@ app.use('/api/notifications', require('./routes/notification.routes'));
 app.use('/api/ai', require('./routes/ai.routes'));
 app.use('/api/ai', require('./routes/aiChat.routes'));
 app.use('/api/import', require('./routes/import.routes'));
+app.use('/api/terms', require('./routes/term.routes'));
+app.use('/api/faculty-invites', require('./routes/facultyInvite.routes'));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -177,6 +179,11 @@ const onReady = async () => {
 
   // Without a database every request fails; stop so nodemon shows the crash
   if (!db.ok) process.exit(1);
+
+  // Start each academic term on its start date (moves sections, archives
+  // the previous term). Checks shortly after start-up, then every 30 min.
+  require('./services/academicTerm.service').startTermWatcher();
+  require('./services/weeklyDigest.service').startDigestWatcher();
 };
 
 const listen = (attempt = 1) => {

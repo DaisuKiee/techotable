@@ -31,7 +31,7 @@ const upload = multer({
     const allowedTypes = /jpeg|jpg|png|gif/;
     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
     const mimetype = allowedTypes.test(file.mimetype);
-    
+
     if (extname && mimetype) {
       cb(null, true);
     } else {
@@ -48,7 +48,8 @@ router.post('/:id/avatar', upload.single('avatar'), uploadAvatar);
 router.delete('/:id/avatar', deleteAvatar);
 
 // Get users by role
-router.get('/role/:role', getUsersByRole);
+// Staff only: this listed every user of a role to any signed-in account
+router.get('/role/:role', authorize('admin', 'scheduling_officer', 'program_manager'), getUsersByRole);
 
 // Admin only routes
 router.get('/', authorize('admin', 'scheduling_officer', 'program_manager'), getAllUsers);

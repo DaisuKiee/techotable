@@ -2,8 +2,10 @@ import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import {
   X, User, Mail, TrendingUp, Award, BookOpen, Calendar, Edit2, MapPin,
   GraduationCap, Star, Copy, Check, Search, ChevronDown, ChevronUp,
-  AlertTriangle, Clock, Briefcase,
+  AlertTriangle, Clock, Briefcase, Phone, Building2, Hash, CalendarClock,
+  LogIn, FlaskConical, HeartHandshake, Lightbulb, DoorOpen, Loader2, Ban,
 } from 'lucide-react';
+import { facultyAPI } from '../services/api';
 import { ModalShell, ModalFooter, ModalButton } from './modal/ModalShell';
 import SummaryCard from './StatCard';
 import {
@@ -16,7 +18,34 @@ const TABS = [
   { id: 'overview', label: 'Overview', icon: User },
   { id: 'education', label: 'Education', icon: GraduationCap },
   { id: 'expertise', label: 'Teaching', icon: BookOpen },
+  { id: 'classes', label: 'Classes & availability', icon: CalendarClock },
 ];
+
+const DAY_ORDER = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const DAY_SHORT = { Monday: 'Mon', Tuesday: 'Tue', Wednesday: 'Wed', Thursday: 'Thu', Friday: 'Fri', Saturday: 'Sat', Sunday: 'Sun' };
+
+/** "13:00" -> "1:00 PM" */
+const to12h = (t) => {
+  const [h, m] = String(t || '').split(':').map(Number);
+  if (Number.isNaN(h)) return t || '';
+  return `${((h + 11) % 12) + 1}:${String(m || 0).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`;
+};
+
+const formatDate = (value, withTime = false) => {
+  if (!value) return null;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString('en-PH', {
+    year: 'numeric', month: 'short', day: 'numeric',
+    ...(withTime ? { hour: 'numeric', minute: '2-digit' } : {}),
+  });
+};
+
+const DEPARTMENTS = { CoTE: 'College of Technology and Engineering' };
+
+const Missing = ({ children = 'Not provided' }) => (
+  <span className="font-normal text-gray-400 dark:text-gray-500">{children}</span>
+);
 
 const SORTS = [
   { id: 'experience', label: 'Most experienced' },
@@ -114,8 +143,28 @@ const DegreeCard = ({ badge, degree, color }) => {
 
 /* ---------- Main modal ---------- */
 
-const FacultyDetailsModal = ({ faculty, onClose, onEdit }) => {
+const FacultyDetailsModal = ({ faculty: listFaculty, onClose, onEdit }) => {
   const [activeTab, setActiveTab] = useState('overview');
+  // The Faculty page's list doesn't carry everything (current classes,
+  // subject names, last sign-in), so the full record is fetched on open
+  const [detail, setDetail] = useState(null);
+  const [detailState, setDetailState] = useState('loading'); // loading | ready | error
+  const facultyId = listFaculty?._id || listFaculty?.id;
+  const faculty = useMemo(
+    () => (listFaculty && detail ? { ...listFaculty, ...detail } : listFaculty),
+    [listFaculty, detail]
+  );
+
+  useEffect(() => {
+    if (!facultyId) return undefined;
+    let cancelled = false;
+    setDetail(null);
+    setDetailState('loading');
+    facultyAPI.getById(facultyId)
+      .then((res) => { if (!cancelled) { setDetail(res.data.data); setDetailState('ready'); } })
+      .catch(() => { if (!cancelled) setDetailState('error'); });
+    return () => { cancelled = true; };
+  }, [facultyId]);
   const [copied, setCopied] = useState(false);
   const [imgFailed, setImgFailed] = useState(false);
   const [query, setQuery] = useState('');
@@ -131,7 +180,7 @@ const FacultyDetailsModal = ({ faculty, onClose, onEdit }) => {
     setSortBy('experience');
     setOnlyStale(false);
     setShowAll(false);
-  }, [faculty?._id, faculty?.id]);
+  }, [facultyId]);
 
   // Escape, scroll lock and focus come from ModalShell
 
@@ -223,6 +272,24 @@ const FacultyDetailsModal = ({ faculty, onClose, onEdit }) => {
     faculty.bachelorsDegree?.degree || faculty.mastersDegree?.degree || faculty.doctoralDegree?.degree;
   const hasQualifications = faculty.qualifications?.length > 0;
 
+  const totalSemesters = subjectExperience.reduce((sum, s) => sum + s.timesTaught, 0);
+  const contactNumber = faculty.contactNumber || faculty.user?.phoneNumber;
+  const department = faculty.department
+    ? (DEPARTMENTS[faculty.department] ? `${DEPARTMENTS[faculty.department]} (${faculty.department})` : faculty.department)
+    : null;
+  const classes = faculty.classes || [];
+  const classUnits = classes.reduce((sum, c) => sum + (c.subject?.units || 0), 0);
+  const involvement = [
+    { key: 'research', label: 'Research', icon: FlaskConical, value: faculty.researchInvolvement },
+    { key: 'extension', label: 'Extension', icon: HeartHandshake, value: faculty.extensionInvolvement },
+    { key: 'production', label: 'Production', icon: Lightbulb, value: faculty.productionInvolvement },
+  ];
+  const sortSlots = (slots = []) => [...slots].sort((a, b) =>
+    DAY_ORDER.indexOf(a.day) - DAY_ORDER.indexOf(b.day) || String(a.startTime).localeCompare(String(b.startTime)));
+  const preferred = sortSlots(faculty.preferredTimeSlots);
+  const unavailable = sortSlots(faculty.unavailableTimeSlots);
+  const tabCount = { classes: classes.length, expertise: subjectExperience.length };
+
   const visibleSubjects = showAll ? filteredSubjects : filteredSubjects.slice(0, INITIAL_VISIBLE);
 
   /* ----- Render ----- */
@@ -267,6 +334,7 @@ const FacultyDetailsModal = ({ faculty, onClose, onEdit }) => {
               <p className="truncate text-sm text-blue-100">
                 {faculty.position || 'Instructor'}
                 {faculty.employeeId && <span className="opacity-80"> · {faculty.employeeId}</span>}
+                {faculty.department && <span className="opacity-80"> · {faculty.department}</span>}
               </p>
               <div className="mt-2 flex flex-wrap items-center gap-1.5">
                 <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ${faculty.isActive ? 'bg-emerald-400/20 text-emerald-50 ring-emerald-300/50' : 'bg-white/15 text-white ring-white/30'}`}>
@@ -280,6 +348,10 @@ const FacultyDetailsModal = ({ faculty, onClose, onEdit }) => {
                     {faculty.administrativeDesignation}
                   </span>
                 )}
+                {programs.map((p) => (
+                  <span key={p} className="rounded-full bg-white/10 px-2.5 py-0.5 text-xs font-semibold text-blue-50 ring-1 ring-white/25">{p}</span>
+                ))}
+                {detailState === 'loading' && <Loader2 className="h-4 w-4 animate-spin text-white/70" aria-label="Loading full profile" />}
               </div>
             </div>
           </div>
@@ -304,9 +376,9 @@ const FacultyDetailsModal = ({ faculty, onClose, onEdit }) => {
               >
                 <Icon className="h-4 w-4" />
                 {label}
-                {id === 'expertise' && subjectExperience.length > 0 && (
+                {tabCount[id] > 0 && (
                   <span className={`rounded-full px-1.5 text-[11px] ${active ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/60 dark:text-blue-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'}`}>
-                    {subjectExperience.length}
+                    {tabCount[id]}
                   </span>
                 )}
               </button>
@@ -317,6 +389,12 @@ const FacultyDetailsModal = ({ faculty, onClose, onEdit }) => {
         {/* Content */}
         <div className="flex-1 space-y-4 overflow-y-auto bg-gray-50 p-4 dark:bg-gray-900/60 sm:p-6" role="tabpanel">
           {/* ================= OVERVIEW ================= */}
+          {detailState === 'error' && (
+            <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-800/60 dark:bg-amber-900/20 dark:text-amber-200">
+              <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+              Couldn’t load the full profile. Showing the summary from the list.
+            </div>
+          )}
           {activeTab === 'overview' && (
             <>
               <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -377,6 +455,7 @@ const FacultyDetailsModal = ({ faculty, onClose, onEdit }) => {
                   <div className="absolute top-0 bottom-0 w-0.5 bg-gray-500/70" style={{ left: `${(maxLoad / barScale) * 100}%` }} title={`Max ${maxLoad} hrs`} />
                 </div>
                 <p className="mt-2 text-xs text-gray-600 dark:text-gray-400">
+                  {classes.length > 0 && `${classes.length} class${classes.length === 1 ? '' : 'es'} · ${classUnits} units · `}
                   {remaining >= 0
                     ? `${remaining} hour${remaining === 1 ? '' : 's'} of capacity remaining`
                     : `Overloaded by ${Math.abs(remaining)} hour${Math.abs(remaining) === 1 ? '' : 's'}`}
@@ -422,14 +501,30 @@ const FacultyDetailsModal = ({ faculty, onClose, onEdit }) => {
                       )}
                     </div>
                   </InfoRow>
+                  <InfoRow icon={Phone} label="Contact Number" color="blue">
+                    {contactNumber ? <a href={`tel:${contactNumber}`} className="hover:underline">{contactNumber}</a> : <Missing />}
+                  </InfoRow>
+                  <InfoRow icon={Hash} label="Employee ID" color="indigo">
+                    {faculty.employeeId || <Missing />}
+                  </InfoRow>
+                  <InfoRow icon={Building2} label="Department" color="indigo">
+                    {department || <Missing />}
+                  </InfoRow>
                   <InfoRow icon={MapPin} label="Position" color="indigo">
                     {faculty.position || 'Instructor'}
+                    {positionHours > 0 && <span className="font-normal text-gray-500 dark:text-gray-400"> · {positionHours} hrs/week admin load</span>}
                   </InfoRow>
                   <InfoRow icon={Briefcase} label="Employment Type" color="purple">
                     {faculty.employmentType || 'Regular'}
                   </InfoRow>
                   <InfoRow icon={TrendingUp} label="Max Load" color="blue">
                     {maxLoad} hours/week
+                  </InfoRow>
+                  <InfoRow icon={Calendar} label="Faculty Since" color="purple">
+                    {formatDate(faculty.createdAt || faculty.user?.createdAt) || <Missing />}
+                  </InfoRow>
+                  <InfoRow icon={LogIn} label="Last Sign-in" color="purple">
+                    {formatDate(faculty.user?.lastLogin, true) || <Missing>{detailState === 'loading' ? 'Loading…' : 'Never signed in'}</Missing>}
                   </InfoRow>
                   {faculty.administrativeDesignation && (
                     <InfoRow icon={Award} label="Administrative Role" color="amber">
@@ -529,6 +624,21 @@ const FacultyDetailsModal = ({ faculty, onClose, onEdit }) => {
                 </Section>
               )}
 
+              <Section icon={Award} title="Research, extension & training">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {involvement.map(({ key, label, icon, value }) => (
+                    <InfoRow key={key} icon={icon} label={`${label} involvement`} color="purple">
+                      {value ? <span className="whitespace-pre-line">{value}</span> : <Missing>None recorded</Missing>}
+                    </InfoRow>
+                  ))}
+                  {!hasDegrees && (
+                    <InfoRow icon={Award} label="Special training & certifications" color="amber">
+                      {faculty.specialTraining ? <span className="whitespace-pre-line">{faculty.specialTraining}</span> : <Missing>None recorded</Missing>}
+                    </InfoRow>
+                  )}
+                </div>
+              </Section>
+
               {!hasDegrees && !hasQualifications && (
                 <div className="text-center py-12 text-gray-500 dark:text-gray-400">
                   <GraduationCap className="w-10 h-10 mx-auto mb-3 opacity-50" />
@@ -552,7 +662,7 @@ const FacultyDetailsModal = ({ faculty, onClose, onEdit }) => {
                   {/* Summary chips */}
                   <div className="flex flex-wrap gap-2 text-xs font-semibold">
                     <span className="px-3 py-1 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
-                      {subjectExperience.length} subjects · {faculty.teachingHistory?.length || 0} semesters
+                      {subjectExperience.length} subjects · {totalSemesters} semesters taught
                     </span>
                     <span className="px-3 py-1 rounded-full bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">
                       {activeRecently} taught recently
@@ -682,13 +792,23 @@ const FacultyDetailsModal = ({ faculty, onClose, onEdit }) => {
                               </div>
                             </div>
 
-                            {s.avgRating ? (
-                              <div className="flex items-center gap-2 mb-3">
-                                <Stars value={s.avgRating} />
-                                <span className="text-sm font-bold text-gray-900 dark:text-white">
-                                  {s.avgRating.toFixed(1)}
-                                </span>
-                                <span className="text-xs text-gray-500 dark:text-gray-400">avg rating</span>
+                            {(s.avgRating || s.selfRating) ? (
+                              <div className="mb-3 flex flex-wrap items-center gap-x-5 gap-y-2">
+                                {s.avgRating ? (
+                                  <div className="flex items-center gap-2">
+                                    <Stars value={s.avgRating} />
+                                    <span className="text-sm font-bold text-gray-900 dark:text-white">
+                                      {s.avgRating.toFixed(1)}
+                                    </span>
+                                    <span className="text-xs text-gray-500 dark:text-gray-400">avg rating</span>
+                                  </div>
+                                ) : null}
+                                {s.selfRating ? (
+                                  <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800 dark:bg-amber-900/30 dark:text-amber-300" title="The teacher's own rating of how well they teach this subject">
+                                    <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                                    Self-rated {s.selfRating}/5
+                                  </span>
+                                ) : null}
                               </div>
                             ) : null}
 
@@ -696,7 +816,9 @@ const FacultyDetailsModal = ({ faculty, onClose, onEdit }) => {
                               {s.occurrences.slice(0, 6).map((o, i) => (
                                 <div
                                   key={i}
-                                  title={`Sem ${o.semester || '?'} · ${o.academicYear} (${describeRecency(o.yearsAgo)})`}
+                                  title={o.academicYear
+                                    ? `Sem ${o.semester || '?'} · ${o.academicYear} (${describeRecency(o.yearsAgo)})`
+                                    : `Taught ${describeRecency(o.yearsAgo)}`}
                                   className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-semibold ${
                                     o.yearsAgo === 0
                                       ? 'bg-green-600 text-white shadow-sm'
@@ -708,7 +830,7 @@ const FacultyDetailsModal = ({ faculty, onClose, onEdit }) => {
                                   }`}
                                 >
                                   <Calendar className="w-3 h-3" />
-                                  <span>{o.academicYear}</span>
+                                  <span>{o.academicYear ? `${o.academicYear}${o.semester ? ` · S${o.semester}` : ''}` : describeRecency(o.yearsAgo)}</span>
                                   {o.rating && <span className="ml-0.5">★{o.rating}</span>}
                                 </div>
                               ))}
@@ -757,6 +879,89 @@ const FacultyDetailsModal = ({ faculty, onClose, onEdit }) => {
                   </div>
                 </>
               )}
+            </>
+          )}
+          {/* ================= CLASSES & AVAILABILITY ================= */}
+          {activeTab === 'classes' && (
+            <>
+              <Section
+                icon={CalendarClock}
+                title="Current classes"
+                right={classes.length > 0 && (
+                  <span className="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+                    {classUnits} units · {faculty.currentTeachingHours || 0} hrs/week
+                  </span>
+                )}
+              >
+                {detailState === 'loading' ? (
+                  <p className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400"><Loader2 className="h-4 w-4 animate-spin" /> Loading classes…</p>
+                ) : classes.length === 0 ? (
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Not assigned to any class this semester.</p>
+                ) : (
+                  <ul className="divide-y divide-gray-100 dark:divide-gray-700">
+                    {classes.map((c) => (
+                      <li key={c._id} className="flex flex-col gap-1 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-start sm:gap-4">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                            {c.subject?.subjectCode || 'Subject'}
+                            {c.subject?.subjectName && <span className="font-normal text-gray-600 dark:text-gray-400"> · {c.subject.subjectName}</span>}
+                          </p>
+                          <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                            {c.sectionCode} · {c.shift || 'Day'} shift
+                            {c.subject?.units ? ` · ${c.subject.units} units` : ''}
+                            {c.academicYear ? ` · AY ${c.academicYear} Sem ${c.semester}` : ''}
+                          </p>
+                        </div>
+                        <div className="flex flex-shrink-0 flex-col gap-1 text-xs sm:items-end">
+                          {sortSlots(c.timeSlots).map((t, i) => (
+                            <span key={i} className="font-medium text-gray-700 dark:text-gray-300">
+                              {DAY_SHORT[t.day] || t.day} {to12h(t.startTime)}–{to12h(t.endTime)}
+                            </span>
+                          ))}
+                          <span className="inline-flex items-center gap-1 text-gray-500 dark:text-gray-400">
+                            <DoorOpen className="h-3.5 w-3.5" />
+                            {c.room ? `${c.room.roomCode}${c.room.roomName && c.room.roomName !== c.room.roomCode ? ` · ${c.room.roomName}` : ''}` : 'No room yet'}
+                          </span>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </Section>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <Section icon={Clock} title="Preferred times">
+                  {preferred.length === 0 ? (
+                    <p className="text-sm text-gray-500 dark:text-gray-400">No preference set, so any time works.</p>
+                  ) : (
+                    <ul className="space-y-1.5">
+                      {preferred.map((t, i) => (
+                        <li key={i} className="flex items-center justify-between rounded-lg bg-emerald-50 px-3 py-1.5 text-sm dark:bg-emerald-900/20">
+                          <span className="font-semibold text-emerald-800 dark:text-emerald-300">{t.day}</span>
+                          <span className="text-emerald-700 dark:text-emerald-400">{to12h(t.startTime)}–{to12h(t.endTime)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </Section>
+                <Section icon={Ban} title="Unavailable">
+                  {unavailable.length === 0 ? (
+                    <p className="text-sm text-gray-500 dark:text-gray-400">No blocked times.</p>
+                  ) : (
+                    <ul className="space-y-1.5">
+                      {unavailable.map((t, i) => (
+                        <li key={i} className="rounded-lg bg-red-50 px-3 py-1.5 text-sm dark:bg-red-900/20">
+                          <div className="flex items-center justify-between">
+                            <span className="font-semibold text-red-800 dark:text-red-300">{t.day}</span>
+                            <span className="text-red-700 dark:text-red-400">{to12h(t.startTime)}–{to12h(t.endTime)}</span>
+                          </div>
+                          {t.reason && <p className="mt-0.5 text-xs text-red-700/80 dark:text-red-300/80">{t.reason}</p>}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </Section>
+              </div>
             </>
           )}
         </div>

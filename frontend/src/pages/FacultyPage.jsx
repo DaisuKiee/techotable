@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef, useDeferredValue } from 'react';
 import Layout from '../components/Layout';
 import StatCard from '../components/StatCard';
-import { facultyAPI, authAPI, getErrorMessage } from '../services/api';
+import { facultyAPI, getErrorMessage } from '../services/api';
 import useCachedData from '../hooks/useCachedData';
 import toast from 'react-hot-toast';
 import {
@@ -9,14 +9,14 @@ import {
   User, Mail, Phone, BookOpen, TrendingUp,
   AlertCircle, AlertTriangle, CheckCircle,
   Grid3x3, List, GraduationCap, Briefcase, Star, Layers, Clock,
-  Download, RefreshCw, Settings, Link as LinkIcon, Copy, ArrowDown, ChevronDown, UserX, UserCheck
+  Download, RefreshCw, Link as LinkIcon, ArrowDown, ChevronDown, UserX, UserCheck
 } from 'lucide-react';
 import AnimatedUsers from '../components/AnimatedUsers';
 import AnimatedBarChart from '../components/AnimatedBarChart';
 import AnimatedAlertCircle from '../components/AnimatedAlertCircle';
 import FacultyModal from '../components/FacultyModal';
 import FacultyDetailsModal from '../components/FacultyDetailsModal';
-import FacultyAccountConfigModal from '../components/FacultyAccountConfigModal';
+import FacultyInvitesPanel from '../components/FacultyInvitesPanel';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { useAuth } from '../context/AuthContext';
 import { usePrograms } from '../hooks/usePrograms';
@@ -220,27 +220,6 @@ const downloadCsv = (filename, headers, rows) => {
   link.click();
   document.body.removeChild(link);
   window.URL.revokeObjectURL(url);
-};
-
-/**
- * Issue a faculty invite link. The server signs an expiring token, so the
- * expiry shown is enforced - this used to be the bare public /faculty-signup
- * address with a display-only countdown, which anyone could use at any time.
- */
-const createSignupLink = async () => {
-  let hours = 48;
-  try {
-    const config = JSON.parse(localStorage.getItem('facultyAccountConfig') || '{}');
-    hours = config.linkExpirationHours || 48;
-  } catch (error) {
-    console.error('Error parsing config:', error);
-  }
-  const { data } = await authAPI.createFacultyInvite(hours);
-  return {
-    url: `${window.location.origin}/faculty-signup?invite=${encodeURIComponent(data.data.token)}`,
-    hours: data.data.hours,
-    expiresAt: new Date(data.data.expiresAt),
-  };
 };
 
 /** useState that remembers its value in localStorage (ignores storage errors / unknown values). */
@@ -853,12 +832,13 @@ const TABLE_HEADERS = [
 
 const FacultyPage = () => {
   const { user } = useAuth();
-  const { programCodes } = usePrograms();
+  const { programs, programCodes } = usePrograms();
 
   // Program managers are locked to their own program
   const isProgramManager = user?.role === 'program_manager';
-  // Faculty invite links come from the scheduling office only (enforced by the API too)
-  const canInvite = user?.role === 'admin' || user?.role === 'scheduling_officer';
+  // Program managers invite their own program's teachers; the scheduling
+  // office and admins can invite to any program (enforced by the API too)
+  const canInvite = ['admin', 'scheduling_officer', 'program_manager'].includes(user?.role);
   const lockedProgram = isProgramManager ? user?.program || '' : '';
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -875,7 +855,6 @@ const FacultyPage = () => {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
-  const [showConfigModal, setShowConfigModal] = useState(false);
   const [showSignupLink, setShowSignupLink] = useState(false);
   const [selectedFaculty, setSelectedFaculty] = useState(null);
   const [modalMode, setModalMode] = useState('create'); // 'create' or 'edit'
@@ -1022,24 +1001,6 @@ const FacultyPage = () => {
     };
   }, [faculty]);
 
-  // A fresh invite each time the panel opens
-  const [signupLink, setSignupLink] = useState(null);
-  const [signupLinkError, setSignupLinkError] = useState('');
-  useEffect(() => {
-    if (!showSignupLink) {
-      setSignupLink(null);
-      setSignupLinkError('');
-      return undefined;
-    }
-    let cancelled = false;
-    createSignupLink()
-      .then((link) => { if (!cancelled) setSignupLink(link); })
-      .catch((err) => {
-        if (!cancelled) setSignupLinkError(err.response?.data?.message || 'Could not create an invite link.');
-      });
-    return () => { cancelled = true; };
-  }, [showSignupLink]);
-
   const hasActiveFilters = !!(
     searchTerm || filterSpecialization || filterEmployment || filterLoad ||
     (filterProgram && !isProgramManager)
@@ -1174,15 +1135,6 @@ const FacultyPage = () => {
     toast.success(`Exported ${rows.length} faculty member${rows.length === 1 ? '' : 's'}`);
   };
 
-  const copySignupLink = async () => {
-    try {
-      await navigator.clipboard.writeText(signupLink.url);
-      toast.success('Invite link copied to clipboard!');
-    } catch (err) {
-      console.error('Error copying link:', err);
-      toast.error(getErrorMessage(err, 'Failed to copy link'));
-    }
-  };
 
   const canManage = true; // Both admins and program managers can manage faculty
   const showSkeleton = loading && faculty.length === 0;
@@ -1217,23 +1169,15 @@ const FacultyPage = () => {
                 <Download className="w-4 h-4" />
                 <span className="hidden sm:inline">Export CSV</span>
               </button>
-              <button
-                onClick={() => setShowConfigModal(true)}
-                className={SECONDARY_BTN}
-                title="Configure faculty account creation settings"
-              >
-                <Settings className="w-4 h-4" />
-                <span className="hidden sm:inline">Account Config</span>
-              </button>
               {canInvite && (
                 <button
                   onClick={() => setShowSignupLink((v) => !v)}
                   aria-pressed={showSignupLink}
                   className={SECONDARY_BTN}
-                  title="Create a faculty invite link"
+                  title="Create and manage faculty invite links"
                 >
                   <LinkIcon className="w-4 h-4" />
-                  <span className="hidden sm:inline">Invite Link</span>
+                  <span className="hidden sm:inline">Invite Links</span>
                 </button>
               )}
               <button
@@ -1255,66 +1199,13 @@ const FacultyPage = () => {
           </p>
         </div>
 
-        {/* Invite link */}
-        {showSignupLink && (signupLinkError || !signupLink) && (
-          <div className={`mb-6 rounded-xl border p-4 text-sm ${signupLinkError
-            ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300'
-            : 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-300'}`}>
-            {signupLinkError || 'Creating invite link…'}
-          </div>
-        )}
-        {signupLink && (
-          <div className="mb-6 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl p-6 shadow-lg text-white animate-fadeIn">
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-white/20 rounded-xl">
-                  <LinkIcon className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold">Faculty Invite Link</h3>
-                  <p className="text-blue-100 text-sm">Only people with this link can create a faculty account</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowSignupLink(false)}
-                className="p-2 hover:bg-white/20 rounded-lg transition-colors"
-                title="Close"
-                aria-label="Close signup link"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="flex items-center gap-3 bg-white/10 rounded-lg p-4 mb-3">
-              <input
-                type="text"
-                value={signupLink.url}
-                readOnly
-                onFocus={(e) => e.target.select()}
-                aria-label="Faculty invite link"
-                className="flex-1 min-w-0 bg-white/20 text-white px-4 py-3 rounded-lg font-mono text-sm focus:outline-none focus:ring-2 focus:ring-white/60"
-              />
-              <button
-                onClick={copySignupLink}
-                className="px-6 py-3 bg-white hover:bg-white/90 text-blue-600 rounded-lg font-semibold flex items-center gap-2 transition-all shadow-md hover:shadow-lg"
-              >
-                <Copy className="w-5 h-5" />
-                Copy
-              </button>
-            </div>
-
-            <div className="flex items-center gap-2 text-sm text-blue-100">
-              <Clock className="w-4 h-4 flex-shrink-0" />
-              <span>
-                Link expires: <strong>{signupLink.expiresAt.toLocaleString()}</strong> ({signupLink.hours} hours from now)
-              </span>
-            </div>
-
-            <div className="mt-3 text-xs text-blue-100 bg-white/10 rounded-lg p-3">
-              <strong>Note:</strong> The link stops working when it expires; open this panel again for a new one.
-              Faculty who register with it have pending status until you approve them on the "Pending Approvals" page.
-            </div>
-          </div>
+        {/* Invite links */}
+        {canInvite && showSignupLink && (
+          <FacultyInvitesPanel
+            programs={programs}
+            lockedProgram={lockedProgram}
+            onClose={() => setShowSignupLink(false)}
+          />
         )}
 
         {/* Statistics. Near limit and Overload double as quick workload filters. */}
@@ -1664,14 +1555,6 @@ const FacultyPage = () => {
             setShowDetailsModal(false);
             handleEdit(selectedFaculty);
           }}
-        />
-      )}
-
-      {showConfigModal && (
-        <FacultyAccountConfigModal
-          isOpen={showConfigModal}
-          onClose={() => setShowConfigModal(false)}
-          onSave={() => toast.success('Configuration updated successfully!')}
         />
       )}
 

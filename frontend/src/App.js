@@ -39,6 +39,7 @@ import SettingsPage from './pages/SettingsPage';
 import AccessDeniedPage from './pages/AccessDeniedPage';
 import NotFoundPage from './pages/NotFoundPage';
 import TermsPage from './pages/TermsPage';
+import SemesterPage from './pages/SemesterPage';
 import TermsGate from './components/TermsGate';
 
 function App() {
@@ -141,6 +142,14 @@ function App() {
                   <SchedulePage />
                 </ProtectedRoute>
               } 
+            />
+            <Route
+              path="/semesters"
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'scheduling_officer', 'program_manager']}>
+                  <SemesterPage />
+                </ProtectedRoute>
+              }
             />
             <Route 
               path="/sections" 

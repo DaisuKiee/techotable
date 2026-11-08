@@ -1,4 +1,5 @@
 const { sendError } = require('../middleware/error.middleware');
+const { managerProgram, programUserIds } = require('../utils/programScope');
 const { 
   getActivityLogs, 
   getActivityStats, 
@@ -22,8 +23,12 @@ exports.getAllLogs = async (req, res) => {
       skip = 0
     } = req.query;
 
+    // Program managers see activity by people in their own program
+    const program = managerProgram(req);
+    const scopedUser = program ? (userId ? ((await programUserIds(program)).includes(String(userId)) ? userId : '000000000000000000000000') : await programUserIds(program)) : userId;
+
     const result = await getActivityLogs({
-      userId,
+      userId: scopedUser,
       action,
       resource,
       status,
@@ -49,10 +54,11 @@ exports.getStats = async (req, res) => {
   try {
     const { startDate, endDate, userId } = req.query;
 
+    const program = managerProgram(req);
     const stats = await getActivityStats({
       startDate,
       endDate,
-      userId
+      userId: program ? await programUserIds(program) : userId
     });
 
     res.status(200).json({

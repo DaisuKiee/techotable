@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   BookOpen, Calendar, Clock, DoorOpen, User, GraduationCap, AlertTriangle, ArrowRight,
-  RefreshCw, KeyRound, CheckCircle2, Megaphone, FileText, CalendarDays, Coffee,
+  RefreshCw, KeyRound, CheckCircle2, Megaphone, FileText, CalendarDays, Coffee, CalendarClock,
 } from 'lucide-react';
 import { studentAPI, classSpaceAPI, getErrorMessage } from '../services/api';
 import StatCard from './StatCard';
@@ -67,10 +67,12 @@ const EmptyState = ({ icon: Icon, tone = 'gray', title, children, action }) => (
   <div className={`rounded-xl border p-6 text-center sm:p-8 ${
     tone === 'amber'
       ? 'border-amber-200 bg-amber-50 dark:border-amber-800/60 dark:bg-amber-900/20'
-      : 'border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800'
+      : tone === 'blue'
+        ? 'border-blue-200 bg-blue-50 dark:border-blue-800/60 dark:bg-blue-900/20'
+        : 'border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800'
   }`}
   >
-    <Icon className={`mx-auto h-10 w-10 ${tone === 'amber' ? 'text-amber-500' : 'text-gray-400'}`} />
+    <Icon className={`mx-auto h-10 w-10 ${tone === 'amber' ? 'text-amber-500' : tone === 'blue' ? 'text-blue-500' : 'text-gray-400'}`} />
     <p className="mt-3 font-semibold text-gray-900 dark:text-white">{title}</p>
     <p className="mx-auto mt-1 max-w-md text-sm text-gray-600 dark:text-gray-400">{children}</p>
     {action}
@@ -80,6 +82,8 @@ const EmptyState = ({ icon: Icon, tone = 'gray', title, children, action }) => (
 const StudentDashboard = ({ user }) => {
   const [profile, setProfile] = useState(null);
   const [classes, setClasses] = useState([]);
+  // In a section (or with subject codes), whether or not classes exist yet
+  const [enrolled, setEnrolled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
@@ -100,6 +104,7 @@ const StudentDashboard = ({ user }) => {
       ]);
       setProfile(prof.data.data || cls.data.profile || null);
       setClasses(cls.data.data || []);
+      setEnrolled(cls.data.enrolled === true);
       setError('');
     } catch (err) {
       setError(getErrorMessage(err, 'Could not load your dashboard'));
@@ -159,6 +164,11 @@ const StudentDashboard = ({ user }) => {
 
   const isIrregular = profile?.studentType === 'irregular';
   const joined = classes.length > 0;
+  // Joined a section, but its timetable isn't out yet (a new semester has
+  // started and the program office hasn't generated it). This used to fall
+  // through to "Join your section" though the student already had.
+  const waitingForTimetable = enrolled && !joined;
+  const termLabel = profile?.academicYear ? `AY ${profile.academicYear} · Sem ${profile.semester}` : 'this semester';
   const firstName = user?.firstName || 'there';
 
   /* ---------- Header ---------- */
@@ -177,6 +187,7 @@ const StudentDashboard = ({ user }) => {
           <h1 className="mt-3 text-2xl font-bold text-white sm:text-3xl">{greetingFor(now)}, {firstName}</h1>
           <p className="mt-1 text-sm font-medium text-white/85">
             {loading ? 'Loading your day…'
+              : waitingForTimetable ? 'Your classes will appear here once the timetable is out.'
               : !joined ? 'Let’s get you into your classes.'
               : current ? `You’re in ${current.cs.subject?.subjectCode || 'class'} right now.`
               : nextToday ? `Next up: ${nextToday.cs.subject?.subjectCode} at ${fmtTime(nextToday.startTime)}.`
@@ -255,6 +266,19 @@ const StudentDashboard = ({ user }) => {
     gate = (
       <EmptyState icon={User} tone="amber" title="No student record yet">
         Your account isn’t linked to a student record. Please contact your program’s office so they can set it up.
+      </EmptyState>
+    );
+  } else if (waitingForTimetable) {
+    gate = (
+      <EmptyState
+        icon={CalendarClock}
+        tone="blue"
+        title={isIrregular ? 'Your subjects aren’t scheduled yet' : `You’re in ${profile.sectionCode}`}
+      >
+        {isIrregular
+          ? `You’ve joined ${(profile.subjectCodes || []).length} subject${(profile.subjectCodes || []).length === 1 ? '' : 's'}, but the schedule for ${termLabel} hasn’t been published yet. `
+          : `The class schedule for ${termLabel} hasn’t been published yet. `}
+        Your classes and timetable will show up here automatically as soon as the program office releases it. You don’t need to do anything.
       </EmptyState>
     );
   } else if (!joined) {

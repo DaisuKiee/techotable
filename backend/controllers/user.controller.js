@@ -1,5 +1,6 @@
 const User = require('../models/User.model');
 const { sendError } = require('../middleware/error.middleware');
+const { managerProgram, programUserIds, deny } = require('../utils/programScope');
 
 // @desc    Get all users
 // @route   GET /api/users
@@ -27,8 +28,12 @@ exports.getAllUsers = async (req, res) => {
       ];
     }
 
+    // Program managers only see people in their own program
+    const program = managerProgram(req);
+    if (program) query._id = { $in: await programUserIds(program) };
+
     const users = await User.find(query)
-      .select('-password')
+      .select('-password -passwordResetToken -passwordResetExpires -emailVerificationToken -emailVerificationExpires')
       .populate('facultyProfile')
       .sort({ createdAt: -1 });
 
@@ -49,7 +54,7 @@ exports.getAllUsers = async (req, res) => {
 exports.getUserById = async (req, res) => {
   try {
     const user = await User.findById(req.params.id)
-      .select('-password')
+      .select('-password -passwordResetToken -passwordResetExpires -emailVerificationToken -emailVerificationExpires')
       .populate('facultyProfile');
 
     if (!user) {
@@ -57,6 +62,11 @@ exports.getUserById = async (req, res) => {
         success: false,
         message: 'User not found'
       });
+    }
+
+    const program = managerProgram(req);
+    if (program && String(user._id) !== String(req.user._id) && !(await programUserIds(program)).includes(String(user._id))) {
+      return deny(res, program, 'accounts');
     }
 
     res.status(200).json({
@@ -159,8 +169,9 @@ exports.getUsersByRole = async (req, res) => {
       });
     }
 
-    const users = await User.find({ role, isActive: true })
-      .select('-password')
+    const program = managerProgram(req);
+    const users = await User.find({ role, isActive: true, ...(program && { _id: { $in: await programUserIds(program) } }) })
+      .select('-password -passwordResetToken -passwordResetExpires -emailVerificationToken -emailVerificationExpires')
       .populate('facultyProfile')
       .sort({ lastName: 1, firstName: 1 });
 
@@ -251,7 +262,7 @@ exports.deleteAvatar = async (req, res) => {
       const fs = require('fs');
       const path = require('path');
       const avatarPath = path.join(__dirname, '..', user.profilePicture);
-      
+
       if (fs.existsSync(avatarPath)) {
         fs.unlinkSync(avatarPath);
       }

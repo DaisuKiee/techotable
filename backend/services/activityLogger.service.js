@@ -76,11 +76,11 @@ async function getActivityLogs(filters = {}) {
 
     // Build query
     const query = {};
-    if (userId) query.user = userId;
+    if (userId) query.user = Array.isArray(userId) ? { $in: userId } : userId;
     if (action) query.action = action;
     if (resource) query.resource = resource;
     if (status) query.status = status;
-    
+
     if (startDate || endDate) {
       query.createdAt = {};
       if (startDate) query.createdAt.$gte = new Date(startDate);
@@ -119,7 +119,7 @@ async function getActivityStats(filters = {}) {
 
     // Build base query
     const baseQuery = {};
-    if (userId) baseQuery.user = userId;
+    if (userId) baseQuery.user = Array.isArray(userId) ? { $in: userId } : userId;
     if (startDate || endDate) {
       baseQuery.createdAt = {};
       if (startDate) baseQuery.createdAt.$gte = new Date(startDate);
@@ -137,7 +137,7 @@ async function getActivityStats(filters = {}) {
     ] = await Promise.all([
       // Total count
       ActivityLog.countDocuments(baseQuery),
-      
+
       // By action
       ActivityLog.aggregate([
         { $match: baseQuery },
@@ -145,20 +145,20 @@ async function getActivityStats(filters = {}) {
         { $sort: { count: -1 } },
         { $limit: 10 }
       ]),
-      
+
       // By resource
       ActivityLog.aggregate([
         { $match: baseQuery },
         { $group: { _id: '$resource', count: { $sum: 1 } } },
         { $sort: { count: -1 } }
       ]),
-      
+
       // By status
       ActivityLog.aggregate([
         { $match: baseQuery },
         { $group: { _id: '$status', count: { $sum: 1 } } }
       ]),
-      
+
       // By user (top 10)
       ActivityLog.aggregate([
         { $match: baseQuery },
@@ -183,7 +183,7 @@ async function getActivityStats(filters = {}) {
           }
         }
       ]),
-      
+
       // Recent activities
       ActivityLog.find(baseQuery)
         .populate('user', 'firstName lastName email profilePicture')
@@ -195,7 +195,7 @@ async function getActivityStats(filters = {}) {
     // Calculate activities per day (last 7 days)
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    
+
     const activitiesPerDay = await ActivityLog.aggregate([
       {
         $match: {
@@ -220,7 +220,7 @@ async function getActivityStats(filters = {}) {
       failure: 0,
       warning: 0
     };
-    
+
     activitiesByStatus.forEach(item => {
       if (item._id && statusCounts.hasOwnProperty(item._id)) {
         statusCounts[item._id] = item.count;
@@ -276,7 +276,7 @@ async function cleanupOldLogs(daysToKeep = 90) {
 async function getUserActivitySummary(userId) {
   try {
     const mongoose = require('mongoose');
-    
+
     const [
       totalActivities,
       lastLogin,
@@ -284,17 +284,17 @@ async function getUserActivitySummary(userId) {
       resourcesSummary
     ] = await Promise.all([
       ActivityLog.countDocuments({ user: userId }),
-      
+
       ActivityLog.findOne({ user: userId, action: 'login' })
         .sort('-createdAt')
         .lean(),
-      
+
       ActivityLog.aggregate([
         { $match: { user: mongoose.Types.ObjectId(userId) } },
         { $group: { _id: '$action', count: { $sum: 1 } } },
         { $sort: { count: -1 } }
       ]),
-      
+
       ActivityLog.aggregate([
         { $match: { user: mongoose.Types.ObjectId(userId) } },
         { $group: { _id: '$resource', count: { $sum: 1 } } },
@@ -357,7 +357,7 @@ function activityLoggerMiddleware(options = {}) {
         // pathParts[0] = 'api', pathParts[1] = resource type
         // For paths like /api/subjects/:id/regenerate-code, use pathParts[1]
         resource = pathParts[1]; // e.g., /api/subjects -> subjects
-        
+
         // Normalize plural resource names to singular to match ActivityLog enum
         const resourceMap = {
           'classSpaces': 'classSpace',
@@ -372,19 +372,19 @@ function activityLoggerMiddleware(options = {}) {
           'sections': 'section',
           'programs': 'program'
         };
-        
+
         // Apply mapping if exists
         if (resourceMap[resource]) {
           resource = resourceMap[resource];
         }
-        
+
         // Fallback: if resource is not in the allowed enum, default to 'system'
         const allowedResources = [
           'user', 'faculty', 'student', 'subject', 'room', 
           'schedule', 'classSpace', 'announcement', 'material',
           'system', 'auth', 'analyze-subject-compatibility', 'background-summary', 'section', 'program'
         ];
-        
+
         if (!allowedResources.includes(resource)) {
           console.warn(`Activity logger: Unknown resource '${resource}' from path '${req.path}', defaulting to 'system'`);
           resource = 'system';

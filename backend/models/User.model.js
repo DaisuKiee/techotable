@@ -55,6 +55,12 @@ const UserSchema = new mongoose.Schema({
     trim: true,
     maxlength: 500
   },
+  // How the name is shown in public places (instructor fields, certificates)
+  displayNameFormat: {
+    type: String,
+    enum: ['first', 'full', 'last-first'],
+    default: 'full'
+  },
   studentId: {
     type: String,
     trim: true,
@@ -145,6 +151,12 @@ const UserSchema = new mongoose.Schema({
     type: Date,
     default: null
   },
+  // Sign-in protection (see services/session.service.js)
+  failedLoginAttempts: { type: Number, default: 0 },
+  lockUntil: { type: Date, default: null },
+  // Login tokens issued before this are refused: set when the password
+  // changes, and by "sign out of all other devices"
+  tokensValidAfter: { type: Date, default: null },
   // Email verification fields
   isEmailVerified: {
     type: Boolean,
@@ -173,7 +185,9 @@ const UserSchema = new mongoose.Schema({
       scheduleUpdates: { type: Boolean, default: true },
       facultyAssignments: { type: Boolean, default: true },
       systemAlerts: { type: Boolean, default: true },
-      weeklyDigest: { type: Boolean, default: false }
+      classPosts: { type: Boolean, default: true },
+      weeklyDigest: { type: Boolean, default: false },
+      lastDigestAt: { type: Date, default: null }
     },
     appearance: {
       theme: { type: String, enum: ['light', 'dark', 'system'], default: 'light' },
@@ -196,6 +210,9 @@ UserSchema.pre('save', async function(next) {
   if (!this.isModified('password')) {
     return next();
   }
+
+  // A new password ends every existing sign-in (a reset link included)
+  if (!this.isNew) this.tokensValidAfter = new Date();
   
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);

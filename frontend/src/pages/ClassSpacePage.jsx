@@ -10,7 +10,7 @@ import {
   BookOpen, Bell, FileText, Users, Plus, Upload,
   UserPlus, Search, Download, Trash2, Pin,
   User, Edit2, ChevronLeft, Copy, RefreshCw,
-  TrendingUp, MessageSquare, FolderOpen, Clock, MapPin, LogOut
+  TrendingUp, MessageSquare, FolderOpen, Clock, MapPin, LogOut, Mail, Phone
 } from 'lucide-react';
 import CreateAnnouncementModal from '../components/CreateAnnouncementModal';
 import UploadMaterialModal from '../components/UploadMaterialModal';
@@ -1092,11 +1092,26 @@ const ClassSpacePage = () => {
                               </span>
                             )}
                           </div>
-                          <div>
+                          <div className="min-w-0">
                             <p className="font-semibold text-gray-900 dark:text-white">{facultyName}</p>
                             <p className="text-xs text-gray-500">
                               {selectedClass.faculty?.employeeId || 'Instructor'}
                             </p>
+                            {/* Only present when the teacher shares them (Settings > Privacy) */}
+                            {(selectedClass.faculty?.user?.email || selectedClass.faculty?.user?.phoneNumber) && (
+                              <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs">
+                                {selectedClass.faculty.user.email && (
+                                  <a href={`mailto:${selectedClass.faculty.user.email}`} className="inline-flex items-center gap-1 text-blue-700 hover:underline dark:text-blue-300">
+                                    <Mail className="h-3.5 w-3.5" /> {selectedClass.faculty.user.email}
+                                  </a>
+                                )}
+                                {selectedClass.faculty.user.phoneNumber && (
+                                  <a href={`tel:${selectedClass.faculty.user.phoneNumber}`} className="inline-flex items-center gap-1 text-blue-700 hover:underline dark:text-blue-300">
+                                    <Phone className="h-3.5 w-3.5" /> {selectedClass.faculty.user.phoneNumber}
+                                  </a>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>

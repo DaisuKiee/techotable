@@ -4,15 +4,12 @@ const { validationResult } = require('express-validator');
 const { sendError, AppError, sendValidationErrors } = require('../middleware/error.middleware');
 const { notifyFacultySignup } = require('../services/inAppNotification.service');
 const { TERMS_VERSION } = require('../config/terms');
-
-// Generate JWT Token
-const generateToken = (userId) => {
-  return jwt.sign(
-    { id: userId },
-    process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRE || '7d' }
-  );
-};
+const Session = require('../models/Session.model');
+const LoginEvent = require('../models/LoginEvent.model');
+const {
+  issueSession, reissueToken, revokeOtherSessions, recordLogin,
+  lockMinutesLeft, registerFailure, clearFailures, LOCK_MINUTES,
+} = require('../services/session.service');
 
 // @desc    Register new user
 // @route   POST /api/auth/register
@@ -56,7 +53,7 @@ exports.register = async (req, res) => {
     });
 
     // Generate token
-    const token = generateToken(user._id);
+    const token = await issueSession(user, req);
 
     // Remove password from response
     const userResponse = user.toObject();
@@ -94,15 +91,45 @@ exports.login = async (req, res) => {
       .select('+password')
       .populate('facultyProfile');
 
+    const attempt = { user, email: String(email).toLowerCase() };
+
     if (!user) {
+      await recordLogin(req, { ...attempt, success: false, reason: 'no_account' });
       return res.status(401).json({
         success: false,
         message: 'Invalid email or password'
       });
     }
 
+    // Too many wrong passwords recently
+    const locked = lockMinutesLeft(user);
+    if (locked) {
+      await recordLogin(req, { ...attempt, success: false, reason: 'locked' });
+      return res.status(429).json({
+        success: false,
+        code: 'ACCOUNT_LOCKED',
+        message: `Too many failed sign-in attempts. Try again in ${locked} minute${locked === 1 ? '' : 's'}, or reset your password.`
+      });
+    }
+
+    // The password is checked first: answering "deactivated" or "not
+    // verified" before it told anyone which emails have accounts
+    const isPasswordMatch = await user.comparePassword(password);
+    if (!isPasswordMatch) {
+      const justLocked = await registerFailure(user);
+      await recordLogin(req, { ...attempt, success: false, reason: 'bad_password' });
+      return res.status(justLocked ? 429 : 401).json({
+        success: false,
+        ...(justLocked ? { code: 'ACCOUNT_LOCKED' } : {}),
+        message: justLocked
+          ? `Too many failed sign-in attempts. Sign-in is locked for ${LOCK_MINUTES} minutes.`
+          : 'Invalid email or password'
+      });
+    }
+
     // Check if account is active
     if (!user.isActive) {
+      await recordLogin(req, { ...attempt, success: false, reason: 'inactive' });
       return res.status(403).json({
         success: false,
         message: 'Your account has been deactivated. Please contact administration.'
@@ -111,27 +138,21 @@ exports.login = async (req, res) => {
 
     // Check if email is verified (only for students)
     if (user.role === 'student' && !user.isEmailVerified) {
+      await recordLogin(req, { ...attempt, success: false, reason: 'unverified' });
       return res.status(403).json({
         success: false,
         message: 'Please verify your email before logging in. Check your inbox for the verification link.'
       });
     }
 
-    // Verify password
-    const isPasswordMatch = await user.comparePassword(password);
-    if (!isPasswordMatch) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid email or password'
-      });
-    }
-
     // Update last login
+    clearFailures(user);
     user.lastLogin = new Date();
     await user.save();
+    await recordLogin(req, { ...attempt, success: true });
 
     // Generate token
-    const token = generateToken(user._id);
+    const token = await issueSession(user, req);
 
     // Remove password from response
     const userResponse = user.toObject();
@@ -219,7 +240,18 @@ exports.getMe = async (req, res) => {
 // @access  Private
 exports.updateProfile = async (req, res) => {
   try {
-    const { firstName, lastName, middleName, profilePicture, shift } = req.body;
+    const {
+      firstName, lastName, middleName, profilePicture, shift,
+      phoneNumber, address, bio, displayNameFormat,
+    } = req.body;
+
+    // The profile page has always sent these, but they were never saved
+    if (phoneNumber && !/^[0-9+()\-\s]{7,20}$/.test(String(phoneNumber).trim())) {
+      return res.status(400).json({ success: false, message: 'Enter a valid phone number, e.g. 0917 123 4567' });
+    }
+    if (bio && String(bio).length > 500) {
+      return res.status(400).json({ success: false, message: 'Your bio can be at most 500 characters' });
+    }
 
     const user = await User.findById(req.user._id);
 
@@ -236,6 +268,10 @@ exports.updateProfile = async (req, res) => {
     if (middleName !== undefined) user.middleName = middleName;
     if (profilePicture) user.profilePicture = profilePicture;
     if (shift !== undefined) user.shift = shift;
+    if (phoneNumber !== undefined) user.phoneNumber = String(phoneNumber).trim();
+    if (address !== undefined) user.address = String(address).trim();
+    if (bio !== undefined) user.bio = String(bio).trim();
+    if (['first', 'full', 'last-first'].includes(displayNameFormat)) user.displayNameFormat = displayNameFormat;
 
     await user.save();
 
@@ -292,13 +328,26 @@ exports.changePassword = async (req, res) => {
       });
     }
 
-    // Update password
+    if (newPassword === currentPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Choose a password different from your current one'
+      });
+    }
+
+    // Update password. Saving it refuses every older token, so this device
+    // gets a fresh one and the others are signed out.
     user.password = newPassword;
     await user.save();
+    const signedOut = await revokeOtherSessions(user._id, req.sessionId);
+    const token = await reissueToken(user, req, req.sessionId);
 
     res.status(200).json({
       success: true,
-      message: 'Password changed successfully'
+      message: signedOut
+        ? `Password changed. ${signedOut} other device${signedOut === 1 ? ' was' : 's were'} signed out.`
+        : 'Password changed successfully',
+      data: { token, signedOut }
     });
 
   } catch (error) {
@@ -311,6 +360,7 @@ exports.changePassword = async (req, res) => {
 // @access  Private
 exports.logout = async (req, res) => {
   try {
+    if (req.sessionId) await Session.updateOne({ _id: req.sessionId }, { revokedAt: new Date() });
     res.status(200).json({
       success: true,
       message: 'Logged out successfully'
@@ -336,38 +386,26 @@ exports.updateSettings = async (req, res) => {
       });
     }
 
-    // Initialize settings if not exists
-    if (!user.settings) {
-      user.settings = {
-        notifications: {},
-        appearance: {},
-        privacy: {}
-      };
-    }
-
-    // Update notifications settings
-    if (notifications) {
-      user.settings.notifications = {
-        ...user.settings.notifications,
-        ...notifications
-      };
-    }
-
-    // Update appearance settings
-    if (appearance) {
-      user.settings.appearance = {
-        ...user.settings.appearance,
-        ...appearance
-      };
-    }
-
-    // Update privacy settings
-    if (privacy) {
-      user.settings.privacy = {
-        ...user.settings.privacy,
-        ...privacy
-      };
-    }
+    // Only the known switches, and only with the right types. Anything was
+    // merged in before, including fields the server keeps for itself.
+    const SETTINGS_FIELDS = {
+      notifications: {
+        emailNotifications: 'boolean', scheduleUpdates: 'boolean', facultyAssignments: 'boolean',
+        systemAlerts: 'boolean', classPosts: 'boolean', weeklyDigest: 'boolean',
+      },
+      appearance: { theme: ['light', 'dark', 'system'], language: ['en', 'fil', 'ceb'], timezone: 'string' },
+      privacy: { showEmail: 'boolean', showPhone: 'boolean' },
+    };
+    const groups = { notifications, appearance, privacy };
+    Object.entries(SETTINGS_FIELDS).forEach(([group, fields]) => {
+      const incoming = groups[group];
+      if (!incoming || typeof incoming !== 'object') return;
+      Object.entries(fields).forEach(([key, rule]) => {
+        const value = incoming[key];
+        const ok = Array.isArray(rule) ? rule.includes(value) : typeof value === rule;
+        if (ok) user.set(`settings.${group}.${key}`, value);
+      });
+    });
 
     user.markModified('settings');
     await user.save();
@@ -496,8 +534,7 @@ exports.signup = async (req, res) => {
       studentId: studentId,
       program: program,
       studentType: null, // Will be determined when student enrolls (regular=section, irregular=subjects)
-      academicYear: '2024-2025',
-      semester: 1,
+      ...(await require('../services/academicTerm.service').getDefaultTerm(program)),
       enrollmentStatus: 'not_enrolled', // Changed from 'enrolled' - will be enrolled when assigned to section
       sectionCode: null, // Will be assigned by program manager
       subjectCodes: [] // Empty for regular students, filled for irregular students
@@ -562,7 +599,7 @@ exports.verifyEmail = async (req, res) => {
     await sendWelcomeEmail(user.email, user.firstName);
 
     // Generate JWT token for automatic login
-    const jwtToken = generateToken(user._id);
+    const jwtToken = await issueSession(user, req);
 
     res.json({
       success: true,
@@ -658,13 +695,13 @@ exports.forgotPassword = async (req, res) => {
       // Generate reset token
       const crypto = require('crypto');
       const resetToken = crypto.randomBytes(32).toString('hex');
-      
+
       // Hash token before saving
       const hashedToken = crypto
         .createHash('sha256')
         .update(resetToken)
         .digest('hex');
-      
+
       // Set token and expiry (10 minutes)
       user.passwordResetToken = hashedToken;
       user.passwordResetExpires = new Date(Date.now() + 10 * 60 * 1000);
@@ -683,7 +720,7 @@ exports.forgotPassword = async (req, res) => {
         user.passwordResetToken = null;
         user.passwordResetExpires = null;
         await user.save();
-        
+
         console.error('Failed to send password reset email:', emailResult.error);
         return sendError(res, new AppError('We could not send the password reset email. Please try again in a few minutes.', 502));
       }
@@ -742,11 +779,14 @@ exports.resetPassword = async (req, res) => {
       });
     }
 
-    // Update password and clear reset fields
+    // Update password and clear reset fields. A reset also signs out every
+    // device - whoever had the old password shouldn't stay signed in.
     user.password = password;
     user.passwordResetToken = null;
     user.passwordResetExpires = null;
+    clearFailures(user);
     await user.save();
+    await revokeOtherSessions(user._id, null);
 
     res.json({
       success: true,
@@ -773,58 +813,62 @@ exports.resetPassword = async (req, res) => {
  * passed off as an invite (or the other way round - login tokens carry `id`).
  */
 const FACULTY_INVITE = 'faculty-invite';
-const MAX_INVITE_HOURS = 24 * 14;
 
-const readFacultyInvite = (token) => {
+/**
+ * An invite from the link. Links are stored per program (FacultyInvite);
+ * the older signed-token links (no program) are still honoured until they
+ * expire, at most 14 days after they were made.
+ */
+const readFacultyInvite = async (token) => {
   if (!token) return { ok: false, reason: 'missing' };
-  try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET);
-    return payload.purpose === FACULTY_INVITE
-      ? { ok: true, expiresAt: new Date(payload.exp * 1000) }
-      : { ok: false, reason: 'invalid' };
-  } catch (err) {
-    return { ok: false, reason: err.name === 'TokenExpiredError' ? 'expired' : 'invalid' };
+  if (String(token).includes('.')) {
+    try {
+      const payload = jwt.verify(token, process.env.JWT_SECRET);
+      return payload.purpose === FACULTY_INVITE
+        ? { ok: true, expiresAt: new Date(payload.exp * 1000), program: null }
+        : { ok: false, reason: 'invalid' };
+    } catch (err) {
+      return { ok: false, reason: err.name === 'TokenExpiredError' ? 'expired' : 'invalid' };
+    }
   }
+  const FacultyInvite = require('../models/FacultyInvite.model');
+  const invite = await FacultyInvite.findOne({ code: String(token) });
+  if (!invite) return { ok: false, reason: 'invalid' };
+  const status = invite.status();
+  if (status !== 'active') return { ok: false, reason: status };
+  return { ok: true, expiresAt: invite.expiresAt, program: invite.program, invite };
 };
 
 const INVITE_MESSAGES = {
-  missing: 'Faculty accounts can only be created from an invite link. Ask your scheduling office for one.',
-  invalid: 'This invite link is not valid. Ask your scheduling office for a new one.',
-  expired: 'This invite link has expired. Ask your scheduling office for a new one.',
+  missing: 'Faculty accounts can only be created from an invite link. Ask your program manager for one.',
+  invalid: 'This invite link is not valid. Ask your program manager for a new one.',
+  expired: 'This invite link has expired. Ask your program manager for a new one.',
+  revoked: 'This invite link was cancelled. Ask your program manager for a new one.',
+  used_up: 'This invite link has reached its sign-up limit. Ask your program manager for a new one.',
 };
 
-// @desc    Create a faculty invite link token
-// @route   POST /api/auth/faculty-invite
-// @access  Private (admin, scheduling officer)
-exports.createFacultyInvite = async (req, res) => {
-  const hours = Math.min(MAX_INVITE_HOURS, Math.max(1, parseInt(req.body?.hours, 10) || 48));
-  const token = jwt.sign(
-    { purpose: FACULTY_INVITE, by: String(req.user._id) },
-    process.env.JWT_SECRET,
-    { expiresIn: `${hours}h` }
-  );
-  res.status(201).json({
-    success: true,
-    data: { token, hours, expiresAt: new Date(jwt.decode(token).exp * 1000) },
-  });
-};
 
 // @desc    Check an invite before showing the faculty sign-up form
 // @route   GET /api/auth/faculty-invite/:token
 // @access  Public
 exports.checkFacultyInvite = async (req, res) => {
-  const invite = readFacultyInvite(req.params.token);
+  const invite = await readFacultyInvite(req.params.token);
   if (!invite.ok) {
     return res.status(400).json({ success: false, reason: invite.reason, message: INVITE_MESSAGES[invite.reason] });
   }
-  res.json({ success: true, data: { expiresAt: invite.expiresAt } });
+  let programName = null;
+  if (invite.program) {
+    const Program = require('../models/Program.model');
+    programName = (await Program.findOne({ code: invite.program }).select('name').lean())?.name || null;
+  }
+  res.json({ success: true, data: { expiresAt: invite.expiresAt, program: invite.program, programName } });
 };
 
 exports.facultySignup = async (req, res) => {
   try {
     const { name, email, password, department, qualification, specialization, invite } = req.body;
 
-    const access = readFacultyInvite(invite);
+    const access = await readFacultyInvite(invite);
     if (!access.ok) {
       return res.status(403).json({ success: false, reason: access.reason, message: INVITE_MESSAGES[access.reason] });
     }
@@ -858,7 +902,7 @@ exports.facultySignup = async (req, res) => {
     // Split name into firstName, middleName, lastName
     const nameParts = name.trim().split(' ');
     let firstName, middleName, lastName;
-    
+
     if (nameParts.length === 1) {
       firstName = nameParts[0];
       lastName = nameParts[0]; // Use same as first name if only one name provided
@@ -908,6 +952,8 @@ exports.facultySignup = async (req, res) => {
         }],
         specializations: String(specialization || '')
           .split(',').map((x) => x.trim()).filter(Boolean),
+        // The program whose link they used
+        programs: access.program ? [access.program] : [],
         isActive: false // Inactive until approved
       });
     } catch (profileError) {
@@ -920,7 +966,15 @@ exports.facultySignup = async (req, res) => {
     user.facultyProfile = facultyProfile._id;
     await user.save();
 
-    notifyFacultySignup(user, null);
+    // Count the sign-up on the link, so its limit and list stay right
+    if (access.invite) {
+      access.invite.uses += 1;
+      access.invite.signups.push({ user: user._id, name: `${firstName} ${lastName}`.trim(), email: user.email });
+      await access.invite.save();
+    }
+
+    // That program's manager and the scheduling office are asked to approve
+    notifyFacultySignup(user, access.program || null);
 
     res.status(201).json({
       success: true,
@@ -935,5 +989,82 @@ exports.facultySignup = async (req, res) => {
 
   } catch (error) {
     sendError(res, error, 'Error registering faculty account');
+  }
+};
+
+// @desc    Devices currently signed in to this account
+// @route   GET /api/auth/sessions
+// @access  Private
+exports.getSessions = async (req, res) => {
+  try {
+    const validAfter = req.user.tokensValidAfter ? new Date(req.user.tokensValidAfter) : null;
+    const sessions = await Session.find({
+      user: req.user._id,
+      revokedAt: null,
+      expiresAt: { $gt: new Date() },
+      // Leave out sessions whose tokens a password change already refused
+      ...(validAfter ? { $or: [{ updatedAt: { $gte: validAfter } }, { _id: req.sessionId || null }] } : {}),
+    }).sort({ lastSeenAt: -1 }).select('device ip lastSeenAt createdAt').lean();
+
+    res.json({
+      success: true,
+      data: sessions.map((s) => ({ ...s, current: String(s._id) === req.sessionId })),
+      // False when signed in with a token from before sessions were tracked
+      currentTracked: !!req.sessionId,
+    });
+  } catch (error) {
+    sendError(res, error, 'Error loading your sessions');
+  }
+};
+
+// @desc    Sign out one device
+// @route   DELETE /api/auth/sessions/:id
+// @access  Private
+exports.revokeSession = async (req, res) => {
+  try {
+    const result = await Session.updateOne(
+      { _id: req.params.id, user: req.user._id, revokedAt: null },
+      { revokedAt: new Date() }
+    );
+    if (!result.matchedCount) {
+      return res.status(404).json({ success: false, message: 'That session was not found or is already signed out' });
+    }
+    res.json({ success: true, message: 'Device signed out' });
+  } catch (error) {
+    sendError(res, error, 'Error signing out that device');
+  }
+};
+
+// @desc    Sign out every other device; this one gets a fresh token
+// @route   POST /api/auth/sessions/revoke-others
+// @access  Private
+exports.revokeOtherSessions = async (req, res) => {
+  try {
+    const signedOut = await revokeOtherSessions(req.user._id, req.sessionId);
+    // Also refuses tokens from before sessions were tracked
+    await User.updateOne({ _id: req.user._id }, { tokensValidAfter: new Date() });
+    const token = await reissueToken(req.user, req, req.sessionId);
+    res.json({
+      success: true,
+      message: signedOut ? `Signed out ${signedOut} other device${signedOut === 1 ? '' : 's'}` : 'No other devices were signed in',
+      data: { token, signedOut },
+    });
+  } catch (error) {
+    sendError(res, error, 'Error signing out other devices');
+  }
+};
+
+// @desc    Recent sign-in attempts on this account
+// @route   GET /api/auth/login-activity
+// @access  Private
+exports.getLoginActivity = async (req, res) => {
+  try {
+    const events = await LoginEvent.find({ user: req.user._id })
+      .sort({ createdAt: -1 }).limit(15).select('success reason device ip createdAt').lean();
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const failedToday = await LoginEvent.countDocuments({ user: req.user._id, success: false, createdAt: { $gte: since } });
+    res.json({ success: true, data: events, failedToday });
+  } catch (error) {
+    sendError(res, error, 'Error loading your sign-in activity');
   }
 };

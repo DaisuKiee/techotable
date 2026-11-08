@@ -25,7 +25,8 @@ api.interceptors.request.use(
 
 // Response interceptor - Handle errors globally
 const AUTH_ENDPOINTS = ['/auth/login', '/auth/register', '/auth/signup', '/auth/faculty-signup',
-  '/auth/forgot-password', '/auth/reset-password', '/auth/verify-email', '/auth/resend-verification'];
+  '/auth/forgot-password', '/auth/reset-password', '/auth/verify-email', '/auth/resend-verification',
+  '/auth/logout'];
 
 const STATUS_MESSAGES = {
   0: 'Cannot reach the server. Check your connection and try again.',
@@ -106,9 +107,13 @@ api.interceptors.response.use(
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         try {
-          sessionStorage.setItem('authNotice', error.response.data.code === 'TOKEN_EXPIRED' || /expired/i.test(error.response.data.message)
-            ? 'Your session has expired. Please sign in again.'
-            : 'Please sign in again to continue.');
+          const { code, message } = error.response.data;
+          // Signed out from another device, or by a password change: say so
+          sessionStorage.setItem('authNotice', code === 'SESSION_REVOKED' || code === 'SESSION_ENDED'
+            ? message
+            : code === 'TOKEN_EXPIRED' || /expired/i.test(message)
+              ? 'Your session has expired. Please sign in again.'
+              : 'Please sign in again to continue.');
         } catch (_) { /* storage blocked */ }
         window.location.href = '/login';
       }
@@ -134,6 +139,13 @@ api.interceptors.response.use(
   }
 );
 
+// ============== FACULTY INVITE LINKS ==============
+export const facultyInviteAPI = {
+  list: (params) => api.get('/faculty-invites', { params }),
+  create: (data) => api.post('/faculty-invites', data),
+  revoke: (id) => api.delete(`/faculty-invites/${id}`),
+};
+
 // ============== AUTH ENDPOINTS ==============
 export const authAPI = {
   login: (credentials) => api.post('/auth/login', credentials),
@@ -143,10 +155,14 @@ export const authAPI = {
   changePassword: (data) => api.put('/auth/change-password', data),
   getSettings: () => api.get('/auth/settings'),
   updateSettings: (data) => api.put('/auth/settings', data),
-  logout: () => api.post('/auth/logout'),
+  // The token is passed explicitly: logout clears it from storage right away
+  logout: (token) => api.post('/auth/logout', null, token ? { headers: { Authorization: `Bearer ${token}` } } : undefined),
+  getSessions: () => api.get('/auth/sessions'),
+  revokeSession: (id) => api.delete(`/auth/sessions/${id}`),
+  revokeOtherSessions: () => api.post('/auth/sessions/revoke-others'),
+  getLoginActivity: () => api.get('/auth/login-activity'),
   forgotPassword: (data) => api.post('/auth/forgot-password', data),
   resetPassword: (token, data) => api.post(`/auth/reset-password/${token}`, data),
-  createFacultyInvite: (hours) => api.post('/auth/faculty-invite', { hours }),
   checkFacultyInvite: (token) => api.get(`/auth/faculty-invite/${encodeURIComponent(token)}`),
   acceptTerms: (version) => api.post('/auth/accept-terms', { version })
 };
@@ -191,6 +207,7 @@ export const activityLogAPI = {
 // ============== FACULTY ENDPOINTS ==============
 export const facultyAPI = {
   getAll: (params) => api.get('/faculty', { params }),
+  getPending: () => api.get('/faculty/pending'),
   getById: (id) => api.get(`/faculty/${id}`),
   create: (data) => api.post('/faculty', data),
   update: (id, data) => api.put(`/faculty/${id}`, data),
@@ -251,8 +268,21 @@ const solverTimeout = (data) => {
 };
 
 // ============== SCHEDULE ENDPOINTS ==============
+// ============== ACADEMIC TERMS (semesters) ==============
+// Semesters are per program (program managers: always their own)
+export const termAPI = {
+  list: (params) => api.get('/terms', { params }),
+  current: (params) => api.get('/terms/current', { params }),
+  previewSchoolYear: (data) => api.post('/terms/school-year/preview', data),
+  saveSchoolYear: (data) => api.put('/terms/school-year', data),
+  delete: (id) => api.delete(`/terms/${id}`),
+  archiveTerms: (params) => api.get('/terms/archive/terms', { params }),
+  archive: (params) => api.get('/terms/archive', { params }),
+};
+
 export const scheduleAPI = {
   getAll: (params) => api.get('/schedules', { params }),
+  getGenerationInfo: (sectionId) => api.get(`/schedules/generation-info/${sectionId}`),
   getById: (id) => api.get(`/schedules/${id}`),
   create: (data) => api.post('/schedules', data),
   // Validates the whole batch and writes all-or-nothing, so a partial failure

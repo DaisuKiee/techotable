@@ -893,7 +893,7 @@ EXTENSION INVOLVEMENT: ${facultyBackground.extensionInvolvement || 'None listed'
 PRODUCTION INVOLVEMENT: ${facultyBackground.productionInvolvement || 'None listed'}
 
 EXPERIENCED SUBJECTS (${facultyBackground.experiencedSubjects?.length || 0}):
-${facultyBackground.experiencedSubjects?.map(s => `- ${s.subjectCode} (taught ${s.semestersTaught || 0} semesters, rating: ${s.rating || 'N/A'})`).join('\n') || 'None'}
+${facultyBackground.experiencedSubjects?.map(s => `- ${s.subjectCode} (taught ${s.semestersTaught || 0} semesters, rating: ${s.rating || 'N/A'}${s.selfRating ? `, self-rated ${s.selfRating}/5` : ''})`).join('\n') || 'None'}
 
 TEACHING HISTORY (${facultyBackground.teachingHistory?.length || 0} entries):
 ${facultyBackground.teachingHistory?.slice(0, 10).map(h => `- ${h.subjectCode} - ${h.subjectName} (${h.semester} ${h.academicYear})`).join('\n') || 'None'}

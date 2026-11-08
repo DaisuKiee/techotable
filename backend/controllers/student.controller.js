@@ -6,7 +6,6 @@ const ClassSpace = require('../models/ClassSpace.model');
 const csv = require('csv-parser');
 const { Readable } = require('stream');
 const { sendError, AppError } = require('../middleware/error.middleware');
-const { currentAcademicYearStart, formatAcademicYear } = require('../utils/teachingExperience');
 const { notifySectionAssigned } = require('../services/inAppNotification.service');
 
 // Never send password hashes or verification / reset tokens to the browser
@@ -19,15 +18,9 @@ const MIN_PASSWORD = 8;
  * active sections are set up for, so they line up with the timetable even
  * when the office hasn't rolled over to the calendar's academic year yet.
  */
-const defaultTerm = async () => {
-  const latest = await Section.findOne({ isActive: { $ne: false } })
-    .sort({ academicYear: -1, semester: -1 })
-    .select('academicYear semester')
-    .lean();
-  return latest
-    ? { academicYear: latest.academicYear, semester: latest.semester }
-    : { academicYear: formatAcademicYear(currentAcademicYearStart()), semester: 1 };
-};
+// The current academic term (Semesters page), else the sections' latest term
+// Each program has its own semesters (Semesters page)
+const defaultTerm = (program) => require('../services/academicTerm.service').getDefaultTerm(program);
 const escapeRegex = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const blank = (v) => v === undefined || v === null || String(v).trim() === '';
 // Subject codes can contain spaces ("CC 111"), so only split on , ; or newlines
@@ -281,7 +274,7 @@ exports.createStudent = async (req, res) => {
       yearLevel: parseInt(yearLevel, 10) || null,
       studentType: studentType || 'regular',
       subjectCodes: cleanCodes(subjectCodes),
-      ...(await defaultTerm()),
+      ...(await defaultTerm(program)),
       contactNumber,
       address,
       guardianInfo,
@@ -467,7 +460,9 @@ exports.bulkImport = async (req, res) => {
     // a program manager's program here
     const lockedProgram = req.user.role === 'program_manager' ? req.user.program : null;
 
-    const term = await defaultTerm();
+    // Rows can be from different programs, each with its own semesters
+    const terms = new Map();
+    const termFor = async (p) => { if (!terms.has(p)) terms.set(p, await defaultTerm(p)); return terms.get(p); };
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
@@ -475,6 +470,7 @@ exports.bulkImport = async (req, res) => {
       const studentId = String(row.studentId || '').trim();
       const email = String(row.email || '').toLowerCase().trim();
       const program = String(row.program || lockedProgram || '').trim().toUpperCase();
+      const term = program ? await termFor(program) : null;
       const fail = (error) => results.failed.push({ row: rowNo, studentId: studentId || 'N/A', error });
       let user;
 

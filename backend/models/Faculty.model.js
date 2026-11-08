@@ -128,7 +128,16 @@ const FacultySchema = new mongoose.Schema({
       min: 0,
       max: 5,
       default: 0
-    }
+    },
+    // The teacher's own rating of how well they can teach it (1-5). Separate
+    // from `rating`, which is the recorded evaluation.
+    selfRating: {
+      type: Number,
+      min: 0,
+      max: 5,
+      default: 0
+    },
+    selfRatedAt: Date
   }],
   maxTeachingHours: {
     type: Number,
@@ -179,7 +188,7 @@ FacultySchema.virtual('totalHours').get(function() {
 FacultySchema.virtual('loadStatus').get(function() {
   const total = this.totalHours;
   const standard = 36;
-  
+
   if (total <= standard) {
     return { status: 'normal', color: 'green', message: 'Normal load' };
   } else if (total <= 40) {

@@ -15,6 +15,7 @@ import { ModalShell } from '../components/modal/ModalShell';
 import { usePrograms } from '../hooks/usePrograms';
 import StatCard from '../components/StatCard';
 import { useAuth } from '../context/AuthContext';
+import CurrentTermBar from '../components/CurrentTermBar';
 
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
 
@@ -691,6 +692,7 @@ const SectionPage = () => {
           <p className="text-gray-600 dark:text-gray-400 text-sm md:text-base">
             Create and manage sections with Day/Night shift indicators. Click a section to see who is enrolled.
           </p>
+          <CurrentTermBar />
         </div>
 
         {/* Statistics Cards. Day and Night double as quick shift filters. */}

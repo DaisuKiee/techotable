@@ -67,18 +67,19 @@ const withRealLoads = async (faculty) => {
 /**
  * Helper function to load comprehensive RAG context from database
  */
-const loadRAGContext = async () => {
-  console.log('Loading comprehensive RAG context...');
+// `program`: a program manager's B-LO only sees their own program's records
+const loadRAGContext = async (program = null) => {
+  const only = program ? { program } : {};
 
   // Fetch ALL relevant data for deep knowledge
   const [subjects, faculty, rooms, schedules, sections, students, classSpaces, users, programs] = await Promise.all([
     // Subjects with full details
-    Subject.find()
+    Subject.find(program ? { program: { $in: [program, 'General'] } } : {})
       .select('subjectCode subjectName description units lectureHours labHours program yearLevel semester prerequisite')
       .lean(),
 
     // Faculty with complete profile and teaching history
-    Faculty.find({ isActive: true })
+    Faculty.find({ isActive: true, ...(program && { programs: program }) })
       .populate('user', 'firstName lastName email')
       .select('employeeId specializations maxTeachingLoad maxTeachingHours position teachingHistory averageRating qualifications')
       .lean(),
@@ -89,7 +90,7 @@ const loadRAGContext = async () => {
       .lean(),
 
     // Schedules with relationships
-    Schedule.find({ isActive: true })
+    Schedule.find({ isActive: true, ...only })
       .populate('subject', 'subjectCode subjectName units')
       .populate('faculty', 'employeeId')
       .populate('room', 'roomNumber building')
@@ -98,12 +99,12 @@ const loadRAGContext = async () => {
       .lean(),
 
     // Sections with enrollment data
-    Section.find()
+    Section.find(only)
       .select('sectionCode program yearLevel semester shift maxStudents currentStudents')
       .lean(),
 
     // Students with enrollment info
-    Student.find()
+    Student.find(only)
       .populate('user', 'firstName lastName email')
       .populate('enrolledClasses', 'subject section day startTime endTime')
       .select('studentId program studentType sectionCode subjectCodes enrollmentStatus academicYear semester gpa')
@@ -111,13 +112,13 @@ const loadRAGContext = async () => {
       .lean(),
 
     // ClassSpace schedules (published/active schedules)
-    ClassSpace.find()
+    ClassSpace.find(only)
       .populate('schedule', 'subject faculty room section day startTime endTime program yearLevel semester shift')
       .select('sectionCode enrollmentCode isActive enrolledStudents')
       .lean(),
 
     // Users (for authentication and role management)
-    User.find()
+    User.find(program ? { program } : {})
       .select('firstName lastName email role program department isActive createdAt')
       .lean(),
 
@@ -373,7 +374,7 @@ exports.sendChatMessageStream = async (req, res) => {
     } else if (includeContext) {
       // Build comprehensive context from database with RAG
       try {
-        context = await loadRAGContext();
+        context = await loadRAGContext(req.user.role === 'program_manager' ? req.user.program || '__none__' : null);
       } catch (contextError) {
         console.error('Error loading RAG context:', contextError);
       }
@@ -445,7 +446,7 @@ exports.sendChatMessage = async (req, res) => {
     } else if (includeContext) {
       // Build comprehensive context from database with RAG
       try {
-        context = await loadRAGContext();
+        context = await loadRAGContext(req.user.role === 'program_manager' ? req.user.program || '__none__' : null);
       } catch (contextError) {
         console.error('Error loading RAG context:', contextError);
       }

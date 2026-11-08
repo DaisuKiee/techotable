@@ -26,13 +26,36 @@ const lazy = {
 const uniqIds = (ids) => [...new Set((ids || []).filter(Boolean).map(String))];
 
 /**
+ * Which Settings > Notifications switch covers each kind of notice. Kinds
+ * not listed (account approval, section enrollment) are always delivered.
+ */
+const PREFERENCE_FOR_TYPE = {
+  schedule: 'scheduleUpdates',
+  announcement: 'classPosts',
+  material: 'classPosts',
+  system: 'systemAlerts',
+};
+
+/** Drop recipients who switched this kind of notice off. */
+const wantingIt = async (ids, preference) => {
+  if (!preference || !ids.length) return ids;
+  const off = await lazy.User.find({ _id: { $in: ids }, [`settings.notifications.${preference}`]: false })
+    .select('_id').lean();
+  const skip = new Set(off.map((u) => String(u._id)));
+  return ids.filter((id) => !skip.has(id));
+};
+
+/**
  * Save one notification per recipient and push it live.
+ * `preference` overrides the setting that governs it (null: always send).
  * @returns {{ success: boolean, count: number }}
  */
-const notify = async (recipients, data) => {
-  const ids = uniqIds(Array.isArray(recipients) ? recipients : [recipients]);
-  if (!ids.length) return { success: true, count: 0 };
+const notify = async (recipients, { preference, ...data }) => {
+  const all = uniqIds(Array.isArray(recipients) ? recipients : [recipients]);
+  if (!all.length) return { success: true, count: 0 };
   try {
+    const ids = await wantingIt(all, preference === undefined ? PREFERENCE_FOR_TYPE[data.type] : preference);
+    if (!ids.length) return { success: true, count: 0 };
     const docs = await Notification.insertMany(ids.map((recipient) => ({ recipient, ...data })));
     docs.forEach((doc) => realtime.publish([doc.recipient], 'notification', doc.toObject()));
     return { success: true, count: docs.length };
@@ -200,11 +223,12 @@ const notifyScheduleEvent = async (scheduleOrId, kind, { before, actor } = {}) =
         reassigned: { title: `New class assigned: ${code}`, message: `You're now teaching ${code} with ${section}: ${when}${room ? ` in ${room}` : ''}.` },
         removed: { title: `${code} removed`, message: `${code} with ${section} was removed from your load.` },
       }[effectiveKind] || text;
-      await notify([teacherUser], { ...base, ...teacherText, link: kind === 'removed' ? '/schedules' : classLink });
+      await notify([teacherUser], { ...base, ...teacherText, link: kind === 'removed' ? '/schedules' : classLink, preference: 'facultyAssignments' });
     }
     if (oldTeacherUser) {
       await notify([oldTeacherUser], {
         ...base,
+        preference: 'facultyAssignments',
         title: `${code} reassigned`,
         message: `${code} with ${section} was moved to another instructor and is no longer on your load.`,
         link: '/schedules',
@@ -333,6 +357,7 @@ const notifyFacultySignup = async (user, program) => {
     const staff = await staffUsers(program);
     await notify(staff, {
       type: 'account',
+      preference: 'systemAlerts',
       title: 'Faculty sign-up to approve',
       message: `${user.firstName} ${user.lastName} (${user.email}) registered and is waiting for approval.`,
       link: '/faculty/approvals',
@@ -349,9 +374,9 @@ const notifyAccountApproved = async (userId) => {
   try {
     await notify([userId], {
       type: 'account',
-      title: 'Your account is approved',
-      message: 'Welcome! Your faculty account is active. Your classes appear here once the scheduling office assigns them.',
-      link: '/dashboard',
+      title: 'Your account is approved: complete your profile',
+      message: 'Welcome! Your faculty account is active. Add your degrees, the subjects you teach, and times you can\'t teach, so the schedule fits you.',
+      link: '/profile',
       metadata: { kind: 'approved' },
     });
   } catch (error) {

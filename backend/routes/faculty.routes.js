@@ -21,6 +21,7 @@ const {
 } = require('../controllers/faculty.controller');
 const { protect, authorize } = require('../middleware/auth.middleware');
 const { checkProgramAccess } = require('../middleware/programAccess.middleware');
+const { facultyProgramGuard, applicantProgramGuard } = require('../utils/programScope');
 
 // Validation middleware
 const createFacultyValidation = [
@@ -59,20 +60,20 @@ router.get('/', checkProgramAccess('Faculty'), getAllFaculty);
 router.get('/pending', authorize('admin', 'scheduling_officer', 'program_manager'), getPendingFaculty);
 router.get('/available', checkProgramAccess('Faculty'), getAvailableFaculty);
 router.get('/specialization/:specialization', getFacultyBySpecialization);
-router.get('/:id', getFacultyById);
-router.get('/:id/workload', getFacultyWorkload);
-router.get('/:id/background-summary', authorize('admin', 'scheduling_officer', 'program_manager', 'faculty'), getFacultyBackgroundSummary);
-router.post('/:id/analyze-subject-compatibility', authorize('admin', 'scheduling_officer', 'program_manager', 'faculty'), analyzeFacultySubjectCompatibility);
+router.get('/:id', facultyProgramGuard, getFacultyById);
+router.get('/:id/workload', facultyProgramGuard, getFacultyWorkload);
+router.get('/:id/background-summary', facultyProgramGuard, authorize('admin', 'scheduling_officer', 'program_manager', 'faculty'), getFacultyBackgroundSummary);
+router.post('/:id/analyze-subject-compatibility', facultyProgramGuard, authorize('admin', 'scheduling_officer', 'program_manager', 'faculty'), analyzeFacultySubjectCompatibility);
 
 // Admin/Scheduling Officer/Program Manager only routes
 router.post('/', authorize('admin', 'scheduling_officer', 'program_manager'), createFacultyValidation, createFaculty);
 // Faculty can update their own profile, others need admin/scheduling_officer/program_manager role
-router.put('/:id', authorize('admin', 'scheduling_officer', 'program_manager', 'faculty'), updateFaculty);
-router.put('/:id/approve', authorize('admin', 'scheduling_officer', 'program_manager'), approveFaculty);
-router.put('/:id/reject', authorize('admin', 'scheduling_officer', 'program_manager'), rejectFaculty);
-router.delete('/:id', authorize('admin', 'scheduling_officer', 'program_manager'), deleteFaculty);
-router.post('/:id/qualifications', authorize('admin', 'scheduling_officer', 'program_manager', 'faculty'), addQualification);
-router.post('/:id/teaching-history', authorize('admin', 'scheduling_officer', 'program_manager'), addTeachingHistory);
+router.put('/:id', facultyProgramGuard, authorize('admin', 'scheduling_officer', 'program_manager', 'faculty'), updateFaculty);
+router.put('/:id/approve', applicantProgramGuard, authorize('admin', 'scheduling_officer', 'program_manager'), approveFaculty);
+router.put('/:id/reject', applicantProgramGuard, authorize('admin', 'scheduling_officer', 'program_manager'), rejectFaculty);
+router.delete('/:id', facultyProgramGuard, authorize('admin', 'scheduling_officer', 'program_manager'), deleteFaculty);
+router.post('/:id/qualifications', facultyProgramGuard, authorize('admin', 'scheduling_officer', 'program_manager', 'faculty'), addQualification);
+router.post('/:id/teaching-history', facultyProgramGuard, authorize('admin', 'scheduling_officer', 'program_manager'), addTeachingHistory);
 router.put('/:id/load', authorize('admin', 'scheduling_officer', 'program_manager'), updateFacultyLoad);
 
 module.exports = router;

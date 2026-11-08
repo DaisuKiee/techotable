@@ -92,7 +92,11 @@ exports.getSectionById = async (req, res) => {
 // @access  Private (Admin, Scheduling Officer)
 exports.createSection = async (req, res) => {
   try {
-    const { program, yearLevel, sectionLetter, shift, academicYear, semester, maxStudents, adviser, room, description } = req.body;
+    const { program, yearLevel, sectionLetter, shift, maxStudents, adviser, room, description } = req.body;
+    // New sections belong to the current term unless one is given
+    const term = await require('../services/academicTerm.service').getDefaultTerm(program);
+    const academicYear = req.body.academicYear || term.academicYear;
+    const semester = req.body.semester || term.semester;
 
     // Validate that faculty can only have one advisory role
     if (adviser && adviser !== '') {

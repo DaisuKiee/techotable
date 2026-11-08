@@ -61,6 +61,8 @@ const FacultySignupPage = () => {
   // link issued by the scheduling office
   const [inviteState, setInviteState] = useState('checking');
   const [expirationDate, setExpirationDate] = useState(null);
+  // The program whose link this is (older links have none)
+  const [invitedTo, setInvitedTo] = useState(null);
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState('');
@@ -88,6 +90,7 @@ const FacultySignupPage = () => {
     authAPI.checkFacultyInvite(invite)
       .then(({ data }) => {
         setExpirationDate(new Date(data.data.expiresAt));
+        setInvitedTo(data.data.program ? { code: data.data.program, name: data.data.programName } : null);
         setInviteState('valid');
       })
       .catch((err) => {
@@ -203,7 +206,10 @@ const FacultySignupPage = () => {
             </SubmitButton>
           )}
         >
-          <p>Your faculty account has been created and is waiting for the scheduling office to approve it.</p>
+          <p>Your faculty account has been created and is waiting for {invitedTo ? `the ${invitedTo.code} program manager` : 'the scheduling office'} to approve it.</p>
+          <p className="text-xs text-gray-500 dark:text-dark-text-muted">
+            After you’re approved and sign in, complete your profile (degrees, subjects you teach, times you can’t teach) so your schedule fits you.
+          </p>
           <p className="text-xs text-gray-500 dark:text-dark-text-muted">
             You'll be able to log in with {formData.email.trim().toLowerCase()} once it's approved.
           </p>
@@ -219,7 +225,9 @@ const FacultySignupPage = () => {
           Create your faculty account
         </h1>
         <p className="mb-5 text-sm text-gray-600 dark:text-dark-text-secondary">
-          You were invited by the scheduling office. Your account is activated once they approve it.
+          {invitedTo
+            ? <>You’re invited to join the <strong>{invitedTo.code}</strong> faculty{invitedTo.name ? ` (${invitedTo.name})` : ''}. Your account is activated once your program manager approves it.</>
+            : 'You were invited by the scheduling office. Your account is activated once they approve it.'}
         </p>
         {expirationDate && (
           <p className="mb-6 inline-flex items-center gap-2 rounded-lg bg-blue-50 px-3 py-2 text-xs font-medium text-blue-800 dark:bg-blue-500/10 dark:text-blue-200">

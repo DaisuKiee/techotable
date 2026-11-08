@@ -17,6 +17,7 @@ const {
 const { protect, authorize } = require('../middleware/auth.middleware');
 const { checkProgramAccess } = require('../middleware/programAccess.middleware');
 const { isValidProgramCode } = require('../utils/programValidator');
+const { restrictProgramParam } = require('../utils/programScope');
 
 // Validation middleware
 const createSubjectValidation = [
@@ -58,7 +59,7 @@ router.use(protect);
 // Public subject routes (all authenticated users) - with program filtering for managers
 router.get('/', checkProgramAccess('Subject'), getAllSubjects);
 router.get('/stats', checkProgramAccess('Subject'), getSubjectStats);
-router.get('/curriculum/:program/:yearLevel', getSubjectsByProgramAndYear);
+router.get('/curriculum/:program/:yearLevel', restrictProgramParam(), getSubjectsByProgramAndYear);
 router.get('/qualification/:qualification', getSubjectsByQualification);
 router.get('/:id', checkProgramAccess('Subject'), getSubjectById);
 

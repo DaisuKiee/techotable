@@ -1,5 +1,7 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User.model');
+const Session = require('../models/Session.model');
+const { clientIp } = require('../utils/device');
 
 // Verify JWT token
 exports.protect = async (req, res, next) => {
@@ -18,6 +20,10 @@ exports.protect = async (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    // Invite links are signed with the same secret; they're not logins
+    if (decoded.purpose || !decoded.id) {
+      return res.status(401).json({ success: false, message: 'Not authorized to access this route' });
+    }
     req.user = await User.findById(decoded.id)
       .select('-password')
       .populate('facultyProfile');
@@ -27,6 +33,33 @@ exports.protect = async (req, res, next) => {
         success: false,
         message: 'User not found'
       });
+    }
+
+    // Issued before a password change or "sign out everywhere"
+    const validAfter = req.user.tokensValidAfter ? Math.floor(new Date(req.user.tokensValidAfter).getTime() / 1000) : 0;
+    if (decoded.iat < validAfter) {
+      return res.status(401).json({
+        success: false,
+        code: 'SESSION_ENDED',
+        message: 'You were signed out because your password changed or all devices were signed out. Please sign in again.'
+      });
+    }
+
+    // A session that was ended from Settings, or by logging out
+    if (decoded.sid) {
+      const session = await Session.findById(decoded.sid).select('user revokedAt lastSeenAt').lean();
+      if (!session || session.revokedAt || String(session.user) !== String(req.user._id)) {
+        return res.status(401).json({
+          success: false,
+          code: 'SESSION_REVOKED',
+          message: 'This device was signed out. Please sign in again.'
+        });
+      }
+      // "Last active" for the sessions list, at most every 5 minutes
+      if (Date.now() - new Date(session.lastSeenAt).getTime() > 5 * 60 * 1000) {
+        Session.updateOne({ _id: session._id }, { lastSeenAt: new Date(), ip: clientIp(req) }).catch(() => {});
+      }
+      req.sessionId = String(decoded.sid);
     }
 
     if (!req.user.isActive) {

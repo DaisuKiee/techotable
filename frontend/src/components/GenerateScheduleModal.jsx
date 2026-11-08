@@ -165,6 +165,138 @@ const PreviewGrid = ({ schedules }) => {
   );
 };
 
+/**
+ * What generating this section involves, shown as soon as it's picked: the
+ * term, every subject (and which are already scheduled), who can teach each
+ * one, rooms, and anything that will stop the solver.
+ */
+const SectionInsight = ({ sectionId }) => {
+  const [info, setInfo] = useState(null);
+  const [error, setError] = useState('');
+  const [showAll, setShowAll] = useState(false);
+
+  useEffect(() => {
+    if (!sectionId) { setInfo(null); return undefined; }
+    let live = true;
+    setInfo(null);
+    setError('');
+    scheduleAPI.getGenerationInfo(sectionId)
+      .then((res) => { if (live) setInfo(res.data.data); })
+      .catch((err) => { if (live) setError(err.response?.data?.message || 'Could not load section details'); });
+    return () => { live = false; };
+  }, [sectionId]);
+
+  if (!sectionId) return null;
+  if (error) return <p className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/20 dark:text-red-200">{error}</p>;
+  if (!info) {
+    return (
+      <div className="mt-3 space-y-2 rounded-xl border border-gray-200 p-4 dark:border-gray-700" aria-busy="true">
+        <span className="block h-4 w-1/3 rounded bg-gray-200 dark:bg-gray-700" />
+        <span className="block h-3 w-2/3 rounded bg-gray-200 dark:bg-gray-700" />
+        <span className="block h-16 w-full rounded bg-gray-200 dark:bg-gray-700" />
+      </div>
+    );
+  }
+
+  const { section, totals, resources, subjects, warnings, isCurrentTerm, currentTerm } = info;
+  const rows = showAll ? subjects : subjects.slice(0, 6);
+  const tone = {
+    error: 'border-red-200 bg-red-50 text-red-800 dark:border-red-800/60 dark:bg-red-900/20 dark:text-red-200',
+    warning: 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-800/60 dark:bg-amber-900/20 dark:text-amber-100',
+    info: 'border-blue-200 bg-blue-50 text-blue-900 dark:border-blue-800/60 dark:bg-blue-900/20 dark:text-blue-100',
+  };
+
+  return (
+    <div className="mt-3 overflow-hidden rounded-xl border border-purple-200 bg-white dark:border-purple-900/60 dark:bg-gray-800">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-purple-100 bg-purple-50/60 px-4 py-3 dark:border-purple-900/50 dark:bg-purple-900/20">
+        <div>
+          <p className="font-semibold text-gray-900 dark:text-white">{section.sectionCode}</p>
+          <p className="text-xs text-gray-600 dark:text-gray-300">
+            {section.program} · Year {section.yearLevel} · {section.shift} shift · {section.termLabel}
+          </p>
+        </div>
+        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${isCurrentTerm ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'}`}>
+          {isCurrentTerm ? `Current term · ${currentTerm.daysLeft} days left` : currentTerm ? 'Not the current term' : 'No current term set'}
+        </span>
+      </div>
+
+      <div className="grid grid-cols-2 gap-px bg-gray-100 dark:bg-gray-700 sm:grid-cols-4">
+        {[
+          ['To schedule', `${totals.toSchedule} of ${totals.subjects}`, 'subjects'],
+          ['Weekly hours', `${totals.allWeeklyHours}h`, totals.toSchedule ? `${totals.weeklyHours}h still to schedule` : `${totals.allUnits} units, all scheduled`],
+          ['Students', section.students, `of ${section.maxStudents} seats`],
+          ['Home room', section.homeRoom || 'None', `${resources.labRooms} labs · ${resources.lectureRooms} rooms`],
+        ].map(([label, value, hint]) => (
+          <div key={label} className="bg-white px-4 py-3 dark:bg-gray-800">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</p>
+            <p className="mt-0.5 truncate text-lg font-bold text-gray-900 dark:text-white">{value}</p>
+            <p className="truncate text-xs text-gray-500 dark:text-gray-400">{hint}</p>
+          </div>
+        ))}
+      </div>
+
+      {warnings.length > 0 && (
+        <ul className="space-y-2 px-4 pt-3">
+          {warnings.map((w) => (
+            <li key={w.text} className={`flex items-start gap-2 rounded-lg border px-3 py-2 text-xs ${tone[w.level] || tone.info}`}>
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" /> {w.text}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {subjects.length > 0 && (
+        <div className="px-4 py-3">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            Subjects · {resources.faculty} {section.program} faculty can be assigned
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs text-gray-500 dark:text-gray-400">
+                  <th className="pb-1.5 pr-3 font-medium">Subject</th>
+                  <th className="pb-1.5 pr-3 font-medium">Hours</th>
+                  <th className="pb-1.5 pr-3 font-medium">Room</th>
+                  <th className="pb-1.5 pr-3 font-medium">Experienced</th>
+                  <th className="pb-1.5 font-medium">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
+                {rows.map((s) => (
+                  <tr key={s._id} className="text-gray-800 dark:text-gray-200">
+                    <td className="py-1.5 pr-3">
+                      <span className="font-medium">{s.subjectCode}</span>
+                      <span className="block max-w-[14rem] truncate text-xs text-gray-500 dark:text-gray-400">{s.subjectName}</span>
+                    </td>
+                    <td className="py-1.5 pr-3 text-xs tabular-nums">
+                      {s.lectureHours ? `${s.lectureHours} lec` : ''}{s.lectureHours && s.labHours ? ' + ' : ''}{s.labHours ? `${s.labHours} lab` : ''}{!s.lectureHours && !s.labHours ? `${s.units} units` : ''}
+                    </td>
+                    <td className="py-1.5 pr-3 text-xs">{s.saturdayOnly ? 'Saturday' : s.needsLab ? 'Lab' : 'Home room'}</td>
+                    <td className="py-1.5 pr-3 text-xs">
+                      {s.experiencedFaculty ? `${s.experiencedFaculty} teacher${s.experiencedFaculty === 1 ? '' : 's'}` : <span className="text-amber-700 dark:text-amber-300">none yet</span>}
+                    </td>
+                    <td className="py-1.5 text-xs">
+                      {s.scheduled
+                        ? <span className="rounded-full bg-emerald-100 px-2 py-0.5 font-medium text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300">Scheduled</span>
+                        : <span className="rounded-full bg-purple-100 px-2 py-0.5 font-medium text-purple-700 dark:bg-purple-900/50 dark:text-purple-300">To schedule</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {subjects.length > 6 && (
+            <button type="button" onClick={() => setShowAll((v) => !v)} className="mt-2 text-xs font-medium text-purple-700 hover:underline dark:text-purple-300">
+              {showAll ? 'Show fewer' : `Show all ${subjects.length} subjects`}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+
 const GenerateScheduleModal = ({ onClose }) => {
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -532,13 +664,16 @@ const GenerateScheduleModal = ({ onClose }) => {
                     <option value="">-- Select a Section --</option>
                     {availableSections.map(section => (
                       <option key={section._id} value={section._id}>
-                        {section.sectionCode} ({section.program} - Year {section.yearLevel} - {section.shift}) - {section.currentStudents || 0}/{section.maxStudents} students
+                        {section.sectionCode} · {section.program} Year {section.yearLevel} · {section.shift} · AY {section.academicYear} Sem {section.semester}
                       </option>
                     ))}
                   </select>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {loadingSections ? 'Loading sections...' : `${availableSections.length} section${availableSections.length !== 1 ? 's' : ''} available`}
-                  </p>
+                  {!formData.section && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      {loadingSections ? 'Loading sections...' : `${availableSections.length} section${availableSections.length !== 1 ? 's' : ''} available. Pick one to see its subjects, rooms and any problems before generating.`}
+                    </p>
+                  )}
+                  <SectionInsight sectionId={formData.section} />
                 </div>
 
 

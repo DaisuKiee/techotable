@@ -12,6 +12,7 @@ const {
 } = require('../controllers/section.controller');
 const { protect, authorize } = require('../middleware/auth.middleware');
 const { checkProgramAccess } = require('../middleware/programAccess.middleware');
+const { restrictProgramParam } = require('../utils/programScope');
 
 // Apply authentication to all routes
 router.use(protect);
@@ -20,7 +21,7 @@ router.use(protect);
 router.get('/stats', authorize('admin', 'scheduling_officer', 'program_manager'), checkProgramAccess('Section'), getSectionStats);
 
 // Program and year specific route
-router.get('/program/:program/year/:year', getSectionsByProgramAndYear);
+router.get('/program/:program/year/:year', restrictProgramParam(), getSectionsByProgramAndYear);
 
 // Main CRUD routes
 router.route('/')

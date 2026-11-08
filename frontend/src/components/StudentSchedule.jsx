@@ -461,14 +461,22 @@ const StudentSchedule = () => {
           <Calendar className="w-10 h-10 text-blue-600" />
         </div>
         <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-          {!enrolled ? 'You have not joined any classes yet' : 'No classes scheduled yet'}
+          {!enrolled
+            ? 'You have not joined any classes yet'
+            : classes.length === 0
+              ? (profile?.sectionCode ? `You’re in ${profile.sectionCode}. Your timetable isn’t out yet` : 'Your timetable isn’t out yet')
+              : 'No classes scheduled yet'}
         </h2>
         <p className="text-gray-500 dark:text-gray-400 max-w-md mb-6">
           {!enrolled
             ? profile?.studentType === 'irregular'
               ? 'Join a subject using a class code from your instructor, then your timetable will appear here.'
               : 'Join your section using the enrollment code from your program manager, then your timetable will appear here.'
-            : 'Your classes exist but do not have meeting times set yet. Check back once the timetable is finalised.'}
+            : classes.length === 0
+              // Joined, but the section's schedule for this semester hasn't
+              // been generated yet (it said the classes existed)
+              ? `The class schedule${profile?.academicYear ? ` for AY ${profile.academicYear} · Sem ${profile.semester}` : ''} hasn’t been published yet. It will appear here automatically once the program office releases it.`
+              : 'Your classes exist but do not have meeting times set yet. Check back once the timetable is finalised.'}
         </p>
         {!enrolled && (
           <button

@@ -1,86 +1,174 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { useTranslation } from 'react-i18next';
 import Layout from '../components/Layout';
 import { authAPI, getErrorMessage } from '../services/api';
 import toast from 'react-hot-toast';
 import {
-  Settings, Lock, Bell, Eye, Globe, Shield,
-  Save, Key, Mail, Smartphone, CheckCircle,
-  AlertCircle, Info, Moon, Sun, Monitor,
-  EyeOff, Check, Loader2, Clock, Users, Phone, MessageSquare, Calendar
+  Settings, Lock, Bell, Palette, Shield, Key, Mail, CheckCircle, AlertCircle, Info,
+  Moon, Sun, Monitor, Eye, EyeOff, Check, Loader2, Phone, Calendar, BookOpen,
+  Megaphone, AlertTriangle, Newspaper, UserCircle, Clock, BadgeCheck, X,
+  Smartphone, LogOut, ShieldCheck, ShieldAlert, History, RefreshCw,
 } from 'lucide-react';
+import ConfirmDialog from '../components/ConfirmDialog';
 
-/* ---------- Reusable UI pieces (presentation only) ---------- */
+/* ---------- Reusable UI pieces ---------- */
 
 const inputCls =
   'w-full px-4 py-2.5 bg-white dark:bg-dark-elevated text-gray-900 dark:text-dark-text-primary border border-gray-300 dark:border-dark-border-default rounded-lg placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-shadow';
 
-const Toggle = ({ checked, onChange, label }) => (
-  <label className="relative inline-flex items-center cursor-pointer shrink-0">
-    <input type="checkbox" checked={checked} onChange={onChange} aria-label={label} className="sr-only peer" />
-    <div className="w-11 h-6 bg-gray-300 dark:bg-gray-600 rounded-full peer peer-focus-visible:ring-4 peer-focus-visible:ring-blue-300/60 peer-checked:bg-blue-600 transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:shadow after:transition-all peer-checked:after:translate-x-5" />
-  </label>
-);
+const STAFF = ['admin', 'scheduling_officer', 'program_manager'];
 
-const SettingRow = ({ icon: Icon, title, description, checked, onChange }) => (
-  <div className="flex items-center justify-between gap-4 p-4 rounded-xl border border-gray-100 dark:border-dark-border-subtle bg-gray-50/70 dark:bg-dark-elevated/60 hover:border-blue-200 dark:hover:border-blue-800 transition-colors">
-    <div className="flex items-start gap-3 min-w-0">
-      {Icon && (
-        <div className="p-2 rounded-lg bg-white dark:bg-dark-card border border-gray-100 dark:border-dark-border-subtle">
-          <Icon className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-        </div>
-      )}
-      <div className="min-w-0">
-        <h4 className="font-medium text-gray-900 dark:text-dark-text-primary">{title}</h4>
-        <p className="text-sm text-gray-500 dark:text-dark-text-muted">{description}</p>
-      </div>
-    </div>
-    <Toggle checked={checked} onChange={onChange} label={title} />
-  </div>
-);
+const ROLE_LABELS = {
+  admin: 'Administrator',
+  scheduling_officer: 'Scheduling Officer',
+  program_manager: 'Program Manager',
+  faculty: 'Faculty',
+  student: 'Student',
+};
 
-const SectionHeader = ({ title, subtitle }) => (
-  <div className="mb-6 pb-4 border-b border-gray-100 dark:border-dark-border-subtle">
-    <h2 className="text-2xl font-bold text-gray-900 dark:text-dark-text-primary">{title}</h2>
-    <p className="mt-1 text-gray-500 dark:text-dark-text-muted">{subtitle}</p>
-  </div>
-);
+const TAB_KEY = 'settingsActiveTab';
 
-const SubHeading = ({ icon: Icon, children }) => (
-  <h3 className="text-base font-semibold text-gray-900 dark:text-dark-text-primary mb-3 flex items-center gap-2">
-    {Icon && <Icon className="w-5 h-5 text-blue-600 dark:text-blue-400" />}
-    {children}
-  </h3>
-);
+const readTab = () => {
+  try {
+    return localStorage.getItem(TAB_KEY) || 'security';
+  } catch {
+    return 'security';
+  }
+};
 
-const SaveButton = ({ loading, onClick, type = 'button', children }) => (
+const formatDate = (value, withTime = false) => {
+  if (!value) return null;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString('en-PH', {
+    year: 'numeric', month: 'long', day: 'numeric',
+    ...(withTime ? { hour: 'numeric', minute: '2-digit' } : {}),
+  });
+};
+
+/** "5 minutes ago", "yesterday", or a date for older times. */
+const timeAgo = (value) => {
+  if (!value) return '';
+  const diff = Date.now() - new Date(value).getTime();
+  const min = Math.round(diff / 60000);
+  if (min < 1) return 'just now';
+  if (min < 60) return `${min} minute${min === 1 ? '' : 's'} ago`;
+  const hours = Math.round(min / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+  const days = Math.round(hours / 24);
+  if (days === 1) return 'yesterday';
+  if (days < 7) return `${days} days ago`;
+  return formatDate(value);
+};
+
+const isPhone = (device = '') => /Android|iOS/.test(device);
+
+/** What each failed sign-in reason means, in plain words. */
+const LOGIN_REASONS = {
+  ok: 'Signed in',
+  bad_password: 'Wrong password',
+  locked: 'Blocked: too many failed attempts',
+  inactive: 'Blocked: account deactivated',
+  unverified: 'Blocked: email not verified',
+};
+
+/** On/off switch. A real button with role="switch", so it works with the keyboard. */
+const Toggle = ({ checked, onChange, label, disabled }) => (
   <button
-    type={type}
-    onClick={onClick}
-    disabled={loading}
-    className="inline-flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white font-medium rounded-lg shadow-sm hover:bg-blue-700 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-dark-card transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+    type="button"
+    role="switch"
+    aria-checked={checked}
+    aria-label={label}
+    disabled={disabled}
+    onClick={() => onChange(!checked)}
+    className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-300/60 disabled:cursor-not-allowed disabled:opacity-40 ${
+      checked ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
+    }`}
   >
-    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-    {children}
+    <span className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${checked ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
   </button>
 );
 
-const PasswordField = ({ label, value, onChange, placeholder, minLength }) => {
+const SettingRow = ({ icon: Icon, title, description, checked, onChange, disabled, note }) => (
+  <div className={`flex items-center justify-between gap-4 rounded-xl border p-4 transition-colors ${
+    disabled
+      ? 'border-gray-100 bg-gray-50/50 dark:border-dark-border-subtle dark:bg-dark-elevated/30'
+      : 'border-gray-100 bg-gray-50/70 hover:border-blue-200 dark:border-dark-border-subtle dark:bg-dark-elevated/60 dark:hover:border-blue-800'
+  }`}
+  >
+    <div className="flex min-w-0 items-start gap-3">
+      {Icon && (
+        <div className="rounded-lg border border-gray-100 bg-white p-2 dark:border-dark-border-subtle dark:bg-dark-card">
+          <Icon className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+        </div>
+      )}
+      <div className="min-w-0">
+        <h4 className={`font-medium ${disabled ? 'text-gray-400 dark:text-dark-text-muted' : 'text-gray-900 dark:text-dark-text-primary'}`}>{title}</h4>
+        <p className="text-sm text-gray-500 dark:text-dark-text-muted">{description}</p>
+        {note && <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">{note}</p>}
+      </div>
+    </div>
+    <Toggle checked={!!checked} onChange={onChange} label={title} disabled={disabled} />
+  </div>
+);
+
+const SectionHeader = ({ title, subtitle, right }) => (
+  <div className="mb-6 flex flex-wrap items-start justify-between gap-3 border-b border-gray-100 pb-4 dark:border-dark-border-subtle">
+    <div>
+      <h2 className="text-2xl font-bold text-gray-900 dark:text-dark-text-primary">{title}</h2>
+      <p className="mt-1 text-gray-500 dark:text-dark-text-muted">{subtitle}</p>
+    </div>
+    {right}
+  </div>
+);
+
+const SubHeading = ({ icon: Icon, children, hint }) => (
+  <div className="mb-3">
+    <h3 className="flex items-center gap-2 text-base font-semibold text-gray-900 dark:text-dark-text-primary">
+      {Icon && <Icon className="h-5 w-5 text-blue-600 dark:text-blue-400" />}
+      {children}
+    </h3>
+    {hint && <p className="mt-0.5 text-sm text-gray-500 dark:text-dark-text-muted">{hint}</p>}
+  </div>
+);
+
+/** "Saving…" / "Saved" next to a section's title, for switches that save on their own. */
+const SaveState = ({ state }) => {
+  if (state === 'idle') return null;
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
+      state === 'saving'
+        ? 'bg-gray-100 text-gray-600 dark:bg-dark-elevated dark:text-dark-text-secondary'
+        : state === 'error'
+          ? 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+          : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+    }`}
+    role="status"
+    >
+      {state === 'saving' && <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving…</>}
+      {state === 'saved' && <><Check className="h-3.5 w-3.5" /> Saved</>}
+      {state === 'error' && <><AlertCircle className="h-3.5 w-3.5" /> Not saved</>}
+    </span>
+  );
+};
+
+const PasswordField = ({ id, label, value, onChange, autoComplete, describedBy }) => {
   const [show, setShow] = useState(false);
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary mb-1.5">{label}</label>
+      <label htmlFor={id} className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-dark-text-secondary">{label}</label>
       <div className="relative">
         <input
+          id={id}
           type={show ? 'text' : 'password'}
           value={value}
           onChange={onChange}
           required
-          minLength={minLength}
+          autoComplete={autoComplete}
+          aria-describedby={describedBy}
           className={`${inputCls} pr-11`}
-          placeholder={placeholder}
         />
         <button
           type="button"
@@ -88,532 +176,743 @@ const PasswordField = ({ label, value, onChange, placeholder, minLength }) => {
           aria-label={show ? 'Hide password' : 'Show password'}
           className="absolute inset-y-0 right-0 px-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
         >
-          {show ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+          {show ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
         </button>
       </div>
     </div>
   );
 };
 
-const getStrength = (pw) => {
-  let score = 0;
-  if (pw.length >= 6) score++;
-  if (pw.length >= 10) score++;
-  if (/[A-Z]/.test(pw) && /[a-z]/.test(pw)) score++;
-  if (/\d/.test(pw) && /[^A-Za-z0-9]/.test(pw)) score++;
-  return score;
-};
+const MIN_PASSWORD = 6;
+
+/** Each rule is shown as a checklist under the new password. */
+const passwordRules = (pw, current) => [
+  { label: `At least ${MIN_PASSWORD} characters`, ok: pw.length >= MIN_PASSWORD, required: true },
+  { label: 'Different from your current password', ok: !!pw && pw !== current, required: true },
+  { label: 'Upper and lower case letters', ok: /[A-Z]/.test(pw) && /[a-z]/.test(pw) },
+  { label: 'A number or symbol', ok: /[\d\W_]/.test(pw) },
+  { label: '10 characters or more', ok: pw.length >= 10 },
+];
+
 const strengthMeta = [
-  { label: 'Too weak', color: 'bg-red-500' },
-  { label: 'Weak', color: 'bg-red-500' },
-  { label: 'Fair', color: 'bg-yellow-500' },
-  { label: 'Good', color: 'bg-blue-500' },
-  { label: 'Strong', color: 'bg-green-500' }
+  { label: 'Too weak', color: 'bg-red-500', text: 'text-red-600 dark:text-red-400' },
+  { label: 'Weak', color: 'bg-red-500', text: 'text-red-600 dark:text-red-400' },
+  { label: 'Fair', color: 'bg-yellow-500', text: 'text-yellow-700 dark:text-yellow-400' },
+  { label: 'Good', color: 'bg-blue-500', text: 'text-blue-600 dark:text-blue-400' },
+  { label: 'Strong', color: 'bg-green-500', text: 'text-green-600 dark:text-green-400' },
 ];
 
 /* ---------- Page ---------- */
 
+const DEFAULT_NOTIFICATIONS = {
+  emailNotifications: true,
+  scheduleUpdates: true,
+  facultyAssignments: true,
+  systemAlerts: true,
+  classPosts: true,
+  weeklyDigest: false,
+};
+
+const DEFAULT_PRIVACY = { showEmail: false, showPhone: false };
+
 const SettingsPage = () => {
-  const { user } = useAuth();
-  const { theme, language, timezone, updateTheme, updateLanguage, updateTimezone, reloadTheme } = useTheme();
-  const { t } = useTranslation();
-  const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState(() => {
-    // Load saved tab from localStorage, default to 'security'
-    return localStorage.getItem('settingsActiveTab') || 'security';
-  });
+  const { user, setAuth } = useAuth();
+  const { theme, language, timezone, updateTheme } = useTheme();
+  const [activeTab, setActiveTab] = useState(readTab);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
 
-  // Security Settings
-  const [securityForm, setSecurityForm] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: ''
-  });
+  const [securityForm, setSecurityForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [changingPassword, setChangingPassword] = useState(false);
 
-  // Notification Settings
-  const [notifications, setNotifications] = useState({
-    emailNotifications: true,
-    scheduleUpdates: true,
-    facultyAssignments: true,
-    systemAlerts: true,
-    weeklyDigest: false
-  });
+  const [notifications, setNotifications] = useState(DEFAULT_NOTIFICATIONS);
+  const [privacy, setPrivacy] = useState(DEFAULT_PRIVACY);
+  const [saveState, setSaveState] = useState({ notifications: 'idle', appearance: 'idle', privacy: 'idle' });
+  const savedTimer = useRef({});
 
-  // Appearance Settings - now using theme context
-  const [appearance, setAppearance] = useState({
-    theme: theme,
-    language: language,
-    timezone: timezone
-  });
+  const [sessions, setSessions] = useState(null); // null = loading
+  const [sessionsTracked, setSessionsTracked] = useState(true);
+  const [activity, setActivity] = useState(null);
+  const [failedToday, setFailedToday] = useState(0);
+  const [busySession, setBusySession] = useState(null); // session id or 'others'
+  const [confirmOthers, setConfirmOthers] = useState(false);
 
-  // Update appearance state when theme context changes
+  const role = user?.role;
+  const isStaff = STAFF.includes(role);
+  const isFaculty = role === 'faculty';
+  const isStudent = role === 'student';
+
   useEffect(() => {
-    setAppearance({
-      theme: theme,
-      language: language,
-      timezone: timezone
-    });
-  }, [theme, language, timezone]);
-
-  // Save active tab to localStorage when it changes
-  useEffect(() => {
-    localStorage.setItem('settingsActiveTab', activeTab);
+    try { localStorage.setItem(TAB_KEY, activeTab); } catch { /* not remembered; that's fine */ }
   }, [activeTab]);
 
-  // Privacy Settings
-  const [privacy, setPrivacy] = useState({
-    profileVisibility: 'public', // public, private, program-only
-    showEmail: false,
-    showPhone: false,
-    allowMessages: true
-  });
+  useEffect(() => () => Object.values(savedTimer.current).forEach(clearTimeout), []);
 
-  // Load settings on mount
+  // Load saved settings
   useEffect(() => {
-    loadSettings();
+    authAPI.getSettings()
+      .then((res) => {
+        const s = res.data.data || {};
+        setNotifications({ ...DEFAULT_NOTIFICATIONS, ...(s.notifications || {}) });
+        setPrivacy({ ...DEFAULT_PRIVACY, showEmail: !!s.privacy?.showEmail, showPhone: !!s.privacy?.showPhone });
+      })
+      .catch((error) => toast.error(getErrorMessage(error, 'Could not load your settings. Showing the defaults.')))
+      .finally(() => setSettingsLoaded(true));
   }, []);
 
-  const loadSettings = async () => {
-    try {
-      const response = await authAPI.getSettings();
-      const settings = response.data.data;
+  const loadSecurity = useCallback(() => {
+    authAPI.getSessions()
+      .then((res) => { setSessions(res.data.data || []); setSessionsTracked(res.data.currentTracked !== false); })
+      .catch(() => setSessions([]));
+    authAPI.getLoginActivity()
+      .then((res) => { setActivity(res.data.data || []); setFailedToday(res.data.failedToday || 0); })
+      .catch(() => setActivity([]));
+  }, []);
 
-      if (settings.notifications) {
-        setNotifications(settings.notifications);
-      }
-      if (settings.appearance) {
-        setAppearance(settings.appearance);
-      }
-      if (settings.privacy) {
-        setPrivacy(settings.privacy);
-      }
+  useEffect(() => { loadSecurity(); }, [loadSecurity]);
+
+  /** A fresh token for this device (after signing others out or a new password). */
+  const keepSignedIn = (token) => {
+    if (token) setAuth(user, token);
+  };
+
+  const signOutSession = async (id) => {
+    setBusySession(id);
+    try {
+      await authAPI.revokeSession(id);
+      toast.success('Device signed out');
+      setSessions((list) => (list || []).filter((s) => s._id !== id));
     } catch (error) {
-      console.error('Load settings error:', error);
-      // Use defaults if loading fails
+      toast.error(getErrorMessage(error, 'Could not sign out that device.'));
+    } finally {
+      setBusySession(null);
     }
   };
+
+  const signOutOthers = async () => {
+    setConfirmOthers(false);
+    setBusySession('others');
+    try {
+      const res = await authAPI.revokeOtherSessions();
+      keepSignedIn(res.data.data?.token);
+      toast.success(res.data.message || 'Other devices signed out');
+      loadSecurity();
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Could not sign out other devices.'));
+    } finally {
+      setBusySession(null);
+    }
+  };
+
+  /**
+   * Switches save as soon as they're flipped (no Save button to forget).
+   * The change shows at once and is rolled back if the server refuses it.
+   */
+  const saveGroup = async (group, next, previous, setter) => {
+    setter(next);
+    clearTimeout(savedTimer.current[group]);
+    setSaveState((s) => ({ ...s, [group]: 'saving' }));
+    try {
+      await authAPI.updateSettings({ [group]: next });
+      setSaveState((s) => ({ ...s, [group]: 'saved' }));
+      savedTimer.current[group] = setTimeout(() => setSaveState((s) => ({ ...s, [group]: 'idle' })), 2500);
+    } catch (error) {
+      setter(previous);
+      setSaveState((s) => ({ ...s, [group]: 'error' }));
+      toast.error(getErrorMessage(error, 'Could not save that change. Try again.'));
+    }
+  };
+
+  const setNotification = (key, value) => saveGroup('notifications', { ...notifications, [key]: value }, notifications, setNotifications);
+  const setPrivacyValue = (key, value) => saveGroup('privacy', { ...privacy, [key]: value }, privacy, setPrivacy);
+
+  // Theme applies immediately; saving follows it to other devices
+  const chooseTheme = async (next) => {
+    if (next === theme) return;
+    const previous = theme;
+    updateTheme(next);
+    setSaveState((s) => ({ ...s, appearance: 'saving' }));
+    try {
+      await authAPI.updateSettings({ appearance: { theme: next, language, timezone } });
+      setSaveState((s) => ({ ...s, appearance: 'saved' }));
+      clearTimeout(savedTimer.current.appearance);
+      savedTimer.current.appearance = setTimeout(() => setSaveState((s) => ({ ...s, appearance: 'idle' })), 2500);
+    } catch (error) {
+      updateTheme(previous);
+      setSaveState((s) => ({ ...s, appearance: 'error' }));
+      toast.error(getErrorMessage(error, 'Could not save your theme.'));
+    }
+  };
+
+  const rules = passwordRules(securityForm.newPassword, securityForm.currentPassword);
+  const strength = Math.min(4, rules.filter((r) => r.ok).length - (securityForm.newPassword ? 1 : 0));
+  const requiredOk = rules.filter((r) => r.required).every((r) => r.ok);
+  const passwordsMatch = !!securityForm.confirmPassword && securityForm.newPassword === securityForm.confirmPassword;
+  const passwordsMismatch = !!securityForm.confirmPassword && securityForm.newPassword !== securityForm.confirmPassword;
+  const canSubmitPassword = securityForm.currentPassword && requiredOk && passwordsMatch && !changingPassword;
 
   const handlePasswordChange = async (e) => {
     e.preventDefault();
-
-    if (securityForm.newPassword !== securityForm.confirmPassword) {
-      toast.error('New passwords do not match');
-      return;
-    }
-
-    if (securityForm.newPassword.length < 6) {
-      toast.error('Password must be at least 6 characters');
-      return;
-    }
-
-    setLoading(true);
+    if (!canSubmitPassword) return;
+    setChangingPassword(true);
     try {
-      await authAPI.changePassword({
+      const res = await authAPI.changePassword({
         currentPassword: securityForm.currentPassword,
-        newPassword: securityForm.newPassword
+        newPassword: securityForm.newPassword,
       });
-
-      toast.success('Password changed successfully');
-      setSecurityForm({
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: ''
-      });
+      // The new password ends every older sign-in; this device keeps going
+      keepSignedIn(res.data.data?.token);
+      toast.success(res.data.message || 'Password changed.');
+      setSecurityForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      loadSecurity();
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to change password');
+      toast.error(getErrorMessage(error, 'Could not change your password.'));
     } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleNotificationSave = async () => {
-    setLoading(true);
-    try {
-      await authAPI.updateSettings({ notifications });
-      toast.success('Notification preferences saved');
-    } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to save notification preferences'));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleAppearanceSave = async () => {
-    setLoading(true);
-    try {
-      // Save to database
-      await authAPI.updateSettings({ appearance });
-
-      // Update theme context directly (no additional API calls)
-      updateTheme(appearance.theme);
-      updateLanguage(appearance.language);
-      updateTimezone(appearance.timezone);
-
-      toast.success('Appearance settings saved and applied');
-    } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to save appearance settings'));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handlePrivacySave = async () => {
-    setLoading(true);
-    try {
-      await authAPI.updateSettings({ privacy });
-      toast.success('Privacy settings saved');
-    } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to save privacy settings'));
-    } finally {
-      setLoading(false);
+      setChangingPassword(false);
     }
   };
 
   const tabs = [
-    { id: 'security', label: t('settings.security'), icon: Lock },
-    { id: 'notifications', label: t('settings.notifications'), icon: Bell },
-    { id: 'appearance', label: t('settings.appearance'), icon: Eye },
-    { id: 'privacy', label: t('settings.privacy'), icon: Shield }
+    { id: 'security', label: 'Security', hint: 'Password and account', icon: Lock },
+    { id: 'notifications', label: 'Notifications', hint: 'What you’re told about', icon: Bell },
+    { id: 'appearance', label: 'Appearance', hint: 'Light or dark', icon: Palette },
+    { id: 'privacy', label: 'Privacy', hint: 'Who sees your contact info', icon: Shield },
   ];
+  const tab = tabs.some((t) => t.id === activeTab) ? activeTab : 'security';
 
-  // UI-only derived values
-  const displayName = user?.name || [user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.email || 'Account';
-  const initials = displayName.split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
-  const strength = getStrength(securityForm.newPassword);
-  const passwordsMatch = securityForm.confirmPassword && securityForm.newPassword === securityForm.confirmPassword;
-  const passwordsMismatch = securityForm.confirmPassword && securityForm.newPassword !== securityForm.confirmPassword;
+  // Only the notices this role actually gets
+  const appNotifications = [
+    {
+      key: 'scheduleUpdates', icon: Calendar, title: 'Schedule changes',
+      description: isStudent ? 'When one of your classes is added, moved, or cancelled.' : 'When a class you teach or follow is moved or changed.',
+      show: isStudent || isFaculty,
+    },
+    {
+      key: 'facultyAssignments', icon: BookOpen, title: 'Teaching assignments',
+      description: 'When a class is assigned to you, or moved to another teacher.',
+      show: isFaculty,
+    },
+    {
+      key: 'classPosts', icon: Megaphone, title: 'Announcements & materials',
+      description: 'When a new announcement or material is posted in one of your classes.',
+      show: isStudent,
+    },
+    {
+      key: 'systemAlerts', icon: AlertTriangle, title: 'Account requests & system alerts',
+      description: 'Faculty sign-ups waiting for approval, and semester changes.',
+      show: isStaff,
+    },
+  ].filter((n) => n.show);
 
-  const notificationItems = [
-    { key: 'emailNotifications', icon: Mail, title: 'Email Notifications', description: 'Receive updates via email' },
-    { key: 'scheduleUpdates', icon: Calendar, title: 'Schedule Updates', description: 'Notify when schedules change' },
-    { key: 'facultyAssignments', icon: Smartphone, title: 'Faculty Assignments', description: 'Alerts for new assignments' },
-    { key: 'systemAlerts', icon: AlertCircle, title: 'System Alerts', description: 'Important system notifications' },
-    { key: 'weeklyDigest', icon: Mail, title: 'Weekly Digest', description: 'Summary of weekly activity' }
-  ];
+  const emailOff = !notifications.emailNotifications;
 
   const themeOptions = [
-    { id: 'light', label: t('settings.light'), icon: Sun, iconCls: 'text-yellow-500', preview: 'bg-white border-gray-200', bar: 'bg-gray-200' },
-    { id: 'dark', label: t('settings.dark'), icon: Moon, iconCls: 'text-indigo-500', preview: 'bg-gray-800 border-gray-700', bar: 'bg-gray-600' },
-    { id: 'system', label: t('settings.system'), icon: Monitor, iconCls: 'text-gray-500', preview: 'bg-gradient-to-r from-white to-gray-800 border-gray-300', bar: 'bg-gray-400' }
+    { id: 'light', label: 'Light', icon: Sun, iconCls: 'text-yellow-500', preview: 'bg-white border-gray-200', bar: 'bg-gray-200' },
+    { id: 'dark', label: 'Dark', icon: Moon, iconCls: 'text-indigo-500', preview: 'bg-gray-800 border-gray-700', bar: 'bg-gray-600' },
+    { id: 'system', label: 'Match my device', icon: Monitor, iconCls: 'text-gray-500', preview: 'bg-gradient-to-r from-white to-gray-800 border-gray-300', bar: 'bg-gray-400' },
   ];
 
-  const privacyToggles = [
-    { key: 'showEmail', icon: Mail, title: 'Show Email Address', description: 'Allow others to see your email' },
-    { key: 'showPhone', icon: Phone, title: 'Show Phone Number', description: 'Allow others to see your phone' },
-    { key: 'allowMessages', icon: MessageSquare, title: 'Allow Messages', description: 'Let others send you messages' }
-  ];
+  const displayName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.email || 'Account';
+  const initials = displayName.split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
+  const avatar = user?.profilePicture ? `${process.env.REACT_APP_API_URL?.replace('/api', '')}${user.profilePicture}` : null;
 
-  const tipKeys = ['tip1', 'tip2', 'tip3', 'tip4', 'tip5'];
+  // Real account state, instead of an always-green card
+  const verified = user?.isEmailVerified !== false || !isStudent; // only students verify by email
+  const accountOk = user?.isActive !== false && verified;
+
+  const accountDetails = [
+    { icon: Mail, label: 'Email (your username)', value: user?.email },
+    { icon: UserCircle, label: 'Role', value: `${ROLE_LABELS[role] || role || '—'}${user?.program ? ` · ${user.program}` : ''}` },
+    { icon: BadgeCheck, label: 'Email verified', value: isStudent ? (user?.isEmailVerified ? 'Yes' : 'Not yet') : 'Not needed for staff and faculty' },
+    { icon: Calendar, label: 'Member since', value: formatDate(user?.createdAt) },
+    { icon: Clock, label: 'Last sign-in', value: formatDate(user?.lastLogin, true) },
+  ];
 
   return (
     <Layout>
-      <div className="max-w-6xl mx-auto">
+      <div className="mx-auto max-w-6xl">
         {/* Header */}
         <div className="mb-8 flex items-center gap-4">
-          <div className="p-3 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl shadow-lg shadow-blue-600/20">
-            <Settings className="w-8 h-8 text-white" />
+          <div className="rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 p-3 shadow-lg shadow-blue-600/20">
+            <Settings className="h-8 w-8 text-white" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-dark-text-primary">{t('settings.title')}</h1>
-            <p className="text-sm text-gray-500 dark:text-dark-text-muted">{t('settings.subtitle')}</p>
+            <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-dark-text-primary">Settings</h1>
+            <p className="text-sm text-gray-500 dark:text-dark-text-muted">Your password, notifications, theme and privacy</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
           {/* Sidebar */}
-          <aside className="lg:col-span-1 space-y-4 lg:sticky lg:top-6 self-start">
+          <aside className="space-y-4 self-start lg:sticky lg:top-24 lg:col-span-1">
             {/* Profile summary */}
-            <div className="bg-white dark:bg-dark-card rounded-2xl shadow-sm border border-gray-100 dark:border-dark-border-subtle p-4 flex items-center gap-3">
-              <div className="w-11 h-11 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-semibold flex items-center justify-center shrink-0">
-                {initials || 'U'}
+            <Link
+              to="/profile"
+              className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm transition hover:border-blue-200 dark:border-dark-border-subtle dark:bg-dark-card dark:hover:border-blue-800"
+            >
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 font-semibold text-white">
+                {avatar ? <img src={avatar} alt="" className="h-full w-full object-cover" /> : initials || 'U'}
               </div>
               <div className="min-w-0">
-                <p className="font-semibold text-gray-900 dark:text-dark-text-primary truncate">{displayName}</p>
-                {user?.email && <p className="text-xs text-gray-500 dark:text-dark-text-muted truncate">{user.email}</p>}
+                <p className="truncate font-semibold text-gray-900 dark:text-dark-text-primary">{displayName}</p>
+                <p className="truncate text-xs text-gray-500 dark:text-dark-text-muted">Edit profile →</p>
               </div>
-            </div>
+            </Link>
 
             {/* Tabs: horizontal scroll on mobile, vertical on desktop */}
             <nav
-              className="bg-white dark:bg-dark-card rounded-2xl shadow-sm border border-gray-100 dark:border-dark-border-subtle p-2 flex lg:flex-col gap-1 overflow-x-auto"
+              className="flex gap-1 overflow-x-auto rounded-2xl border border-gray-100 bg-white p-2 shadow-sm dark:border-dark-border-subtle dark:bg-dark-card lg:flex-col"
               role="tablist"
               aria-label="Settings sections"
             >
-              {tabs.map((tab) => {
-                const Icon = tab.icon;
-                const active = activeTab === tab.id;
+              {tabs.map(({ id, label, hint, icon: Icon }) => {
+                const active = tab === id;
                 return (
                   <button
-                    key={tab.id}
+                    key={id}
+                    id={`tab-${id}`}
                     role="tab"
                     aria-selected={active}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`relative flex items-center gap-3 px-4 py-3 rounded-xl whitespace-nowrap lg:w-full transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+                    aria-controls={`panel-${id}`}
+                    onClick={() => setActiveTab(id)}
+                    className={`flex items-center gap-3 whitespace-nowrap rounded-xl px-4 py-2.5 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 lg:w-full ${
                       active
                         ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25'
-                        : 'text-gray-700 dark:text-dark-text-secondary hover:bg-gray-100 dark:hover:bg-dark-hover'
+                        : 'text-gray-700 hover:bg-gray-100 dark:text-dark-text-secondary dark:hover:bg-dark-hover'
                     }`}
                   >
-                    <Icon className="w-5 h-5" />
-                    <span className="font-medium">{tab.label}</span>
+                    <Icon className="h-5 w-5 shrink-0" />
+                    <span className="min-w-0">
+                      <span className="block font-medium">{label}</span>
+                      <span className={`hidden text-xs lg:block ${active ? 'text-blue-100' : 'text-gray-500 dark:text-dark-text-muted'}`}>{hint}</span>
+                    </span>
                   </button>
                 );
               })}
             </nav>
 
             {/* Account status */}
-            <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-2xl border border-green-200 dark:border-green-800 p-4">
-              <div className="flex items-center gap-2 mb-1.5">
-                <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
-                <h3 className="font-semibold text-gray-900 dark:text-dark-text-primary">{t('settings.accountActive')}</h3>
+            <div className={`rounded-2xl border p-4 ${
+              accountOk
+                ? 'border-green-200 bg-gradient-to-br from-green-50 to-emerald-50 dark:border-green-800 dark:from-green-900/20 dark:to-emerald-900/20'
+                : 'border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20'
+            }`}
+            >
+              <div className="mb-1.5 flex items-center gap-2">
+                {accountOk
+                  ? <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
+                  : <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400" />}
+                <h3 className="font-semibold text-gray-900 dark:text-dark-text-primary">
+                  {accountOk ? 'Account active' : verified ? 'Account inactive' : 'Email not verified'}
+                </h3>
               </div>
-              <p className="text-sm text-gray-700 dark:text-dark-text-secondary">{t('settings.accountVerified')}</p>
+              <p className="text-sm text-gray-700 dark:text-dark-text-secondary">
+                {accountOk
+                  ? `Signed in as ${ROLE_LABELS[role] || role}${user?.program ? ` (${user.program})` : ''}.`
+                  : verified
+                    ? 'Contact the scheduling office to reactivate it.'
+                    : 'Check your inbox for the verification link.'}
+              </p>
             </div>
           </aside>
 
           {/* Main content */}
           <main className="lg:col-span-3">
-            <div className="bg-white dark:bg-dark-card rounded-2xl shadow-sm border border-gray-100 dark:border-dark-border-subtle p-6 sm:p-8">
+            <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm dark:border-dark-border-subtle dark:bg-dark-card sm:p-8">
 
-              {/* Security Tab */}
-              {activeTab === 'security' && (
-                <div role="tabpanel">
-                  <SectionHeader title={t('settings.securitySettings')} subtitle={t('settings.securitySubtitle')} />
+              {/* Security */}
+              {tab === 'security' && (
+                <div role="tabpanel" id="panel-security" aria-labelledby="tab-security">
+                  <SectionHeader title="Security" subtitle="Change your password and check your account details." />
 
-                  <div className="grid grid-cols-1 xl:grid-cols-5 gap-8">
+                  <div className="grid grid-cols-1 gap-8 xl:grid-cols-5">
                     <div className="xl:col-span-3">
-                      <SubHeading icon={Key}>{t('settings.changePassword')}</SubHeading>
-                      <form onSubmit={handlePasswordChange} className="space-y-4">
+                      <SubHeading icon={Key}>Change password</SubHeading>
+                      <form onSubmit={handlePasswordChange} className="space-y-4" noValidate>
                         <PasswordField
-                          label={t('settings.currentPassword')}
+                          id="currentPassword"
+                          label="Current password"
+                          autoComplete="current-password"
                           value={securityForm.currentPassword}
                           onChange={(e) => setSecurityForm({ ...securityForm, currentPassword: e.target.value })}
-                          placeholder={t('settings.currentPassword')}
                         />
                         <div>
                           <PasswordField
-                            label={t('settings.newPassword')}
+                            id="newPassword"
+                            label="New password"
+                            autoComplete="new-password"
+                            describedBy="password-rules"
                             value={securityForm.newPassword}
                             onChange={(e) => setSecurityForm({ ...securityForm, newPassword: e.target.value })}
-                            placeholder={t('settings.newPassword')}
-                            minLength={6}
                           />
                           {securityForm.newPassword && (
                             <div className="mt-2">
                               <div className="flex gap-1">
                                 {[1, 2, 3, 4].map((i) => (
-                                  <div
-                                    key={i}
-                                    className={`h-1.5 flex-1 rounded-full transition-colors ${
-                                      i <= strength ? strengthMeta[strength].color : 'bg-gray-200 dark:bg-gray-700'
-                                    }`}
-                                  />
+                                  <div key={i} className={`h-1.5 flex-1 rounded-full transition-colors ${i <= strength ? strengthMeta[Math.max(strength, 0)].color : 'bg-gray-200 dark:bg-gray-700'}`} />
                                 ))}
                               </div>
-                              <p className="mt-1 text-xs text-gray-500 dark:text-dark-text-muted">
-                                Strength: {strengthMeta[strength].label}
+                              <p className={`mt-1 text-xs font-medium ${strengthMeta[Math.max(strength, 0)].text}`}>
+                                {strengthMeta[Math.max(strength, 0)].label}
                               </p>
                             </div>
                           )}
-                        </div>
-                        <div>
-                          <PasswordField
-                            label={t('settings.confirmPassword')}
-                            value={securityForm.confirmPassword}
-                            onChange={(e) => setSecurityForm({ ...securityForm, confirmPassword: e.target.value })}
-                            placeholder={t('settings.confirmPassword')}
-                            minLength={6}
-                          />
-                          {passwordsMatch && (
-                            <p className="mt-1 text-xs text-green-600 flex items-center gap-1"><Check className="w-3.5 h-3.5" /> Passwords match</p>
-                          )}
-                          {passwordsMismatch && (
-                            <p className="mt-1 text-xs text-red-600 flex items-center gap-1"><AlertCircle className="w-3.5 h-3.5" /> Passwords do not match</p>
-                          )}
-                        </div>
-                        <SaveButton type="submit" loading={loading}>
-                          {loading ? t('settings.updating') : t('settings.updatePassword')}
-                        </SaveButton>
-                      </form>
-                    </div>
-
-                    {/* Tips */}
-                    <div className="xl:col-span-2 self-start bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
-                      <div className="flex items-start gap-3">
-                        <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
-                        <div>
-                          <h4 className="font-semibold text-gray-900 dark:text-dark-text-primary mb-2">{t('settings.passwordTips')}</h4>
-                          <ul className="text-sm text-gray-700 dark:text-dark-text-secondary space-y-2">
-                            {tipKeys.map((k) => (
-                              <li key={k} className="flex gap-2">
-                                <Check className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
-                                <span>{t(`settings.${k}`)}</span>
+                          <ul id="password-rules" className="mt-2 grid gap-1 sm:grid-cols-2">
+                            {rules.map((r) => (
+                              <li key={r.label} className={`flex items-center gap-1.5 text-xs ${r.ok ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-dark-text-muted'}`}>
+                                {r.ok ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5 opacity-50" />}
+                                {r.label}{r.required ? '' : ' (recommended)'}
                               </li>
                             ))}
                           </ul>
                         </div>
-                      </div>
+                        <div>
+                          <PasswordField
+                            id="confirmPassword"
+                            label="Confirm new password"
+                            autoComplete="new-password"
+                            value={securityForm.confirmPassword}
+                            onChange={(e) => setSecurityForm({ ...securityForm, confirmPassword: e.target.value })}
+                          />
+                          {passwordsMatch && (
+                            <p className="mt-1 flex items-center gap-1 text-xs text-green-600"><Check className="h-3.5 w-3.5" /> Passwords match</p>
+                          )}
+                          {passwordsMismatch && (
+                            <p className="mt-1 flex items-center gap-1 text-xs text-red-600"><AlertCircle className="h-3.5 w-3.5" /> Passwords don’t match</p>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-4 pt-1">
+                          <button
+                            type="submit"
+                            disabled={!canSubmitPassword}
+                            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-2.5 font-medium text-white shadow-sm transition-all hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 dark:focus-visible:ring-offset-dark-card"
+                          >
+                            {changingPassword ? <Loader2 className="h-4 w-4 animate-spin" /> : <Key className="h-4 w-4" />}
+                            {changingPassword ? 'Changing…' : 'Change password'}
+                          </button>
+                          <Link to="/forgot-password" className="text-sm text-blue-600 hover:underline dark:text-blue-400">
+                            Forgot your current password?
+                          </Link>
+                        </div>
+                      </form>
+                    </div>
+
+                    {/* Account details */}
+                    <div className="self-start rounded-xl border border-gray-100 bg-gray-50/70 p-4 dark:border-dark-border-subtle dark:bg-dark-elevated/60 xl:col-span-2">
+                      <SubHeading icon={UserCircle}>Your account</SubHeading>
+                      <dl className="space-y-3">
+                        {accountDetails.map(({ icon: Icon, label, value }) => (
+                          <div key={label} className="flex items-start gap-3">
+                            <Icon className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
+                            <div className="min-w-0">
+                              <dt className="text-xs text-gray-500 dark:text-dark-text-muted">{label}</dt>
+                              <dd className="break-words text-sm font-medium text-gray-900 dark:text-dark-text-primary">{value || '—'}</dd>
+                            </div>
+                          </div>
+                        ))}
+                      </dl>
+                      <p className="mt-4 flex gap-2 rounded-lg bg-blue-50 p-3 text-xs text-blue-800 dark:bg-blue-900/20 dark:text-blue-300">
+                        <Info className="h-4 w-4 shrink-0" />
+                        After 5 wrong passwords, sign-in is locked for 15 minutes and you’re notified.
+                      </p>
                     </div>
                   </div>
-                </div>
-              )}
 
-              {/* Notifications Tab */}
-              {activeTab === 'notifications' && (
-                <div role="tabpanel">
-                  <SectionHeader title="Notification Preferences" subtitle="Choose what notifications you want to receive" />
-                  <div className="space-y-3">
-                    {notificationItems.map(({ key, icon, title, description }) => (
-                      <SettingRow
-                        key={key}
-                        icon={icon}
-                        title={title}
-                        description={description}
-                        checked={notifications[key]}
-                        onChange={(e) => setNotifications({ ...notifications, [key]: e.target.checked })}
-                      />
-                    ))}
-                  </div>
-                  <div className="mt-6">
-                    <SaveButton onClick={handleNotificationSave} loading={loading}>
-                      {loading ? 'Saving...' : 'Save Preferences'}
-                    </SaveButton>
-                  </div>
-                </div>
-              )}
-
-              {/* Appearance Tab */}
-              {activeTab === 'appearance' && (
-                <div role="tabpanel">
-                  <SectionHeader title={t('settings.appearanceSettings')} subtitle={t('settings.appearanceSubtitle')} />
-
-                  <div className="space-y-8">
-                    {/* Theme */}
-                    <div>
-                      <SubHeading>{t('settings.theme')}</SubHeading>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        {themeOptions.map(({ id, label, icon: Icon, iconCls, preview, bar }) => {
-                          const selected = appearance.theme === id;
+                  {/* Signed-in devices */}
+                  <div className="mt-10 border-t border-gray-100 pt-8 dark:border-dark-border-subtle">
+                    <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                      <SubHeading icon={Monitor} hint="Devices signed in to your account right now.">Where you’re signed in</SubHeading>
+                      {sessions && sessions.filter((x) => !x.current).length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setConfirmOthers(true)}
+                          disabled={busySession === 'others'}
+                          className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-3.5 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50 disabled:opacity-50 dark:border-red-900/60 dark:text-red-300 dark:hover:bg-red-900/20"
+                        >
+                          {busySession === 'others' ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
+                          Sign out all other devices
+                        </button>
+                      )}
+                    </div>
+                    {!sessionsTracked && (
+                      <p className="mb-3 rounded-lg bg-amber-50 p-3 text-xs text-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
+                        This browser signed in before device tracking started, so it isn’t listed. Sign out and back in to see it here.
+                      </p>
+                    )}
+                    {sessions === null ? (
+                      <p className="flex items-center gap-2 text-sm text-gray-500"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</p>
+                    ) : sessions.length === 0 ? (
+                      <p className="text-sm text-gray-500 dark:text-dark-text-muted">No other devices are signed in.</p>
+                    ) : (
+                      <ul className="divide-y divide-gray-100 rounded-xl border border-gray-100 dark:divide-dark-border-subtle dark:border-dark-border-subtle">
+                        {sessions.map((sess) => {
+                          const Icon = isPhone(sess.device) ? Smartphone : Monitor;
                           return (
-                            <button
-                              key={id}
-                              onClick={() => setAppearance({ ...appearance, theme: id })}
-                              aria-pressed={selected}
-                              className={`relative p-4 border-2 rounded-xl text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
-                                selected
-                                  ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20 shadow-sm'
-                                  : 'border-gray-200 dark:border-dark-border-default hover:border-gray-300 dark:hover:border-dark-border-strong'
-                              }`}
-                            >
-                              {selected && (
-                                <span className="absolute top-2 right-2 w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center">
-                                  <Check className="w-3 h-3" />
-                                </span>
+                            <li key={sess._id} className="flex flex-wrap items-center gap-3 p-4">
+                              <div className={`rounded-lg p-2 ${sess.current ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-gray-100 text-gray-500 dark:bg-dark-elevated dark:text-dark-text-secondary'}`}>
+                                <Icon className="h-5 w-5" />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="flex flex-wrap items-center gap-2 font-medium text-gray-900 dark:text-dark-text-primary">
+                                  {sess.device}
+                                  {sess.current && (
+                                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">This device</span>
+                                  )}
+                                </p>
+                                <p className="text-xs text-gray-500 dark:text-dark-text-muted">
+                                  {sess.ip || 'Unknown network'} · {sess.current ? 'Active now' : `Last active ${timeAgo(sess.lastSeenAt)}`} · Signed in {formatDate(sess.createdAt)}
+                                </p>
+                              </div>
+                              {!sess.current && (
+                                <button
+                                  type="button"
+                                  onClick={() => signOutSession(sess._id)}
+                                  disabled={busySession === sess._id}
+                                  className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-100 disabled:opacity-50 dark:text-dark-text-secondary dark:hover:bg-dark-hover"
+                                >
+                                  {busySession === sess._id ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
+                                  Sign out
+                                </button>
                               )}
-                              <div className={`h-14 rounded-lg border mb-3 p-2 flex flex-col gap-1.5 ${preview}`}>
-                                <div className={`h-2 w-2/3 rounded ${bar}`} />
-                                <div className={`h-2 w-1/2 rounded ${bar}`} />
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Icon className={`w-5 h-5 ${iconCls}`} />
-                                <p className="font-medium text-gray-900 dark:text-dark-text-primary">{label}</p>
-                              </div>
-                            </button>
+                            </li>
                           );
                         })}
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {/* Language */}
-                      <div>
-                        <SubHeading icon={Globe}>{t('settings.language')}</SubHeading>
-                        <select
-                          value={appearance.language}
-                          onChange={(e) => setAppearance({ ...appearance, language: e.target.value })}
-                          className={inputCls}
-                        >
-                          <option value="en">English</option>
-                          <option value="fil">Filipino</option>
-                          <option value="ceb">Cebuano</option>
-                        </select>
-                      </div>
-
-                      {/* Timezone */}
-                      <div>
-                        <SubHeading icon={Clock}>{t('settings.timezone')}</SubHeading>
-                        <select
-                          value={appearance.timezone}
-                          onChange={(e) => setAppearance({ ...appearance, timezone: e.target.value })}
-                          className={inputCls}
-                        >
-                          <option value="Asia/Manila">Asia/Manila (GMT+8)</option>
-                          <option value="Asia/Singapore">Asia/Singapore (GMT+8)</option>
-                          <option value="Asia/Tokyo">Asia/Tokyo (GMT+9)</option>
-                        </select>
-                      </div>
-                    </div>
+                      </ul>
+                    )}
                   </div>
 
-                  <div className="mt-8">
-                    <SaveButton onClick={handleAppearanceSave} loading={loading}>
-                      {loading ? t('settings.saving') : t('settings.saveAppearance')}
-                    </SaveButton>
+                  {/* Sign-in history */}
+                  <div className="mt-10 border-t border-gray-100 pt-8 dark:border-dark-border-subtle">
+                    <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                      <SubHeading icon={History} hint="The last 15 attempts to sign in to your account.">Recent sign-in activity</SubHeading>
+                      <button type="button" onClick={loadSecurity} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 dark:text-dark-text-secondary dark:hover:bg-dark-hover">
+                        <RefreshCw className="h-4 w-4" /> Refresh
+                      </button>
+                    </div>
+                    {failedToday > 0 && (
+                      <div className="mb-3 flex gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800/60 dark:bg-amber-900/20 dark:text-amber-200">
+                        <ShieldAlert className="h-5 w-5 shrink-0" />
+                        <span>
+                          <strong>{failedToday} failed sign-in{failedToday === 1 ? '' : 's'}</strong> in the last 24 hours.
+                          If these weren’t you, change your password and sign out all other devices.
+                        </span>
+                      </div>
+                    )}
+                    {activity === null ? (
+                      <p className="flex items-center gap-2 text-sm text-gray-500"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</p>
+                    ) : activity.length === 0 ? (
+                      <p className="text-sm text-gray-500 dark:text-dark-text-muted">No sign-ins recorded yet. New sign-ins appear here.</p>
+                    ) : (
+                      <ul className="space-y-2">
+                        {activity.map((ev) => (
+                          <li key={ev._id} className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-dark-elevated/60">
+                            {ev.success
+                              ? <ShieldCheck className="h-5 w-5 shrink-0 text-emerald-500" />
+                              : <ShieldAlert className="h-5 w-5 shrink-0 text-red-500" />}
+                            <div className="min-w-0 flex-1">
+                              <p className={`text-sm font-medium ${ev.success ? 'text-gray-900 dark:text-dark-text-primary' : 'text-red-700 dark:text-red-300'}`}>
+                                {LOGIN_REASONS[ev.reason] || (ev.success ? 'Signed in' : 'Failed sign-in')}
+                              </p>
+                              <p className="truncate text-xs text-gray-500 dark:text-dark-text-muted">{ev.device} · {ev.ip || 'unknown network'}</p>
+                            </div>
+                            <time className="shrink-0 text-xs text-gray-500 dark:text-dark-text-muted" dateTime={ev.createdAt} title={formatDate(ev.createdAt, true)}>
+                              {timeAgo(ev.createdAt)}
+                            </time>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </div>
                 </div>
               )}
 
-              {/* Privacy Tab */}
-              {activeTab === 'privacy' && (
-                <div role="tabpanel">
-                  <SectionHeader title="Privacy Settings" subtitle="Control who can see your information" />
+              {/* Notifications */}
+              {tab === 'notifications' && (
+                <div role="tabpanel" id="panel-notifications" aria-labelledby="tab-notifications">
+                  <SectionHeader
+                    title="Notifications"
+                    subtitle="Choose what you’re told about. Changes save automatically."
+                    right={<SaveState state={saveState.notifications} />}
+                  />
+                  {!settingsLoaded ? (
+                    <p className="flex items-center gap-2 text-sm text-gray-500"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</p>
+                  ) : (
+                    <div className="space-y-8">
+                      <div>
+                        <SubHeading icon={Bell} hint="Shown in the bell at the top of the page, as they happen.">In the app</SubHeading>
+                        {appNotifications.length ? (
+                          <div className="space-y-3">
+                            {appNotifications.map(({ key, icon, title, description }) => (
+                              <SettingRow
+                                key={key}
+                                icon={icon}
+                                title={title}
+                                description={description}
+                                checked={notifications[key]}
+                                onChange={(v) => setNotification(key, v)}
+                              />
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-gray-500">There are no optional notifications for your role.</p>
+                        )}
+                        <p className="mt-3 text-xs text-gray-500 dark:text-dark-text-muted">
+                          Important account messages, like your account being approved, are always sent.
+                        </p>
+                      </div>
 
-                  <div className="space-y-8">
-                    {/* Profile Visibility */}
-                    <div>
-                      <SubHeading icon={Users}>Profile Visibility</SubHeading>
-                      <select
-                        value={privacy.profileVisibility}
-                        onChange={(e) => setPrivacy({ ...privacy, profileVisibility: e.target.value })}
-                        className={inputCls}
-                      >
-                        <option value="public">Public - Anyone can view</option>
-                        <option value="program-only">Program Only - Only your program members</option>
-                        <option value="private">Private - Only you</option>
-                      </select>
-                    </div>
-
-                    {/* Contact Info Visibility */}
-                    <div>
-                      <SubHeading>Contact Information</SubHeading>
-                      <div className="space-y-3">
-                        {privacyToggles.map(({ key, icon, title, description }) => (
+                      <div>
+                        <SubHeading icon={Mail} hint={`Sent to ${user?.email || 'your school email'}.`}>Email</SubHeading>
+                        <div className="space-y-3">
                           <SettingRow
-                            key={key}
-                            icon={icon}
-                            title={title}
-                            description={description}
-                            checked={privacy[key]}
-                            onChange={(e) => setPrivacy({ ...privacy, [key]: e.target.checked })}
+                            icon={Mail}
+                            title="Email me too"
+                            description="Also send the notifications above by email. Off means in-app only."
+                            checked={notifications.emailNotifications}
+                            onChange={(v) => setNotification('emailNotifications', v)}
                           />
-                        ))}
+                          <SettingRow
+                            icon={Newspaper}
+                            title="Weekly summary"
+                            description="One email every Monday morning listing the past week’s notifications."
+                            checked={notifications.weeklyDigest && !emailOff}
+                            disabled={emailOff}
+                            note={emailOff ? 'Turn on “Email me too” to get the weekly summary.' : null}
+                            onChange={(v) => setNotification('weeklyDigest', v)}
+                          />
+                        </div>
+                        <p className="mt-3 text-xs text-gray-500 dark:text-dark-text-muted">
+                          Password resets and email verification are always sent.
+                        </p>
                       </div>
                     </div>
-                  </div>
+                  )}
+                </div>
+              )}
 
-                  <div className="mt-8">
-                    <SaveButton onClick={handlePrivacySave} loading={loading}>
-                      {loading ? 'Saving...' : 'Save Privacy Settings'}
-                    </SaveButton>
+              {/* Appearance */}
+              {tab === 'appearance' && (
+                <div role="tabpanel" id="panel-appearance" aria-labelledby="tab-appearance">
+                  <SectionHeader
+                    title="Appearance"
+                    subtitle="Pick a theme. It changes right away and follows you to other devices."
+                    right={<SaveState state={saveState.appearance} />}
+                  />
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-3" role="radiogroup" aria-label="Theme">
+                    {themeOptions.map(({ id, label, icon: Icon, iconCls, preview, bar }) => {
+                      const selected = theme === id;
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          role="radio"
+                          aria-checked={selected}
+                          onClick={() => chooseTheme(id)}
+                          className={`relative rounded-xl border-2 p-4 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+                            selected
+                              ? 'border-blue-600 bg-blue-50 shadow-sm dark:bg-blue-900/20'
+                              : 'border-gray-200 hover:border-gray-300 dark:border-dark-border-default dark:hover:border-dark-border-strong'
+                          }`}
+                        >
+                          {selected && (
+                            <span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-white">
+                              <Check className="h-3 w-3" />
+                            </span>
+                          )}
+                          <div className={`mb-3 flex h-14 flex-col gap-1.5 rounded-lg border p-2 ${preview}`}>
+                            <div className={`h-2 w-2/3 rounded ${bar}`} />
+                            <div className={`h-2 w-1/2 rounded ${bar}`} />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Icon className={`h-5 w-5 ${iconCls}`} />
+                            <p className="font-medium text-gray-900 dark:text-dark-text-primary">{label}</p>
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
+                  <p className="mt-4 text-sm text-gray-500 dark:text-dark-text-muted">
+                    Tip: the sun/moon button at the top of every page switches between light and dark too.
+                  </p>
+                </div>
+              )}
+
+              {/* Privacy */}
+              {tab === 'privacy' && (
+                <div role="tabpanel" id="panel-privacy" aria-labelledby="tab-privacy">
+                  <SectionHeader
+                    title="Privacy"
+                    subtitle="Control who can see your contact details."
+                    right={isFaculty && <SaveState state={saveState.privacy} />}
+                  />
+                  {isFaculty ? (
+                    !settingsLoaded ? (
+                      <p className="flex items-center gap-2 text-sm text-gray-500"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</p>
+                    ) : (
+                      <div className="space-y-6">
+                        <div>
+                          <SubHeading hint="Students in your classes see these on the class page, under People.">Shared with your students</SubHeading>
+                          <div className="space-y-3">
+                            <SettingRow
+                              icon={Mail}
+                              title="Show my email"
+                              description={user?.email ? `Students can see ${user.email}.` : 'Students can see your school email.'}
+                              checked={privacy.showEmail}
+                              onChange={(v) => setPrivacyValue('showEmail', v)}
+                            />
+                            <SettingRow
+                              icon={Phone}
+                              title="Show my phone number"
+                              description={user?.phoneNumber ? `Students can see ${user.phoneNumber}.` : 'Students can see the phone number on your profile.'}
+                              note={!user?.phoneNumber ? 'You haven’t added a phone number yet. Add one on your profile.' : null}
+                              checked={privacy.showPhone}
+                              onChange={(v) => setPrivacyValue('showPhone', v)}
+                            />
+                          </div>
+                        </div>
+                        <PrivacyNote />
+                      </div>
+                    )
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="flex gap-3 rounded-xl border border-gray-100 bg-gray-50/70 p-4 dark:border-dark-border-subtle dark:bg-dark-elevated/60">
+                        <Shield className="h-5 w-5 shrink-0 text-blue-600 dark:text-blue-400" />
+                        <div className="text-sm text-gray-700 dark:text-dark-text-secondary">
+                          <p className="font-medium text-gray-900 dark:text-dark-text-primary">Your contact details stay private</p>
+                          <p className="mt-1">
+                            {isStudent
+                              ? 'Classmates never see your email or phone number. Only your teachers and the school’s staff can.'
+                              : 'Your email and phone number are only visible to other staff.'}
+                          </p>
+                        </div>
+                      </div>
+                      <PrivacyNote />
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           </main>
         </div>
       </div>
+      <ConfirmDialog
+        isOpen={confirmOthers}
+        title="Sign out all other devices?"
+        message="Every other browser and phone signed in to your account will be signed out. You stay signed in here."
+        confirmText="Sign them out"
+        type="warning"
+        footnote={null}
+        onConfirm={signOutOthers}
+        onClose={() => setConfirmOthers(false)}
+      />
     </Layout>
   );
 };
+
+const PrivacyNote = () => (
+  <p className="flex gap-2 text-xs text-gray-500 dark:text-dark-text-muted">
+    <Info className="h-4 w-4 shrink-0" />
+    The scheduling office and administrators can always see your contact details, so they can reach you about your classes.
+  </p>
+);
 
 export default SettingsPage;

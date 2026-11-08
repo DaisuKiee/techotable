@@ -22,6 +22,7 @@ const {
 } = require('../controllers/schedule.controller');
 const { protect, authorize } = require('../middleware/auth.middleware');
 const { checkProgramAccess } = require('../middleware/programAccess.middleware');
+const { restrictProgramParam } = require('../utils/programScope');
 
 // Validation middleware
 const createScheduleValidation = [
@@ -46,12 +47,13 @@ router.use(checkProgramAccess('Schedule'));
 // Public schedule routes
 router.get('/', getAllSchedules);
 router.get('/ortools-status', checkORToolsStatus);
-router.get('/program/:program/:yearLevel', getSchedulesByProgramAndYear);
+router.get('/program/:program/:yearLevel', restrictProgramParam(), getSchedulesByProgramAndYear);
 router.get('/faculty/:facultyId', getFacultySchedule);
 // Must stay ABOVE '/:id'. Express matches in order, so when this was declared
 // further down, GET /conflicts was captured by '/:id' and ran
 // findById('conflicts') - a CastError and a 500 on every dashboard load.
 router.get('/conflicts', authorize('admin', 'scheduling_officer'), getConflicts);
+router.get('/generation-info/:sectionId', authorize('admin', 'scheduling_officer', 'program_manager'), require('../controllers/generationInfo.controller').getGenerationInfo);
 router.get('/:id', getScheduleById);
 router.post('/check-conflicts', checkConflicts);
 

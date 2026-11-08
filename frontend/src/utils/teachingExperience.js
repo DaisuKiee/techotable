@@ -50,6 +50,8 @@ export const describeRecency = (yearsAgo) => {
  */
 export const summarizeAllSubjects = (faculty, now = new Date()) => {
   const groups = new Map();
+  // Names the server looked up for the codes (GET /faculty/:id)
+  const names = faculty?.subjectNames || {};
 
   // First, process teachingHistory (actual system records)
   (faculty?.teachingHistory || []).forEach((h) => {
@@ -60,7 +62,7 @@ export const summarizeAllSubjects = (faculty, now = new Date()) => {
       groups.set(key, {
         key,
         subjectCode: h.subjectCode || null,
-        subjectName: h.subjectName || null,
+        subjectName: h.subjectName || names[h.subjectCode] || null,
         program: h.program || null,
         occurrences: [],
       });
@@ -86,8 +88,9 @@ export const summarizeAllSubjects = (faculty, now = new Date()) => {
         groups.set(key, {
           key,
           subjectCode: exp.subjectCode,
-          subjectName: exp.subjectName || null,
+          subjectName: exp.subjectName || names[exp.subjectCode] || null,
           program: null,
+          selfRating: exp.selfRating || null,
           occurrences: [],
         });
       }

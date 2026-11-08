@@ -84,6 +84,10 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
+    // End the session on the server too, so the token stops working even if
+    // it was copied. Best-effort: signing out never waits on the network.
+    const current = localStorage.getItem('token');
+    if (current) authAPI.logout(current).catch(() => {});
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setToken(null);

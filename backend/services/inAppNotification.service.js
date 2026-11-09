@@ -164,6 +164,14 @@ const notifyScheduleEvent = async (scheduleOrId, kind, { before, actor } = {}) =
       : await lazy.Schedule.findById(scheduleOrId).lean();
     if (!schedule) return;
 
+    // A draft is the scheduling office's working copy: teachers and students
+    // hear nothing until it's published (or, once published, when it changes
+    // or is withdrawn).
+    if (schedule.status === 'draft' && !['published', 'withdrawn'].includes(kind)) {
+      tellStaff(schedule.program, ['schedule']);
+      return;
+    }
+
     const after = snapshotSchedule(schedule);
     const subject = schedule.subject?.subjectCode
       ? schedule.subject
@@ -204,7 +212,7 @@ const notifyScheduleEvent = async (scheduleOrId, kind, { before, actor } = {}) =
       actorName: actor || undefined,
       metadata: { kind: effectiveKind, subjectCode: code, className: subject?.subjectName || '', sectionCode: section, changes },
     };
-    const classLink = kind === 'removed' ? '/schedules' : `/classes/${classSlug(code, section)}`;
+    const classLink = ['removed', 'withdrawn'].includes(kind) ? '/schedules' : `/classes/${classSlug(code, section)}`;
 
     const text = {
       created: { title: `New class: ${code}`, message: `${code} was added to ${section}'s timetable: ${when}${room ? ` in ${room}` : ''}.` },
@@ -212,7 +220,8 @@ const notifyScheduleEvent = async (scheduleOrId, kind, { before, actor } = {}) =
       updated: { title: `${code} changed`, message: `${code} (${section}) was updated. Now ${when}${room ? ` in ${room}` : ''}.` },
       reassigned: { title: `${code} has a new instructor`, message: `${code} (${section}) instructor changed.` },
       removed: { title: `${code} removed`, message: `${code} was removed from ${section}'s timetable.` },
-      published: { title: `${code} schedule published`, message: `${code} (${section}) is final: ${when}${room ? ` in ${room}` : ''}.` },
+      published: { title: `${code} schedule published`, message: `${code} (${section}) is official: ${when}${room ? ` in ${room}` : ''}.` },
+      withdrawn: { title: `${code} schedule withdrawn`, message: `${code} (${section}) was taken back for changes. You'll be notified when it's published again.` },
     }[effectiveKind] || { title: `${code} updated`, message: `${code} (${section}) was updated.` };
 
     await notify(students, { ...base, ...text, link: classLink });
@@ -222,8 +231,9 @@ const notifyScheduleEvent = async (scheduleOrId, kind, { before, actor } = {}) =
         created: { title: `New class assigned: ${code}`, message: `You're teaching ${code} with ${section}: ${when}${room ? ` in ${room}` : ''}.` },
         reassigned: { title: `New class assigned: ${code}`, message: `You're now teaching ${code} with ${section}: ${when}${room ? ` in ${room}` : ''}.` },
         removed: { title: `${code} removed`, message: `${code} with ${section} was removed from your load.` },
+        published: { title: `Class assigned: ${code}`, message: `You're teaching ${code} with ${section}: ${when}${room ? ` in ${room}` : ''}. It's now on your official schedule.` },
       }[effectiveKind] || text;
-      await notify([teacherUser], { ...base, ...teacherText, link: kind === 'removed' ? '/schedules' : classLink, preference: 'facultyAssignments' });
+      await notify([teacherUser], { ...base, ...teacherText, link: classLink, preference: 'facultyAssignments' });
     }
     if (oldTeacherUser) {
       await notify([oldTeacherUser], {
@@ -249,8 +259,14 @@ const notifyScheduleEvent = async (scheduleOrId, kind, { before, actor } = {}) =
  */
 const notifyTimetableBatch = async (schedules, kind) => {
   try {
-    const list = (schedules || []).filter(Boolean);
-    if (!list.length) return;
+    // Drafts concern the scheduling office only; publishing and withdrawing are
+    // the moments teachers and students hear about a class.
+    const list = (schedules || []).filter(Boolean)
+      .filter((s) => ['published', 'withdrawn'].includes(kind) || s.status !== 'draft');
+    if (!list.length) {
+      tellStaff(null, ['schedule']);
+      return;
+    }
 
     const sections = uniqIds(list.map((s) => s.sectionCode));
     const facultyCount = new Map();
@@ -259,8 +275,15 @@ const notifyTimetableBatch = async (schedules, kind) => {
       if (id) facultyCount.set(String(id), (facultyCount.get(String(id)) || 0) + 1);
     });
 
-    const verb = { generated: 'was updated', published: 'is now final', removed: 'had classes removed' }[kind] || 'changed';
-    const kindTitle = { generated: 'Timetable updated', published: 'Timetable published', removed: 'Classes removed' }[kind] || 'Timetable changed';
+    const verb = {
+      generated: 'was updated',
+      published: 'is published and official',
+      removed: 'had classes removed',
+      withdrawn: 'was taken back for changes; you’ll be notified when it’s published again',
+    }[kind] || 'changed';
+    const kindTitle = {
+      generated: 'Timetable updated', published: 'Your timetable is published', removed: 'Classes removed', withdrawn: 'Timetable withdrawn',
+    }[kind] || 'Timetable changed';
 
     // Students: one per section
     for (const section of sections) {
@@ -283,10 +306,16 @@ const notifyTimetableBatch = async (schedules, kind) => {
       if (!user) continue;
       await notify([user], {
         type: 'schedule',
-        title: kind === 'removed' ? 'Classes removed from your load' : kind === 'published' ? 'Your schedule is published' : 'Your teaching schedule changed',
-        message: kind === 'removed'
-          ? `${n} of your classes ${n === 1 ? 'was' : 'were'} removed.`
-          : `${n} class${n === 1 ? '' : 'es'} on your load ${kind === 'published' ? `${n === 1 ? 'is' : 'are'} now final` : `${n === 1 ? 'was' : 'were'} added or updated`}.`,
+        title: {
+          removed: 'Classes removed from your load',
+          published: 'Your teaching schedule is published',
+          withdrawn: 'Classes taken back for changes',
+        }[kind] || 'Your teaching schedule changed',
+        message: {
+          removed: `${n} of your classes ${n === 1 ? 'was' : 'were'} removed.`,
+          published: `${n} class${n === 1 ? '' : 'es'} ${n === 1 ? 'is' : 'are'} now on your official schedule.`,
+          withdrawn: `${n} of your classes ${n === 1 ? 'was' : 'were'} taken back for changes. You'll be notified when ${n === 1 ? "it's" : "they're"} published again.`,
+        }[kind] || `${n} class${n === 1 ? '' : 'es'} on your load ${n === 1 ? 'was' : 'were'} added or updated.`,
         link: '/schedules',
         metadata: { kind },
       });

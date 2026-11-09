@@ -27,7 +27,6 @@ import { usePrograms } from '../hooks/usePrograms';
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 const VIEW_MODE_KEY = 'schedulePage.viewMode';
-const BATCH_SIZE = 5; // concurrent requests for bulk actions
 
 // `countKey` indexes into `stats`, so the control carries its own counts. They
 // used to sit in a separate strip above that wrote the same statusFilter state.
@@ -67,16 +66,6 @@ const SORT_ACCESSORS = {
   faculty: (s) => getFacultyName(s).toLowerCase(),
   room: (s) => (s.roomLabel || '').toLowerCase(),
   status: (s) => (s.status === 'published' ? 1 : 0)
-};
-
-/** Run async work in small groups so a big bulk action doesn't flood the API. */
-const runInBatches = async (items, size, fn) => {
-  const results = [];
-  for (let i = 0; i < items.length; i += size) {
-    // eslint-disable-next-line no-await-in-loop
-    results.push(...(await Promise.allSettled(items.slice(i, i + size).map(fn))));
-  }
-  return results;
 };
 
 /* ------------------------------------------------------------------ */
@@ -621,11 +610,17 @@ const SchedulePage = () => {
   };
 
   const handleToggleStatus = async (schedule) => {
-    const nextStatus = schedule.status === 'published' ? 'draft' : 'published';
+    const publishing = schedule.status !== 'published';
+    if (!publishing && !window.confirm(
+      `Move ${schedule.subject?.subjectCode || 'this class'} (${schedule.sectionCode}) back to draft? `
+      + 'Its teacher and students will stop seeing it and will be told it is being changed.'
+    )) return;
     setBusyId(schedule._id);
     try {
-      await scheduleAPI.update(schedule._id, { status: nextStatus });
-      toast.success(nextStatus === 'published' ? 'Schedule published' : 'Schedule moved back to draft');
+      const res = publishing
+        ? await scheduleAPI.publish({ ids: [schedule._id] })
+        : await scheduleAPI.unpublish({ ids: [schedule._id] });
+      toast.success(res.data?.message || (publishing ? 'Published' : 'Moved back to draft'));
       reloadSchedulesFromCache();
     } catch (error) {
       console.error('Status change error:', error);
@@ -684,14 +679,10 @@ const SchedulePage = () => {
 
     setBulkBusy(true);
     try {
-      const results = await runInBatches(targets, BATCH_SIZE, (s) =>
-        scheduleAPI.update(s._id, { status: 'published' })
-      );
-      const failed = results.filter((r) => r.status === 'rejected').length;
-      const ok = results.length - failed;
-
-      if (ok > 0) toast.success(`Published ${ok} schedule(s)`);
-      if (failed > 0) toast.error(`${failed} schedule(s) could not be published`);
+      // One request, so each teacher and section gets one summary instead of a
+      // notification per class
+      const res = await scheduleAPI.publish({ ids: targets.map((s) => s._id) });
+      toast.success(res.data?.message || `Published ${targets.length} class(es)`);
 
       setSelectedSchedules([]);
       reloadSchedulesFromCache();
@@ -717,20 +708,23 @@ const SchedulePage = () => {
     }
     if (
       !window.confirm(
-        `Publish ${count} schedule(s) for ${filters.program} year ${filters.yearLevel}? Students will be able to see them.`
+        `Publish ${count} draft class(es) for ${filters.program} year ${filters.yearLevel}? `
+        + 'They become official: their teachers and students will see them and be notified.'
       )
     ) {
       return;
     }
 
     try {
-      await scheduleAPI.publish({
+      const res = await scheduleAPI.publish({
         program: filters.program,
         yearLevel: filters.yearLevel,
         semester: filters.semester,
-        academicYear: filters.academicYear
+        academicYear: filters.academicYear,
+        // When a section is picked, publish only that section's classes
+        ...(selectedSection?.sectionCode ? { sectionCode: selectedSection.sectionCode } : {})
       });
-      toast.success('Schedule published successfully');
+      toast.success(res.data?.message || 'Published');
       reloadSchedulesFromCache();
     } catch (error) {
       console.error('Publish error:', error);
@@ -1142,7 +1136,7 @@ const SchedulePage = () => {
                         ? 'Choose a section first'
                         : stats.draft === 0
                         ? 'Nothing left to publish in this view'
-                        : `Publish ${stats.draft} draft schedule(s) to students`
+                        : `Publish ${stats.draft} draft class(es): their teachers and students will see them and be notified`
                     }
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed"
                   >

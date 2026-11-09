@@ -1,6 +1,19 @@
 const ClassSpace = require('../models/ClassSpace.model');
 const Student = require('../models/Student.model');
 
+/** Teachers and students see a class once it's published (or archived, i.e. a past term). */
+const isOfficial = (schedule) => !!schedule && schedule.status !== 'draft' && !!schedule.status;
+
+/** Show or hide the class spaces of these schedules for teachers and students. */
+const setClassSpacesPublished = async (scheduleIds = [], published) => {
+  if (!scheduleIds.length) return 0;
+  const result = await ClassSpace.updateMany(
+    { schedule: { $in: scheduleIds } },
+    { $set: { isPublished: !!published } }
+  );
+  return result.modifiedCount || 0;
+};
+
 /**
  * Shared class-space lifecycle helpers.
  *
@@ -27,10 +40,17 @@ const ensureClassSpaceForSchedule = async (schedule) => {
   if (existing) {
     // Callers only ask for spaces of live schedules, so a space that was retired
     // with a since-restored schedule should come back rather than stay hidden.
+    let dirty = false;
     if (!existing.isActive && schedule.isActive !== false) {
       existing.isActive = true;
-      await existing.save();
+      dirty = true;
     }
+    // Keep the visibility flag in step with the schedule
+    if (schedule.status && existing.isPublished !== isOfficial(schedule)) {
+      existing.isPublished = isOfficial(schedule);
+      dirty = true;
+    }
+    if (dirty) await existing.save();
     return existing;
   }
 
@@ -47,6 +67,7 @@ const ensureClassSpaceForSchedule = async (schedule) => {
       program: schedule.program,
       academicYear: schedule.academicYear,
       semester: schedule.semester,
+      isPublished: isOfficial(schedule),
       classCode: await ClassSpace.generateUniqueClassCode(),
     });
   } catch (err) {
@@ -213,6 +234,8 @@ const syncSectionEnrollment = async (student) => {
 };
 
 module.exports = {
+  isOfficial,
+  setClassSpacesPublished,
   ensureClassSpaceForSchedule,
   ensureClassSpacesForSchedules,
   syncClassSpaceForSchedule,

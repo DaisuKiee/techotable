@@ -258,10 +258,10 @@ class TimetableOptimizer:
         wants_lab = klass['needs_lab']
         code = klass['subject']['subject_code']
 
-        # A section with a home room takes every non-lab class there. Lab
-        # subjects fall through to the lab-room search below.
+        # A section with a home room takes EVERY class there, labs included
+        # (the school holds a section's whole timetable in its own room).
         home = klass['section'].get('home_room')
-        if home and not wants_lab:
+        if home:
             idx = next((i for i, r in enumerate(self.rooms) if str(r.get('_id')) == str(home)), None)
             if idx is not None:
                 return [idx]
@@ -487,6 +487,12 @@ class TimetableOptimizer:
                     intervals.append(self.model.NewOptionalIntervalVar(
                         blk['start'], blk['length'], blk['end'], presence,
                         f'riv_c{c_idx}_b{b_idx}_r{r_idx}'))
+
+            # The room's blocked times are immovable busy intervals too
+            for n, window in enumerate(room.get('unavailable') or []):
+                iv = self._window_interval(window, f'unavail_r{r_idx}_{n}')
+                if iv is not None:
+                    intervals.append(iv)
 
             if len(intervals) > 1:
                 self.model.AddNoOverlap(intervals)

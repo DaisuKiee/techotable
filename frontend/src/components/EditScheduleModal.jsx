@@ -51,7 +51,7 @@ const Field = ({ label, value, wide }) => (
 /* ───────────────────────── main component ───────────────────────── */
 
 const EditScheduleModal = ({
-  schedule, faculty, rooms, onUpdate, onClose, onSave, onDelete, isSaved = false,
+  schedule, faculty, rooms, onUpdate, onClose, onSave, onDelete, isSaved = false, homeRoomId = null,
 }) => {
   const subjectId = schedule?.subject;
   const subjectCode = schedule?.subjectData?.subjectCode;
@@ -150,23 +150,31 @@ const EditScheduleModal = ({
               />
 
               {/* Room */}
-              <Section icon={MapPin} title="Room" hint={schedule.room ? 'Room selected' : 'Required'}>
+              <Section icon={MapPin} title="Room" hint={homeRoomId ? 'Section’s home room' : schedule.room ? 'Room selected' : 'Required'}>
                 <select
-                  value={roomId}
+                  value={homeRoomId || roomId}
+                  disabled={!!homeRoomId}
+                  title={homeRoomId ? 'Every class of this section is held in its home room. Change it on the Sections page.' : undefined}
                   onChange={(e) => onUpdate(scheduleId, 'room', e.target.value)}
                   className={`w-full rounded-lg border bg-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white ${
                     schedule.room ? 'border-green-400 dark:border-green-600' : 'border-gray-300 dark:border-gray-600'
                   }`}
                 >
                   <option value="">Select a room…</option>
-                  {rooms.map((room) => (
+                  {/* Deactivated rooms stay listed only while this class still uses one */}
+                  {rooms.filter((room) => room.isActive !== false || String(room._id) === String(roomId)).map((room) => (
                     <option key={room._id} value={room._id}>
                       {room.roomCode || room.roomNumber} — {room.roomName || room.building}
                       {room.capacity ? ` (cap. ${room.capacity})` : ''}
+                      {room.isActive === false ? ' · deactivated' : ''}
                     </option>
                   ))}
                 </select>
-                {!schedule.room && (
+                {homeRoomId ? (
+                  <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                    All of this section’s classes are held in its home room. Change it on the Sections page.
+                  </p>
+                ) : !schedule.room && (
                   <p className="mt-3 flex items-center gap-1 text-xs text-red-500">
                     <AlertCircle className="h-3 w-3" /> Select a room
                   </p>

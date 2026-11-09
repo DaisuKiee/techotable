@@ -197,9 +197,9 @@ class BuiltinSolver {
     const shortlist = (list) => list.sort((a, b) => cap(a) - cap(b) || a - b).slice(0, this.maxRoomCandidates);
 
     // Same rule as the Python model: a section with a home room takes every
-    // non-lab class there; lab subjects fall through to the lab-room search.
+    // class there, labs included. Without one, labs go to a lab room.
     const home = klass.section.home_room;
-    if (home && !klass.needsLab) {
+    if (home) {
       const idx = this.rooms.findIndex(r => String(r._id) === String(home));
       if (idx >= 0) return [idx];
       this.diagnostics.push(
@@ -274,6 +274,14 @@ class BuiltinSolver {
       for (const w of f.unavailable || []) {
         const grid = this.windowToGrid(w.day, w.start || w.startTime, w.end || w.endTime);
         if (grid) mark(`f${i}`, grid[0], grid[1]);
+      }
+    });
+
+    // A room's blocked times (maintenance, standing events)
+    this.rooms.forEach((r, i) => {
+      for (const w of r.unavailable || []) {
+        const grid = this.windowToGrid(w.day, w.start || w.startTime, w.end || w.endTime);
+        if (grid) mark(`r${i}`, grid[0], grid[1]);
       }
     });
   }

@@ -202,6 +202,10 @@ function preparePythonInput(data) {
     capacity: room.capacity,
     building: room.building || 'Main',
     facilities: room.facilities || [],
+    // Blocked times (maintenance, standing events): no class may use them
+    unavailable: (room.unavailableTimeSlots || []).map(u => ({
+      day: u.day, start: u.startTime, end: u.endTime,
+    })),
   }));
 
   // Prefer real sections. Only fall back to a synthetic one when the section

@@ -1,6 +1,19 @@
 const Section = require('../models/Section.model');
 const ClassSpace = require('../models/ClassSpace.model');
+const Room = require('../models/Room.model');
 const { sendError } = require('../middleware/error.middleware');
+const { checkHomeRoom, pickHomeRoom, assignMissingHomeRooms, moveSectionClasses } = require('../services/homeRoom.service');
+const { managerProgram } = require('../utils/programScope');
+
+/** Add `homeRoom` ({ _id, roomCode, roomName, capacity, roomType, isActive }) to plain section objects. */
+const attachHomeRooms = async (sections) => {
+  const ids = [...new Set(sections.map(s => s.room).filter(id => /^[a-f\d]{24}$/i.test(String(id || ''))))];
+  if (ids.length === 0) return sections;
+  const rooms = new Map((await Room.find({ _id: { $in: ids } }).select('roomCode roomName capacity roomType building floor isActive').lean())
+    .map(r => [String(r._id), r]));
+  sections.forEach(s => { s.homeRoom = rooms.get(String(s.room)) || null; });
+  return sections;
+};
 
 // @desc    Get all sections
 // @route   GET /api/sections
@@ -26,6 +39,7 @@ exports.getAllSections = async (req, res) => {
         .select('_id sectionCode program yearLevel sectionLetter shift academicYear semester enrollmentCode isActive room')
         .sort({ program: 1, yearLevel: 1, sectionLetter: 1 })
         .lean(); // Use lean() for faster queries
+      await attachHomeRooms(sections);
 
       return res.status(200).json({
         success: true,
@@ -44,7 +58,9 @@ exports.getAllSections = async (req, res) => {
           select: 'firstName lastName email'
         }
       })
-      .sort({ program: 1, yearLevel: 1, sectionLetter: 1 });
+      .sort({ program: 1, yearLevel: 1, sectionLetter: 1 })
+      .lean();
+    await attachHomeRooms(sections);
 
     res.status(200).json({
       success: true,
@@ -125,6 +141,24 @@ exports.createSection = async (req, res) => {
       });
     }
 
+    // Every section gets its own home room: the one picked, or the best free one.
+    // `room` used to be ignored here, so a room chosen in the form was dropped.
+    const draft = { academicYear, semester, shift, program, yearLevel: Number(yearLevel), maxStudents: maxStudents || 40 };
+    let homeRoomId = null;
+    let roomNote = null;
+    if (room) {
+      const check = await checkHomeRoom(draft, room);
+      if (check.error) return res.status(409).json({ success: false, code: check.code || 'HOME_ROOM_INVALID', message: check.error });
+      homeRoomId = String(check.room._id);
+      roomNote = check.warning;
+    } else {
+      const pick = await pickHomeRoom(draft);
+      homeRoomId = pick.room ? String(pick.room._id) : null;
+      roomNote = pick.room
+        ? pick.warning || `Home room: ${pick.room.roomCode}`
+        : `No lecture room is free for the ${shift} shift, so this section has no home room yet. Add a room or free one up on the Rooms page.`;
+    }
+
     // Generate unique enrollment code
     let enrollmentCode;
     let isUnique = false;
@@ -138,6 +172,7 @@ exports.createSection = async (req, res) => {
       semester,
       maxStudents: maxStudents || 40,
       adviser: adviser && adviser !== '' ? adviser : null,
+      room: homeRoomId,
       description: description || ''
     });
 
@@ -169,10 +204,13 @@ exports.createSection = async (req, res) => {
         }
       });
 
+    const data = populatedSection.toObject();
+    await attachHomeRooms([data]);
     res.status(201).json({
       success: true,
       message: 'Section created successfully',
-      data: populatedSection
+      data,
+      roomNote
     });
   } catch (error) {
     console.error('Error stack:', error.stack);
@@ -233,9 +271,38 @@ exports.updateSection = async (req, res) => {
     if (semester) section.semester = semester;
     if (maxStudents !== undefined) section.maxStudents = maxStudents;
     if (adviser !== undefined) section.adviser = adviser && adviser !== '' ? adviser : null;
-    if (room !== undefined) section.room = room && room !== '' ? room : null;
     if (description !== undefined) section.description = description;
     if (isActive !== undefined) section.isActive = isActive;
+
+    // Home room: keep it dedicated. An explicit room is checked; an empty one
+    // (or one that no longer works after a shift/term/size change) is replaced
+    // with the best free room.
+    let roomNote = null;
+    const roomBefore = section.room;
+    const placementChanged= section.isModified('shift') || section.isModified('academicYear') || section.isModified('semester');
+    if (section.isActive !== false) {
+      let needsPick = false;
+      if (room !== undefined && room !== null && room !== '') {
+        const check = await checkHomeRoom(section, room, { excludeId: section._id });
+        if (check.error) return res.status(409).json({ success: false, code: check.code || 'HOME_ROOM_INVALID', message: check.error });
+        section.room = String(check.room._id);
+        roomNote = check.warning;
+      } else if (room !== undefined || !section.room) {
+        needsPick = true;
+      } else if (placementChanged || section.isModified('maxStudents')) {
+        const check = await checkHomeRoom(section, section.room, { excludeId: section._id });
+        if (check.error) needsPick = true;
+        else roomNote = check.warning;
+      }
+      if (needsPick) {
+        const before = section.room;
+        const pick = await pickHomeRoom(section, { excludeId: section._id });
+        section.room = pick.room ? String(pick.room._id) : null;
+        roomNote = pick.room
+          ? pick.warning || (String(before || '') !== String(pick.room._id) ? `Home room is now ${pick.room.roomCode}.` : null)
+          : `No lecture room is free for the ${section.shift} shift, so this section has no home room.`;
+      }
+    }
     if (currentStudents !== undefined) section.currentStudents = currentStudents;
 
     // Regenerate section code if key fields changed
@@ -244,6 +311,13 @@ exports.updateSection = async (req, res) => {
     }
 
     await section.save();
+
+    // The section's classes follow its home room
+    if (section.room && (String(roomBefore || '') !== String(section.room) || placementChanged)) {
+      const { moved, clashes } = await moveSectionClasses(section);
+      if (moved) roomNote = [roomNote, `${moved} class${moved === 1 ? '' : 'es'} moved to the new home room.`].filter(Boolean).join(' ');
+      if (clashes.length) roomNote = [roomNote, `Check these overlaps: ${clashes.slice(0, 3).join('; ')}.`].filter(Boolean).join(' ');
+    }
 
     const updatedSection = await Section.findById(section._id)
       .populate('adviser', 'employeeId user')
@@ -255,10 +329,13 @@ exports.updateSection = async (req, res) => {
         }
       });
 
+    const data = updatedSection.toObject();
+    await attachHomeRooms([data]);
     res.status(200).json({
       success: true,
       message: 'Section updated successfully',
-      data: updatedSection
+      data,
+      roomNote
     });
   } catch (error) {
     sendError(res, error, 'Error updating section');
@@ -415,5 +492,28 @@ exports.regenerateEnrollmentCode = async (req, res) => {
     });
   } catch (error) {
     sendError(res, error, 'Error regenerating enrollment code');
+  }
+};
+
+// @desc    Give every active section without a valid home room its own room
+// @route   POST /api/sections/home-rooms/assign
+// @access  Private (Admin, Scheduling Officer, Program Manager - own program)
+exports.assignHomeRooms = async (req, res) => {
+  try {
+    const program = managerProgram(req) || req.body?.program || undefined;
+    const { academicYear, semester } = req.body || {};
+    const result = await assignMissingHomeRooms({ program, academicYear, semester });
+    const parts = [];
+    if (result.assigned.length) parts.push(`${result.assigned.length} section${result.assigned.length === 1 ? '' : 's'} given a home room`);
+    if (result.unassigned.length) parts.push(`${result.unassigned.length} still without one (no free lecture room)`);
+    if (result.moved) parts.push(`${result.moved} class${result.moved === 1 ? '' : 'es'} moved into their section's home room`);
+    if (result.clashes.length) parts.push(`check overlaps: ${result.clashes.slice(0, 3).join('; ')}`);
+    res.status(200).json({
+      success: true,
+      message: parts.length ? `${parts.join('; ')}.` : 'Every section already has its own home room.',
+      data: result,
+    });
+  } catch (error) {
+    sendError(res, error, 'Error assigning home rooms');
   }
 };

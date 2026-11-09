@@ -9,7 +9,7 @@ import {
   Plus, Edit2, Trash2, Search, Sun, Moon,
   Users, BookOpen, GraduationCap, X, Download,
   Calendar, Grid3x3, List, RefreshCw, Copy, AlertTriangle,
-  TrendingUp, UserCheck
+  TrendingUp, UserCheck, DoorOpen
 } from 'lucide-react';
 import { ModalShell } from '../components/modal/ModalShell';
 import { usePrograms } from '../hooks/usePrograms';
@@ -233,6 +233,10 @@ const SectionStudentsPanel = ({ section, onClose, onEdit, onCopyCode }) => {
 
           <div className="mt-4 flex flex-wrap items-center gap-2">
             <ShiftBadge shift={section.shift} solid />
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 text-xs font-medium" title="Home room">
+              <DoorOpen className="w-3.5 h-3.5" />
+              {section.homeRoom ? `${section.homeRoom.roomCode} · ${section.homeRoom.capacity} seats` : 'No home room'}
+            </span>
             {section.enrollmentCode && (
               <button
                 onClick={() => onCopyCode(section.enrollmentCode)}
@@ -481,6 +485,28 @@ const SectionPage = () => {
     [sections, viewingId]
   );
 
+  // Every section should have its own room
+  const homeless = useMemo(
+    () => sections.filter((s) => s.isActive !== false && (!s.homeRoom || s.homeRoom.isActive === false)),
+    [sections]
+  );
+  const [assigningRooms, setAssigningRooms] = useState(false);
+  const assignHomeRooms = async () => {
+    setAssigningRooms(true);
+    try {
+      const res = await sectionAPI.assignHomeRooms();
+      const { assigned = [], unassigned = [] } = res.data?.data || {};
+      toast.success(res.data?.message || 'Home rooms assigned');
+      if (assigned.length) toast(assigned.map((a) => `${a.sectionCode} → ${a.roomCode}`).join('\n'), { icon: '🚪', duration: 7000 });
+      if (unassigned.length) toast.error(unassigned.map((u) => `${u.sectionCode}: ${u.reason}`).join('\n'), { duration: 9000 });
+      await reloadSections();
+    } catch (err) {
+      toast.error(getErrorMessage(err, 'Could not assign home rooms'));
+    } finally {
+      setAssigningRooms(false);
+    }
+  };
+
   const refresh = async () => {
     setRefreshing(true);
     try {
@@ -492,13 +518,13 @@ const SectionPage = () => {
 
   const handleSubmit = async (formData) => {
     try {
-      if (editingSection) {
-        await sectionAPI.update(editingSection._id, formData);
-        toast.success('Section updated successfully!');
-      } else {
-        await sectionAPI.create(formData);
-        toast.success('Section created successfully!');
-      }
+      const res = editingSection
+        ? await sectionAPI.update(editingSection._id, formData)
+        : await sectionAPI.create(formData);
+      toast.success(editingSection ? 'Section updated successfully!' : 'Section created successfully!');
+      // Which home room it got, or why it has none
+      const note = res.data?.roomNote;
+      if (note) toast(note, { icon: res.data?.data?.homeRoom ? '🚪' : '⚠️', duration: 6000 });
 
       handleCloseModal();
       reloadSections();
@@ -693,6 +719,25 @@ const SectionPage = () => {
             Create and manage sections with Day/Night shift indicators. Click a section to see who is enrolled.
           </p>
           <CurrentTermBar />
+          {!loading && homeless.length > 0 && (
+            <div className="mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-800/60 dark:bg-amber-900/20 dark:text-amber-100">
+              <DoorOpen className="h-4 w-4 flex-shrink-0" />
+              <span className="flex-1">
+                <strong>{homeless.length} section{homeless.length === 1 ? ' has' : 's have'} no home room:</strong>{' '}
+                {homeless.slice(0, 6).map((s) => s.sectionCode).join(', ')}{homeless.length > 6 ? '…' : ''}.
+                {' '}Each section gets its own room, and all of its classes are held there.
+              </span>
+              <button
+                type="button"
+                onClick={assignHomeRooms}
+                disabled={assigningRooms}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-60"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${assigningRooms ? 'animate-spin' : ''}`} />
+                {assigningRooms ? 'Assigning…' : 'Assign home rooms'}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Statistics Cards. Day and Night double as quick shift filters. */}
@@ -981,6 +1026,25 @@ const SectionPage = () => {
                     )}
 
                     <div className="flex items-center gap-2 text-sm">
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${section.homeRoom?.isActive !== false && section.homeRoom ? 'bg-indigo-100 dark:bg-indigo-900' : 'bg-amber-100 dark:bg-amber-900/50'}`}>
+                        <DoorOpen className={`w-3.5 h-3.5 ${section.homeRoom?.isActive !== false && section.homeRoom ? 'text-indigo-600 dark:text-indigo-400' : 'text-amber-600 dark:text-amber-400'}`} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-gray-600 dark:text-gray-400 text-xs">Home Room</p>
+                        {section.homeRoom ? (
+                          <p className="font-medium text-gray-900 dark:text-white truncate">
+                            {section.homeRoom.roomCode}
+                            <span className="text-xs font-normal text-gray-500 dark:text-gray-400"> · {section.homeRoom.capacity} seats</span>
+                            {section.homeRoom.isActive === false && <span className="text-xs font-semibold text-amber-600"> · deactivated</span>}
+                            {section.homeRoom.capacity < section.maxStudents && <span className="text-xs font-semibold text-red-600 dark:text-red-400"> · too small</span>}
+                          </p>
+                        ) : (
+                          <p className="font-medium text-amber-700 dark:text-amber-400">Not assigned</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-sm">
                       <div className="w-6 h-6 bg-orange-100 dark:bg-orange-900 rounded-full flex items-center justify-center flex-shrink-0">
                         <Calendar className="w-3.5 h-3.5 text-orange-600 dark:text-orange-400" />
                       </div>
@@ -1054,8 +1118,14 @@ const SectionPage = () => {
                         <td className="px-4 py-4 whitespace-nowrap">
                           <div className="flex items-center gap-2">
                             <GraduationCap className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                            <span className="font-semibold text-gray-900 dark:text-white">
-                              {section.sectionCode}
+                            <span>
+                              <span className="block font-semibold text-gray-900 dark:text-white">
+                                {section.sectionCode}
+                              </span>
+                              <span className={`flex items-center gap-1 text-xs ${section.homeRoom && section.homeRoom.isActive !== false ? 'text-gray-500 dark:text-gray-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                                <DoorOpen className="w-3 h-3" />
+                                {section.homeRoom ? section.homeRoom.roomCode : 'No home room'}
+                              </span>
                             </span>
                           </div>
                         </td>

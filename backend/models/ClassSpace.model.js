@@ -140,6 +140,13 @@ const ClassSpaceSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
+  },
+
+  // Mirrors the schedule's status. A draft class exists for the scheduling
+  // office only: its teacher and students don't see it until it's published.
+  isPublished: {
+    type: Boolean,
+    default: false
   }
 }, {
   timestamps: true

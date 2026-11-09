@@ -243,8 +243,13 @@ export const roomAPI = {
   getById: (id) => api.get(`/rooms/${id}`),
   create: (data) => api.post('/rooms', data),
   update: (id, data) => api.put(`/rooms/${id}`, data),
-  delete: (id) => api.delete(`/rooms/${id}`),
+  // Deactivates; { force: true } when classes still use it, { permanent: true } for a never-used room
+  delete: (id, params) => api.delete(`/rooms/${id}`, { params }),
+  restore: (id) => api.patch(`/rooms/${id}/restore`),
+  getSchedule: (id, params) => api.get(`/rooms/${id}/schedule`, { params }),
+  getImpact: (id) => api.get(`/rooms/${id}/impact`),
   getByType: (type) => api.get(`/rooms/type/${type}`),
+  // Free at a time: { day, startTime, endTime, minCapacity?, roomType?, labOnly? }
   getAvailable: (params) => api.get('/rooms/available', { params }),
   getStats: () => api.get('/rooms/stats')
 };
@@ -296,7 +301,11 @@ export const scheduleAPI = {
   getFacultySchedule: (facultyId, params) => 
     api.get(`/schedules/faculty/${facultyId}`, { params }),
   checkConflicts: (data) => api.post('/schedules/check-conflicts', data),
+  // { ids } or { program, yearLevel, semester, academicYear[, sectionCode] }.
+  // Publishing makes classes official and notifies their teachers and students.
   publish: (data) => api.post('/schedules/publish', data),
+  // Same body; moves published classes back to draft (hidden again, people told)
+  unpublish: (data) => api.post('/schedules/unpublish', data),
   // Schedule generation runs a constraint solver server-side for up to
   // `timeLimit` seconds, so the client has to wait longer than the 30s default
   // or the request is aborted before the solver can possibly answer
@@ -392,7 +401,9 @@ export const sectionAPI = {
   getByProgramAndYear: (program, year, params) => 
     api.get(`/sections/program/${program}/year/${year}`, { params }),
   getStats: () => api.get('/sections/stats'),
-  regenerateEnrollmentCode: (id) => api.put(`/sections/${id}/regenerate-code`)
+  regenerateEnrollmentCode: (id) => api.put(`/sections/${id}/regenerate-code`),
+  // Give every active section without a valid home room its own room
+  assignHomeRooms: (data) => api.post('/sections/home-rooms/assign', data)
 };
 
 export default api;

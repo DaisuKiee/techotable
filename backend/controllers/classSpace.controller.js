@@ -91,6 +91,11 @@ const resolveAccess = async (user, classSpace) => {
     };
   }
 
+  // Teachers and students don't see a class until its schedule is published
+  if ((user.role === 'faculty' || user.role === 'student') && classSpace.isPublished === false) {
+    return { canRead: false, canPost: false, reason: 'This class hasn’t been published yet' };
+  }
+
   // Faculty may post only in the classes they teach
   if (user.role === 'faculty') {
     // user.facultyProfile might be populated (object with _id) or just an ObjectId
@@ -149,9 +154,10 @@ exports.getAllClassSpaces = async (req, res) => {
       query.program = program;
     }
 
-    // Faculty see the classes they teach
+    // Faculty see the published classes they teach
     if (req.user.role === 'faculty') {
       query.faculty = req.user.facultyProfile;
+      query.isPublished = true;
     }
 
     const classSpaces = await ClassSpace.find(query)
@@ -197,9 +203,11 @@ exports.getMyClassSpaces = async (req, res) => {
         await ensureClassSpaceForSchedule(s);
       }
 
+      // Draft classes stay with the scheduling office until published
       const classSpaces = await ClassSpace.find({
         faculty: req.user.facultyProfile,
         isActive: true,
+        isPublished: true,
       })
         .populate(CLASS_POPULATE)
         .sort({ sectionCode: 1 })
@@ -270,6 +278,7 @@ exports.getMyClassSpaces = async (req, res) => {
       const classSpaces = await ClassSpace.find({
         'enrolledStudents.student': student._id,
         isActive: true,
+        isPublished: true,
       })
         .populate(CLASS_POPULATE)
         .sort({ sectionCode: 1 })
@@ -408,7 +417,7 @@ exports.joinByCode = async (req, res) => {
     /* ---- irregular: the code identifies ONE subject ---- */
     if (student.studentType === 'irregular') {
       // First, try to find ClassSpace by classCode
-      let classSpace = await ClassSpace.findOne({ classCode: raw, isActive: true })
+      let classSpace = await ClassSpace.findOne({ classCode: raw, isActive: true, isPublished: true })
         .populate('subject', 'subjectCode subjectName units program');
 
       // If not found, try to find by Subject.subjectEnrollmentCode
@@ -419,9 +428,10 @@ exports.joinByCode = async (req, res) => {
         if (subject) {
           // Found a subject with this code
           // Try to find an existing ClassSpace for it
-          classSpace = await ClassSpace.findOne({ 
-            subject: subject._id, 
-            isActive: true 
+          classSpace = await ClassSpace.findOne({
+            subject: subject._id,
+            isActive: true,
+            isPublished: true
           })
             .populate('subject', 'subjectCode subjectName units program')
             .populate('section', 'sectionCode program yearLevel');
@@ -1025,7 +1035,7 @@ exports.enrollByCode = async (req, res) => {
     }
 
     // Find the class space
-    const classSpace = await ClassSpace.findOne({ classCode: classCode.toUpperCase() })
+    const classSpace = await ClassSpace.findOne({ classCode: classCode.toUpperCase(), isPublished: true })
       .populate('subject', 'subjectCode subjectName')
       .populate('schedule', 'timeSlots');
 

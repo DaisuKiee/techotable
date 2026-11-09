@@ -18,14 +18,13 @@ const LAB_ROOM_TYPES = new Set(['Laboratory', 'Computer Lab', 'Workshop']);
 /**
  * The room a class dropped for a section should start in.
  *
- *  1. The section's home room, when one is set on the section.
+ *  1. The section's home room, when one is set and active - for EVERY subject,
+ *     labs included. The server stores it there whatever room is sent.
  *  2. Otherwise the room the section's existing classes use most - so it works
- *     on sections that were scheduled before home rooms existed.
- *
- * Lab-only subjects (lab hours, no lecture hours) must go in a lab-type room,
- * which the solver also enforces; everything else goes in a non-lab room. A
- * room of the wrong kind is never chosen - if none fits, the room is left for
- * the manager to pick.
+ *     on sections that were scheduled before home rooms existed. Here
+ *     lab-only subjects (lab hours, no lecture hours) must go in a lab-type
+ *     room and everything else in a non-lab room; if none fits, the room is
+ *     left for the manager to pick.
  *
  * Pure (no component state) so it can be tested directly.
  *
@@ -39,10 +38,11 @@ export const pickDefaultRoom = ({ subject, section, rooms = [], schedules = [] }
   const roomById = (id) => rooms.find((r) => String(r._id) === String(id)) || null;
   const isLab = (r) => !!r && LAB_ROOM_TYPES.has(r.roomType);
   const needsLab = (subject?.labHours || 0) > 0 && !((subject?.lectureHours || 0) > 0);
-  const fits = (r) => (needsLab ? isLab(r) : !isLab(r));
+  // Never suggest a deactivated room
+  const fits = (r) => !!r && r.isActive !== false && (needsLab ? isLab(r) : !isLab(r));
 
   const home = section?.room ? roomById(section.room) : null;
-  if (home && fits(home)) return { roomId: String(home._id), room: home };
+  if (home && home.isActive !== false) return { roomId: String(home._id), room: home, isHome: true };
 
   const counts = new Map();
   for (const s of schedules) {
@@ -824,6 +824,12 @@ const ScheduleBuilder = ({
 
   const defaultRoomFor = (subject) =>
     pickDefaultRoom({ subject, section: selectedSection, rooms, schedules: savedSchedules });
+
+  // Every class of a section with an active home room is held there
+  const homeRoomId = (() => {
+    const home = selectedSection?.room && rooms.find((r) => String(r._id) === String(selectedSection.room));
+    return home && home.isActive !== false ? String(home._id) : null;
+  })();
 
   const removePending = (tempId) => {
     // Compare as strings: temp ids are now strings, and dataTransfer values
@@ -1924,6 +1930,7 @@ const ScheduleBuilder = ({
           schedule={editingSchedule}
           faculty={faculty}
           rooms={rooms}
+          homeRoomId={homeRoomId}
           onUpdate={updatePending}
           onClose={() => setEditingSchedule(null)}
           onSave={() => handleSaveOne(editingSchedule)}
@@ -1936,6 +1943,7 @@ const ScheduleBuilder = ({
           schedule={editingSavedSchedule}
           faculty={faculty}
           rooms={rooms}
+          homeRoomId={homeRoomId}
           onUpdate={(id, field, value) => updateSaved(id, field, value)}
           onClose={() => setEditingSavedSchedule(null)}
           onSave={() => handleUpdateSaved(editingSavedSchedule)}

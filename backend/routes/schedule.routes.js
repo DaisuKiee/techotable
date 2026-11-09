@@ -12,6 +12,7 @@ const {
   checkConflicts,
   publishSchedule,
   batchPublishSchedules,
+  batchUnpublishSchedules,
   batchDeleteSchedules,
   generateSchedule,
   previewSchedule,
@@ -65,6 +66,7 @@ router.post('/save-preview', authorize('admin', 'scheduling_officer', 'program_m
 // Schedule builder "Save All": validates the whole batch, then writes all or nothing
 router.post('/bulk', authorize('admin', 'scheduling_officer', 'program_manager'), bulkCreateSchedules);
 router.post('/publish', authorize('admin', 'scheduling_officer', 'program_manager'), batchPublishSchedules);
+router.post('/unpublish', authorize('admin', 'scheduling_officer', 'program_manager'), batchUnpublishSchedules);
 router.post('/batch-delete', authorize('admin', 'scheduling_officer', 'program_manager'), batchDeleteSchedules);
 router.put('/:id', authorize('admin', 'scheduling_officer', 'program_manager'), updateSchedule);
 router.put('/:id/publish', authorize('admin', 'scheduling_officer', 'program_manager'), publishSchedule);

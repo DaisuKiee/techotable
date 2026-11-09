@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import BaseModal from './BaseModal';
 import { 
   GraduationCap, BookOpen, Calendar, Users, 
   Sun, Moon, Check
 } from 'lucide-react';
 import { usePrograms } from '../hooks/usePrograms';
-import { roomAPI, termAPI } from '../services/api';
+import { roomAPI, termAPI, sectionAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+
 
 const SectionModal = ({ section, faculty, onClose, onSubmit }) => {
   const { user } = useAuth();
@@ -25,6 +26,7 @@ const SectionModal = ({ section, faculty, onClose, onSubmit }) => {
     description: ''
   });
   const [rooms, setRooms] = useState([]);
+  const [otherSections, setOtherSections] = useState([]);
 
   const [errors, setErrors] = useState({});
 
@@ -65,12 +67,30 @@ const SectionModal = ({ section, faculty, onClose, onSubmit }) => {
       .catch(() => {});
   }, [section, formData.program]);
 
-  // Rooms for the home-room picker. Loaded here so callers need not pass them.
+  // Rooms for the home-room picker, and the sections already holding one, so
+  // taken rooms can be shown as taken. Loaded here so callers need not pass them.
   useEffect(() => {
-    roomAPI.getAll()
-      .then((res) => setRooms((res.data.data || []).filter((rm) => rm.isActive !== false)))
+    roomAPI.getAll({ status: 'active' })
+      .then((res) => setRooms(res.data.data || []))
       .catch((err) => console.error('Failed to load rooms:', err));
+    sectionAPI.getAll({ lightweight: 'true', isActive: 'true' })
+      .then((res) => setOtherSections(res.data.data || []))
+      .catch(() => {});
   }, []);
+
+  // Each section has its own room for the term and shift (Day and Night may share)
+  const takenBy = useMemo(() => {
+    const map = new Map();
+    otherSections.forEach((s) => {
+      if (!s.room || (section && s._id === section._id)) return;
+      if (s.academicYear !== formData.academicYear || Number(s.semester) !== Number(formData.semester) || s.shift !== formData.shift) return;
+      map.set(String(s.room), s.sectionCode);
+    });
+    return map;
+  }, [otherSections, section, formData.academicYear, formData.semester, formData.shift]);
+  const chosenRoom = rooms.find((rm) => String(rm._id) === String(formData.room));
+  const roomTakenBy = formData.room ? takenBy.get(String(formData.room)) : null;
+  const freeCount = rooms.filter((rm) => !takenBy.has(String(rm._id))).length;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -79,9 +99,12 @@ const SectionModal = ({ section, faculty, onClose, onSubmit }) => {
       await onSubmit(formData);
     } catch (error) {
       // If there's an adviser validation error, mark the field
-      if (error.response?.data?.message?.toLowerCase().includes('adviser') || 
-          error.response?.data?.message?.toLowerCase().includes('advisory')) {
-        setErrors({ adviser: error.response.data.message });
+      const message = error.response?.data?.message || '';
+      if (message.toLowerCase().includes('adviser') ||
+          message.toLowerCase().includes('advisory')) {
+        setErrors({ adviser: message });
+      } else if (String(error.response?.data?.code || '').startsWith('HOME_ROOM')) {
+        setErrors({ room: message });
       }
     }
   };
@@ -286,25 +309,42 @@ const SectionModal = ({ section, faculty, onClose, onSubmit }) => {
             {/* Home room */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                Home Room <span className="text-gray-400 font-normal text-xs">(Optional)</span>
+                Home Room
               </label>
               <select
                 value={formData.room}
-                onChange={(e) => setFormData({ ...formData, room: e.target.value })}
-                className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
+                onChange={(e) => { setFormData({ ...formData, room: e.target.value }); setErrors((er) => ({ ...er, room: undefined })); }}
+                className={`w-full px-4 py-2.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all ${
+                  errors.room || roomTakenBy ? 'border-red-400 dark:border-red-500' : 'border-gray-300 dark:border-gray-600'
+                }`}
               >
-                <option value="">No home room</option>
-                {rooms.map((rm) => (
-                  <option key={rm._id} value={rm._id}>
-                    {rm.roomCode || rm.roomNumber}
-                    {rm.roomName ? ` — ${rm.roomName}` : ''}
-                    {rm.capacity ? ` (cap. ${rm.capacity})` : ''}
-                  </option>
-                ))}
+                <option value="">Assign automatically ({freeCount} free for {formData.shift} shift)</option>
+                {rooms.map((rm) => {
+                  const taken = takenBy.get(String(rm._id));
+                  const small = rm.capacity < Number(formData.maxStudents || 0);
+                  return (
+                    <option key={rm._id} value={rm._id} disabled={!!taken && String(rm._id) !== String(formData.room)}>
+                      {rm.roomCode || rm.roomNumber}
+                      {rm.capacity ? ` · ${rm.capacity} seats` : ''}
+                      {rm.roomType && rm.roomType !== 'Lecture Room' ? ` · ${rm.roomType}` : ''}
+                      {taken ? ` · home room of ${taken}` : small ? ' · too small' : ''}
+                    </option>
+                  );
+                })}
               </select>
-              <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                Classes dropped for this section in the Schedule Builder start in this room.
-              </p>
+              {errors.room || roomTakenBy ? (
+                <p className="mt-1.5 text-xs text-red-600 dark:text-red-400">
+                  {errors.room || `Already the home room of ${roomTakenBy}. Each section needs its own room.`}
+                </p>
+              ) : chosenRoom && chosenRoom.capacity < Number(formData.maxStudents || 0) ? (
+                <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-400">
+                  {chosenRoom.roomCode} seats {chosenRoom.capacity}, fewer than this section’s {formData.maxStudents} students.
+                </p>
+              ) : (
+                <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                  The section’s own room: every one of its classes, labs included, is held here. Automatic picks a free room that fits, near the program’s other sections.
+                </p>
+              )}
             </div>
 
             {/* Description */}

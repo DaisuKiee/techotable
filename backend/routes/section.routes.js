@@ -8,7 +8,8 @@ const {
   deleteSection,
   getSectionsByProgramAndYear,
   getSectionStats,
-  regenerateEnrollmentCode
+  regenerateEnrollmentCode,
+  assignHomeRooms
 } = require('../controllers/section.controller');
 const { protect, authorize } = require('../middleware/auth.middleware');
 const { checkProgramAccess } = require('../middleware/programAccess.middleware');
@@ -27,6 +28,9 @@ router.get('/program/:program/year/:year', restrictProgramParam(), getSectionsBy
 router.route('/')
   .get(checkProgramAccess('Section'), getAllSections)
   .post(authorize('admin', 'scheduling_officer', 'program_manager'), checkProgramAccess('Section'), createSection);
+
+// Fill in missing home rooms (must be before /:id)
+router.post('/home-rooms/assign', authorize('admin', 'scheduling_officer', 'program_manager'), assignHomeRooms);
 
 // Regenerate enrollment code route (must be before /:id)
 router.put('/:id/regenerate-code', authorize('admin', 'scheduling_officer', 'program_manager'), checkProgramAccess('Section'), regenerateEnrollmentCode);

@@ -14,8 +14,56 @@ const {
   attachScheduleRoomLabels,
   loadRoomsByRawValues,
   labelFor,
+  looksLikeObjectId,
 } = require('../utils/roomLabel');
 const { notifyScheduleChange } = require('../services/emailNotification.service');
+const { homeRoomResolver } = require('../services/homeRoom.service');
+const { setClassSpacesPublished } = require('../services/classSpace.service');
+
+/**
+ * Draft vs published.
+ *
+ * A new, generated or edited-in-draft class is the scheduling office's working
+ * copy: only staff see it, and nobody is notified. Publishing makes it
+ * official - its teacher and the section's students see it in their schedule
+ * and class list and are notified. Withdrawing (back to draft) hides it again
+ * and tells them. Archived classes are past terms and stay visible.
+ */
+const STAFF_ROLES = ['admin', 'scheduling_officer', 'program_manager'];
+const isStaff = (user) => STAFF_ROLES.includes(user?.role);
+const OFFICIAL_ONLY = { status: { $ne: 'draft' } };
+
+/**
+ * Publish (published=true) or withdraw (false) a set of schedule documents and
+ * tell the people affected. Returns the ones that actually changed.
+ */
+async function applyPublishState(schedules, published, actor) {
+  const target = published ? 'published' : 'draft';
+  const changing = schedules.filter((s) => s && s.isActive !== false && s.status !== target);
+  if (!changing.length) return [];
+
+  const ids = changing.map((s) => s._id);
+  await Schedule.updateMany({ _id: { $in: ids } }, { $set: { status: target } });
+  // Spaces may not exist yet for older rows; create them, then flip visibility
+  await ensureClassSpacesForSchedules(changing);
+  await setClassSpacesPublished(ids, published);
+
+  const fresh = await Schedule.find({ _id: { $in: ids } })
+    .populate('subject', 'subjectCode subjectName')
+    .lean();
+
+  if (fresh.length === 1) {
+    notifyScheduleEvent(fresh[0], published ? 'published' : 'withdrawn', { actor });
+  } else {
+    notifyTimetableBatch(fresh, published ? 'published' : 'withdrawn');
+  }
+  if (published) {
+    // Email the teacher and students of each newly official class
+    Promise.allSettled(ids.map((id) => notifyScheduleChange(id, 'published')))
+      .catch((err) => console.error('Publish emails failed:', err.message));
+  }
+  return fresh;
+}
 const {
   notifyScheduleEvent,
   notifyTimetableBatch,
@@ -57,10 +105,25 @@ exports.getAllSchedules = async (req, res) => {
     // ROLE-BASED FILTERING
     // Students: Only see schedules for their program, year level, and section
     if (req.user.role === 'student') {
-      query.program = req.user.program;
-      query.yearLevel = req.user.yearLevel;
-      query.section = req.user.section;
-      // Override any query params that students shouldn't be able to change
+      // Their own classes only, from their student record. This used to read
+      // yearLevel/section off the User, which has neither, so the list came
+      // back empty. Regular students follow their section; irregular students
+      // the classes they joined.
+      const Student = require('../models/Student.model');
+      const ClassSpace = require('../models/ClassSpace.model');
+      const student = await Student.findOne({ user: req.user._id }).select('studentType sectionCode enrolledClasses').lean();
+      if (!student) {
+        return res.status(200).json({ success: true, count: 0, data: [] });
+      }
+      if (student.studentType === 'irregular') {
+        const spaces = await ClassSpace.find({ _id: { $in: student.enrolledClasses || [] } }).select('schedule').lean();
+        query._id = { $in: spaces.map((sp) => sp.schedule) };
+      } else {
+        query.sectionCode = student.sectionCode || '__none__';
+      }
+      if (academicYear) query.academicYear = academicYear;
+      if (semester) query.semester = parseInt(semester);
+      Object.assign(query, OFFICIAL_ONLY);
     }
     // Faculty: Only see schedules where they are assigned (handled by separate endpoint)
     // For general viewing, faculty can see all schedules (to coordinate with students)
@@ -74,6 +137,10 @@ exports.getAllSchedules = async (req, res) => {
       if (yearLevel) query.yearLevel = parseInt(yearLevel);
       if (status) query.status = status;
       if (faculty) query.faculty = faculty;
+      // Teachers never see drafts, whatever they ask for
+      if (!isStaff(req.user)) {
+        query.status = status && status !== 'draft' ? status : OFFICIAL_ONLY.status;
+      }
 
       // Section and shift were previously ignored, so the schedule builder
       // received every section of the year level. That made the grid look fully
@@ -135,7 +202,8 @@ exports.getScheduleById = async (req, res) => {
       })
       .populate('classSpace');
 
-    if (!schedule) {
+    // A draft doesn't exist yet as far as teachers and students are concerned
+    if (!schedule || (!isStaff(req.user) && schedule.status === 'draft')) {
       return res.status(404).json({
         success: false,
         message: 'Schedule not found'
@@ -172,10 +240,15 @@ exports.createSchedule = async (req, res) => {
       shift,
       subject,
       faculty,
-      room,
       timeSlots,
       maxStudents
     } = req.body;
+
+    // A section with a home room holds every class there, whatever room was sent
+    const room = (await homeRoomResolver()({ sectionCode, academicYear, semester })) || req.body.room;
+    if (!room) {
+      return res.status(400).json({ success: false, message: 'Pick a room, or give the section a home room on the Sections page' });
+    }
 
     // Verify subject exists
     const subjectExists = await Subject.findById(subject);
@@ -308,12 +381,16 @@ exports.updateSchedule = async (req, res) => {
 
     const {
       faculty,
-      room,
+      room: requestedRoom,
       timeSlots,
       maxStudents,
       status,
       notes
     } = req.body;
+
+    // A section with a home room keeps every class there. An older class saved
+    // in another room is moved home on its next edit.
+    const room = (await homeRoomResolver()(schedule)) || requestedRoom;
 
     // Re-check conflicts whenever anything that can clash changes.
     // Room was previously not a trigger, so moving a class into an occupied room
@@ -353,8 +430,12 @@ exports.updateSchedule = async (req, res) => {
     if (room) schedule.room = room;
     if (timeSlots) schedule.timeSlots = timeSlots;
     if (maxStudents !== undefined) schedule.maxStudents = maxStudents;
-    if (status) schedule.status = status;
     if (notes !== undefined) schedule.notes = notes;
+    // Publishing and withdrawing are handled after the save, so they announce
+    // properly; archiving is the term roll-over's job, not an edit
+    const publishTo = status === 'published' && schedule.status !== 'published' ? true
+      : status === 'draft' && schedule.status === 'published' ? false
+        : null;
 
     await schedule.save();
 
@@ -367,11 +448,17 @@ exports.updateSchedule = async (req, res) => {
       { path: 'faculty', populate: { path: 'user', select: 'firstName lastName' } }
     ]);
 
-    // In-app + live: says exactly what changed (time, room, instructor)
-    notifyScheduleEvent(schedule, 'updated', { before, actor: actorOf(req) });
+    if (publishTo !== null) {
+      await applyPublishState([schedule], publishTo, actorOf(req));
+      schedule.status = publishTo ? 'published' : 'draft';
+    } else {
+      // In-app + live: says exactly what changed (time, room, instructor).
+      // Silent for drafts: nobody but the office can see them yet.
+      notifyScheduleEvent(schedule, 'updated', { before, actor: actorOf(req) });
+    }
 
-    // Send email notifications for schedule updates (async, don't wait)
-    if (schedule.status === 'published') {
+    // Send email notifications for changes to an official class (async, don't wait)
+    if (publishTo === null && schedule.status === 'published') {
       notifyScheduleChange(schedule._id, 'updated')
         .then(result => {
           console.log(`📧 Schedule update notifications sent: ${result.total.sent}/${result.total.recipients}`);
@@ -487,6 +574,33 @@ async function checkScheduleConflicts({
     conflicts.hasConflict = true;
     conflicts.details.push(detail);
   };
+
+  // The room itself: deactivated, or blocked at this time (maintenance, events)
+  const roomDoc = looksLikeObjectId(String(room || ''))
+    ? await Room.findById(room).select('roomCode isActive unavailableTimeSlots').lean()
+    : null;
+  if (roomDoc && roomDoc.isActive === false) {
+    add({
+      type: 'room',
+      message: `Room ${roomDoc.roomCode} is deactivated. Pick another room or restore it on the Rooms page`,
+      day: timeSlots[0]?.day,
+      time: '',
+      conflictingSchedule: roomDoc.roomCode
+    });
+  }
+  for (const newSlot of timeSlots) {
+    for (const window of roomDoc?.unavailableTimeSlots || []) {
+      if (window.day !== newSlot.day) continue;
+      if (!checkTimeOverlap(newSlot.startTime, newSlot.endTime, window.startTime, window.endTime)) continue;
+      add({
+        type: 'room',
+        message: `Room ${roomDoc.roomCode} is blocked ${window.startTime}–${window.endTime}${window.reason ? ` (${window.reason})` : ''}`,
+        day: newSlot.day,
+        time: `${window.startTime} - ${window.endTime}`,
+        conflictingSchedule: roomDoc.roomCode
+      });
+    }
+  }
 
   for (const newSlot of timeSlots) {
     for (const existingSchedule of existingSchedules) {
@@ -612,6 +726,7 @@ exports.getSchedulesByProgramAndYear = async (req, res) => {
 
     if (academicYear) query.academicYear = academicYear;
     if (semester) query.semester = parseInt(semester);
+    if (!isStaff(req.user)) Object.assign(query, OFFICIAL_ONLY);
 
     const schedules = await Schedule.find(query)
       .populate('subject', 'subjectCode subjectName units')
@@ -647,6 +762,8 @@ exports.getFacultySchedule = async (req, res) => {
 
     if (academicYear) query.academicYear = academicYear;
     if (semester) query.semester = parseInt(semester);
+    // A teacher's own view shows only official classes
+    if (!isStaff(req.user)) Object.assign(query, OFFICIAL_ONLY);
 
     const schedules = await Schedule.find(query)
       .populate('subject', 'subjectCode subjectName units')
@@ -700,7 +817,9 @@ exports.getFacultySchedule = async (req, res) => {
 // @access  Private
 exports.checkConflicts = async (req, res) => {
   try {
-    const { faculty, room, timeSlots, academicYear, semester, program, yearLevel } = req.body;
+    // `subject` was used below but never read from the body, so every single
+    // check failed with "subject is not defined"
+    const { subject, faculty, room, sectionCode, timeSlots, academicYear, semester, program, yearLevel } = req.body;
 
     // Check if this is a batch check (by program/year) or single schedule check
     if (program && semester && academicYear && !timeSlots) {
@@ -831,6 +950,7 @@ exports.checkConflicts = async (req, res) => {
       subject,
       faculty,
       room,
+      sectionCode,
       timeSlots,
       academicYear,
       semester
@@ -861,24 +981,14 @@ exports.publishSchedule = async (req, res) => {
       });
     }
 
-    schedule.status = 'published';
-    await schedule.save();
-
-    notifyScheduleEvent(schedule, 'published', { actor: actorOf(req) });
-
-    // Send email notifications when schedule is published (async, don't wait)
-    notifyScheduleChange(schedule._id, 'published')
-      .then(result => {
-        console.log(`📧 Schedule publish notifications sent: ${result.total.sent}/${result.total.recipients}`);
-      })
-      .catch(err => {
-        console.error('❌ Failed to send schedule publish notifications:', err.message);
-      });
+    const changed = await applyPublishState([schedule], true, actorOf(req));
 
     res.status(200).json({
       success: true,
-      message: 'Schedule published successfully',
-      data: schedule
+      message: changed.length
+        ? 'Published. The teacher and the section’s students were notified.'
+        : 'This class was already published',
+      data: { ...schedule.toObject(), status: 'published' }
     });
 
   } catch (error) {
@@ -886,79 +996,71 @@ exports.publishSchedule = async (req, res) => {
   }
 };
 
-// @desc    Batch publish schedules (publish all for a program/year/semester)
+// @desc    Publish many classes: { ids } or { program, yearLevel, semester, academicYear[, sectionCode] }
 // @route   POST /api/schedules/publish
 // @access  Private/Admin
 exports.batchPublishSchedules = async (req, res) => {
   try {
-    const { program, yearLevel, semester, academicYear } = req.body;
+    const query = await publishScope(req);
+    if (query.error) return res.status(400).json({ success: false, message: query.error });
 
-    if (!program || !yearLevel || !semester || !academicYear) {
-      return res.status(400).json({
-        success: false,
-        message: 'Program, year level, semester, and academic year are required'
-      });
-    }
-
-    // Get all schedules that will be published
-    const schedulesToPublish = await Schedule.find({
-      program,
-      yearLevel,
-      semester,
-      academicYear,
-      isActive: true,
-      status: { $ne: 'published' } // Only unpublished schedules
-    }).select('_id');
-
-    // Update all matching schedules to published
-    const result = await Schedule.updateMany(
-      {
-        program,
-        yearLevel,
-        semester,
-        academicYear,
-        isActive: true
-      },
-      {
-        $set: { status: 'published' }
-      }
-    );
-
-    if (schedulesToPublish.length > 0) {
-      Schedule.find({ _id: { $in: schedulesToPublish.map((s) => s._id) } })
-        .select('sectionCode faculty')
-        .lean()
-        .then((list) => notifyTimetableBatch(list, 'published'))
-        .catch(() => {});
-    }
-
-    // Send notifications for all newly published schedules (async, don't wait)
-    if (schedulesToPublish.length > 0) {
-      console.log(`📧 Sending notifications for ${schedulesToPublish.length} published schedules...`);
-      
-      // Send notifications in batches to avoid overwhelming the email service
-      Promise.allSettled(
-        schedulesToPublish.map(schedule => 
-          notifyScheduleChange(schedule._id, 'published')
-        )
-      ).then(results => {
-        const successful = results.filter(r => r.status === 'fulfilled').length;
-        console.log(`✅ Batch publish notifications: ${successful}/${schedulesToPublish.length} schedules notified`);
-      }).catch(err => {
-        console.error('❌ Batch notification error:', err.message);
-      });
-    }
+    const schedules = await Schedule.find({ ...query, isActive: true, status: { $ne: 'published' } });
+    const changed = await applyPublishState(schedules, true, actorOf(req));
 
     res.status(200).json({
       success: true,
-      message: `Published ${result.modifiedCount} schedule(s) successfully`,
-      count: result.modifiedCount
+      message: changed.length
+        ? `Published ${changed.length} class${changed.length === 1 ? '' : 'es'}. Teachers and students were notified.`
+        : 'Everything selected is already published',
+      count: changed.length
     });
-
   } catch (error) {
     sendError(res, error, 'Error publishing schedules');
   }
 };
+
+// @desc    Withdraw published classes back to draft: same body as publish
+// @route   POST /api/schedules/unpublish
+// @access  Private/Admin
+exports.batchUnpublishSchedules = async (req, res) => {
+  try {
+    const query = await publishScope(req);
+    if (query.error) return res.status(400).json({ success: false, message: query.error });
+
+    const schedules = await Schedule.find({ ...query, isActive: true, status: 'published' });
+    const changed = await applyPublishState(schedules, false, actorOf(req));
+
+    res.status(200).json({
+      success: true,
+      message: changed.length
+        ? `Moved ${changed.length} class${changed.length === 1 ? '' : 'es'} back to draft. Teachers and students were told it’s being changed.`
+        : 'None of the selected classes were published',
+      count: changed.length
+    });
+  } catch (error) {
+    sendError(res, error, 'Error withdrawing schedules');
+  }
+};
+
+/** Which classes a publish/unpublish request means; program managers stay in their program. */
+async function publishScope(req) {
+  const { ids, program, yearLevel, semester, academicYear, sectionCode } = req.body || {};
+  const own = req.user.role === 'program_manager' ? req.user.program : null;
+  if (Array.isArray(ids) && ids.length) {
+    return { _id: { $in: ids }, ...(own ? { program: own } : {}) };
+  }
+  if (!program || !semester || !academicYear || (!yearLevel && !sectionCode)) {
+    return { error: 'Pick the classes, or a program, term and year level (or section)' };
+  }
+  if (own && program !== own) return { error: `You can only publish ${own} classes` };
+  return {
+    program,
+    semester: Number(semester),
+    academicYear,
+    ...(yearLevel ? { yearLevel: Number(yearLevel) } : {}),
+    ...(sectionCode ? { sectionCode: String(sectionCode).toUpperCase() } : {}),
+  };
+}
 
 // @desc    Batch delete schedules by IDs
 // @route   POST /api/schedules/batch-delete
@@ -1073,8 +1175,10 @@ exports.generateSchedule = async (req, res) => {
       const savedSchedules = [];
       const errors = [];
 
+      const homeRoomOf = homeRoomResolver();
       for (const scheduleData of result.schedules) {
         try {
+          scheduleData.room = (await homeRoomOf(scheduleData)) || scheduleData.room;
           const schedule = await Schedule.create(scheduleData);
           savedSchedules.push(schedule);
 
@@ -1209,9 +1313,11 @@ exports.savePreviewedSchedules = async (req, res) => {
     const { groups, errors: groupErrors } = groupRowsByOffering(schedules);
     errors.push(...groupErrors.map(e => ({ subject: e.subject, error: e.error })));
 
+    const homeRoomOf = homeRoomResolver();
     for (const group of groups) {
       const scheduleData = group.merged;
       try {
+        scheduleData.room = (await homeRoomOf(scheduleData)) || scheduleData.room;
         const existing = await findExistingOffering(scheduleData);
 
         if (existing) {
@@ -1308,10 +1414,16 @@ exports.bulkCreateSchedules = async (req, res) => {
     // Cache lookups so N rows don't mean N identical queries
     const subjectCache = new Map();
     const facultyCache = new Map();
+    const homeRoomOf = homeRoomResolver();
 
     for (let i = 0; i < schedules.length; i++) {
       const row = schedules[i];
       const label = row?.subjectCode || `row ${i + 1}`;
+      // Every class of a section with a home room goes there
+      if (row && row.sectionCode) {
+        const home = await homeRoomOf(row);
+        if (home) row.room = home;
+      }
 
       const required = ['subject', 'faculty', 'room', 'program', 'yearLevel', 'section', 'sectionCode', 'semester', 'academicYear'];
       const missing = required.filter(k => row?.[k] === undefined || row?.[k] === null || row?.[k] === '');

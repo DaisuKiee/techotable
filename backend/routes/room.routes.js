@@ -1,56 +1,40 @@
 const express = require('express');
 const router = express.Router();
-const { body } = require('express-validator');
 const {
   getAllRooms,
   getRoomById,
+  getRoomSchedule,
+  getRoomImpact,
+  findFreeRooms,
   createRoom,
   updateRoom,
   deleteRoom,
+  restoreRoom,
   getRoomsByType,
   getAvailableRooms,
   getRoomStats
 } = require('../controllers/room.controller');
 const { protect, authorize } = require('../middleware/auth.middleware');
 
-// Validation middleware
-const createRoomValidation = [
-  body('roomCode')
-    .trim()
-    .notEmpty()
-    .withMessage('Room code is required'),
-  body('roomName')
-    .trim()
-    .notEmpty()
-    .withMessage('Room name is required'),
-  body('building')
-    .trim()
-    .notEmpty()
-    .withMessage('Building is required'),
-  body('floor')
-    .isInt({ min: 1 })
-    .withMessage('Floor must be a positive number'),
-  body('roomType')
-    .isIn(['Lecture Room', 'Laboratory', 'Computer Lab', 'Workshop', 'Auditorium', 'Conference Room'])
-    .withMessage('Invalid room type'),
-  body('capacity')
-    .isInt({ min: 1, max: 200 })
-    .withMessage('Capacity must be between 1 and 200')
-];
+const MANAGERS = ['admin', 'scheduling_officer', 'program_manager'];
 
-// All routes require authentication
+// All routes require authentication. Input is validated in the controller
+// (cleanRoomInput), which covers updates too - the old express-validator
+// chain only ran on create.
 router.use(protect);
 
-// Public room routes (all authenticated users)
 router.get('/', getAllRooms);
 router.get('/stats', getRoomStats);
-router.get('/type/:roomType', getRoomsByType);
+router.get('/available', findFreeRooms);
 router.get('/available/:capacity', getAvailableRooms);
+router.get('/type/:roomType', getRoomsByType);
+router.get('/:id/schedule', getRoomSchedule);
+router.get('/:id/impact', authorize(...MANAGERS), getRoomImpact);
 router.get('/:id', getRoomById);
 
-// Admin/Scheduling Officer/Program Manager only routes
-router.post('/', authorize('admin', 'scheduling_officer', 'program_manager'), createRoomValidation, createRoom);
-router.put('/:id', authorize('admin', 'scheduling_officer', 'program_manager'), updateRoom);
-router.delete('/:id', authorize('admin', 'scheduling_officer', 'program_manager'), deleteRoom);
+router.post('/', authorize(...MANAGERS), createRoom);
+router.put('/:id', authorize(...MANAGERS), updateRoom);
+router.patch('/:id/restore', authorize(...MANAGERS), restoreRoom);
+router.delete('/:id', authorize(...MANAGERS), deleteRoom);
 
 module.exports = router;

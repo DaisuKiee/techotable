@@ -1,5 +1,11 @@
 const mongoose = require('mongoose');
 
+const ROOM_TYPES = ['Lecture Room', 'Laboratory', 'Computer Lab', 'Workshop', 'Auditorium', 'Conference Room'];
+const LAB_ROOM_TYPES = ['Laboratory', 'Computer Lab', 'Workshop'];
+const EQUIPMENT_CONDITIONS = ['Excellent', 'Good', 'Fair', 'Poor', 'Broken'];
+const ROOM_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const MAX_CAPACITY = 500;
+
 const RoomSchema = new mongoose.Schema({
   roomCode: {
     type: String,
@@ -8,10 +14,12 @@ const RoomSchema = new mongoose.Schema({
     uppercase: true,
     trim: true
   },
+  // Optional: the code is what everyone uses. It used to be required while the
+  // form treated it as optional, so saving a room without a name failed.
   roomName: {
     type: String,
-    required: [true, 'Room name is required'],
-    trim: true
+    trim: true,
+    default: ''
   },
   building: {
     type: String,
@@ -20,20 +28,22 @@ const RoomSchema = new mongoose.Schema({
   },
   floor: {
     type: Number,
-    required: true,
+    default: 1,
     min: 1
   },
   roomType: {
     type: String,
     required: [true, 'Room type is required'],
-    enum: ['Lecture Room', 'Laboratory', 'Computer Lab', 'Workshop', 'Auditorium', 'Conference Room'],
+    enum: ROOM_TYPES,
   },
   capacity: {
     type: Number,
     required: [true, 'Capacity is required'],
     min: 1,
-    max: 200
+    max: MAX_CAPACITY
   },
+  // Features shown as chips (Projector, Air Conditioning, ...). The booleans
+  // below are kept in step with this list for older code that reads them.
   facilities: [{
     type: String,
     trim: true
@@ -43,7 +53,7 @@ const RoomSchema = new mongoose.Schema({
     quantity: Number,
     condition: {
       type: String,
-      enum: ['Excellent', 'Good', 'Fair', 'Poor', 'Broken'],
+      enum: EQUIPMENT_CONDITIONS,
       default: 'Good'
     }
   }],
@@ -63,10 +73,17 @@ const RoomSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  deactivatedAt: Date,
+  deactivationReason: {
+    type: String,
+    trim: true
+  },
+  // Times the room can't be used (maintenance, a standing event). Both
+  // generators and the manual schedule check keep classes out of them.
   unavailableTimeSlots: [{
     day: {
       type: String,
-      enum: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+      enum: ROOM_DAYS
     },
     startTime: String,
     endTime: String,
@@ -80,8 +97,26 @@ const RoomSchema = new mongoose.Schema({
   timestamps: true
 });
 
+RoomSchema.pre('save', function syncFeatureFlags(next) {
+  if (this.isModified('facilities')) {
+    const has = (name) => (this.facilities || []).some(f => f.toLowerCase() === name);
+    this.hasProjector = has('projector');
+    this.isAirconditioned = has('air conditioning');
+    this.hasWhiteboard = has('whiteboard');
+  }
+  next();
+});
+
 // Index for faster queries
 RoomSchema.index({ building: 1, floor: 1 });
 RoomSchema.index({ roomType: 1 });
 
-module.exports = mongoose.model('Room', RoomSchema);
+const Room = mongoose.model('Room', RoomSchema);
+
+Room.ROOM_TYPES = ROOM_TYPES;
+Room.LAB_ROOM_TYPES = LAB_ROOM_TYPES;
+Room.EQUIPMENT_CONDITIONS = EQUIPMENT_CONDITIONS;
+Room.ROOM_DAYS = ROOM_DAYS;
+Room.MAX_CAPACITY = MAX_CAPACITY;
+
+module.exports = Room;

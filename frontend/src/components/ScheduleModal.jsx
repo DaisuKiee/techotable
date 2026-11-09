@@ -240,9 +240,9 @@ const ScheduleModal = ({ mode, schedule, subjects: propSubjects, sections: propS
                 className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
               >
                 <option value="">Select room...</option>
-                {rooms.map(room => (
+                {rooms.filter(room => room.isActive !== false || String(room._id) === String(formData.room)).map(room => (
                   <option key={room._id} value={room._id}>
-                    {room.roomCode || room.roomNumber} — {room.roomName || room.building} (Cap: {room.capacity})
+                    {room.roomCode || room.roomNumber} — {room.roomName || room.building} (Cap: {room.capacity}){room.isActive === false ? ' · deactivated' : ''}
                   </option>
                 ))}
               </select>
@@ -478,18 +478,21 @@ const ScheduleModal = ({ mode, schedule, subjects: propSubjects, sections: propS
             Schedule Settings
           </h3>
           <div className="space-y-3">
-            <label className="flex items-center p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer">
-              <input
-                type="checkbox"
-                name="isPublished"
-                checked={formData.isPublished}
-                onChange={handleChange}
-                className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-2 border-gray-300 rounded"
-              />
-              <span className="ml-3 text-sm text-gray-700 dark:text-gray-300 font-medium">
-                Published <span className="text-gray-500 font-normal">(visible to students)</span>
-              </span>
-            </label>
+            {/* The old "Published" checkbox here was never saved. Status is set
+                from the Schedules list, where publishing also notifies people. */}
+            <div className={`rounded-lg border p-3 text-sm ${schedule?.status === 'published'
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-200'
+              : 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200'}`}>
+              {schedule?.status === 'published' ? (
+                <>
+                  <span className="font-semibold">Published.</span> The teacher and students see this class; they’re notified when you save a change to its time, room or teacher.
+                </>
+              ) : (
+                <>
+                  <span className="font-semibold">Draft.</span> Only the scheduling office sees it. Publish it from the Schedules list to make it official; its teacher and students are notified then.
+                </>
+              )}
+            </div>
             <label className="flex items-center p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer">
               <input
                 type="checkbox"

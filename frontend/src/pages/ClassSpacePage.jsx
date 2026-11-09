@@ -1,269 +1,170 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { classSpaceAPI, resolveUploadUrl, getErrorMessage } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { usePageState } from '../context/PageStateContext';
 import useCachedData from '../hooks/useCachedData';
+import { useLiveRefresh } from '../context/NotificationContext';
 import toast from 'react-hot-toast';
 import {
-  BookOpen, Bell, FileText, Users, Plus, Upload,
-  UserPlus, Search, Download, Trash2, Pin,
-  User, Edit2, ChevronLeft, Copy, RefreshCw,
-  TrendingUp, MessageSquare, FolderOpen, Clock, MapPin, LogOut, Mail, Phone
+  BookOpen, Users, Plus, Search, Download, Trash2, Pin, Edit2, ChevronLeft, ChevronRight,
+  Copy, RefreshCw, MapPin, LogOut, Mail, Phone, UserPlus, Megaphone, Paperclip,
+  LayoutList, FolderOpen, CalendarDays, KeyRound, X,
 } from 'lucide-react';
 import CreateAnnouncementModal from '../components/CreateAnnouncementModal';
 import UploadMaterialModal from '../components/UploadMaterialModal';
 import EnrollModal from '../components/EnrollModal';
 import TypeToConfirmDialog from '../components/TypeToConfirmDialog';
+import {
+  accentFor, tint, subjectCodeOf, subjectNameOf, facultyNameOf, timeSlotsOf, roomOf,
+  WEEK, toMin, fmtRange, nextMeeting, weeklyHours, dayLabel, timeAgo, fileKind,
+  FILE_KIND_NAMES, fmtSize, generateClassSlug,
+} from '../components/classSpaces/classMeta';
+import {
+  Avatar, FileBadge, WeekRhythm, NextPill, TodayRail, ClassCard, GridSkeleton,
+} from '../components/classSpaces/ClassVisuals';
+import FolderGlyph from '../components/classSpaces/FolderGlyph';
 
-// Import background images
-import bg1 from '../assets/images/class-spaces-bg/GOOGLE-BLUES.jpe';
-import bg2 from '../assets/images/class-spaces-bg/Google-Green.jpe';
-import bg3 from '../assets/images/class-spaces-bg/Google-Red.jpe';
-import bg4 from '../assets/images/class-spaces-bg/Google-Yellows.jpe';
-import { useLiveRefresh } from '../context/NotificationContext';
+const findClassBySlug = (classes, slug) => classes.find((cs) => generateClassSlug(cs) === slug);
 
-/* Fields are denormalised onto the ClassSpace, so read subject/faculty/section
-   directly and fall back to the populated schedule only for time/room. */
-const subjectCodeOf = (cs) => cs?.subject?.subjectCode || cs?.sectionCode || 'Class';
-const subjectNameOf = (cs) => cs?.subject?.subjectName || '';
-const facultyNameOf = (cs) => {
-  const u = cs?.faculty?.user;
-  return u ? `${u.firstName || ''} ${u.lastName || ''}`.trim() : null;
-};
-const timeSlotsOf = (cs) => cs?.schedule?.timeSlots || [];
+/* ------------------------------------------------------------------ *
+ * Small pieces
+ * ------------------------------------------------------------------ */
 
-/** Build a full URL for a profile picture stored as a server-relative path. */
-const avatarSrc = (path) =>
-  path ? `${process.env.REACT_APP_API_URL?.replace('/api', '')}${path}` : null;
-
-/**
- * Generate a URL-friendly slug from a class space
- * Format: subjectcode-section-year (e.g., cc4112l-bsit-4a-d)
- */
-const generateClassSlug = (cs) => {
-  const subjectCode = (cs?.subject?.subjectCode || cs?.sectionCode || 'class').toLowerCase();
-  const sectionCode = (cs?.section?.sectionCode || cs?.sectionCode || '').toLowerCase();
-  const year = cs?.section?.year || cs?.year || '';
-
-  // Clean and combine parts
-  const parts = [subjectCode, sectionCode, year].filter(Boolean);
-  return parts.join('-').replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-};
-
-/**
- * Find a class space by its slug
- */
-const findClassBySlug = (classes, slug) => {
-  return classes.find(cs => generateClassSlug(cs) === slug);
-};
-
-/**
- * One-line summary of when a class meets.
- *
- * A class holds every meeting time for the subject, so showing only the first
- * one ("Monday 08:00-09:00 +2") hid the days that matter most at a glance.
- */
-const summariseSlots = (slots) => {
-  if (slots.length === 1) {
-    const s = slots[0];
-    return `${s.day.slice(0, 3)} ${s.startTime}-${s.endTime}`;
-  }
-  const days = [...new Set(slots.map((s) => s.day.slice(0, 3)))].join(', ');
-  return `${days} · ${slots.length} meetings`;
-};
-const fmtSize = (bytes) => {
-  if (!bytes) return '';
-  return bytes < 1024 * 1024
-    ? `${(bytes / 1024).toFixed(1)} KB`
-    : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-};
-
-// Card header background images — randomized for variety like Google Classroom
-const CARD_BACKGROUNDS = [bg1, bg2, bg3, bg4];
-
-/**
- * Maps a subject code to a consistent background image.
- * Uses hashing to ensure the same subject always displays the same background.
- */
-const backgroundFor = (key) => {
-  let hash = 0;
-  for (let i = 0; i < String(key).length; i++) {
-    hash = String(key).charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return CARD_BACKGROUNDS[Math.abs(hash) % CARD_BACKGROUNDS.length];
-};
-
-/**
- * A manila folder, drawn rather than imported so it inherits crisp rendering
- * at any size and needs no asset. The sheet peeking out of the back half is
- * what reads as "there are things in here" at a glance.
- */
-/*
- * Opening animation, driven by the tile's `group` hover/focus:
- *  - the front flap hinges forward on its bottom edge (scaleY + skew from the
- *    bottom reads as a flap tipping toward you, without 3D transforms, which
- *    SVG elements don't support reliably);
- *  - the front sheet rises, and a second sheet behind it rises further and
- *    tilts, so the folder visibly has contents;
- *  - a soft shadow grows underneath as the folder lifts.
- * `transform-box: fill-box` makes each origin relative to the shape itself
- * rather than the whole SVG canvas.
- */
-const FOLDER_EASE = 'transition-transform duration-300 ease-[cubic-bezier(.34,1.56,.64,1)] motion-reduce:transition-none [transform-box:fill-box]';
-
-const FolderGlyph = () => (
-  <span className="relative block">
-    <svg
-      viewBox="0 0 96 78"
-      className="relative z-10 h-20 w-24 overflow-visible transition-transform duration-300 group-hover:-translate-y-1 group-focus-visible:-translate-y-1 motion-reduce:transition-none"
-      aria-hidden="true"
-    >
-      <defs>
-        <linearGradient id="folderBack" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#fcd34d" />
-          <stop offset="100%" stopColor="#f6c445" />
-        </linearGradient>
-        <linearGradient id="folderFront" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#fde08a" />
-          <stop offset="100%" stopColor="#f8c84e" />
-        </linearGradient>
-      </defs>
-
-      {/* back half, with the tab */}
-      <path
-        d="M3 13a7 7 0 0 1 7-7h24.6a4 4 0 0 1 2.9 1.2l5.2 5.3a4 4 0 0 0 2.9 1.2H86a7 7 0 0 1 7 7v44a7 7 0 0 1-7 7H10a7 7 0 0 1-7-7z"
-        fill="url(#folderBack)"
-      />
-
-      {/* rear sheet: hidden behind the front one until the folder opens */}
-      <g className={`${FOLDER_EASE} origin-bottom group-hover:-translate-y-[9px] group-hover:rotate-[7deg] group-focus-visible:-translate-y-[9px] group-focus-visible:rotate-[7deg]`}>
-        <path d="M38 18h24l8 8v20H38z" fill="#f3f4f6" />
-        <path d="M62 18l8 8h-8z" fill="#d6dae0" />
-      </g>
-
-      {/* front sheet */}
-      <g className={`${FOLDER_EASE} origin-bottom group-hover:-translate-y-[6px] group-hover:-rotate-[4deg] group-focus-visible:-translate-y-[6px] group-focus-visible:-rotate-[4deg]`}>
-        <path d="M31 15h24l9 9v20H31z" fill="#ffffff" />
-        <path d="M55 15l9 9h-9z" fill="#dfe3e8" />
-        <g fill="#c9ced6">
-          <rect x="36" y="24" width="14" height="1.6" rx=".8" />
-          <rect x="36" y="28" width="19" height="1.6" rx=".8" />
-          <rect x="36" y="32" width="11" height="1.6" rx=".8" />
-        </g>
-      </g>
-
-      {/* front flap, hinged on its bottom edge */}
-      <path
-        d="M3 32h90v32a7 7 0 0 1-7 7H10a7 7 0 0 1-7-7z"
-        fill="url(#folderFront)"
-        className={`${FOLDER_EASE} origin-bottom group-hover:[transform:scaleY(.82)_skewX(-7deg)] group-focus-visible:[transform:scaleY(.82)_skewX(-7deg)]`}
-      />
-    </svg>
-
-    {/* shadow that spreads as the folder lifts */}
-    <span
-      aria-hidden="true"
-      className="absolute -bottom-1 left-1/2 h-2 w-16 -translate-x-1/2 rounded-full bg-black/10 blur-[3px] transition-all duration-300 group-hover:w-20 group-hover:bg-black/15 motion-reduce:transition-none"
-    />
-  </span>
-);
-
-/** Placeholder rows shown while a class's full details are loading. */
+/** Static placeholder rows while a class's posts load (no pulse). */
 const PostSkeleton = ({ count = 3 }) => (
-  <div className="space-y-4" aria-label="Loading">
+  <div className="space-y-3" aria-label="Loading">
     {Array.from({ length: count }).map((_, n) => (
-      <div
-        key={n}
-        className="flex gap-3 p-5 border border-gray-200 dark:border-gray-700 rounded-xl"
-      >
-        <div className="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-700 flex-shrink-0" />
+      <div key={n} className="flex gap-3 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+        <div className="h-9 w-9 flex-shrink-0 rounded-full bg-gray-100 dark:bg-gray-700" />
         <div className="flex-1 space-y-2">
-          <div className="h-3 w-1/3 rounded bg-gray-200 dark:bg-gray-700" />
-          <div className="h-4 w-2/3 rounded bg-gray-200 dark:bg-gray-700" />
-          <div className="h-3 w-full rounded bg-gray-200 dark:bg-gray-700" />
+          <div className="h-3 w-1/3 rounded bg-gray-100 dark:bg-gray-700" />
+          <div className="h-4 w-2/3 rounded bg-gray-100 dark:bg-gray-700" />
+          <div className="h-3 w-full rounded bg-gray-100 dark:bg-gray-700" />
         </div>
       </div>
     ))}
   </div>
 );
 
+/** Long posts fold to a few lines with a "Show more". */
+const Expandable = ({ text }) => {
+  const [open, setOpen] = useState(false);
+  const long = (text || '').length > 320 || (text || '').split('\n').length > 5;
+  return (
+    <div>
+      <p className={`whitespace-pre-wrap break-words text-sm leading-relaxed text-gray-600 dark:text-gray-300 ${long && !open ? 'line-clamp-4' : ''}`}>{text}</p>
+      {long && (
+        <button type="button" onClick={() => setOpen((v) => !v)} className="mt-1 text-xs font-semibold text-gray-500 hover:text-gray-900 dark:hover:text-white">
+          {open ? 'Show less' : 'Show more'}
+        </button>
+      )}
+    </div>
+  );
+};
+
+const IconButton = ({ title, onClick, danger, children }) => (
+  <button
+    type="button"
+    title={title}
+    aria-label={title}
+    onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClick(); }}
+    className={`rounded-lg p-1.5 text-gray-400 transition-colors ${
+      danger ? 'hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/30' : 'hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-700 dark:hover:text-gray-200'
+    }`}
+  >
+    {children}
+  </button>
+);
+
+const SearchField = ({ value, onChange, placeholder, className = '' }) => (
+  <div className={`relative ${className}`}>
+    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+    <input
+      type="search"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      className="w-full rounded-xl border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm text-gray-900 placeholder-gray-400 focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/10 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:focus:ring-white/10"
+    />
+  </div>
+);
+
+const Empty = ({ icon: Icon, title, children }) => (
+  <div className="rounded-2xl border border-dashed border-gray-300 px-6 py-14 text-center dark:border-gray-700">
+    <Icon className="mx-auto mb-3 h-9 w-9 text-gray-300 dark:text-gray-600" />
+    <p className="font-medium text-gray-700 dark:text-gray-200">{title}</p>
+    {children && <p className="mx-auto mt-1 max-w-sm text-sm text-gray-500 dark:text-gray-400">{children}</p>}
+  </div>
+);
+
+/* ------------------------------------------------------------------ *
+ * Page
+ * ------------------------------------------------------------------ */
+
 const ClassSpacePage = () => {
   const { user } = useAuth();
   const { getPageState, savePageState } = usePageState();
-  const { classSlug } = useParams(); // Get slug from URL
-  const navigate = useNavigate(); // For navigation
+  const { classSlug } = useParams();
+  const navigate = useNavigate();
 
-  // Get saved state or use defaults
-  const savedState = getPageState('classSpaces', {
-    searchTerm: '',
-    filterSection: 'all'
-  });
+  const savedState = getPageState('classSpaces', { searchTerm: '', filterSection: 'all' });
 
   const [classSpaces, setClassSpaces] = useState([]);
-  const [notEnrolled, setNotEnrolled] = useState(false); // student has no sectionCode yet
-  const [selectedClass, setSelectedClass] = useState(null); // null = grid view
-  const [activeTab, setActiveTab] = useState('stream');
+  const [notEnrolled, setNotEnrolled] = useState(false);
+  const [selectedClass, setSelectedClass] = useState(null);
+  const [activeTab, setActiveTab] = useState('board');
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
   const [showMaterialModal, setShowMaterialModal] = useState(false);
   const [showEnrollModal, setShowEnrollModal] = useState(false);
   const [editingAnnouncement, setEditingAnnouncement] = useState(null);
   const [searchTerm, setSearchTerm] = useState(savedState.searchTerm);
   const [filterSection, setFilterSection] = useState(savedState.filterSection);
+  const [fileQuery, setFileQuery] = useState('');
+  const [fileKindFilter, setFileKindFilter] = useState('all');
+  const [peopleQuery, setPeopleQuery] = useState('');
 
-  // Confirmation modals
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
   const [showLeaveSectionConfirm, setShowLeaveSectionConfirm] = useState(false);
 
-  // Track the last loaded class to prevent re-fetching
   const lastLoadedClassId = useRef(null);
-
-  // Whether the server says the current user may post in the open class
   const [canPostHere, setCanPostHere] = useState(false);
-  const [studentType, setStudentType] = useState(null); // null until backend tells us or student chooses
+  const [studentType, setStudentType] = useState(null);
   const [joinHint, setJoinHint] = useState(null);
 
+  // Re-render once a minute so "in 25 min" and the live bars stay current
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 60000);
+    return () => clearInterval(id);
+  }, []);
 
   const isFaculty = user?.role === 'faculty';
   const isStudent = user?.role === 'student';
-  const isAdmin = user?.role === 'admin' || user?.role === 'scheduling_officer'; // eslint-disable-line no-unused-vars
-  const isManager = user?.role === 'program_manager'; // eslint-disable-line no-unused-vars
   const isIrregular = isStudent && studentType === 'irregular';
   const isRegular = isStudent && studentType === 'regular';
 
-  // ✅ CACHE: Class spaces with 5-minute cache (stale-while-revalidate)
-  const {
-    data: classSpacesResponse,
-    loading: classSpacesLoading,
-    refetch: reloadClassSpaces,
-  } = useCachedData(
+  const { data: classSpacesResponse, loading: classSpacesLoading, refetch: reloadClassSpaces } = useCachedData(
     () => classSpaceAPI.getMyClasses(),
     `class-spaces-${user?._id}-${user?.role}`,
     {
-      cacheDuration: 5 * 60 * 1000, // 5 minutes
+      cacheDuration: 5 * 60 * 1000,
       enabled: !!user,
       onError: (err) => {
         console.error('Failed to load class spaces:', err);
         toast.error(err.response?.data?.message || 'Failed to load classes');
-      }
+      },
     }
   );
 
-  // Announcements, materials and class changes pushed from the server
   useLiveRefresh(['classes', 'schedule'], () => reloadClassSpaces());
 
-  // Extract data from response (handle both cached and fresh formats)
   useEffect(() => {
     if (!classSpacesResponse) return;
-
-    // classSpacesResponse is the whole API response object:
-    // {success, count, data: [...], enrolled?, studentType?, message?}
     const payload = classSpacesResponse;
-
     if (payload.studentType) setStudentType(payload.studentType);
-
     if (payload.enrolled === false) {
       setNotEnrolled(true);
       setJoinHint(payload.message || null);
@@ -275,71 +176,49 @@ const ClassSpacePage = () => {
     }
   }, [classSpacesResponse]);
 
-  // Handle URL-based class selection with optimistic UI
+  // Open the class named in the URL: show the grid's copy at once, then load details
   useEffect(() => {
     if (!classSlug || classSpaces.length === 0) {
       setSelectedClass(null);
       lastLoadedClassId.current = null;
       return;
     }
-
     const classToOpen = findClassBySlug(classSpaces, classSlug);
-
-    if (classToOpen) {
-      // Skip if we already loaded this class
-      if (lastLoadedClassId.current === classToOpen._id) {
-        return;
-      }
-
-      lastLoadedClassId.current = classToOpen._id;
-
-      // Reset modal states when opening a new class
-      setShowLeaveConfirm(false);
-      setShowRegenerateConfirm(false);
-
-      // Immediately show cached data from the grid for instant feedback
-      setSelectedClass({
-        ...classToOpen,
-        _isLoading: true, // Flag to show loading indicators
-      });
-      setActiveTab('stream');
-
-      // Load full details with announcements/materials in the background
-      classSpaceAPI.getById(classToOpen._id)
-        .then(response => {
-          setSelectedClass({
-            ...response.data.data,
-            _isLoading: false,
-          });
-          setCanPostHere(!!response.data.canPost);
-        })
-        .catch(error => {
-          console.error('Failed to load class details:', error);
-          toast.error(error.response?.data?.message || 'Could not open this class');
-          lastLoadedClassId.current = null; // Reset so user can retry
-          navigate('/classes'); // Redirect to grid view on error
-        });
-    } else {
-      // Class not found, redirect to grid view
+    if (!classToOpen) {
       toast.error('Class not found');
       navigate('/classes');
+      return;
     }
+    if (lastLoadedClassId.current === classToOpen._id) return;
+    lastLoadedClassId.current = classToOpen._id;
+    setShowLeaveConfirm(false);
+    setShowRegenerateConfirm(false);
+    setFileQuery('');
+    setFileKindFilter('all');
+    setPeopleQuery('');
+    setSelectedClass({ ...classToOpen, _isLoading: true });
+
+    classSpaceAPI.getById(classToOpen._id)
+      .then((response) => {
+        setSelectedClass({ ...response.data.data, _isLoading: false });
+        setCanPostHere(!!response.data.canPost);
+      })
+      .catch((error) => {
+        console.error('Failed to load class details:', error);
+        toast.error(error.response?.data?.message || 'Could not open this class');
+        lastLoadedClassId.current = null;
+        navigate('/classes');
+      });
   }, [classSlug, classSpaces, navigate]);
 
-  // Save filter/search state when they change
   useEffect(() => {
-    savePageState('classSpaces', {
-      searchTerm,
-      filterSection
-    });
+    savePageState('classSpaces', { searchTerm, filterSection });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm, filterSection]);
 
-  const openClass = async (cs, tab = 'stream') => {
-    const slug = generateClassSlug(cs);
-    navigate(`/classes/${slug}`);
-    // Set the tab immediately so it's ready when the class loads
-    if (tab) setActiveTab(tab);
+  const openClass = (cs, tab = 'board') => {
+    navigate(`/classes/${generateClassSlug(cs)}`);
+    setActiveTab(tab);
   };
 
   const refreshSelectedClass = async () => {
@@ -349,7 +228,7 @@ const ClassSpacePage = () => {
       const updated = response.data.data;
       setSelectedClass(updated);
       setCanPostHere(!!response.data.canPost);
-      setClassSpaces(prev => prev.map(cs => (cs._id === updated._id ? { ...cs, ...updated } : cs)));
+      setClassSpaces((prev) => prev.map((cs) => (cs._id === updated._id ? { ...cs, ...updated } : cs)));
     } catch (error) {
       console.error('Refresh class error:', error);
     }
@@ -363,7 +242,7 @@ const ClassSpacePage = () => {
   const handleRegenerateCode = async () => {
     try {
       const response = await classSpaceAPI.regenerateClassCode(selectedClass._id);
-      setSelectedClass(prev => ({ ...prev, classCode: response.data.data.classCode }));
+      setSelectedClass((prev) => ({ ...prev, classCode: response.data.data.classCode }));
       toast.success('New class code generated');
       setShowRegenerateConfirm(false);
     } catch (error) {
@@ -376,16 +255,13 @@ const ClassSpacePage = () => {
       await classSpaceAPI.leave(selectedClass._id);
       toast.success('Left the class');
       setShowLeaveConfirm(false);
-      navigate('/classes'); // Navigate back to grid view
+      navigate('/classes');
       reloadClassSpaces();
     } catch (error) {
       toast.error(error.response?.data?.message || 'Could not leave this class');
     }
   };
 
-  /* Leaving a SECTION is separate from leaving a subject: it removes a regular
-     student from their whole section (every subject). It needs its own API
-     call, classSpaceAPI.leaveSection(), see the note in the reply. */
   const handleLeaveSection = async () => {
     try {
       await classSpaceAPI.leaveSection();
@@ -408,33 +284,22 @@ const ClassSpacePage = () => {
     else if (shouldRefresh) refreshSelectedClass();
   };
 
-  /**
-   * Shared "are you sure?" toast used for deleting announcements and materials.
-   * The toast itself is transparent so the Tailwind classes below control the
-   * look (and follow dark mode).
-   */
+  /** "Are you sure?" toast for deleting posts and files. */
   const confirmDeleteToast = ({ title, name, action, successMsg, errorMsg }) => {
     toast((t) => (
-      <div className="flex flex-col gap-4 p-4 w-full bg-white dark:bg-gray-800 rounded-2xl shadow-2xl ring-1 ring-black/5 dark:ring-white/10">
+      <div className="flex w-full flex-col gap-4 rounded-2xl bg-white p-4 shadow-2xl ring-1 ring-black/5 dark:bg-gray-800 dark:ring-white/10">
         <div className="flex items-start gap-3">
-          <div className="flex-shrink-0 w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/50 flex items-center justify-center">
-            <Trash2 className="w-5 h-5 text-red-600 dark:text-red-400" />
+          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/50">
+            <Trash2 className="h-5 w-5 text-red-600 dark:text-red-400" />
           </div>
-          <div className="flex-1 min-w-0">
-            <h3 className="font-bold text-gray-900 dark:text-white mb-1">{title}</h3>
-            <p className="text-sm text-gray-600 dark:text-gray-300 mb-1 break-words">
-              Are you sure you want to delete "{name}"?
-            </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">This action cannot be undone.</p>
+          <div className="min-w-0 flex-1">
+            <h3 className="mb-1 font-bold text-gray-900 dark:text-white">{title}</h3>
+            <p className="mb-1 break-words text-sm text-gray-600 dark:text-gray-300">Delete "{name}"?</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">This can't be undone.</p>
           </div>
         </div>
-        <div className="flex gap-2 justify-end">
-          <button
-            onClick={() => toast.dismiss(t.id)}
-            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
-          >
-            Cancel
-          </button>
+        <div className="flex justify-end gap-2">
+          <button onClick={() => toast.dismiss(t.id)} className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600">Cancel</button>
           <button
             onClick={async () => {
               toast.dismiss(t.id);
@@ -447,7 +312,7 @@ const ClassSpacePage = () => {
                 toast.error(error.response?.data?.message || errorMsg);
               }
             }}
-            className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+            className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
           >
             Delete
           </button>
@@ -456,57 +321,38 @@ const ClassSpacePage = () => {
     ), {
       duration: 10000,
       position: 'top-center',
-      style: {
-        background: 'transparent',
-        boxShadow: 'none',
-        padding: 0,
-        maxWidth: 'none',
-        width: 'min(440px, calc(100vw - 32px))',
-      },
+      style: { background: 'transparent', boxShadow: 'none', padding: 0, maxWidth: 'none', width: 'min(440px, calc(100vw - 32px))' },
     });
   };
 
-  const handleDeleteAnnouncement = (announcement) =>
-    confirmDeleteToast({
-      title: 'Delete Announcement',
-      name: announcement.title,
-      successMsg: 'Announcement deleted successfully',
-      errorMsg: 'Failed to delete announcement',
-      action: () =>
-        classSpaceAPI.deleteAnnouncement(selectedClass._id, announcement._id || announcement),
-    });
+  const handleDeleteAnnouncement = (announcement) => confirmDeleteToast({
+    title: 'Delete post',
+    name: announcement.title,
+    successMsg: 'Post deleted',
+    errorMsg: 'Failed to delete post',
+    action: () => classSpaceAPI.deleteAnnouncement(selectedClass._id, announcement._id || announcement),
+  });
 
-  const handleDeleteMaterial = (material) =>
-    confirmDeleteToast({
-      title: 'Delete Material',
-      name: material.title || material.fileName,
-      successMsg: 'Material deleted successfully',
-      errorMsg: 'Failed to delete material',
-      action: () =>
-        classSpaceAPI.deleteMaterial(selectedClass._id, material._id || material),
-    });
+  const handleDeleteMaterial = (material) => confirmDeleteToast({
+    title: 'Delete file',
+    name: material.title || material.fileName,
+    successMsg: 'File deleted',
+    errorMsg: 'Failed to delete file',
+    action: () => classSpaceAPI.deleteMaterial(selectedClass._id, material._id || material),
+  });
 
   const handleDownloadMaterial = async (material) => {
     try {
-      const fileUrl = resolveUploadUrl(material.fileUrl);
-      const fileName = material.fileName || material.title || 'download';
-
-      // Fetch the file as a blob
-      const response = await fetch(fileUrl);
+      const response = await fetch(resolveUploadUrl(material.fileUrl));
       const blob = await response.blob();
-
-      // Create a temporary download link
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = fileName;
+      link.download = material.fileName || material.title || 'download';
       document.body.appendChild(link);
       link.click();
-
-      // Cleanup
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-
       toast.success('Download started');
     } catch (error) {
       console.error('Download error:', error);
@@ -514,29 +360,21 @@ const ClassSpacePage = () => {
     }
   };
 
-  // Get unique sections for filter
-  const uniqueSections = ['all', ...new Set(classSpaces.map(cs => cs.sectionCode).filter(Boolean))].sort();
+  /* ---- Grid data --------------------------------------------------- */
 
-  const filteredClasses = classSpaces.filter(cs => {
-    const q = searchTerm.toLowerCase();
-    const searchMatch = (
-      subjectCodeOf(cs).toLowerCase().includes(q) ||
-      subjectNameOf(cs).toLowerCase().includes(q) ||
-      (cs.sectionCode || '').toLowerCase().includes(q) ||
-      (facultyNameOf(cs) || '').toLowerCase().includes(q)
-    );
+  const sectionCounts = useMemo(() => {
+    const m = {};
+    classSpaces.forEach((cs) => { if (cs.sectionCode) m[cs.sectionCode] = (m[cs.sectionCode] || 0) + 1; });
+    return Object.entries(m).sort(([a], [b]) => a.localeCompare(b));
+  }, [classSpaces]);
 
-    const sectionMatch = filterSection === 'all' || cs.sectionCode === filterSection;
-
-    return searchMatch && sectionMatch;
+  const filteredClasses = classSpaces.filter((cs) => {
+    const q = searchTerm.toLowerCase().trim();
+    const searchMatch = !q || [subjectCodeOf(cs), subjectNameOf(cs), cs.sectionCode, facultyNameOf(cs), roomOf(cs)]
+      .some((v) => (v || '').toLowerCase().includes(q));
+    return searchMatch && (filterSection === 'all' || cs.sectionCode === filterSection);
   });
 
-  /**
-   * Classes filed by section, section code ascending.
-   *
-   * Section is the category that already exists in the data and in the filter
-   * above, so it is what the folders are built from - no new field needed.
-   */
   const groupedClasses = Object.entries(
     filteredClasses.reduce((acc, cs) => {
       const key = cs.sectionCode || 'Unassigned';
@@ -545,50 +383,42 @@ const ClassSpacePage = () => {
     }, {})
   ).sort(([a], [b]) => a.localeCompare(b));
 
-  /**
-   * Show folders only at the top level. Searching is a cross-section action,
-   * so results are listed flat rather than hidden one folder down; students
-   * see their own handful of classes directly.
-   */
-  const showFolderGrid =
-    !isStudent &&
-    filterSection === 'all' &&
-    !searchTerm.trim() &&
-    groupedClasses.length > 1;
+  // Folders at the top level for staff with many sections; searching lists flat
+  const showFolderGrid = !isStudent && filterSection === 'all' && !searchTerm.trim() && groupedClasses.length > 1;
 
-  const sortedAnnouncements = selectedClass?.announcements
-    ? [...selectedClass.announcements].sort((a, b) => {
-        if (a.isPinned && !b.isPinned) return -1;
-        if (!a.isPinned && b.isPinned) return 1;
-        return new Date(b.createdAt) - new Date(a.createdAt);
-      })
-    : [];
+  const weekStats = useMemo(() => {
+    const slots = classSpaces.flatMap(timeSlotsOf);
+    return { meetings: slots.length, hours: weeklyHours(slots) };
+  }, [classSpaces]);
 
-  const sortedMaterials = selectedClass?.materials
-    ? [...selectedClass.materials].sort(
-        (a, b) => new Date(b.createdAt || b.uploadedAt) - new Date(a.createdAt || a.uploadedAt)
-      )
-    : [];
+  const termLabel = classSpaces[0]
+    ? `${classSpaces[0].semester === 2 ? '2nd' : '1st'} semester · ${classSpaces[0].academicYear || ''}`
+    : null;
 
-  const streamItems = [];
-  if (selectedClass) {
-    sortedAnnouncements.forEach(ann =>
-      streamItems.push({ type: 'announcement', data: ann, timestamp: new Date(ann.createdAt) })
-    );
-    sortedMaterials.forEach(mat =>
-      streamItems.push({
-        type: 'material',
-        data: mat,
-        timestamp: new Date(mat.createdAt || mat.uploadedAt),
-      })
-    );
-    streamItems.sort((a, b) => b.timestamp - a.timestamp);
-  }
+  /* ---- Detail data ------------------------------------------------- */
 
-  /* Confirmation dialogs.
-     These MUST be rendered by the detail view too. The detail view returns
-     early, so dialogs placed only at the bottom of the grid view never mounted
-     until you navigated back to the grid, which is why they "appeared late". */
+  const announcements = useMemo(() => [...(selectedClass?.announcements || [])]
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)), [selectedClass]);
+  const pinned = announcements.filter((a) => a.isPinned);
+  const materials = useMemo(() => [...(selectedClass?.materials || [])]
+    .sort((a, b) => new Date(b.createdAt || b.uploadedAt) - new Date(a.createdAt || a.uploadedAt)), [selectedClass]);
+
+  // Board: everything not pinned, newest first, grouped under day headings
+  const boardDays = useMemo(() => {
+    const items = [
+      ...announcements.filter((a) => !a.isPinned).map((a) => ({ type: 'post', data: a, at: new Date(a.createdAt) })),
+      ...materials.map((m) => ({ type: 'file', data: m, at: new Date(m.createdAt || m.uploadedAt) })),
+    ].sort((a, b) => b.at - a.at);
+    const days = [];
+    items.forEach((it) => {
+      const label = dayLabel(it.at);
+      const last = days[days.length - 1];
+      if (last && last.label === label) last.items.push(it);
+      else days.push({ label, items: [it] });
+    });
+    return days;
+  }, [announcements, materials]);
+
   const confirmPhrase = subjectNameOf(selectedClass) || subjectCodeOf(selectedClass);
   const confirmDialogs = (
     <>
@@ -596,10 +426,10 @@ const ClassSpacePage = () => {
         isOpen={showLeaveConfirm}
         onClose={() => setShowLeaveConfirm(false)}
         onConfirm={handleLeaveClass}
-        title="Leave this Subject?"
-        message="You will lose access to all posts, materials, and announcements in this class."
+        title="Leave this subject?"
+        message="You will lose access to all posts, files and announcements in this class."
         confirmationText={confirmPhrase}
-        confirmButtonText="Leave Class"
+        confirmButtonText="Leave class"
         cancelButtonText="Cancel"
         type="danger"
         placeholder="Type the subject name to confirm"
@@ -608,10 +438,10 @@ const ClassSpacePage = () => {
         isOpen={showRegenerateConfirm}
         onClose={() => setShowRegenerateConfirm(false)}
         onConfirm={handleRegenerateCode}
-        title="Generate New Class Code?"
-        message="The current class code will stop working immediately. Students using the old code will not be able to join."
+        title="Generate a new class code?"
+        message="The current code stops working immediately. Students using the old code won't be able to join."
         confirmationText={confirmPhrase}
-        confirmButtonText="Generate New Code"
+        confirmButtonText="Generate new code"
         cancelButtonText="Cancel"
         type="warning"
         placeholder="Type the subject name to confirm"
@@ -619,828 +449,554 @@ const ClassSpacePage = () => {
     </>
   );
 
-  // ─── Loading ───────────────────────────────────────────────────────────────
-  if (classSpacesLoading) {
-    return (
-      <Layout>
-        <div className="flex items-center justify-center h-screen">
-          <div className="text-center">
-            <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-gray-600 dark:text-gray-400">Loading classes...</p>
-          </div>
-        </div>
-      </Layout>
-    );
-  }
-
-  /**
-   * One class card. Extracted so the folder view and any future flat view
-   * render exactly the same card rather than keeping two copies in sync.
-   */
-  const renderClassCard = (cs) => {
-      const code = subjectCodeOf(cs);
-      const backgroundImage = backgroundFor(code);
-      const name = subjectNameOf(cs);
-      const facultyName = facultyNameOf(cs);
-      const profilePicture = cs?.faculty?.user?.profilePicture;
-      const initials = facultyName
-        ? facultyName.split(' ').filter(Boolean).map(p => p[0]).slice(0, 2).join('')
-        : null;
-      const slots = timeSlotsOf(cs);
-
-      return (
-        <div
-          key={cs._id}
-          className="group bg-white dark:bg-gray-800 rounded-2xl shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-200 cursor-pointer overflow-hidden flex flex-col ring-1 ring-gray-100 dark:ring-gray-700"
-          onClick={() => openClass(cs)}
-        >
-          {/* Header with background image */}
-          <div
-            className="p-5 relative h-28 flex flex-col justify-between bg-cover bg-center group-hover:scale-[1.02] transition-transform duration-300"
-            style={{
-              backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.5)), url(${backgroundImage})`
-            }}
-          >
-            <div className="pr-12">
-              <h3 className="text-white font-bold text-base leading-tight line-clamp-2">
-                {name || code}
-              </h3>
-              <p className="text-white/80 text-xs mt-0.5">{cs.sectionCode}</p>
-              {facultyName && (
-                <p className="text-white/70 text-xs mt-0.5 truncate">{facultyName}</p>
-              )}
-            </div>
-            {/* Instructor avatar */}
-            <div className="absolute bottom-3 right-3 w-10 h-10 bg-white/20 rounded-full flex items-center justify-center border-2 border-white/40 overflow-hidden">
-              {profilePicture ? (
-                <img
-                  src={avatarSrc(profilePicture)}
-                  alt={facultyName || 'Instructor'}
-                  className="w-full h-full object-cover"
-                />
-              ) : initials ? (
-                <span className="text-white font-bold text-sm">{initials}</span>
-              ) : (
-                <User className="w-5 h-5 text-white/70" />
-              )}
-            </div>
-          </div>
-
-          {/* Subject code + meeting time */}
-          <div className="px-4 py-3 flex-1">
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{code}</p>
-            {name && name !== code && (
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 line-clamp-1">{name}</p>
-            )}
-            {slots.length > 0 && (
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 flex items-center gap-1">
-                <Clock className="w-3 h-3" />
-                {summariseSlots(slots)}
-              </p>
-            )}
-          </div>
-
-          {/* Bottom action bar */}
-          <div className="border-t border-gray-100 dark:border-gray-700 px-4 py-2 flex items-center justify-between">
-            <div className="flex items-center gap-4 text-gray-400">
-              <button
-                onClick={e => { e.stopPropagation(); openClass(cs, 'people'); }}
-                className="hover:text-gray-600 dark:hover:text-gray-300 transition-colors p-1"
-                title="People"
-              >
-                <Users className="w-4 h-4" />
-              </button>
-              <button
-                onClick={e => { e.stopPropagation(); openClass(cs, 'materials'); }}
-                className="hover:text-gray-600 dark:hover:text-gray-300 transition-colors p-1"
-                title="Materials"
-              >
-                <FolderOpen className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="flex items-center gap-2 text-xs text-gray-400">
-              <span className="flex items-center gap-1">
-                <Bell className="w-3 h-3" />
-                {cs.announcements?.length || 0}
-              </span>
-              <span className="flex items-center gap-1">
-                <FileText className="w-3 h-3" />
-                {cs.materials?.length || 0}
-              </span>
-            </div>
-          </div>
-        </div>
-      );
-  };
-
-  // ─── Detail view (class selected) ─────────────────────────────────────────
+  /* ================================================================ *
+   * Detail view
+   * ================================================================ */
   if (selectedClass) {
-    const subjectCode = subjectCodeOf(selectedClass);
-    const backgroundImage = backgroundFor(subjectCode);
-    const subjectName = subjectNameOf(selectedClass);
-    const facultyName = facultyNameOf(selectedClass);
+    const code = subjectCodeOf(selectedClass);
+    const hex = accentFor(code);
+    const name = subjectNameOf(selectedClass);
+    const teacher = facultyNameOf(selectedClass);
+    const teacherUser = selectedClass.faculty?.user;
     const canManage = canPostHere;
     const slots = timeSlotsOf(selectedClass);
-    const isLoading = selectedClass._isLoading; // Check if still loading full data
-    // Students receive enrolledCount instead of the roster
-    const studentCount =
-      selectedClass.enrolledStudents?.length ?? selectedClass.enrolledCount ?? 0;
+    const room = roomOf(selectedClass);
+    const next = nextMeeting(slots);
+    const isLoading = selectedClass._isLoading;
+    const studentCount = selectedClass.enrolledStudents?.length ?? selectedClass.enrolledCount ?? 0;
+    const units = selectedClass.subject?.units;
+
+    const kindsPresent = FILE_KIND_NAMES.filter((k) => materials.some((m) => fileKind(m).kind === k));
+    const visibleFiles = materials.filter((m) => {
+      const q = fileQuery.toLowerCase().trim();
+      const okQ = !q || [m.title, m.fileName, m.description].some((v) => (v || '').toLowerCase().includes(q));
+      return okQ && (fileKindFilter === 'all' || fileKind(m).kind === fileKindFilter);
+    });
+    const roster = (selectedClass.enrolledStudents || []).filter((enr) => {
+      const q = peopleQuery.toLowerCase().trim();
+      if (!q) return true;
+      const u = enr.student?.user;
+      return [`${u?.firstName || ''} ${u?.lastName || ''}`, enr.student?.studentId].some((v) => (v || '').toLowerCase().includes(q));
+    }).sort((a, b) => (a.student?.user?.lastName || '').localeCompare(b.student?.user?.lastName || ''));
+
+    const tabs = [
+      { key: 'board', label: 'Board', icon: LayoutList, count: announcements.length + materials.length },
+      { key: 'files', label: 'Files', icon: Paperclip, count: materials.length },
+      { key: 'people', label: 'People', icon: Users, count: studentCount },
+    ];
+
+    const sortedSlots = [...slots].sort((a, b) => WEEK.indexOf(a.day) - WEEK.indexOf(b.day) || toMin(a.startTime) - toMin(b.startTime));
+
+    const renderPost = (a, pinnedStyle) => (
+      <div
+        key={a._id}
+        className={`rounded-2xl border bg-white p-4 dark:bg-gray-800 ${pinnedStyle ? '' : 'border-gray-200 dark:border-gray-700'}`}
+        style={pinnedStyle ? { borderColor: tint(hex, 0.35), background: undefined } : undefined}
+      >
+        <div className="flex items-start gap-3">
+          <Avatar name={`${a.postedBy?.firstName || ''} ${a.postedBy?.lastName || ''}`} size={36} hex={hex} />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0 text-xs text-gray-500 dark:text-gray-400">
+                <span className="font-semibold text-gray-800 dark:text-gray-100">{a.postedBy?.firstName} {a.postedBy?.lastName}</span>
+                <span title={new Date(a.createdAt).toLocaleString()}> · {timeAgo(a.createdAt)}</span>
+                {a.editedAt && <span> · edited</span>}
+              </div>
+              {canManage && (
+                <div className="-mr-1 -mt-1 flex flex-shrink-0">
+                  <IconButton title="Edit post" onClick={() => { setEditingAnnouncement(a); setShowAnnouncementModal(true); }}><Edit2 className="h-4 w-4" /></IconButton>
+                  <IconButton title="Delete post" danger onClick={() => handleDeleteAnnouncement(a)}><Trash2 className="h-4 w-4" /></IconButton>
+                </div>
+              )}
+            </div>
+            <p className="mt-1 break-words font-semibold text-gray-900 dark:text-white">{a.title}</p>
+            <div className="mt-1"><Expandable text={a.content} /></div>
+          </div>
+        </div>
+      </div>
+    );
+
+    const renderFile = (m, compact) => (
+      <div key={m._id} className="group flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-3 transition-colors hover:border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-gray-600">
+        <FileBadge material={m} size={compact ? 38 : 42} />
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-medium text-gray-900 dark:text-white">{m.title || m.fileName}</p>
+          <p className="truncate text-xs text-gray-500 dark:text-gray-400">
+            {[m.fileName !== m.title ? m.fileName : null, fmtSize(m.fileSize), timeAgo(m.createdAt || m.uploadedAt)].filter(Boolean).join(' · ')}
+          </p>
+          {!compact && m.description && <p className="mt-0.5 line-clamp-2 text-xs text-gray-500 dark:text-gray-400">{m.description}</p>}
+        </div>
+        <button
+          type="button"
+          onClick={() => handleDownloadMaterial(m)}
+          className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors"
+          style={{ color: hex, background: tint(hex, 0.08) }}
+          title="Download"
+        >
+          <Download className="h-4 w-4" /><span className="hidden sm:inline">Download</span>
+        </button>
+        {canManage && <IconButton title="Delete file" danger onClick={() => handleDeleteMaterial(m)}><Trash2 className="h-4 w-4" /></IconButton>}
+      </div>
+    );
 
     return (
       <Layout>
-        <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
-          {/* Top bar */}
-          <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 sm:px-6 py-3 flex items-center gap-2 sm:gap-4">
-            <button
-              onClick={() => { navigate('/classes'); setActiveTab('stream'); }}
-              className="flex items-center gap-1 sm:gap-2 flex-shrink-0 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
-            >
-              <ChevronLeft className="w-5 h-5 flex-shrink-0" />
-              {/* "All Classes" is redundant next to the back chevron on mobile */}
-              <span className="font-medium hidden sm:inline">All Classes</span>
-              <span className="font-medium sm:hidden">Back</span>
-            </button>
-            <div className="text-gray-300 dark:text-gray-600 flex-shrink-0">|</div>
-            <span className="font-semibold text-gray-900 dark:text-white truncate">{subjectCode}</span>
-          </div>
-
-          <div className="max-w-5xl mx-auto px-4 py-4 sm:py-6 space-y-4">
-            {/* Class header banner */}
-            <div
-              className="rounded-2xl p-5 sm:p-8 text-white relative overflow-hidden bg-cover bg-center shadow-md"
-              style={{
-                backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.6)), url(${backgroundImage})`
-              }}
-            >
-              {/* Irregular students joined this one subject and may drop it */}
-              {isIrregular && (
-                <button
-                  onClick={() => setShowLeaveConfirm(true)}
-                  className="absolute top-4 right-4 z-20 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-black/30 hover:bg-red-600 backdrop-blur rounded-full transition-colors"
-                  title="Leave this subject"
-                >
-                  <LogOut className="w-3.5 h-3.5" />
-                  Leave
-                </button>
-              )}
-
-              <div className="relative z-10">
-                <p className="text-sm font-medium opacity-80 mb-1">{selectedClass.sectionCode}</p>
-                <h1 className="text-2xl sm:text-3xl font-bold mb-1 break-words pr-20">{subjectCode}</h1>
-                {subjectName && <p className="text-base sm:text-lg opacity-90">{subjectName}</p>}
-                {facultyName && <p className="text-sm opacity-75 mt-2">{facultyName}</p>}
-
-                {/* Meeting times come from the linked schedule */}
-                {slots.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-3">
-                    {slots.map((s, i) => (
-                      <span
-                        key={i}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-white/20 backdrop-blur-sm rounded-full text-xs"
-                      >
-                        <Clock className="w-3 h-3" />
-                        {s.day} {s.startTime}-{s.endTime}
-                      </span>
-                    ))}
-                    {selectedClass.schedule?.roomLabel && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-white/20 backdrop-blur-sm rounded-full text-xs">
-                        <MapPin className="w-3 h-3" />
-                        {selectedClass.schedule.roomLabel}
-                      </span>
-                    )}
-                  </div>
-                )}
-
-                {/* Join code: only staff and the teacher ever receive it */}
-                {selectedClass.classCode && (
-                  <div className="flex items-center gap-2 mt-4">
-                    <span className="text-xs opacity-75">Subject class code</span>
-                    <code className="px-2 py-1 bg-white/20 rounded font-mono text-sm tracking-widest">
-                      {selectedClass.classCode}
-                    </code>
-                    <button
-                      onClick={() => handleCopyCode(selectedClass.classCode)}
-                      title="Copy code"
-                      className="p-1 hover:bg-white/20 rounded transition-colors"
-                    >
-                      <Copy className="w-3.5 h-3.5" />
-                    </button>
-                    {canManage && (
-                      <button
-                        onClick={() => setShowRegenerateConfirm(true)}
-                        title="Generate a new code"
-                        className="p-1 hover:bg-white/20 rounded transition-colors"
-                      >
-                        <RefreshCw className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-              <div className="absolute right-6 bottom-6 opacity-10 pointer-events-none">
-                <BookOpen className="w-32 h-32" />
-              </div>
-            </div>
-
-            {/* Tabs. No overflow-hidden on this wrapper: it would stop the
-                sticky tab bar from sticking. */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm">
-              <div className="sticky top-0 z-10 flex border-b border-gray-200 dark:border-gray-700 bg-white/90 dark:bg-gray-800/90 backdrop-blur rounded-t-2xl">
-                {[
-                  { key: 'stream', label: 'Stream', icon: TrendingUp, count: streamItems.length },
-                  { key: 'materials', label: 'Classwork', icon: FileText, count: sortedMaterials.length },
-                  { key: 'people', label: 'People', icon: Users, count: studentCount },
-                ].map(tab => (
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+          <div className="mx-auto max-w-6xl px-4 py-4 sm:px-6 sm:py-6">
+            {/* Breadcrumb */}
+            <nav className="mb-4 flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
+              <button type="button" onClick={() => navigate('/classes')} className="inline-flex items-center gap-1 rounded-lg px-1.5 py-1 hover:bg-gray-200/70 hover:text-gray-900 dark:hover:bg-gray-800 dark:hover:text-white">
+                <ChevronLeft className="h-4 w-4" /> Classes
+              </button>
+              {selectedClass.sectionCode && (
+                <>
+                  <ChevronRight className="h-3.5 w-3.5 text-gray-300" />
                   <button
-                    key={tab.key}
-                    onClick={() => setActiveTab(tab.key)}
-                    className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-3 sm:py-4 font-medium text-xs sm:text-sm border-b-2 transition-all first:rounded-tl-2xl last:rounded-tr-2xl ${
-                      activeTab === tab.key
-                        ? 'text-blue-600 border-blue-600 bg-blue-50/80 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-400'
-                        : 'text-gray-600 dark:text-gray-400 border-transparent hover:bg-gray-50 dark:hover:bg-gray-700'
-                    }`}
+                    type="button"
+                    onClick={() => { if (!isStudent) setFilterSection(selectedClass.sectionCode); navigate('/classes'); }}
+                    className="rounded-lg px-1.5 py-1 hover:bg-gray-200/70 hover:text-gray-900 dark:hover:bg-gray-800 dark:hover:text-white"
                   >
-                    <tab.icon className="w-4 h-4 flex-shrink-0" />
-                    <span className="truncate">{tab.label}</span>
-                    <span
-                      className={`px-1.5 py-0.5 rounded-full text-[11px] flex-shrink-0 ${
-                        activeTab === tab.key
-                          ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300'
-                          : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300'
-                      }`}
-                    >
-                      {tab.count}
-                    </span>
+                    {selectedClass.sectionCode}
                   </button>
-                ))}
+                </>
+              )}
+              <ChevronRight className="h-3.5 w-3.5 text-gray-300" />
+              <span className="truncate font-mono font-semibold text-gray-900 dark:text-white">{code}</span>
+            </nav>
+
+            {/* Header: identity on the left, where the class stands on the right */}
+            <header className="relative overflow-hidden rounded-3xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+              <div className="absolute inset-x-0 top-0 h-1.5" style={{ background: hex }} />
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute -right-16 -top-24 h-64 w-64 rounded-full"
+                style={{ background: `radial-gradient(closest-side, ${tint(hex, 0.16)}, transparent)` }}
+              />
+              <div className="relative flex flex-col gap-5 p-5 sm:p-7 md:flex-row md:items-end md:justify-between">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-lg px-2.5 py-1 font-mono text-sm font-bold tracking-wide" style={{ background: tint(hex, 0.12), color: hex }}>{code}</span>
+                    {units != null && <span className="text-xs font-medium text-gray-400">{units} {units === 1 ? 'unit' : 'units'}</span>}
+                    {isIrregular && <span className="rounded-full bg-purple-100 px-2 py-0.5 text-[11px] font-semibold text-purple-700 dark:bg-purple-900/50 dark:text-purple-300">Joined by subject</span>}
+                  </div>
+                  <h1 className="mt-3 break-words text-2xl font-bold leading-tight text-gray-900 dark:text-white sm:text-3xl">{name || code}</h1>
+                  <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-600 dark:text-gray-300">
+                    {teacher && (
+                      <span className="inline-flex items-center gap-2">
+                        <Avatar name={teacher} picture={teacherUser?.profilePicture} size={24} hex={hex} />{teacher}
+                      </span>
+                    )}
+                    {selectedClass.sectionCode && <span className="inline-flex items-center gap-1.5"><Users className="h-4 w-4 text-gray-400" />{selectedClass.sectionCode}</span>}
+                    {room && <span className="inline-flex items-center gap-1.5"><MapPin className="h-4 w-4 text-gray-400" />{room}</span>}
+                  </div>
+                </div>
+                <div className="flex flex-shrink-0 flex-col items-start gap-2 md:items-end">
+                  {next ? <NextPill next={next} hex={hex} className="!text-sm" /> : <span className="text-sm text-gray-400">No meeting times set</span>}
+                  {isIrregular && (
+                    <button type="button" onClick={() => setShowLeaveConfirm(true)} className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-gray-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/30">
+                      <LogOut className="h-3.5 w-3.5" /> Leave subject
+                    </button>
+                  )}
+                </div>
               </div>
 
-              <div className="p-4 sm:p-6">
-                {/* ── Stream Tab ── */}
-                {activeTab === 'stream' && (
-                  <div className="space-y-4">
+              {/* Segmented tabs */}
+              <div className="relative border-t border-gray-100 px-3 dark:border-gray-700/70 sm:px-5">
+                <div role="tablist" className="flex gap-1 overflow-x-auto py-2">
+                  {tabs.map((t) => {
+                    const on = activeTab === t.key;
+                    return (
+                      <button
+                        key={t.key}
+                        role="tab"
+                        aria-selected={on}
+                        type="button"
+                        onClick={() => setActiveTab(t.key)}
+                        className={`inline-flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 py-2 text-sm font-medium transition-colors sm:flex-none sm:gap-2 sm:px-3.5 ${on ? '' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white'}`}
+                        style={on ? { background: tint(hex, 0.1), color: hex } : undefined}
+                      >
+                        <t.icon className="hidden h-4 w-4 sm:block" />{t.label}
+                        <span className={`rounded-md px-1.5 text-[11px] font-semibold ${on ? '' : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-300'}`} style={on ? { background: tint(hex, 0.15) } : undefined}>{t.count}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </header>
+
+            <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+              {/* ---------------- Main column ---------------- */}
+              <main className="min-w-0 space-y-4">
+                {activeTab === 'board' && (
+                  <>
                     {canManage && (
-                      <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                      <div className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800">
+                        <Avatar name={`${user?.firstName || ''} ${user?.lastName || ''}`} picture={user?.profilePicture} size={36} hex={hex} />
                         <button
+                          type="button"
                           onClick={() => { setEditingAnnouncement(null); setShowAnnouncementModal(true); }}
-                          className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium shadow-sm hover:shadow-md transition-all"
+                          className="min-w-0 flex-1 truncate rounded-xl bg-gray-100 px-4 py-2.5 text-left text-sm text-gray-500 transition-colors hover:bg-gray-200/80 dark:bg-gray-700/60 dark:text-gray-400 dark:hover:bg-gray-700"
                         >
-                          <MessageSquare className="w-5 h-5 flex-shrink-0" />
-                          Announce
+                          Post an update to {selectedClass.sectionCode || 'this class'}…
                         </button>
-                        <button
-                          onClick={() => setShowMaterialModal(true)}
-                          className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-medium shadow-sm hover:shadow-md transition-all"
-                        >
-                          <Upload className="w-5 h-5 flex-shrink-0" />
-                          Upload Material
+                        <button type="button" onClick={() => setShowMaterialModal(true)} title="Share a file" className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
+                          <Paperclip className="h-4 w-4" /><span className="hidden sm:inline">File</span>
                         </button>
                       </div>
                     )}
 
-                    {isLoading ? (
-                      <PostSkeleton />
-                    ) : streamItems.length === 0 ? (
-                      <div className="text-center py-16">
-                        <TrendingUp className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-                        <p className="text-gray-500 dark:text-gray-400">Nothing posted yet</p>
-                      </div>
-                    ) : (
-                      streamItems.map((item, i) => (
-                        <div
-                          key={item.data._id || i}
-                          className={`border border-l-4 rounded-xl overflow-hidden border-gray-200 dark:border-gray-700 ${
-                            item.type === 'announcement' ? 'border-l-blue-500' : 'border-l-green-500'
-                          } ${item.data.isPinned ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}
-                        >
-                          {item.type === 'announcement' ? (
-                            <div className="p-5">
-                              {item.data.isPinned && (
-                                <div className="flex items-center gap-1 text-blue-600 text-xs font-semibold mb-2">
-                                  <Pin className="w-3 h-3" /> Pinned
-                                </div>
-                              )}
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="flex items-start gap-3 flex-1 min-w-0">
-                                  <div className="w-9 h-9 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center flex-shrink-0">
-                                    <Bell className="w-4 h-4 text-blue-600" />
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2 mb-1 text-sm text-gray-500">
-                                      <span className="font-medium text-gray-900 dark:text-white">
-                                        {item.data.postedBy?.firstName} {item.data.postedBy?.lastName}
-                                      </span>
-                                      · {new Date(item.data.createdAt).toLocaleDateString()}
-                                    </div>
-                                    <p className="font-semibold text-gray-900 dark:text-white mb-1 break-words">{item.data.title}</p>
-                                    <p className="text-gray-600 dark:text-gray-300 text-sm whitespace-pre-wrap break-words">{item.data.content}</p>
-                                  </div>
-                                </div>
-                                {canManage && (
-                                  <div className="flex gap-1 flex-shrink-0">
-                                    <button
-                                      type="button"
-                                      title="Edit"
-                                      onClick={() => { setEditingAnnouncement(item.data); setShowAnnouncementModal(true); }}
-                                      className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition-colors"
-                                    >
-                                      <Edit2 className="w-4 h-4" />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      title="Delete"
-                                      onClick={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        handleDeleteAnnouncement(item.data);
-                                      }}
-                                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-colors cursor-pointer"
-                                    >
-                                      <Trash2 className="w-4 h-4" />
-                                    </button>
-                                  </div>
-                                )}
+                    {isLoading ? <PostSkeleton /> : (
+                      <>
+                        {pinned.length > 0 && (
+                          <section>
+                            <h3 className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider" style={{ color: hex }}>
+                              <Pin className="h-3.5 w-3.5" /> Pinned
+                            </h3>
+                            <div className="space-y-3">{pinned.map((a) => renderPost(a, true))}</div>
+                          </section>
+                        )}
+
+                        {boardDays.length === 0 && pinned.length === 0 ? (
+                          <Empty icon={Megaphone} title="The board is empty">
+                            {canManage ? 'Post an update or share a file. Everyone in the class sees it here.' : 'Updates and files from your teacher will show up here.'}
+                          </Empty>
+                        ) : (
+                          boardDays.map((day) => (
+                            <section key={day.label}>
+                              <div className="mb-2 flex items-center gap-3">
+                                <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">{day.label}</span>
+                                <span className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
                               </div>
-                            </div>
-                          ) : (
-                            <div className="p-5 flex items-start gap-4">
-                              <div className="w-10 h-10 bg-green-100 dark:bg-green-900 rounded-xl flex items-center justify-center flex-shrink-0">
-                                <FileText className="w-5 h-5 text-green-600" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="text-xs text-gray-500 mb-1">
-                                  Material · {new Date(item.data.createdAt || item.data.uploadedAt).toLocaleDateString()}
-                                </div>
-                                <p className="font-semibold text-gray-900 dark:text-white mb-1 break-words">{item.data.title}</p>
-                                {item.data.description && (
-                                  <p className="text-sm text-gray-500 mb-2">{item.data.description}</p>
-                                )}
-                                <div className="flex items-center gap-3">
-                                  <button
-                                    onClick={() => handleDownloadMaterial(item.data)}
-                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg transition-colors"
-                                  >
-                                    <Download className="w-3.5 h-3.5" /> Download
-                                  </button>
-                                  <span className="text-xs text-gray-400">{fmtSize(item.data.fileSize)}</span>
-                                  {canManage && (
-                                    <button
-                                      type="button"
-                                      title="Delete"
-                                      onClick={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        handleDeleteMaterial(item.data);
-                                      }}
-                                      className="ml-auto p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-colors cursor-pointer"
-                                    >
-                                      <Trash2 className="w-4 h-4" />
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ))
+                              <ol className="relative space-y-3 border-l-2 border-gray-200 pl-5 dark:border-gray-700">
+                                {day.items.map((it) => (
+                                  <li key={`${it.type}-${it.data._id}`} className="relative">
+                                    <span
+                                      className="absolute -left-[29px] top-4 flex h-4 w-4 items-center justify-center rounded-full ring-4 ring-gray-50 dark:ring-gray-900"
+                                      style={{ background: it.type === 'post' ? hex : fileKind(it.data).hex }}
+                                    />
+                                    {it.type === 'post' ? renderPost(it.data) : renderFile(it.data, true)}
+                                  </li>
+                                ))}
+                              </ol>
+                            </section>
+                          ))
+                        )}
+                      </>
                     )}
-                  </div>
+                  </>
                 )}
 
-                {/* ── Classwork Tab ── */}
-                {activeTab === 'materials' && (
-                  <div>
-                    {canManage && (
-                      <button
-                        onClick={() => setShowMaterialModal(true)}
-                        className="w-full mb-5 flex items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-medium shadow-sm hover:shadow-md transition-all"
-                      >
-                        <Upload className="w-5 h-5" /> Upload Material
-                      </button>
-                    )}
-                    {isLoading ? (
-                      <PostSkeleton count={2} />
-                    ) : sortedMaterials.length === 0 ? (
-                      <div className="text-center py-12">
-                        <FolderOpen className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-                        <p className="text-gray-500 dark:text-gray-400">No materials yet</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {sortedMaterials.map((mat, i) => (
-                          <div
-                            key={mat._id || i}
-                            className="flex items-center gap-4 p-4 border border-l-4 border-l-green-500 border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                {activeTab === 'files' && (
+                  <>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                      <SearchField value={fileQuery} onChange={setFileQuery} placeholder="Search files" className="flex-1" />
+                      {canManage && (
+                        <button type="button" onClick={() => setShowMaterialModal(true)} className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-sm" style={{ background: hex }}>
+                          <Plus className="h-4 w-4" /> Share file
+                        </button>
+                      )}
+                    </div>
+                    {kindsPresent.length > 1 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {['all', ...kindsPresent].map((k) => (
+                          <button
+                            key={k}
+                            type="button"
+                            onClick={() => setFileKindFilter(k)}
+                            className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors ${fileKindFilter === k ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'bg-white text-gray-600 ring-1 ring-gray-200 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-700'}`}
                           >
-                            <div className="w-10 h-10 bg-green-100 dark:bg-green-900 rounded-xl flex items-center justify-center flex-shrink-0">
-                              <FileText className="w-5 h-5 text-green-600" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium text-gray-900 dark:text-white truncate">{mat.title}</p>
-                              <p className="text-xs text-gray-500">
-                                {fmtSize(mat.fileSize)} · {new Date(mat.createdAt || mat.uploadedAt).toLocaleDateString()}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-2 flex-shrink-0">
-                              <button
-                                onClick={() => handleDownloadMaterial(mat)}
-                                className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900 rounded-lg transition-colors"
-                                title="Download"
-                              >
-                                <Download className="w-4 h-4" />
-                              </button>
-                              {canManage && (
-                                <button
-                                  type="button"
-                                  title="Delete"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    handleDeleteMaterial(mat);
-                                  }}
-                                  className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900 rounded-lg transition-colors cursor-pointer"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              )}
-                            </div>
-                          </div>
+                            {k === 'all' ? `All ${materials.length}` : `${k} ${materials.filter((m) => fileKind(m).kind === k).length}`}
+                          </button>
                         ))}
                       </div>
                     )}
-                  </div>
+                    {isLoading ? <PostSkeleton count={2} /> : visibleFiles.length === 0 ? (
+                      <Empty icon={FolderOpen} title={materials.length ? 'No files match' : 'No files yet'}>
+                        {materials.length ? 'Try another search or type.' : canManage ? 'Share slides, handouts and readings for the class.' : 'Files your teacher shares will appear here.'}
+                      </Empty>
+                    ) : (
+                      <div className="space-y-2">{visibleFiles.map((m) => renderFile(m))}</div>
+                    )}
+                  </>
                 )}
 
-                {/* ── People Tab ── */}
                 {activeTab === 'people' && (
-                  <div className="space-y-6">
-                    {/* Instructor */}
-                    {facultyName && (
-                      <div>
-                        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Instructor</h3>
-                        <div className="flex items-center gap-3 p-3 rounded-xl bg-blue-50 dark:bg-blue-900/20">
-                          <div className="w-10 h-10 rounded-full flex items-center justify-center overflow-hidden bg-blue-600">
-                            {selectedClass.faculty?.user?.profilePicture ? (
-                              <img
-                                src={avatarSrc(selectedClass.faculty.user.profilePicture)}
-                                alt={facultyName}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <span className="text-white font-bold text-sm">
-                                {facultyName[0]}
-                              </span>
-                            )}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="font-semibold text-gray-900 dark:text-white">{facultyName}</p>
-                            <p className="text-xs text-gray-500">
-                              {selectedClass.faculty?.employeeId || 'Instructor'}
-                            </p>
-                            {/* Only present when the teacher shares them (Settings > Privacy) */}
-                            {(selectedClass.faculty?.user?.email || selectedClass.faculty?.user?.phoneNumber) && (
-                              <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs">
-                                {selectedClass.faculty.user.email && (
-                                  <a href={`mailto:${selectedClass.faculty.user.email}`} className="inline-flex items-center gap-1 text-blue-700 hover:underline dark:text-blue-300">
-                                    <Mail className="h-3.5 w-3.5" /> {selectedClass.faculty.user.email}
-                                  </a>
-                                )}
-                                {selectedClass.faculty.user.phoneNumber && (
-                                  <a href={`tel:${selectedClass.faculty.user.phoneNumber}`} className="inline-flex items-center gap-1 text-blue-700 hover:underline dark:text-blue-300">
-                                    <Phone className="h-3.5 w-3.5" /> {selectedClass.faculty.user.phoneNumber}
-                                  </a>
-                                )}
-                              </div>
-                            )}
+                  <div className="space-y-4">
+                    {teacher && (
+                      <div className="flex items-center gap-4 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+                        <Avatar name={teacher} picture={teacherUser?.profilePicture} size={52} hex={hex} />
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: hex }}>Teacher</p>
+                          <p className="font-semibold text-gray-900 dark:text-white">{teacher}</p>
+                          <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-gray-500 dark:text-gray-400">
+                            {selectedClass.faculty?.employeeId && <span>{selectedClass.faculty.employeeId}</span>}
+                            {teacherUser?.email && <a href={`mailto:${teacherUser.email}`} className="inline-flex items-center gap-1 hover:underline"><Mail className="h-3.5 w-3.5" />{teacherUser.email}</a>}
+                            {teacherUser?.phoneNumber && <a href={`tel:${teacherUser.phoneNumber}`} className="inline-flex items-center gap-1 hover:underline"><Phone className="h-3.5 w-3.5" />{teacherUser.phoneNumber}</a>}
                           </div>
                         </div>
                       </div>
                     )}
 
-                    {/* Students. The server withholds the roster from students,
-                        sending only a count, so respect that here. */}
-                    <div>
-                      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-                        Students ({studentCount})
-                      </h3>
-
-                      {!selectedClass.enrolledStudents ? (
-                        <p className="text-gray-500 text-sm">
-                          {studentCount} {studentCount === 1 ? 'classmate' : 'classmates'} in this class.
-                        </p>
-                      ) : selectedClass.enrolledStudents.length === 0 ? (
-                        <div className="text-center py-8">
-                          <Users className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
-                          <p className="text-gray-500 text-sm">No students enrolled yet</p>
+                    {!selectedClass.enrolledStudents ? (
+                      <div className="flex items-center gap-4 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+                        <span className="flex h-12 w-12 items-center justify-center rounded-2xl text-lg font-bold" style={{ background: tint(hex, 0.12), color: hex }}>{studentCount}</span>
+                        <div>
+                          <p className="font-semibold text-gray-900 dark:text-white">{studentCount === 1 ? 'student' : 'students'} in this class</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">The class list is visible to your teacher.</p>
                         </div>
-                      ) : (
-                        <div className="space-y-2">
-                          {selectedClass.enrolledStudents.map((enr, i) => {
-                            // enrolledStudents[].student is a Student doc whose
-                            // name lives on the nested user
-                            const student = enr.student;
-                            const u = student?.user;
-                            const firstName = u?.firstName || '?';
-                            const lastName = u?.lastName || '';
-                            const profilePicture = u?.profilePicture;
-                            return (
-                              <div key={student?._id || i} className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                                <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden bg-gray-300 dark:bg-gray-600">
-                                  {profilePicture ? (
-                                    <img
-                                      src={avatarSrc(profilePicture)}
-                                      alt={`${firstName} ${lastName}`}
-                                      className="w-full h-full object-cover"
-                                    />
-                                  ) : (
-                                    <span className="text-gray-700 dark:text-gray-300 font-semibold text-sm">
-                                      {firstName[0]}{lastName[0] || ''}
-                                    </span>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex items-center justify-between gap-3">
+                          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Students <span className="font-normal text-gray-400">{studentCount}</span></h3>
+                          {studentCount > 6 && <SearchField value={peopleQuery} onChange={setPeopleQuery} placeholder="Find a student" className="w-56" />}
+                        </div>
+                        {isLoading ? <PostSkeleton count={2} /> : studentCount === 0 ? (
+                          <Empty icon={UserPlus} title="No students yet">Students appear here once they join with the section or class code.</Empty>
+                        ) : roster.length === 0 ? (
+                          <Empty icon={Search} title="No one matches that search" />
+                        ) : (
+                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                            {roster.map((enr, i) => {
+                              const u = enr.student?.user;
+                              const full = `${u?.firstName || '?'} ${u?.lastName || ''}`.trim();
+                              return (
+                                <div key={enr.student?._id || i} className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-3 py-2.5 dark:border-gray-700 dark:bg-gray-800">
+                                  <Avatar name={full} picture={u?.profilePicture} size={34} hex="#64748b" />
+                                  <div className="min-w-0 flex-1">
+                                    <p className="truncate text-sm font-medium text-gray-900 dark:text-white">{full}</p>
+                                    <p className="truncate text-xs text-gray-500 dark:text-gray-400">{enr.student?.studentId}</p>
+                                  </div>
+                                  {enr.enrollmentType === 'subject' && (
+                                    <span className="rounded-md bg-purple-100 px-1.5 py-0.5 text-[10px] font-semibold text-purple-700 dark:bg-purple-900/50 dark:text-purple-300" title="Joined this subject only">Irregular</span>
                                   )}
                                 </div>
-                                <div className="min-w-0">
-                                  <p className="text-gray-900 dark:text-white text-sm font-medium truncate">
-                                    {firstName} {lastName}
-                                  </p>
-                                  <p className="text-xs text-gray-500">
-                                    {student?.studentId}
-                                    {enr.enrollmentType === 'subject' && ' · irregular'}
-                                  </p>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
                 )}
-              </div>
+              </main>
+
+              {/* ---------------- Side column ---------------- */}
+              <aside className="space-y-4 lg:sticky lg:top-4 lg:self-start">
+                <section className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+                  <div className="mb-3 flex items-center justify-between">
+                    <h3 className="flex items-center gap-1.5 text-sm font-semibold text-gray-900 dark:text-white"><CalendarDays className="h-4 w-4 text-gray-400" /> This week</h3>
+                    {slots.length > 0 && <span className="text-xs text-gray-400">{weeklyHours(slots)} h · {slots.length}×</span>}
+                  </div>
+                  {slots.length ? (
+                    <>
+                      <WeekRhythm slots={slots} hex={hex} />
+                      <ul className="mt-3 space-y-1.5 border-t border-gray-100 pt-3 text-sm dark:border-gray-700">
+                        {sortedSlots.map((s, i) => (
+                          <li key={i} className="flex items-center justify-between gap-2">
+                            <span className="font-medium text-gray-700 dark:text-gray-200">{s.day}</span>
+                            <span className="tabular-nums text-gray-500 dark:text-gray-400">{fmtRange(s)}</span>
+                          </li>
+                        ))}
+                      </ul>
+                      {room && (
+                        <p className="mt-3 flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm" style={{ background: tint(hex, 0.07) }}>
+                          <MapPin className="h-4 w-4" style={{ color: hex }} />
+                          <span className="text-gray-700 dark:text-gray-200">Room <strong>{room}</strong></span>
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-sm text-gray-500 dark:text-gray-400">No meeting times have been set for this class.</p>
+                  )}
+                </section>
+
+                {selectedClass.classCode && (
+                  <section className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+                    <h3 className="mb-1 flex items-center gap-1.5 text-sm font-semibold text-gray-900 dark:text-white"><KeyRound className="h-4 w-4 text-gray-400" /> Subject code</h3>
+                    <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">Irregular students join just this subject with it.</p>
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 rounded-xl border border-dashed px-3 py-2 text-center font-mono text-lg font-bold tracking-[0.25em]" style={{ borderColor: tint(hex, 0.45), color: hex }}>
+                        {selectedClass.classCode}
+                      </code>
+                      <IconButton title="Copy code" onClick={() => handleCopyCode(selectedClass.classCode)}><Copy className="h-4 w-4" /></IconButton>
+                      {canManage && <IconButton title="Generate a new code" onClick={() => setShowRegenerateConfirm(true)}><RefreshCw className="h-4 w-4" /></IconButton>}
+                    </div>
+                  </section>
+                )}
+
+                <section className="grid grid-cols-3 divide-x divide-gray-100 rounded-2xl border border-gray-200 bg-white text-center dark:divide-gray-700 dark:border-gray-700 dark:bg-gray-800">
+                  {[
+                    { label: 'Posts', value: announcements.length, tab: 'board' },
+                    { label: 'Files', value: materials.length, tab: 'files' },
+                    { label: 'Students', value: studentCount, tab: 'people' },
+                  ].map((s) => (
+                    <button key={s.label} type="button" onClick={() => setActiveTab(s.tab)} className="px-2 py-3 hover:bg-gray-50 first:rounded-l-2xl last:rounded-r-2xl dark:hover:bg-gray-700/50">
+                      <p className="text-lg font-bold text-gray-900 dark:text-white">{isLoading && s.tab !== 'people' ? '–' : s.value}</p>
+                      <p className="text-[11px] font-medium uppercase tracking-wider text-gray-400">{s.label}</p>
+                    </button>
+                  ))}
+                </section>
+              </aside>
             </div>
           </div>
         </div>
 
-        {showAnnouncementModal && (
-          <CreateAnnouncementModal
-            classSpaceId={selectedClass._id}
-            announcement={editingAnnouncement}
-            onClose={handleModalClose}
-          />
-        )}
-        {showMaterialModal && (
-          <UploadMaterialModal
-            classSpaceId={selectedClass._id}
-            onClose={handleModalClose}
-          />
-        )}
-
-        {/* Rendered here so they actually show in the detail view */}
+        {showAnnouncementModal && <CreateAnnouncementModal classSpaceId={selectedClass._id} announcement={editingAnnouncement} onClose={handleModalClose} />}
+        {showMaterialModal && <UploadMaterialModal classSpaceId={selectedClass._id} onClose={handleModalClose} />}
         {confirmDialogs}
       </Layout>
     );
   }
 
-  // ─── Grid view (no class selected) ────────────────────────────────────────
+  /* ================================================================ *
+   * Grid view
+   * ================================================================ */
+  const hasClasses = classSpaces.length > 0;
+
   return (
     <Layout>
-      <div className="min-h-screen bg-gray-100 dark:bg-gray-900 p-4 sm:p-6">
-        {/* Page header. Stacks on mobile: side by side there isn't room for the
-            title, a search field and the join button on a ~375px screen. */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-5 sm:mb-6">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-                {isStudent ? 'My Classes' : 'Class Spaces'}
-              </h1>
-              {isStudent && studentType === 'irregular' && (
-                <span className="px-2 py-1 text-xs font-semibold bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300 rounded-full">
-                  IRREGULAR
-                </span>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <div className="mx-auto max-w-7xl space-y-5 px-4 py-5 sm:px-6 sm:py-6">
+          {/* Header */}
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div className="min-w-0">
+              {termLabel && <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">{termLabel}</p>}
+              <div className="mt-0.5 flex items-center gap-2">
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white sm:text-3xl">{isStudent ? 'My Classes' : 'Class Spaces'}</h1>
+                {isIrregular && <span className="rounded-full bg-purple-100 px-2 py-0.5 text-[11px] font-semibold text-purple-700 dark:bg-purple-900/50 dark:text-purple-300">Irregular</span>}
+              </div>
+              {hasClasses && (
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  {classSpaces.length} {classSpaces.length === 1 ? 'class' : 'classes'}
+                  {sectionCounts.length > 1 && ` across ${sectionCounts.length} sections`}
+                  {weekStats.meetings > 0 && ` · ${weekStats.meetings} meetings, ${weekStats.hours} h a week`}
+                </p>
               )}
             </div>
-            <p className="text-gray-500 dark:text-gray-400 text-sm mt-0.5">
-              {filteredClasses.length} {filteredClasses.length === 1 ? 'class' : 'classes'}
-            </p>
-          </div>
 
-          <div className="flex items-center gap-2 sm:gap-3">
-            {/* Search grows to fill the row on mobile, fixed width from sm up */}
-            <div className="relative flex-1 sm:flex-none">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
-              <input
-                type="text"
-                placeholder="Search classes..."
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-                className="w-full sm:w-56 pl-9 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            {/* Regular students leave their whole section; this replaces the
-                Join Subject button, which is only for irregular students. */}
-            {isRegular && !notEnrolled && (
-              <button
-                onClick={() => setShowLeaveSectionConfirm(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors shadow-md hover:shadow-lg whitespace-nowrap"
-                title="Leave your section"
-              >
-                <LogOut className="w-4 h-4" />
-                <span className="hidden sm:inline">Leave Section</span>
-                <span className="sm:hidden">Leave</span>
-              </button>
-            )}
-
-            {/* Join Subject button for irregular students */}
-            {isStudent && !isRegular && classSpaces.length > 0 && (
-              <button
-                onClick={() => {
-                  if (!studentType) setStudentType('irregular');
-                  setShowEnrollModal(true);
-                }}
-                className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors shadow-md hover:shadow-lg whitespace-nowrap"
-                title="Add another subject"
-              >
-                <Plus className="w-4 h-4" />
-                <span className="hidden sm:inline">Join Subject</span>
-                <span className="sm:hidden">+</span>
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Section Filter */}
-        {classSpaces.length > 0 && (
-          <div className="flex flex-wrap items-center gap-3 mb-5">
             <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Section:
-              </label>
-              <select
-                value={filterSection}
-                onChange={e => setFilterSection(e.target.value)}
-                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer hover:border-gray-400 dark:hover:border-gray-500 transition-colors"
-              >
-                <option value="all">All Sections</option>
-                {uniqueSections
-                  .filter(section => section !== 'all')
-                  .map(section => {
-                    const count = classSpaces.filter(cs => cs.sectionCode === section).length;
+              {hasClasses && <SearchField value={searchTerm} onChange={setSearchTerm} placeholder="Subject, section, teacher, room" className="flex-1 md:w-72 md:flex-none" />}
+              {isRegular && !notEnrolled && (
+                <button type="button" onClick={() => setShowLeaveSectionConfirm(true)} title="Leave your section" className="inline-flex items-center gap-2 whitespace-nowrap rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-sm font-medium text-gray-600 hover:border-red-200 hover:bg-red-50 hover:text-red-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-red-900/30">
+                  <LogOut className="h-4 w-4" /><span className="hidden sm:inline">Leave section</span>
+                </button>
+              )}
+              {isStudent && !isRegular && hasClasses && (
+                <button
+                  type="button"
+                  onClick={() => { if (!studentType) setStudentType('irregular'); setShowEnrollModal(true); }}
+                  className="inline-flex items-center gap-2 whitespace-nowrap rounded-xl bg-gray-900 px-3.5 py-2 text-sm font-semibold text-white hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
+                >
+                  <Plus className="h-4 w-4" /><span className="hidden sm:inline">Join subject</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {classSpacesLoading && !hasClasses ? <GridSkeleton /> : (
+            <>
+              {hasClasses && (isStudent || isFaculty) && <TodayRail classes={classSpaces} onOpen={(cs) => openClass(cs)} />}
+
+              {/* Section chips (replace the old dropdown) */}
+              {sectionCounts.length > 1 && (
+                <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
+                  {[['all', classSpaces.length], ...sectionCounts].map(([sec, n]) => {
+                    const on = filterSection === sec;
                     return (
-                      <option key={section} value={section}>
-                        {section} ({count})
-                      </option>
+                      <button
+                        key={sec}
+                        type="button"
+                        onClick={() => setFilterSection(sec)}
+                        className={`inline-flex flex-shrink-0 items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-medium transition-colors ${on ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'bg-white text-gray-600 ring-1 ring-gray-200 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-700 dark:hover:bg-gray-700'}`}
+                      >
+                        {sec === 'all' ? 'All sections' : sec}
+                        <span className={`text-xs ${on ? 'opacity-70' : 'text-gray-400'}`}>{n}</span>
+                        {on && sec !== 'all' && <X className="h-3.5 w-3.5 opacity-70" onClick={(e) => { e.stopPropagation(); setFilterSection('all'); }} />}
+                      </button>
                     );
                   })}
-              </select>
-            </div>
-
-            {/* Inside a folder: a way back out, phrased as navigation rather
-                than as clearing a filter. */}
-            {filterSection !== 'all' && (
-              <button
-                onClick={() => setFilterSection('all')}
-                className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-200 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white"
-              >
-                <ChevronLeft className="h-4 w-4" />
-                All sections
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Empty state */}
-        {filteredClasses.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-24 text-center">
-            <div className="w-20 h-20 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center mb-4">
-              <BookOpen className="w-10 h-10 text-blue-600" />
-            </div>
-
-            {isStudent && notEnrolled ? (
-              /* Student has not joined anything yet. Which code they need
-                 depends on whether they are regular or irregular. */
-              <>
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-                  You haven't joined yet
-                </h2>
-                <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-md text-center">
-                  {joinHint || 'Join your section for regular enrollment, or add subjects individually if you\'re an irregular student.'}
-                </p>
-
-                {/* Two buttons: Section Code and Subject Code */}
-                <div className="flex flex-col sm:flex-row gap-3 w-full max-w-md">
-                  <button
-                    onClick={() => {
-                      setStudentType('regular');
-                      setShowEnrollModal(true);
-                    }}
-                    className="flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold transition-colors shadow-md hover:shadow-lg"
-                  >
-                    <UserPlus className="w-5 h-5" />
-                    <div className="text-left">
-                      <div>Enter Section Code</div>
-                      <div className="text-xs text-blue-100 font-normal">For regular students</div>
-                    </div>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setStudentType('irregular');
-                      setShowEnrollModal(true);
-                    }}
-                    className="flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-semibold transition-colors shadow-md hover:shadow-lg"
-                  >
-                    <BookOpen className="w-5 h-5" />
-                    <div className="text-left">
-                      <div>Enter Subject Code</div>
-                      <div className="text-xs text-purple-100 font-normal">For irregular students</div>
-                    </div>
-                  </button>
                 </div>
+              )}
 
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-4 max-w-md text-center">
-                  <strong>Regular:</strong> Join your section to see all subjects automatically<br />
-                  <strong>Irregular:</strong> Add subjects one by one using subject codes
-                </p>
-              </>
-            ) : isStudent && !notEnrolled ? (
-              /* Student is enrolled in a section but no schedules published yet */
-              <>
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-                  No subjects published yet
-                </h2>
-                <p className="text-gray-500 dark:text-gray-400 max-w-sm">
-                  You're enrolled in your section. Your subjects will appear here once the schedule is published by your administrator.
-                </p>
-              </>
-            ) : searchTerm ? (
-              <>
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">No classes match your search</h2>
-                <p className="text-gray-500 dark:text-gray-400">Try a different search term.</p>
-              </>
-            ) : (
-              <>
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">No class spaces yet</h2>
-                <p className="text-gray-500 dark:text-gray-400 max-w-sm">
-                  {isFaculty
-                    ? 'A class space appears here for each subject you are assigned to teach.'
-                    : 'One class space is created for every subject in a schedule. Add schedules to see them here.'}
-                </p>
-              </>
-            )}
-          </div>
-        ) : (
-          /* Browsing works like a file manager: sections are folders you open,
-             and the class cards live inside one. A search looks across every
-             section at once, so it bypasses the folders entirely. */
-          showFolderGrid ? (
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-              {groupedClasses.map(([sectionCode, classes]) => (
-                <button
-                  key={sectionCode}
-                  type="button"
-                  onClick={() => setFilterSection(sectionCode)}
-                  title={`Open ${sectionCode} — ${classes.length} ${classes.length === 1 ? 'class' : 'classes'}`}
-                  className="group flex flex-col items-center gap-1 rounded-xl p-3 transition-colors hover:bg-blue-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:hover:bg-gray-800"
-                >
-                  <FolderGlyph />
-                  <span className="mt-1 w-full truncate text-center text-sm font-semibold text-gray-900 dark:text-gray-100">
-                    {sectionCode}
-                  </span>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
-                    {classes.length} {classes.length === 1 ? 'class' : 'classes'}
-                  </span>
-                </button>
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
-              {filteredClasses.map(renderClassCard)}
-            </div>
-          )
-        )}
+              {filteredClasses.length === 0 ? (
+                isStudent && notEnrolled ? (
+                  <div className="mx-auto max-w-2xl rounded-3xl border border-gray-200 bg-white p-6 text-center dark:border-gray-700 dark:bg-gray-800 sm:p-10">
+                    <span className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gray-900 text-white dark:bg-white dark:text-gray-900"><KeyRound className="h-6 w-6" /></span>
+                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">Join your classes</h2>
+                    <p className="mx-auto mt-2 max-w-md text-sm text-gray-500 dark:text-gray-400">
+                      {joinHint || 'Pick how you\'re enrolled this term. Your teacher or program office can give you the code.'}
+                    </p>
+                    <div className="mt-6 grid gap-3 text-left sm:grid-cols-2">
+                      {[
+                        { type: 'regular', icon: Users, title: 'I have a section code', body: 'Regular students. You get every subject of your section at once.', hex: '#0f766e' },
+                        { type: 'irregular', icon: BookOpen, title: 'I have a subject code', body: 'Irregular students. Add your subjects one at a time.', hex: '#7c3aed' },
+                      ].map((o) => (
+                        <button
+                          key={o.type}
+                          type="button"
+                          onClick={() => { setStudentType(o.type); setShowEnrollModal(true); }}
+                          className="group rounded-2xl border border-gray-200 p-4 transition hover:-translate-y-0.5 hover:shadow-md dark:border-gray-700"
+                        >
+                          <span className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: tint(o.hex, 0.12), color: o.hex }}><o.icon className="h-5 w-5" /></span>
+                          <p className="font-semibold text-gray-900 dark:text-white">{o.title}</p>
+                          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{o.body}</p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : isStudent ? (
+                  <Empty icon={CalendarDays} title="No subjects published yet">
+                    You're in your section. Your subjects appear here once the schedule is published.
+                  </Empty>
+                ) : searchTerm ? (
+                  <Empty icon={Search} title="No classes match your search">Try a subject code, section, teacher or room.</Empty>
+                ) : (
+                  <Empty icon={BookOpen} title="No class spaces yet">
+                    {isFaculty ? 'A class space appears here for each published class you teach.' : 'Every subject in a schedule gets its own class space.'}
+                  </Empty>
+                )
+              ) : showFolderGrid ? (
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+                  {groupedClasses.map(([sectionCode, classes]) => (
+                    <button
+                      key={sectionCode}
+                      type="button"
+                      onClick={() => setFilterSection(sectionCode)}
+                      title={`Open ${sectionCode}: ${classes.length} ${classes.length === 1 ? 'class' : 'classes'}`}
+                      className="group flex flex-col items-center gap-1 rounded-2xl p-3 transition-colors hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 dark:hover:bg-gray-800"
+                    >
+                      <FolderGlyph />
+                      <span className="mt-1 w-full truncate text-center text-sm font-semibold text-gray-900 dark:text-gray-100">{sectionCode}</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">{classes.length} {classes.length === 1 ? 'class' : 'classes'}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {filteredClasses.map((cs) => (
+                    <ClassCard key={cs._id} cs={cs} onOpen={(c) => openClass(c)} showSection={filterSection === 'all' && !isStudent} />
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
 
-      {showEnrollModal && (
-        <EnrollModal studentType={studentType} onClose={handleModalClose} />
-      )}
+      {showEnrollModal && <EnrollModal studentType={studentType} onClose={handleModalClose} />}
 
-      {/* Leave Section confirmation (regular students). Rendered in the grid
-          view because that is where its button lives. */}
       <TypeToConfirmDialog
         isOpen={showLeaveSectionConfirm}
         onClose={() => setShowLeaveSectionConfirm(false)}
         onConfirm={handleLeaveSection}
-        title="Leave your Section?"
-        message="You will be removed from your section and lose access to ALL of its subject classes, posts, and materials. You will need your section code to join again."
+        title="Leave your section?"
+        message="You'll be removed from your section and lose access to ALL of its subject classes, posts and files. You'll need your section code to join again."
         confirmationText={classSpaces[0]?.sectionCode || 'LEAVE'}
-        confirmButtonText="Leave Section"
+        confirmButtonText="Leave section"
         cancelButtonText="Cancel"
         type="danger"
-        placeholder={
-          classSpaces[0]?.sectionCode
-            ? 'Type the section code to confirm'
-            : 'Type LEAVE to confirm'
-        }
+        placeholder={classSpaces[0]?.sectionCode ? 'Type the section code to confirm' : 'Type LEAVE to confirm'}
       />
     </Layout>
   );

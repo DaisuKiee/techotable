@@ -1,711 +1,548 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Layout from '../components/Layout';
-import { subjectAPI, classSpaceAPI, getErrorMessage } from '../services/api';
+import { subjectAPI, getErrorMessage } from '../services/api';
 import useCachedData from '../hooks/useCachedData';
 import toast from 'react-hot-toast';
-import { 
-  Plus, Search, Edit2, Trash2, BookOpen,
-  X, GraduationCap, Clock, FileText, Grid3x3, List,
-  Upload, Copy
+import {
+  Plus, Search, Edit2, Trash2, BookOpen, Upload, Copy, KeyRound, ChevronRight, ChevronLeft,
+  LayoutGrid, List, FlaskConical, Presentation, Link2,
 } from 'lucide-react';
 import SubjectModal from '../components/SubjectModal';
 import SubjectEnrollmentModal from '../components/SubjectEnrollmentModal';
 import ExcelImportModal from '../components/ExcelImportModal';
 import ConfirmDialog from '../components/ConfirmDialog';
-import AnimatedUserCheck from '../components/AnimatedUserCheck';
-import AnimatedBookOpen from '../components/AnimatedBookOpen';
-import AnimatedLayers from '../components/AnimatedLayers';
-import AnimatedTrendingUp from '../components/AnimatedTrendingUp';
+import FolderGlyph from '../components/classSpaces/FolderGlyph';
+import { accentFor, tint } from '../components/classSpaces/classMeta';
 import { useAuth } from '../context/AuthContext';
+import { usePageState } from '../context/PageStateContext';
 import { usePrograms } from '../hooks/usePrograms';
-import StatCard from '../components/StatCard';
 
 const YEAR_LEVELS = [1, 2, 3, 4];
 const SEMESTERS = [1, 2];
-const SUBJECT_TYPES = ['Lecture', 'Laboratory', 'Both'];
+const ordinal = (n) => `${n}${n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th'}`;
+const yearLabel = (y) => `${ordinal(y)} Year`;
+const semLabel = (s) => `${ordinal(s)} Semester`;
+
+/** The model has no type field: lecture/lab comes from the hours. */
+const kindOf = (s) => {
+  const lec = Number(s.lectureHours) || 0;
+  const lab = Number(s.labHours) || 0;
+  if (lab > 0 && lec > 0) return { label: 'Lec + Lab', icon: FlaskConical, hex: '#7c3aed' };
+  if (lab > 0) return { label: 'Laboratory', icon: FlaskConical, hex: '#0f766e' };
+  return { label: 'Lecture', icon: Presentation, hex: '#0369a1' };
+};
+
+const sumUnits = (list) => list.reduce((n, s) => n + (Number(s.units) || 0), 0);
+const sumHours = (list, key) => list.reduce((n, s) => n + (Number(s[key]) || 0), 0);
+const byCode = (a, b) => (a.subjectCode || '').localeCompare(b.subjectCode || '', undefined, { numeric: true });
+
+const SearchField = ({ value, onChange, placeholder, className = '' }) => (
+  <div className={`relative ${className}`}>
+    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+    <input
+      type="search"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      className="w-full rounded-xl border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm text-gray-900 placeholder-gray-400 focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/10 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:focus:ring-white/10"
+    />
+  </div>
+);
+
+const IconButton = ({ title, onClick, danger, children }) => (
+  <button
+    type="button"
+    title={title}
+    aria-label={title}
+    onClick={(e) => { e.stopPropagation(); onClick(); }}
+    className={`rounded-lg p-1.5 text-gray-400 transition-colors ${
+      danger ? 'hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/30' : 'hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-700 dark:hover:text-gray-200'
+    }`}
+  >
+    {children}
+  </button>
+);
+
+const Chip = ({ on, onClick, children }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className={`inline-flex flex-shrink-0 items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-medium transition-colors ${
+      on ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'bg-white text-gray-600 ring-1 ring-gray-200 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-700 dark:hover:bg-gray-700'
+    }`}
+  >
+    {children}
+  </button>
+);
+
+/** One subject, drawn like a class card: colour spine, code tag, load. */
+const SubjectCard = ({ subject, showPlace, onEdit, onDelete, onCodes, onCopy }) => {
+  const hex = accentFor(subject.subjectCode);
+  const kind = kindOf(subject);
+  const prereqs = subject.prerequisites || [];
+  return (
+    <article className="group relative flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white pl-1.5 transition hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-lg dark:border-gray-700 dark:bg-gray-800 dark:hover:border-gray-600">
+      <span className="absolute inset-y-0 left-0 w-1.5" style={{ background: hex }} aria-hidden="true" />
+      <div className="flex flex-1 flex-col p-4">
+        <div className="flex items-start justify-between gap-2">
+          <button
+            type="button"
+            onClick={() => onCopy(subject.subjectCode)}
+            title="Copy subject code"
+            className="rounded-md px-2 py-0.5 font-mono text-xs font-bold tracking-wide"
+            style={{ background: tint(hex, 0.1), color: hex }}
+          >
+            {subject.subjectCode}
+          </button>
+          <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">
+            {subject.units} {Number(subject.units) === 1 ? 'unit' : 'units'}
+          </span>
+        </div>
+
+        <h3 className="mt-2.5 line-clamp-2 min-h-[2.5rem] text-[15px] font-semibold leading-snug text-gray-900 dark:text-white">
+          {subject.subjectName}
+        </h3>
+        {showPlace && (
+          <p className="mt-0.5 text-xs text-gray-400">{subject.program} · {yearLabel(subject.yearLevel)} · {semLabel(subject.semester)}</p>
+        )}
+
+        <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs">
+          <span className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-medium" style={{ background: tint(kind.hex, 0.1), color: kind.hex }}>
+            <kind.icon className="h-3 w-3" />{kind.label}
+          </span>
+          {Number(subject.lectureHours) > 0 && <span className="rounded-md bg-gray-100 px-1.5 py-0.5 text-gray-600 dark:bg-gray-700 dark:text-gray-300">{subject.lectureHours} h lec</span>}
+          {Number(subject.labHours) > 0 && <span className="rounded-md bg-gray-100 px-1.5 py-0.5 text-gray-600 dark:bg-gray-700 dark:text-gray-300">{subject.labHours} h lab</span>}
+        </div>
+
+        {prereqs.length > 0 && (
+          <p className="mt-2 flex items-start gap-1 text-xs text-gray-500 dark:text-gray-400" title={prereqs.map((p) => `${p.subjectCode} ${p.subjectName || ''}`).join('\n')}>
+            <Link2 className="mt-0.5 h-3 w-3 flex-shrink-0" />
+            <span className="line-clamp-1">Needs {prereqs.map((p) => p.subjectCode).join(', ')}</span>
+          </p>
+        )}
+        {subject.description && (
+          <p className="mt-2 line-clamp-2 text-xs text-gray-500 dark:text-gray-400">{subject.description}</p>
+        )}
+      </div>
+
+      <footer className="flex items-center justify-between gap-2 border-t border-gray-100 px-3 py-2 dark:border-gray-700/70">
+        <button
+          type="button"
+          onClick={() => onCodes(subject)}
+          className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold transition-colors"
+          style={{ color: hex, background: tint(hex, 0.08) }}
+          title="Enrollment codes by section"
+        >
+          <KeyRound className="h-3.5 w-3.5" /> Codes
+        </button>
+        <span className="flex items-center">
+          <IconButton title="Copy code" onClick={() => onCopy(subject.subjectCode)}><Copy className="h-4 w-4" /></IconButton>
+          <IconButton title="Edit subject" onClick={() => onEdit(subject)}><Edit2 className="h-4 w-4" /></IconButton>
+          <IconButton title="Delete subject" danger onClick={() => onDelete(subject)}><Trash2 className="h-4 w-4" /></IconButton>
+        </span>
+      </footer>
+    </article>
+  );
+};
+
+const SubjectTable = ({ subjects, onEdit, onDelete, onCodes, onCopy }) => (
+  <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead className="border-b border-gray-100 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:border-gray-700">
+          <tr>
+            <th className="px-4 py-3">Code</th>
+            <th className="px-4 py-3">Subject</th>
+            <th className="px-4 py-3">Where</th>
+            <th className="px-4 py-3 text-center">Units</th>
+            <th className="px-4 py-3 text-center">Lec</th>
+            <th className="px-4 py-3 text-center">Lab</th>
+            <th className="px-4 py-3 text-right"><span className="sr-only">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100 dark:divide-gray-700/70">
+          {subjects.map((s) => {
+            const hex = accentFor(s.subjectCode);
+            return (
+              <tr key={s._id} className="hover:bg-gray-50 dark:hover:bg-gray-700/40">
+                <td className="whitespace-nowrap px-4 py-3">
+                  <span className="rounded-md px-2 py-0.5 font-mono text-xs font-bold" style={{ background: tint(hex, 0.1), color: hex }}>{s.subjectCode}</span>
+                </td>
+                <td className="px-4 py-3">
+                  <p className="font-medium text-gray-900 dark:text-white">{s.subjectName}</p>
+                  {s.prerequisites?.length > 0 && <p className="text-xs text-gray-400">Needs {s.prerequisites.map((p) => p.subjectCode).join(', ')}</p>}
+                </td>
+                <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{s.program} · Y{s.yearLevel} · S{s.semester}</td>
+                <td className="px-4 py-3 text-center font-semibold text-gray-900 dark:text-white">{s.units}</td>
+                <td className="px-4 py-3 text-center text-gray-600 dark:text-gray-300">{s.lectureHours || 0}</td>
+                <td className="px-4 py-3 text-center text-gray-600 dark:text-gray-300">{s.labHours || 0}</td>
+                <td className="whitespace-nowrap px-4 py-3 text-right">
+                  <IconButton title="Enrollment codes" onClick={() => onCodes(s)}><KeyRound className="h-4 w-4" /></IconButton>
+                  <IconButton title="Copy code" onClick={() => onCopy(s.subjectCode)}><Copy className="h-4 w-4" /></IconButton>
+                  <IconButton title="Edit subject" onClick={() => onEdit(s)}><Edit2 className="h-4 w-4" /></IconButton>
+                  <IconButton title="Delete subject" danger onClick={() => onDelete(s)}><Trash2 className="h-4 w-4" /></IconButton>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  </div>
+);
+
+/** Static skeleton (no pulse), shaped like the folder grid. */
+const FolderSkeleton = () => (
+  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6" aria-label="Loading subjects">
+    {Array.from({ length: 4 }).map((_, i) => (
+      <div key={i} className="flex flex-col items-center gap-2 p-3">
+        <div className="h-20 w-24 rounded-xl bg-gray-100 dark:bg-gray-800" />
+        <div className="h-3 w-16 rounded bg-gray-100 dark:bg-gray-800" />
+        <div className="h-3 w-12 rounded bg-gray-100 dark:bg-gray-800" />
+      </div>
+    ))}
+  </div>
+);
 
 const SubjectPage = () => {
   const { user } = useAuth();
   const { programCodes: PROGRAMS } = usePrograms();
-  
+  const { getPageState, savePageState } = usePageState();
+  const isPM = user?.role === 'program_manager';
+
+  const saved = getPageState('subjects', { program: '', year: null, semester: 0, view: 'cards' });
   const [searchTerm, setSearchTerm] = useState('');
-  const [filters, setFilters] = useState({
-    program: '',
-    yearLevel: '',
-    semester: '',
-    type: ''
-  });
+  const [program, setProgram] = useState(isPM ? user?.program || '' : saved.program);
+  const [year, setYear] = useState(saved.year);
+  const [semester, setSemester] = useState(saved.semester); // 0 = both
+  const [view, setView] = useState(saved.view);
+
   const [showModal, setShowModal] = useState(false);
   const [showExcelImportModal, setShowExcelImportModal] = useState(false);
   const [showEnrollmentModal, setShowEnrollmentModal] = useState(false);
   const [selectedSubject, setSelectedSubject] = useState(null);
   const [modalMode, setModalMode] = useState('create');
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
-  const [stats, setStats] = useState({
-    total: 0,
-    active: 0,
-    byProgram: {}
-  });
+  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', message: '', itemName: '', onConfirm: null });
 
-  // Confirm dialog state
-  const [confirmDialog, setConfirmDialog] = useState({
-    isOpen: false,
-    title: '',
-    message: '',
-    itemName: '',
-    onConfirm: null
-  });
+  useEffect(() => {
+    if (isPM && user?.program) setProgram(user.program);
+  }, [isPM, user]);
 
-  // ✅ CACHE: Subjects with 5-minute cache (stale-while-revalidate)
-  const {
-    data: subjectsResponse,
-    loading,
-    error,
-    refetch: reloadSubjects,
-    isFromCache
-  } = useCachedData(
+  useEffect(() => {
+    savePageState('subjects', { program, year, semester, view });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [program, year, semester, view]);
+
+  const { data: subjectsResponse, loading, refetch: reloadSubjects } = useCachedData(
     () => subjectAPI.getAll({ isActive: true }),
     'subjects-list',
     {
-      cacheDuration: 5 * 60 * 1000, // 5 minutes
+      cacheDuration: 5 * 60 * 1000,
       enabled: true,
-      onSuccess: (data) => {
-        console.log('✅ Subjects loaded:', isFromCache ? '📦 from cache' : '🌐 fresh fetch');
-      },
-      onError: (err) => {
-        console.error('Failed to load subjects:', err);
-        toast.error(getErrorMessage(err, 'Failed to load subjects'));
-      }
+      onError: (err) => toast.error(getErrorMessage(err, 'Failed to load subjects')),
     }
   );
 
-  // Extract subjects data (handle both cached and fresh formats)
-  const subjects = React.useMemo(() => {
+  const subjects = useMemo(() => {
     if (!subjectsResponse) return [];
     const data = subjectsResponse.data || subjectsResponse;
-    return data?.data || data || [];
+    const list = data?.data || data || [];
+    return Array.isArray(list) ? list : [];
   }, [subjectsResponse]);
 
-  // Auto-set program filter for program managers
-  useEffect(() => {
-    if (user?.role === 'program_manager' && user?.program) {
-      setFilters(prev => ({ ...prev, program: user.program }));
-    }
-  }, [user]);
+  /* ---- Scope ------------------------------------------------------- */
 
-  // PROGRAMS arrives asynchronously, so recompute once it loads
-  useEffect(() => {
-    calculateStats();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  const programCounts = useMemo(() => {
+    const m = {};
+    subjects.forEach((s) => { if (s.program) m[s.program] = (m[s.program] || 0) + 1; });
+    PROGRAMS.forEach((p) => { if (!(p in m)) m[p] = 0; });
+    return Object.entries(m).sort(([a], [b]) => a.localeCompare(b));
   }, [subjects, PROGRAMS]);
 
-  // // Disable body scroll when modal is open
-  // useEffect(() => {
-  //   if (showModal || showExcelImportModal) {
-  //     document.body.style.overflow = 'hidden';
-  //   } else {
-  //     document.body.style.overflow = 'unset';
-  //   }
-  //   return () => {
-  //     document.body.style.overflow = 'unset';
-  //   };
-  // }, [showModal, showExcelImportModal]);
+  const inProgram = useMemo(() => subjects.filter((s) => !program || s.program === program), [subjects, program]);
+  const q = searchTerm.toLowerCase().trim();
+  const searching = !!q;
+  const searchResults = useMemo(() => (q
+    ? inProgram.filter((s) => [s.subjectCode, s.subjectName, s.description, ...(s.prerequisites || []).map((p) => p.subjectCode)]
+      .some((v) => (v || '').toLowerCase().includes(q)))
+      .sort((a, b) => a.program.localeCompare(b.program) || a.yearLevel - b.yearLevel || a.semester - b.semester || byCode(a, b))
+    : []), [inProgram, q]);
 
-  const calculateStats = () => {
-    if (!subjects || !Array.isArray(subjects)) {
-      // Keep existing stats if subjects not loaded yet
-      return;
-    }
-    
-    const byProgram = {};
-    PROGRAMS.forEach(prog => {
-      byProgram[prog] = subjects.filter(s => s.program === prog).length;
-    });
+  // Where we are: all programs -> one program -> one year
+  const level = searching ? 'search' : !program ? 'programs' : year ? 'year' : 'years';
+  const inYear = useMemo(() => inProgram.filter((s) => s.yearLevel === year), [inProgram, year]);
 
-    setStats({
-      total: subjects.length,
-      active: subjects.filter(s => s.isActive).length,
-      byProgram
-    });
+  /* ---- Actions ----------------------------------------------------- */
+
+  const handleCreate = () => { setSelectedSubject(null); setModalMode('create'); setShowModal(true); };
+  const handleEdit = (subject) => { setSelectedSubject(subject); setModalMode('edit'); setShowModal(true); };
+  const handleCodes = (subject) => { setSelectedSubject(subject); setShowEnrollmentModal(true); };
+  const copySubjectCode = (code) => {
+    navigator.clipboard?.writeText(code).then(() => toast.success(`Copied ${code}`)).catch(() => toast.error('Failed to copy code'));
   };
 
-  const handleCreate = () => {
-    setSelectedSubject(null);
-    setModalMode('create');
-    setShowModal(true);
-  };
-
-  const handleEdit = (subject) => {
-    setSelectedSubject(subject);
-    setModalMode('edit');
-    setShowModal(true);
-  };
-
-  const handleShowEnrollmentCodes = (subject) => {
-    setSelectedSubject(subject);
-    setShowEnrollmentModal(true);
-  };
-
-  const handleDelete = async (subject) => {
+  const closeConfirm = () => setConfirmDialog((d) => ({ ...d, isOpen: false }));
+  const handleDelete = (subject) => {
     setConfirmDialog({
       isOpen: true,
-      title: 'Delete Subject',
-      message: 'Are you sure you want to delete this subject? This action cannot be undone.',
+      title: 'Delete subject',
+      message: 'Delete this subject? This action cannot be undone.',
       itemName: `${subject.subjectCode} - ${subject.subjectName}`,
       onConfirm: async () => {
         try {
           await subjectAPI.delete(subject._id);
-          toast.success('Subject deleted successfully');
-          
-          // Reload subjects list
+          toast.success('Subject deleted');
           reloadSubjects();
-          
-          setConfirmDialog({ ...confirmDialog, isOpen: false });
         } catch (error) {
-          console.error('Delete error:', error);
-          
-          // Show specific error message from backend
-          const errorMessage = error.response?.data?.message || 
-                              error.message || 
-                              'Failed to delete subject';
-          
-          // If it's a program access error, show more specific message
-          if (error.response?.status === 403) {
-            const programError = error.response?.data?.message;
-            if (programError?.includes('program')) {
-              toast.error(programError);
-            } else {
-              toast.error('You do not have permission to delete this subject');
-            }
-          } else {
-            toast.error(errorMessage);
-          }
-          setConfirmDialog({ ...confirmDialog, isOpen: false });
+          const msg = error.response?.data?.message;
+          toast.error(error.response?.status === 403 && !msg?.includes('program')
+            ? 'You do not have permission to delete this subject'
+            : msg || error.message || 'Failed to delete subject');
+        } finally {
+          closeConfirm();
         }
-      }
-    });
-  };
-
-  const copySubjectCode = (code) => {
-    navigator.clipboard.writeText(code).then(() => {
-      toast.success(`Copied: ${code}`);
-    }).catch(() => {
-      toast.error('Failed to copy code');
+      },
     });
   };
 
   const handleModalClose = (shouldRefresh) => {
     setShowModal(false);
     setSelectedSubject(null);
-    if (shouldRefresh) {
-      // Reload subjects list
-      reloadSubjects();
-    }
+    if (shouldRefresh) reloadSubjects();
   };
 
-  const handleExcelImportComplete = () => {
-    setShowExcelImportModal(false);
-    // Reload subjects list
-    reloadSubjects();
+  const cardProps = { onEdit: handleEdit, onDelete: handleDelete, onCodes: handleCodes, onCopy: copySubjectCode };
+
+  const goPrograms = () => { if (!isPM) setProgram(''); setYear(null); setSemester(0); setSearchTerm(''); };
+  const goProgram = (p) => { setProgram(p); setYear(null); setSemester(0); setSearchTerm(''); };
+  const goYear = (y) => { setYear(y); setSemester(0); };
+
+  /* ---- Pieces ------------------------------------------------------ */
+
+  const loadLine = (list) => {
+    const lec = sumHours(list, 'lectureHours');
+    const lab = sumHours(list, 'labHours');
+    return [
+      `${list.length} ${list.length === 1 ? 'subject' : 'subjects'}`,
+      `${sumUnits(list)} units`,
+      lec || lab ? `${lec} h lec · ${lab} h lab a week` : null,
+    ].filter(Boolean).join(' · ');
   };
 
-  const clearFilters = () => {
-    setFilters({
-      program: '',
-      yearLevel: '',
-      semester: '',
-      type: ''
-    });
-    setSearchTerm('');
-  };
+  const renderList = (list, showPlace) => (view === 'table'
+    ? <SubjectTable subjects={list} {...cardProps} />
+    : (
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {list.map((s) => <SubjectCard key={s._id} subject={s} showPlace={showPlace} {...cardProps} />)}
+      </div>
+    ));
 
-  // Filter subjects
-  const filteredSubjects = (subjects || []).filter((subject) => {
-    const matchesSearch = 
-      subject.subjectCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      subject.subjectName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      subject.description?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesProgram = !filters.program || subject.program === filters.program;
-    const matchesYear = !filters.yearLevel || subject.yearLevel === parseInt(filters.yearLevel);
-    const matchesSemester = !filters.semester || subject.semester === parseInt(filters.semester);
-    const matchesType = !filters.type || subject.type === filters.type;
+  const folder = ({ key, title, sub, hint, onClick }) => (
+    <button
+      key={key}
+      type="button"
+      onClick={onClick}
+      className="group flex flex-col items-center gap-0.5 rounded-2xl p-3 transition-colors hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 dark:hover:bg-gray-800"
+    >
+      <FolderGlyph />
+      <span className="mt-1.5 w-full truncate text-center text-sm font-semibold text-gray-900 dark:text-gray-100">{title}</span>
+      <span className="text-xs text-gray-500 dark:text-gray-400">{sub}</span>
+      {hint && <span className="text-[11px] text-gray-400">{hint}</span>}
+    </button>
+  );
 
-    return matchesSearch && matchesProgram && matchesYear && matchesSemester && matchesType;
-  });
+  const crumbs = [
+    { label: 'Subjects', onClick: isPM ? null : goPrograms },
+    program && { label: program, onClick: () => goProgram(program) },
+    year && !searching && { label: yearLabel(year) },
+  ].filter(Boolean);
 
-  const hasActiveFilters = filters.program || filters.yearLevel || filters.semester || filters.type || searchTerm;
+  const allTotal = isPM ? inProgram : subjects;
 
   return (
     <Layout>
-      <div className="p-4 md:p-6 max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">
-              Subject Management
-            </h1>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setShowExcelImportModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors shadow-md hover:shadow-lg"
-              >
-                <Upload className="w-5 h-5" />
-                <span className="hidden sm:inline">Import</span>
-              </button>
-              <button
-                onClick={handleCreate}
-                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors shadow-md hover:shadow-lg"
-              >
-                <Plus className="w-5 h-5" />
-                <span className="hidden sm:inline">Add Subject</span>
-              </button>
-            </div>
-          </div>
-          <p className="text-gray-600 dark:text-gray-400 text-sm md:text-base">
-            Manage curriculum subjects across all programs
-          </p>
-        </div>
-
-        {/* Statistics Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
-          <StatCard icon={AnimatedBookOpen} label="Total" value={stats.total} hint="Subjects" tone="indigo" />
-
-          <StatCard icon={AnimatedUserCheck} label="Active" value={stats.active} hint="Available" tone="emerald" />
-
-          <StatCard icon={AnimatedLayers} label="Programs" value={PROGRAMS.length} hint="Total Programs" tone="blue" />
-
-          <StatCard icon={AnimatedTrendingUp} label="Average" value={stats.total > 0 && PROGRAMS.length > 0 ? Math.round(stats.total / PROGRAMS.length) : 0} hint="Per Program" tone="orange" />
-        </div>
-
-        {/* Search and Filters */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 mb-6 shadow-sm">
-          <div className="flex flex-col lg:flex-row gap-4">
-            {/* Search */}
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <input
-                type="text"
-                placeholder="Search by subject code, name, or description..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white transition-all"
-              />
-            </div>
-
-            {/* Filters */}
-            <div className="flex flex-wrap gap-2">
-              {user?.role !== 'program_manager' && (
-                <select
-                  value={filters.program}
-                  onChange={(e) => setFilters({ ...filters, program: e.target.value })}
-                  aria-label="Program"
-                  className="px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm transition-all"
-                >
-                  <option value="">All Programs</option>
-                  {PROGRAMS.map(prog => (
-                    <option key={prog} value={prog}>{prog}</option>
-                  ))}
-                </select>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <div className="mx-auto max-w-7xl space-y-5 px-4 py-5 sm:px-6 sm:py-6">
+          {/* Header */}
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Curriculum</p>
+              <h1 className="mt-0.5 text-2xl font-bold text-gray-900 dark:text-white sm:text-3xl">Subject Management</h1>
+              {!loading && (
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  {allTotal.length} {allTotal.length === 1 ? 'subject' : 'subjects'}
+                  {!isPM && programCounts.length > 1 && ` across ${programCounts.length} programs`}
+                  {` · ${sumUnits(allTotal)} units`}
+                </p>
               )}
-
-              <select
-                value={filters.yearLevel}
-                onChange={(e) => setFilters({ ...filters, yearLevel: e.target.value })}
-                className="px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm transition-all"
+            </div>
+            <div className="flex items-center gap-2">
+              <SearchField value={searchTerm} onChange={setSearchTerm} placeholder={program ? `Search ${program} subjects` : 'Code, name or prerequisite'} className="flex-1 md:w-72 md:flex-none" />
+              <button
+                type="button"
+                onClick={() => setShowExcelImportModal(true)}
+                className="inline-flex items-center gap-2 whitespace-nowrap rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
               >
-                <option value="">All Years</option>
-                {YEAR_LEVELS.map(year => (
-                  <option key={year} value={year}>Year {year}</option>
-                ))}
-              </select>
-
-              <select
-                value={filters.semester}
-                onChange={(e) => setFilters({ ...filters, semester: e.target.value })}
-                className="px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm transition-all"
+                <Upload className="h-4 w-4" /><span className="hidden sm:inline">Import</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleCreate}
+                className="inline-flex items-center gap-2 whitespace-nowrap rounded-xl bg-gray-900 px-3.5 py-2 text-sm font-semibold text-white hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
               >
-                <option value="">All Semesters</option>
-                {SEMESTERS.map(sem => (
-                  <option key={sem} value={sem}>Semester {sem}</option>
-                ))}
-              </select>
-
-              {/* View Toggle */}
-              <div className="flex border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden">
-                <button
-                  onClick={() => setViewMode('grid')}
-                  className={`px-3 py-2 transition-colors ${
-                    viewMode === 'grid' 
-                      ? 'bg-indigo-600 text-white' 
-                      : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600'
-                  }`}
-                  title="Grid View"
-                >
-                  <Grid3x3 className="w-5 h-5" />
-                </button>
-                <button
-                  onClick={() => setViewMode('list')}
-                  className={`px-3 py-2 border-l border-gray-300 dark:border-gray-600 transition-colors ${
-                    viewMode === 'list' 
-                      ? 'bg-indigo-600 text-white' 
-                      : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600'
-                  }`}
-                  title="List View"
-                >
-                  <List className="w-5 h-5" />
-                </button>
-              </div>
+                <Plus className="h-4 w-4" /><span className="hidden sm:inline">Add subject</span>
+              </button>
             </div>
           </div>
 
-          {/* Active Filters */}
-          {hasActiveFilters && (
-            <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-              <span className="text-sm text-gray-600 dark:text-gray-400">Active filters:</span>
-              <div className="flex flex-wrap gap-2">
-                {searchTerm && (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 text-xs rounded-md">
-                    Search: {searchTerm}
-                    <X 
-                      className="w-3 h-3 cursor-pointer hover:text-indigo-900 dark:hover:text-indigo-100" 
-                      onClick={() => setSearchTerm('')}
-                    />
-                  </span>
+          {/* Program chips (staff only; a program manager has one program) */}
+          {!isPM && programCounts.length > 1 && (
+            <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
+              <Chip on={!program} onClick={goPrograms}>All programs <span className="text-xs opacity-60">{subjects.length}</span></Chip>
+              {programCounts.map(([p, n]) => (
+                <Chip key={p} on={program === p} onClick={() => goProgram(p)}>{p} <span className="text-xs opacity-60">{n}</span></Chip>
+              ))}
+            </div>
+          )}
+
+          {/* Breadcrumb + view toggle */}
+          {(level === 'year' || level === 'search' || (level === 'years' && !isPM)) && (
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <nav className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
+                {level === 'year' && (
+                  <button type="button" onClick={() => setYear(null)} className="mr-1 rounded-lg p-1 hover:bg-gray-200/70 hover:text-gray-900 dark:hover:bg-gray-800 dark:hover:text-white" title="Back">
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
                 )}
-                {filters.program && (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 text-xs rounded-md">
-                    Program: {filters.program}
-                    <X 
-                      className="w-3 h-3 cursor-pointer hover:text-indigo-900 dark:hover:text-indigo-100" 
-                      onClick={() => setFilters({ ...filters, program: '' })}
-                    />
-                  </span>
-                )}
-                {filters.yearLevel && (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 text-xs rounded-md">
-                    Year: {filters.yearLevel}
-                    <X 
-                      className="w-3 h-3 cursor-pointer hover:text-indigo-900 dark:hover:text-indigo-100" 
-                      onClick={() => setFilters({ ...filters, yearLevel: '' })}
-                    />
-                  </span>
-                )}
-                {filters.semester && (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 text-xs rounded-md">
-                    Semester: {filters.semester}
-                    <X 
-                      className="w-3 h-3 cursor-pointer hover:text-indigo-900 dark:hover:text-indigo-100" 
-                      onClick={() => setFilters({ ...filters, semester: '' })}
-                    />
-                  </span>
-                )}
-                <button
-                  onClick={clearFilters}
-                  className="text-xs text-red-600 dark:text-red-400 hover:underline"
-                >
-                  Clear all
-                </button>
+                {searching ? (
+                  <span><strong className="text-gray-900 dark:text-white">{searchResults.length}</strong> {searchResults.length === 1 ? 'match' : 'matches'} for “{searchTerm}”{program ? ` in ${program}` : ''}</span>
+                ) : crumbs.map((c, i) => (
+                  <React.Fragment key={c.label}>
+                    {i > 0 && <ChevronRight className="h-3.5 w-3.5 text-gray-300" />}
+                    {c.onClick && i < crumbs.length - 1 ? (
+                      <button type="button" onClick={c.onClick} className="rounded-lg px-1.5 py-0.5 hover:bg-gray-200/70 hover:text-gray-900 dark:hover:bg-gray-800 dark:hover:text-white">{c.label}</button>
+                    ) : (
+                      <span className="px-1.5 font-semibold text-gray-900 dark:text-white">{c.label}</span>
+                    )}
+                  </React.Fragment>
+                ))}
+              </nav>
+              {(level === 'year' || level === 'search') && (
+                <div className="flex rounded-xl bg-white p-0.5 ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
+                  {[{ key: 'cards', icon: LayoutGrid, label: 'Cards' }, { key: 'table', icon: List, label: 'Table' }].map((v) => (
+                    <button
+                      key={v.key}
+                      type="button"
+                      onClick={() => setView(v.key)}
+                      title={v.label}
+                      aria-pressed={view === v.key}
+                      className={`rounded-lg px-2.5 py-1.5 ${view === v.key ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'}`}
+                    >
+                      <v.icon className="h-4 w-4" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Body */}
+          {loading && !subjects.length ? <FolderSkeleton /> : subjects.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-gray-300 px-6 py-16 text-center dark:border-gray-700">
+              <BookOpen className="mx-auto mb-3 h-10 w-10 text-gray-300 dark:text-gray-600" />
+              <p className="font-semibold text-gray-800 dark:text-gray-100">No subjects yet</p>
+              <p className="mx-auto mt-1 max-w-sm text-sm text-gray-500 dark:text-gray-400">Add subjects one by one or import the curriculum from Excel.</p>
+              <div className="mt-5 flex justify-center gap-2">
+                <button type="button" onClick={() => setShowExcelImportModal(true)} className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200">Import</button>
+                <button type="button" onClick={handleCreate} className="rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white dark:bg-white dark:text-gray-900">Add subject</button>
               </div>
+            </div>
+          ) : level === 'search' ? (
+            searchResults.length ? renderList(searchResults, true) : (
+              <div className="rounded-2xl border border-dashed border-gray-300 px-6 py-14 text-center dark:border-gray-700">
+                <Search className="mx-auto mb-3 h-9 w-9 text-gray-300 dark:text-gray-600" />
+                <p className="font-medium text-gray-700 dark:text-gray-200">No subjects match</p>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Try a subject code, part of the name, or a prerequisite code.</p>
+              </div>
+            )
+          ) : level === 'programs' ? (
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+              {programCounts.map(([p, n]) => folder({
+                key: p,
+                title: p,
+                sub: `${n} ${n === 1 ? 'subject' : 'subjects'}`,
+                hint: n ? `${sumUnits(subjects.filter((s) => s.program === p))} units` : 'Empty',
+                onClick: () => goProgram(p),
+              }))}
+            </div>
+          ) : level === 'years' ? (
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+              {YEAR_LEVELS.map((y) => {
+                const list = inProgram.filter((s) => s.yearLevel === y);
+                const s1 = list.filter((s) => s.semester === 1).length;
+                return folder({
+                  key: y,
+                  title: yearLabel(y),
+                  sub: `${list.length} ${list.length === 1 ? 'subject' : 'subjects'} · ${sumUnits(list)} units`,
+                  hint: list.length ? `1st sem ${s1} · 2nd sem ${list.length - s1}` : 'Empty',
+                  onClick: () => goYear(y),
+                });
+              })}
+            </div>
+          ) : (
+            /* One year: the two semesters side by side as the curriculum reads */
+            <div className="space-y-6">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <Chip on={!semester} onClick={() => setSemester(0)}>Both semesters <span className="text-xs opacity-60">{inYear.length}</span></Chip>
+                {SEMESTERS.map((sem) => (
+                  <Chip key={sem} on={semester === sem} onClick={() => setSemester(sem)}>
+                    {semLabel(sem)} <span className="text-xs opacity-60">{inYear.filter((s) => s.semester === sem).length}</span>
+                  </Chip>
+                ))}
+              </div>
+              {SEMESTERS.filter((sem) => !semester || semester === sem).map((sem) => {
+                const list = inYear.filter((s) => s.semester === sem).sort(byCode);
+                return (
+                  <section key={sem}>
+                    <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                      <h2 className="text-base font-semibold text-gray-900 dark:text-white">{semLabel(sem)}</h2>
+                      <span className="text-xs text-gray-400">{loadLine(list)}</span>
+                      <span className="h-px min-w-[2rem] flex-1 self-center bg-gray-200 dark:bg-gray-700" />
+                    </div>
+                    {list.length ? renderList(list, false) : (
+                      <button
+                        type="button"
+                        onClick={handleCreate}
+                        className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-gray-300 px-6 py-8 text-sm text-gray-500 hover:border-gray-400 hover:text-gray-900 dark:border-gray-700 dark:text-gray-400 dark:hover:text-white"
+                      >
+                        <Plus className="h-4 w-4" /> No subjects in the {semLabel(sem).toLowerCase()} yet. Add one
+                      </button>
+                    )}
+                  </section>
+                );
+              })}
             </div>
           )}
         </div>
       </div>
 
-        {/* Subjects Display */}
-        {loading ? (
-          <div className="text-center py-16">
-            <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-green-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600 dark:text-gray-400 text-lg">Loading subjects...</p>
-          </div>
-        ) : filteredSubjects.length === 0 ? (
-          <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600">
-            <BookOpen className="w-20 h-20 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-              {(subjects || []).length === 0 ? 'No subjects created yet' : 'No subjects match your filters'}
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">
-              {(subjects || []).length === 0 
-                ? 'Get started by creating your first subject'
-                : 'Try adjusting your search or filter criteria'
-              }
-            </p>
-            {(subjects || []).length === 0 && (
-              <button
-                onClick={handleCreate}
-                className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors inline-flex items-center gap-2"
-              >
-                <Plus className="w-5 h-5" />
-                Create First Subject
-              </button>
-            )}
-          </div>
-        ) : viewMode === 'grid' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredSubjects.map((subject) => (
-              <div
-                key={subject._id}
-                className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 hover:shadow-xl hover:border-green-300 dark:hover:border-green-700 transition-all duration-200 transform hover:-translate-y-1"
-              >
-                {/* Header */}
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="px-2.5 py-1 bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300 text-xs font-bold rounded">
-                        {subject.subjectCode}
-                      </span>
-                      <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${
-                        subject.isActive 
-                          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300' 
-                          : 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
-                      }`}>
-                        {subject.isActive ? 'Active' : 'Inactive'}
-                      </span>
-                    </div>
-                    <h3 className="font-bold text-gray-900 dark:text-white text-base line-clamp-2">
-                      {subject.subjectName}
-                    </h3>
-                  </div>
-                </div>
-
-                {/* Details */}
-                <div className="space-y-2.5 mb-4">
-                  <div className="flex items-center gap-2 text-sm">
-                    <div className="w-6 h-6 bg-indigo-100 dark:bg-indigo-900 rounded-full flex items-center justify-center flex-shrink-0">
-                      <GraduationCap className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-gray-600 dark:text-gray-400 text-xs">Program & Level</p>
-                      <p className="font-medium text-gray-900 dark:text-white truncate">
-                        {subject.program} • Year {subject.yearLevel} • Sem {subject.semester}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 text-sm">
-                    <div className="w-6 h-6 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center flex-shrink-0">
-                      <BookOpen className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-gray-600 dark:text-gray-400 text-xs">Units & Type</p>
-                      <p className="font-medium text-gray-900 dark:text-white">
-                        {subject.units} {subject.units === 1 ? 'unit' : 'units'} • {subject.type}
-                      </p>
-                    </div>
-                  </div>
-
-                  {subject.prerequisites && subject.prerequisites.length > 0 && (
-                    <div className="flex items-start gap-2 text-sm">
-                      <div className="w-6 h-6 bg-orange-100 dark:bg-orange-900 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <Clock className="w-3.5 h-3.5 text-orange-600 dark:text-orange-400" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-gray-600 dark:text-gray-400 text-xs">Prerequisites</p>
-                        <p className="font-medium text-gray-900 dark:text-white text-xs line-clamp-2">
-                          {subject.prerequisites.map(p => p.subjectCode).join(', ')}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Description */}
-                {subject.description && (
-                  <div className="mb-4 pt-3 border-t border-gray-200 dark:border-gray-700">
-                    <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2">
-                      {subject.description}
-                    </p>
-                  </div>
-                )}
-
-                {/* Actions */}
-                <div className="flex gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
-                  <button
-                    onClick={() => handleShowEnrollmentCodes(subject)}
-                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all shadow-sm hover:shadow-md font-medium"
-                    title="View enrollment codes by section"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                    <span>View Codes</span>
-                  </button>
-                  <button
-                    onClick={() => handleEdit(subject)}
-                    className="flex items-center justify-center gap-2 px-4 py-2.5 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg transition-all shadow-sm hover:shadow-md font-medium"
-                    title="Edit subject"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(subject)}
-                    className="flex items-center justify-center gap-2 px-4 py-2.5 text-sm bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all shadow-sm hover:shadow-md font-medium"
-                    title="Delete subject"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                      Subject Code
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                      Subject Name
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                      Program & Year
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                      Units
-                    </th>
-                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                      Lec
-                    </th>
-                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                      Lab
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {filteredSubjects.map((subject) => (
-                    <tr 
-                      key={subject._id}
-                      className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                    >
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        <span className="px-2.5 py-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300 text-xs font-bold rounded">
-                          {subject.subjectCode}
-                        </span>
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="font-semibold text-gray-900 dark:text-white">
-                          {subject.subjectName}
-                        </div>
-                        {subject.description && (
-                          <div className="text-xs text-gray-600 dark:text-gray-400 line-clamp-1">
-                            {subject.description}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900 dark:text-white font-medium">
-                          {subject.program}
-                        </div>
-                        <div className="text-xs text-gray-600 dark:text-gray-400">
-                          Year {subject.yearLevel} • Sem {subject.semester}
-                        </div>
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900 dark:text-white font-medium">
-                          {subject.units}
-                        </div>
-                        <div className="text-xs text-gray-600 dark:text-gray-400">
-                          {subject.type}
-                        </div>
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-center">
-                        <div className="text-sm font-semibold text-gray-900 dark:text-white">
-                          {subject.lectureHours || 0}
-                        </div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">
-                          hrs
-                        </div>
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-center">
-                        <div className="text-sm font-semibold text-gray-900 dark:text-white">
-                          {subject.labHours || 0}
-                        </div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">
-                          hrs
-                        </div>
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
-                          subject.isActive 
-                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300' 
-                            : 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
-                        }`}>
-                          {subject.isActive ? 'Active' : 'Inactive'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => copySubjectCode(subject.subjectCode)}
-                            className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900 rounded-lg transition-colors"
-                            title="Copy Code"
-                          >
-                            <Copy className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleEdit(subject)}
-                            className="p-2 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900 rounded-lg transition-colors"
-                            title="Edit"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(subject)}
-                            className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900 rounded-lg transition-colors"
-                            title="Delete"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-      {/* Create/Edit Modal */}
-      {showModal && (
-        <SubjectModal
-          mode={modalMode}
-          subject={selectedSubject}
-          onClose={handleModalClose}
-        />
-      )}
-
-      {/* Enrollment Codes Modal */}
+      {showModal && <SubjectModal mode={modalMode} subject={selectedSubject} onClose={handleModalClose} />}
       {showEnrollmentModal && (
         <SubjectEnrollmentModal
           subject={selectedSubject}
-          onClose={() => {
-            setShowEnrollmentModal(false);
-            setSelectedSubject(null);
-          }}
+          onClose={() => { setShowEnrollmentModal(false); setSelectedSubject(null); }}
         />
       )}
-
-      {/* Excel Import Modal */}
       {showExcelImportModal && (
         <ExcelImportModal
           type="subjects"
           onClose={() => setShowExcelImportModal(false)}
-          onComplete={handleExcelImportComplete}
+          onComplete={() => { setShowExcelImportModal(false); reloadSubjects(); }}
         />
       )}
-
-      {/* Confirm Dialog */}
       <ConfirmDialog
         isOpen={confirmDialog.isOpen}
-        onClose={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
+        onClose={closeConfirm}
         onConfirm={confirmDialog.onConfirm}
         title={confirmDialog.title}
         message={confirmDialog.message}

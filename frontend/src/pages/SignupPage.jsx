@@ -205,7 +205,7 @@ const SignupPage = () => {
             label="Student ID"
             icon={Contact}
             autoComplete="off"
-            placeholder="2024-12345"
+            placeholder="82312345"
             hint="As printed on your school ID"
             {...field('studentId')}
           />

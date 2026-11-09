@@ -52,13 +52,21 @@ exports.getAllLogs = async (req, res) => {
 // @access  Private (Admin only)
 exports.getStats = async (req, res) => {
   try {
-    const { startDate, endDate, userId } = req.query;
+    const { startDate, endDate, userId, timezone } = req.query;
 
+    // Program managers: their program's people, or one of them if asked
     const program = managerProgram(req);
+    let scopedUser = userId;
+    if (program) {
+      const ids = await programUserIds(program);
+      scopedUser = userId ? (ids.map(String).includes(String(userId)) ? userId : '000000000000000000000000') : ids;
+    }
     const stats = await getActivityStats({
       startDate,
       endDate,
-      userId: program ? await programUserIds(program) : userId
+      userId: scopedUser,
+      // Day buckets in the viewer's timezone (an IANA name such as Asia/Manila)
+      timezone: /^[A-Za-z_]+(\/[A-Za-z_+-]+)*$/.test(timezone || '') ? timezone : 'UTC'
     });
 
     res.status(200).json({

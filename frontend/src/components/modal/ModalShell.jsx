@@ -187,7 +187,7 @@ export const ModalShell = ({
         @media (prefers-reduced-motion: reduce) { .ms-backdrop, .ms-panel, .ms-drawer { animation: none; } }
       `}</style>
 
-      <div className="ms-backdrop pointer-events-none absolute inset-0 bg-slate-950/55 backdrop-blur-[2px]" aria-hidden="true" />
+      <div className="ms-backdrop pointer-events-none absolute inset-0 bg-gray-950/55 backdrop-blur-[2px]" aria-hidden="true" />
 
       <div
         ref={panelRef}
@@ -233,10 +233,10 @@ export const ModalShell = ({
 
 const TONES = {
   blue: 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300',
-  indigo: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300',
-  purple: 'bg-purple-100 text-purple-700 dark:bg-purple-500/15 dark:text-purple-300',
+  indigo: 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300',
+  purple: 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300',
   emerald: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
-  amber: 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
+  amber: 'bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300',
   red: 'bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300',
 };
 

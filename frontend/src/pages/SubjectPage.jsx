@@ -27,9 +27,9 @@ const semLabel = (s) => `${ordinal(s)} Semester`;
 const kindOf = (s) => {
   const lec = Number(s.lectureHours) || 0;
   const lab = Number(s.labHours) || 0;
-  if (lab > 0 && lec > 0) return { label: 'Lec + Lab', icon: FlaskConical, hex: '#7c3aed' };
-  if (lab > 0) return { label: 'Laboratory', icon: FlaskConical, hex: '#0f766e' };
-  return { label: 'Lecture', icon: Presentation, hex: '#0369a1' };
+  if (lab > 0 && lec > 0) return { label: 'Lec + Lab', icon: FlaskConical, hex: '#475569' };
+  if (lab > 0) return { label: 'Laboratory', icon: FlaskConical, hex: '#475569' };
+  return { label: 'Lecture', icon: Presentation, hex: '#475569' };
 };
 
 const sumUnits = (list) => list.reduce((n, s) => n + (Number(s.units) || 0), 0);

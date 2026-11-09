@@ -4,7 +4,7 @@ import { ModalShell, ModalButton, useModalTitleId } from './modal/ModalShell';
 
 const TONES = {
   danger: { tile: 'bg-red-100 text-red-600 dark:bg-red-500/15 dark:text-red-300', button: 'danger', ring: 'focus:ring-red-500/30 focus:border-red-500' },
-  warning: { tile: 'bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300', button: 'primary', ring: 'focus:ring-amber-500/30 focus:border-amber-500' },
+  warning: { tile: 'bg-orange-100 text-orange-600 dark:bg-orange-500/15 dark:text-orange-300', button: 'primary', ring: 'focus:ring-orange-500/30 focus:border-orange-500' },
 };
 
 /**

@@ -1,18 +1,22 @@
 import React from 'react';
 
-// Icon tile colours. Same look in every page's summary row.
+// Icon tile colours. Colour carries meaning, so there are only five:
+//   blue   = neutral counts and information (the brand colour)
+//   emerald = good / done     orange = warning, needs attention
+//   red    = failed / problem  gray  = nothing to report
+//   yellow = highlight only (CTU gold, Day shift)
+// Older colour names still work and map onto these.
+const BLUE = 'bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-300';
+const EMERALD = 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/50 dark:text-emerald-300';
+const ORANGE = 'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300';
+const RED = 'bg-red-100 text-red-600 dark:bg-red-900/50 dark:text-red-300';
 const TONES = {
-  indigo: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-300',
-  blue: 'bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-300',
-  sky: 'bg-sky-100 text-sky-600 dark:bg-sky-900/50 dark:text-sky-300',
-  emerald: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/50 dark:text-emerald-300',
-  amber: 'bg-amber-100 text-amber-600 dark:bg-amber-900/50 dark:text-amber-300',
-  orange: 'bg-orange-100 text-orange-600 dark:bg-orange-900/50 dark:text-orange-300',
-  red: 'bg-red-100 text-red-600 dark:bg-red-900/50 dark:text-red-300',
-  rose: 'bg-rose-100 text-rose-600 dark:bg-rose-900/50 dark:text-rose-300',
-  violet: 'bg-violet-100 text-violet-600 dark:bg-violet-900/50 dark:text-violet-300',
-  purple: 'bg-purple-100 text-purple-600 dark:bg-purple-900/50 dark:text-purple-300',
-  teal: 'bg-teal-100 text-teal-600 dark:bg-teal-900/50 dark:text-teal-300',
+  blue: BLUE, indigo: BLUE, sky: BLUE, violet: BLUE, purple: BLUE, teal: BLUE, cyan: BLUE,
+  emerald: EMERALD, green: EMERALD,
+  orange: ORANGE, amber: ORANGE,
+  // Yellow is a highlight (the CTU gold, the Day shift), never a warning
+  yellow: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300',
+  red: RED, rose: RED,
   gray: 'bg-gray-100 text-gray-600 dark:bg-gray-700/60 dark:text-gray-300',
 };
 
@@ -28,10 +32,10 @@ const StatCard = ({ icon: Icon, label, value, hint, tone = 'indigo', active = fa
       {...(onClick && { type: 'button', onClick, 'aria-pressed': active })}
       title={title}
       className={`min-w-0 rounded-xl border p-4 text-left shadow-sm transition-all ${className} ${
-        onClick ? 'hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500' : ''
+        onClick ? 'hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500' : ''
       } ${
         active
-          ? 'border-indigo-400 bg-indigo-50 ring-1 ring-indigo-400 dark:border-indigo-500 dark:bg-indigo-900/30'
+          ? 'border-blue-400 bg-blue-50 ring-1 ring-blue-400 dark:border-blue-500 dark:bg-blue-900/30'
           : 'border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800'
       }`}
     >
@@ -44,7 +48,7 @@ const StatCard = ({ icon: Icon, label, value, hint, tone = 'indigo', active = fa
         )}
       </div>
       <div className="mt-2 truncate text-2xl font-bold text-gray-900 dark:text-white md:text-3xl">
-        {loading ? <span className="inline-block h-8 w-12 animate-pulse rounded bg-gray-200 align-middle dark:bg-gray-700" /> : value}
+        {loading ? <span className="inline-block h-8 w-12 rounded bg-gray-200 align-middle dark:bg-gray-700" /> : value}
       </div>
       {hint && <div className="mt-0.5 truncate text-xs text-gray-500 dark:text-gray-400">{hint}</div>}
     </Tag>

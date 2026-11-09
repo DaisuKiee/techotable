@@ -143,7 +143,7 @@ const AIChatModal = ({ isOpen, onClose, contextData = {} }) => {
         } max-w-full bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white">
+        <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-600 text-white">
           <div className="flex items-center gap-2">
             <div className="relative">
               <Bot className="w-6 h-6" />
@@ -188,7 +188,7 @@ const AIChatModal = ({ isOpen, onClose, contextData = {} }) => {
                   className={`flex gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
                   {msg.role === 'assistant' && (
-                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-500 flex items-center justify-center">
                       <Bot className="w-5 h-5 text-white" />
                     </div>
                   )}
@@ -233,7 +233,7 @@ const AIChatModal = ({ isOpen, onClose, contextData = {} }) => {
 
               {isLoading && (
                 <div className="flex gap-2 justify-start">
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-500 flex items-center justify-center">
                     <Bot className="w-5 h-5 text-white" />
                   </div>
                   <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl px-4 py-3 flex items-center gap-2">
@@ -284,7 +284,7 @@ const AIChatModal = ({ isOpen, onClose, contextData = {} }) => {
                 <button
                   onClick={() => sendMessage()}
                   disabled={!inputMessage.trim() || isLoading}
-                  className="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  className="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-blue-600 hover:from-blue-700 hover:to-blue-700 text-white rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   {isLoading ? (
                     <Loader2 className="w-5 h-5 animate-spin" />

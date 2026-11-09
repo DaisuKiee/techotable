@@ -24,7 +24,7 @@ const CampusWalkLoader = ({
   fading = false,          // fade the whole screen out (end of preload)
 }) => (
   <div
-    className={`fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-gradient-to-br from-blue-900 via-blue-950 to-slate-950 px-4 transition-opacity duration-300 ${
+    className={`fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-gradient-to-br from-blue-900 via-blue-950 to-gray-950 px-4 transition-opacity duration-300 ${
       fading ? 'opacity-0' : 'opacity-100'
     }`}
     style={{ '--cw-d': `${duration}s` }}

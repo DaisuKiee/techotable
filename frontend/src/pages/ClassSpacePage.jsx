@@ -577,7 +577,7 @@ const ClassSpacePage = () => {
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="rounded-lg px-2.5 py-1 font-mono text-sm font-bold tracking-wide" style={{ background: tint(hex, 0.12), color: hex }}>{code}</span>
                     {units != null && <span className="text-xs font-medium text-gray-400">{units} {units === 1 ? 'unit' : 'units'}</span>}
-                    {isIrregular && <span className="rounded-full bg-purple-100 px-2 py-0.5 text-[11px] font-semibold text-purple-700 dark:bg-purple-900/50 dark:text-purple-300">Joined by subject</span>}
+                    {isIrregular && <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-semibold text-blue-700 dark:bg-blue-900/50 dark:text-blue-300">Joined by subject</span>}
                   </div>
                   <h1 className="mt-3 break-words text-2xl font-bold leading-tight text-gray-900 dark:text-white sm:text-3xl">{name || code}</h1>
                   <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-600 dark:text-gray-300">
@@ -768,7 +768,7 @@ const ClassSpacePage = () => {
                                     <p className="truncate text-xs text-gray-500 dark:text-gray-400">{enr.student?.studentId}</p>
                                   </div>
                                   {enr.enrollmentType === 'subject' && (
-                                    <span className="rounded-md bg-purple-100 px-1.5 py-0.5 text-[10px] font-semibold text-purple-700 dark:bg-purple-900/50 dark:text-purple-300" title="Joined this subject only">Irregular</span>
+                                    <span className="rounded-md bg-blue-100 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700 dark:bg-blue-900/50 dark:text-blue-300" title="Joined this subject only">Irregular</span>
                                   )}
                                 </div>
                               );
@@ -864,7 +864,7 @@ const ClassSpacePage = () => {
               {termLabel && <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">{termLabel}</p>}
               <div className="mt-0.5 flex items-center gap-2">
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white sm:text-3xl">{isStudent ? 'My Classes' : 'Class Spaces'}</h1>
-                {isIrregular && <span className="rounded-full bg-purple-100 px-2 py-0.5 text-[11px] font-semibold text-purple-700 dark:bg-purple-900/50 dark:text-purple-300">Irregular</span>}
+                {isIrregular && <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-semibold text-blue-700 dark:bg-blue-900/50 dark:text-blue-300">Irregular</span>}
               </div>
               {hasClasses && (
                 <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
@@ -929,8 +929,8 @@ const ClassSpacePage = () => {
                     </p>
                     <div className="mt-6 grid gap-3 text-left sm:grid-cols-2">
                       {[
-                        { type: 'regular', icon: Users, title: 'I have a section code', body: 'Regular students. You get every subject of your section at once.', hex: '#0f766e' },
-                        { type: 'irregular', icon: BookOpen, title: 'I have a subject code', body: 'Irregular students. Add your subjects one at a time.', hex: '#7c3aed' },
+                        { type: 'regular', icon: Users, title: 'I have a section code', body: 'Regular students. You get every subject of your section at once.', hex: '#2563eb' },
+                        { type: 'irregular', icon: BookOpen, title: 'I have a subject code', body: 'Irregular students. Add your subjects one at a time.', hex: '#2563eb' },
                       ].map((o) => (
                         <button
                           key={o.type}

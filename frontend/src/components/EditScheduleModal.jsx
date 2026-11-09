@@ -10,9 +10,9 @@ import { ModalShell } from './modal/ModalShell';
 /* ───────────────────────── helpers ───────────────────────── */
 
 const SUBJECT_COLORS = [
-  'bg-blue-600', 'bg-purple-600', 'bg-teal-600', 'bg-rose-600',
-  'bg-orange-500', 'bg-indigo-600', 'bg-emerald-600', 'bg-pink-600',
-  'bg-cyan-600', 'bg-amber-600',
+  'bg-blue-600', 'bg-blue-600', 'bg-blue-600', 'bg-red-600',
+  'bg-orange-500', 'bg-blue-600', 'bg-emerald-600', 'bg-blue-600',
+  'bg-blue-600', 'bg-orange-600',
 ];
 
 const getSubjectColor = (code) => {
@@ -116,19 +116,19 @@ const EditScheduleModal = ({
         <div
           className={`flex flex-shrink-0 items-center gap-2 border-b px-6 py-2.5 text-sm ${
             isReady
-              ? 'border-green-100 bg-green-50 dark:border-green-800 dark:bg-green-900/20'
-              : 'border-amber-100 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20'
+              ? 'border-emerald-100 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-900/20'
+              : 'border-orange-100 bg-orange-50 dark:border-orange-800 dark:bg-orange-900/20'
           }`}
         >
           {isReady ? (
             <>
               <AnimatedCheckIcon className="h-4 w-4" color="#16a34a" />
-              <span className="font-medium text-green-700 dark:text-green-300">Ready to save</span>
+              <span className="font-medium text-emerald-700 dark:text-emerald-300">Ready to save</span>
             </>
           ) : (
             <>
-              <AlertCircle className="h-4 w-4 text-amber-600" />
-              <span className="font-medium text-amber-700 dark:text-amber-300">Assign {missing} to continue</span>
+              <AlertCircle className="h-4 w-4 text-orange-600" />
+              <span className="font-medium text-orange-700 dark:text-orange-300">Assign {missing} to continue</span>
             </>
           )}
         </div>
@@ -157,7 +157,7 @@ const EditScheduleModal = ({
                   title={homeRoomId ? 'Every class of this section is held in its home room. Change it on the Sections page.' : undefined}
                   onChange={(e) => onUpdate(scheduleId, 'room', e.target.value)}
                   className={`w-full rounded-lg border bg-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white ${
-                    schedule.room ? 'border-green-400 dark:border-green-600' : 'border-gray-300 dark:border-gray-600'
+                    schedule.room ? 'border-emerald-400 dark:border-emerald-600' : 'border-gray-300 dark:border-gray-600'
                   }`}
                 >
                   <option value="">Select a room…</option>

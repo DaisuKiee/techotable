@@ -19,9 +19,9 @@ const WEEK = [
   { day: 0, row: 0, span: 2, code: 'CC 111', room: 'COTE-28', tone: 'bg-blue-400/90' },
   { day: 1, row: 1, span: 1, code: 'GEC-RPH', room: 'COTE-01', tone: 'bg-yellow-400/90' },
   { day: 2, row: 0, span: 2, code: 'CC 112', room: 'COTE-01', tone: 'bg-emerald-400/90' },
-  { day: 3, row: 2, span: 2, code: 'CC 112 L', room: 'COTE-27', tone: 'bg-sky-400/90' },
-  { day: 0, row: 3, span: 1, code: 'GEE-TEM', room: 'COTE-01', tone: 'bg-violet-400/90' },
-  { day: 4, row: 1, span: 2, code: 'AP 1', room: 'COTE-29', tone: 'bg-rose-400/90' },
+  { day: 3, row: 2, span: 2, code: 'CC 112 L', room: 'COTE-27', tone: 'bg-blue-400/90' },
+  { day: 0, row: 3, span: 1, code: 'GEE-TEM', room: 'COTE-01', tone: 'bg-blue-400/90' },
+  { day: 4, row: 1, span: 2, code: 'AP 1', room: 'COTE-29', tone: 'bg-red-400/90' },
   { day: 2, row: 3, span: 1, code: 'PATHFR 1', room: 'COTE-01', tone: 'bg-amber-400/90' },
 ];
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
@@ -55,7 +55,7 @@ const WeekPreview = () => (
         {WEEK.map((c, i) => (
           <div
             key={c.code + c.day}
-            className={`auth-drop overflow-hidden rounded-md px-1.5 py-1 text-slate-900 shadow-sm dark:text-slate-900 ${c.tone}`}
+            className={`auth-drop overflow-hidden rounded-md px-1.5 py-1 text-gray-900 shadow-sm dark:text-gray-900 ${c.tone}`}
             style={{ gridColumn: c.day + 2, gridRow: `${c.row + 1} / span ${c.span}`, animationDelay: `${0.45 + i * 0.12}s` }}
           >
             <p className="truncate text-[10px] font-bold leading-tight">{c.code}</p>
@@ -132,7 +132,7 @@ export const AuthLayout = ({
       </div>
 
       {/* Brand panel */}
-      <div className="relative hidden flex-1 overflow-hidden bg-gradient-to-br from-blue-950 via-blue-900 to-slate-950 lg:flex">
+      <div className="relative hidden flex-1 overflow-hidden bg-gradient-to-br from-blue-950 via-blue-900 to-gray-950 lg:flex">
         <div className="absolute inset-0 bg-cover bg-center opacity-[0.12]" style={{ backgroundImage: `url(${ctuBg})` }} />
         <div className="auth-drift absolute -right-24 top-10 h-80 w-80 rounded-full bg-yellow-400/10 blur-3xl" />
         <div className="auth-drift absolute -left-16 bottom-0 h-96 w-96 rounded-full bg-blue-500/20 blur-3xl" style={{ animationDelay: '-7s' }} />

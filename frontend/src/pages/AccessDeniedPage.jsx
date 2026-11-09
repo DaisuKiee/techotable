@@ -53,14 +53,14 @@ const AccessDeniedPage = () => {
 
             {/* Error Details (if available) */}
             {errorDetails && (
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-6 mb-6">
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-6 mb-6">
                 <div className="flex items-start gap-3">
-                  <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <AlertTriangle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
                   <div className="flex-1">
-                    <h3 className="font-semibold text-amber-900 mb-2">
+                    <h3 className="font-semibold text-orange-900 mb-2">
                       Resource Details
                     </h3>
-                    <div className="space-y-2 text-sm text-amber-800">
+                    <div className="space-y-2 text-sm text-orange-800">
                       {errorDetails.resourceType && (
                         <div className="flex">
                           <span className="font-medium w-32">Resource Type:</span>

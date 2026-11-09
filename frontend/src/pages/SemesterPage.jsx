@@ -63,8 +63,8 @@ const Bone = ({ className = '' }) => <span className={`block rounded bg-gray-200
 
 const PARTS = [
   { key: 'first', semester: 1, label: '1st Semester', tone: 'border-blue-200 dark:border-blue-800/60' },
-  { key: 'second', semester: 2, label: '2nd Semester', tone: 'border-violet-200 dark:border-violet-800/60' },
-  { key: 'summer', semester: 3, label: 'Summer (optional)', tone: 'border-amber-200 dark:border-amber-800/60' },
+  { key: 'second', semester: 2, label: '2nd Semester', tone: 'border-blue-200 dark:border-blue-800/60' },
+  { key: 'summer', semester: 3, label: 'Summer (optional)', tone: 'border-orange-200 dark:border-orange-800/60' },
 ];
 
 // `program`: the program being edited. `canPickAll`: admins / scheduling office
@@ -140,7 +140,7 @@ const SchoolYearModal = ({ academicYear: initialYear, list, program, canPickAll,
     }
   };
 
-  const input = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 dark:border-gray-600 dark:bg-gray-700 dark:text-white';
+  const input = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 dark:border-gray-600 dark:bg-gray-700 dark:text-white';
   const statusOf = (semester) => preview?.semesters?.find((x) => x.semester === semester);
 
   return (
@@ -171,12 +171,12 @@ const SchoolYearModal = ({ academicYear: initialYear, list, program, canPickAll,
                 role="radio"
                 aria-checked={target === value}
                 onClick={() => setTarget(value)}
-                className={`rounded-lg border px-3 py-1.5 text-sm font-medium ${target === value ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-900/30 dark:text-indigo-200' : 'border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700'}`}
+                className={`rounded-lg border px-3 py-1.5 text-sm font-medium ${target === value ? 'border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-400 dark:bg-blue-900/30 dark:text-blue-200' : 'border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700'}`}
               >
                 {label}
               </button>
             ))}
-            {target === 'ALL' && <span className="self-center text-xs text-amber-700 dark:text-amber-300">These dates will be set for every program.</span>}
+            {target === 'ALL' && <span className="self-center text-xs text-orange-700 dark:text-orange-300">These dates will be set for every program.</span>}
           </div>
         )}
         <div className="max-w-xs">
@@ -207,7 +207,7 @@ const SchoolYearModal = ({ academicYear: initialYear, list, program, canPickAll,
                   {d.startDate && (
                     <div className="flex flex-wrap gap-1">
                       {(part.key === 'summer' ? [1.5, 2] : [4, 4.5, 5]).map((m) => (
-                        <button key={m} type="button" onClick={() => setPart(part.key, 'endDate', addMonths(d.startDate, m))} className="rounded-full border border-gray-300 px-2 py-0.5 text-[11px] font-medium text-gray-600 hover:border-indigo-400 hover:bg-indigo-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-indigo-900/30">
+                        <button key={m} type="button" onClick={() => setPart(part.key, 'endDate', addMonths(d.startDate, m))} className="rounded-full border border-gray-300 px-2 py-0.5 text-[11px] font-medium text-gray-600 hover:border-blue-400 hover:bg-blue-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-blue-900/30">
                           {m} mo
                         </button>
                       ))}
@@ -234,7 +234,7 @@ const SchoolYearModal = ({ academicYear: initialYear, list, program, canPickAll,
         </div>
 
         {preview?.startsNow && (
-          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800/60 dark:bg-amber-900/20 dark:text-amber-100">
+          <div className="rounded-xl border border-orange-200 bg-orange-50 p-4 text-sm text-orange-900 dark:border-orange-800/60 dark:bg-orange-900/20 dark:text-orange-100">
             <p className="flex items-center gap-2 font-semibold"><AlertTriangle className="h-4 w-4" /> {preview.startsNow.label} covers today, so saving starts it now</p>
             {effects && (
               <ul className="mt-2 list-disc space-y-0.5 pl-5">
@@ -245,7 +245,7 @@ const SchoolYearModal = ({ academicYear: initialYear, list, program, canPickAll,
             )}
             {needsConfirm && (
               <label className="mt-3 flex items-start gap-2">
-                <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-amber-400 text-amber-600" />
+                <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-orange-400 text-orange-600" />
                 <span>I understand and want to start it now.</span>
               </label>
             )}
@@ -477,7 +477,7 @@ const SemesterPage = () => {
                     role="tab"
                     aria-selected={program === p}
                     onClick={() => setProgram(p)}
-                    className={`rounded-full px-3 py-1 text-xs font-semibold ${program === p ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'}`}
+                    className={`rounded-full px-3 py-1 text-xs font-semibold ${program === p ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'}`}
                   >
                     {p}
                   </button>
@@ -490,7 +490,7 @@ const SemesterPage = () => {
               type="button"
               onClick={() => setModal({ academicYear: suggestYear(list || []) })}
               disabled={!list}
-              className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-60"
             >
               <Plus className="h-4 w-4" /> Set up school year
             </button>
@@ -506,7 +506,7 @@ const SemesterPage = () => {
               aria-selected={tab === id}
               onClick={() => setParams(id === 'archive' ? { tab: 'archive' } : {})}
               className={`-mb-px flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-semibold ${
-                tab === id ? 'border-indigo-600 text-indigo-700 dark:border-indigo-400 dark:text-indigo-300' : 'border-transparent text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200'
+                tab === id ? 'border-blue-600 text-blue-700 dark:border-blue-400 dark:text-blue-300' : 'border-transparent text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200'
               }`}
             >
               <Icon className="h-4 w-4" /> {label}
@@ -551,13 +551,13 @@ const SemesterPage = () => {
                 </div>
               </section>
             ) : (
-              <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5 dark:border-amber-800/60 dark:bg-amber-900/20 sm:p-6">
-                <p className="flex items-center gap-2 font-semibold text-amber-900 dark:text-amber-100"><AlertTriangle className="h-5 w-5" /> The semesters aren’t set up yet</p>
-                <p className="mt-1 text-sm text-amber-900/90 dark:text-amber-100/90">
+              <section className="rounded-2xl border border-orange-200 bg-orange-50 p-5 dark:border-orange-800/60 dark:bg-orange-900/20 sm:p-6">
+                <p className="flex items-center gap-2 font-semibold text-orange-900 dark:text-orange-100"><AlertTriangle className="h-5 w-5" /> The semesters aren’t set up yet</p>
+                <p className="mt-1 text-sm text-orange-900/90 dark:text-orange-100/90">
                   Set when the 1st and 2nd semesters of the school year start and end. The semester covering today becomes the current term, and each one after it starts on its own date.
                 </p>
                 {canManage && (
-                  <button type="button" onClick={() => setModal({ academicYear: suggestYear(list) })} className="mt-3 inline-flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700">
+                  <button type="button" onClick={() => setModal({ academicYear: suggestYear(list) })} className="mt-3 inline-flex items-center gap-2 rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700">
                     <Plus className="h-4 w-4" /> Set up school year {suggestYear(list)}
                   </button>
                 )}
@@ -579,7 +579,7 @@ const SemesterPage = () => {
                         <div className="flex items-center justify-between gap-3 border-b border-gray-100 px-4 py-3 dark:border-gray-700">
                           <p className="font-semibold text-gray-900 dark:text-white">School year {ay}</p>
                           {canManage && (
-                            <button type="button" onClick={() => setModal({ academicYear: ay })} className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-indigo-600 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-900/30">
+                            <button type="button" onClick={() => setModal({ academicYear: ay })} className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/30">
                               <Edit2 className="h-4 w-4" /> Edit dates
                             </button>
                           )}

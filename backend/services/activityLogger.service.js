@@ -115,7 +115,7 @@ async function getActivityLogs(filters = {}) {
  */
 async function getActivityStats(filters = {}) {
   try {
-    const { startDate, endDate, userId } = filters;
+    const { startDate, endDate, userId, timezone = 'UTC' } = filters;
 
     // Build base query
     const baseQuery = {};
@@ -206,7 +206,7 @@ async function getActivityStats(filters = {}) {
       {
         $group: {
           _id: {
-            $dateToString: { format: '%Y-%m-%d', date: '$createdAt' }
+            $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone }
           },
           count: { $sum: 1 }
         }
@@ -321,101 +321,89 @@ function activityLoggerMiddleware(options = {}) {
     excludePaths = ['/api/health', '/api/auth/me'] // Paths to exclude
   } = options;
 
+  // First segment after /api -> resource stored on the log
+  const RESOURCE_BY_SEGMENT = {
+    auth: 'auth', users: 'user', faculty: 'faculty', 'faculty-invites': 'faculty',
+    subjects: 'subject', rooms: 'room', schedules: 'schedule', classSpaces: 'classSpace',
+    students: 'student', sections: 'section', programs: 'program', terms: 'term',
+    notifications: 'notification', ai: 'ai', import: 'import', dashboard: 'system',
+  };
+  const OBJECT_ID = /^[a-f0-9]{24}$/i;
+
+  /** A more specific action for the requests that have one. */
+  const actionFor = (method, parts) => {
+    const [seg, ...rest] = parts;
+    const tail = rest.filter((p) => !OBJECT_ID.test(p));
+    if (seg === 'auth' && tail[0] === 'logout') return 'logout';
+    if (seg === 'auth' && (tail[0] === 'register' || tail[0] === 'signup')) return 'register';
+    if (seg === 'schedules' && tail[0] === 'publish') return 'schedule_publish';
+    if (seg === 'schedules' && (tail[0] === 'generate' || tail[0] === 'save-preview')) return 'schedule_generate';
+    if (seg === 'classSpaces' && tail[0] === 'announcements' && method === 'POST') return 'announcement_post';
+    if (seg === 'classSpaces' && tail[0] === 'materials' && method === 'POST') return 'material_upload';
+    if (tail.includes('analyze-subject-compatibility') || tail[0] === 'recommend-faculty') return 'faculty_ai_analysis';
+    // Dry runs that change nothing
+    if (tail.some((t) => ['preview', 'check-conflicts', 'available'].includes(t))) return 'read';
+    if (seg === 'import') return 'data_import';
+    if (tail[0] === 'settings') return 'settings_update';
+    if (method === 'POST') return 'create';
+    if (method === 'PUT' || method === 'PATCH') return 'update';
+    if (method === 'DELETE') return 'delete';
+    return 'read';
+  };
+
+  const resourceFor = (parts) => {
+    const [seg, ...rest] = parts;
+    if (seg === 'classSpaces' && rest.includes('announcements')) return 'announcement';
+    if (seg === 'classSpaces' && rest.includes('materials')) return 'material';
+    return RESOURCE_BY_SEGMENT[seg] || 'system';
+  };
+
   return async (req, res, next) => {
-    // Skip excluded paths
-    if (excludePaths.some(path => req.path.includes(path))) {
-      return next();
-    }
+    // Routers rewrite req.path as the request travels, so read the full URL
+    // now: by the time the response is sent req.path is router-relative
+    // ("/", "/:id"), which is why older entries lost their meaning.
+    const fullPath = (req.originalUrl || req.url || '').split('?')[0];
 
-    // Skip read operations if configured
-    if (!logReads && req.method === 'GET') {
-      return next();
-    }
+    if (excludePaths.some((path) => fullPath.startsWith(path))) return next();
+    if (!logReads && req.method === 'GET') return next();
 
-    // Capture start time
     const startTime = Date.now();
-
-    // Capture original send function
     const originalSend = res.send;
 
-    // Override send function to log after response
-    res.send = function(data) {
+    res.send = function (data) {
       const duration = Date.now() - startTime;
       const statusCode = res.statusCode;
+      const parts = fullPath.replace(/^\/api\/?/, '').split('/').filter(Boolean);
+      const resourceId = parts.find((p) => OBJECT_ID.test(p)) || null;
 
-      // Determine action from method and path
-      let action = 'read';
-      let resource = 'system';
-
-      if (req.method === 'POST') action = 'create';
-      else if (req.method === 'PUT' || req.method === 'PATCH') action = 'update';
-      else if (req.method === 'DELETE') action = 'delete';
-
-      // Extract resource from path
-      const pathParts = req.path.split('/').filter(Boolean);
-      if (pathParts.length >= 2) {
-        // pathParts[0] = 'api', pathParts[1] = resource type
-        // For paths like /api/subjects/:id/regenerate-code, use pathParts[1]
-        resource = pathParts[1]; // e.g., /api/subjects -> subjects
-
-        // Normalize plural resource names to singular to match ActivityLog enum
-        const resourceMap = {
-          'classSpaces': 'classSpace',
-          'subjects': 'subject',
-          'faculty': 'faculty',
-          'students': 'student',
-          'rooms': 'room',
-          'schedules': 'schedule',
-          'users': 'user',
-          'announcements': 'announcement',
-          'materials': 'material',
-          'sections': 'section',
-          'programs': 'program'
-        };
-
-        // Apply mapping if exists
-        if (resourceMap[resource]) {
-          resource = resourceMap[resource];
-        }
-
-        // Fallback: if resource is not in the allowed enum, default to 'system'
-        const allowedResources = [
-          'user', 'faculty', 'student', 'subject', 'room', 
-          'schedule', 'classSpace', 'announcement', 'material',
-          'system', 'auth', 'analyze-subject-compatibility', 'background-summary', 'section', 'program'
-        ];
-
-        if (!allowedResources.includes(resource)) {
-          console.warn(`Activity logger: Unknown resource '${resource}' from path '${req.path}', defaulting to 'system'`);
-          resource = 'system';
-        }
-      }
-
-      // Log activity if user is authenticated
       if (req.user) {
+        let errorMessage = null;
+        if (statusCode >= 400) {
+          try {
+            const body = typeof data === 'string' ? JSON.parse(data) : data;
+            errorMessage = body?.message ? String(body.message).slice(0, 300) : null;
+          } catch (_) { /* not JSON */ }
+        }
         logActivity({
           userId: req.user._id,
-          action,
-          resource,
-          resourceId: pathParts[2] || null,
+          action: actionFor(req.method, parts),
+          resource: resourceFor(parts),
+          resourceId,
           details: {
             method: req.method,
-            path: req.path,
-            statusCode
+            path: `/${parts.join('/')}`,
+            statusCode,
           },
-          ipAddress: req.ip || req.connection.remoteAddress,
+          ipAddress: req.ip || req.connection?.remoteAddress,
           userAgent: req.get('user-agent'),
-          status: statusCode < 400 ? 'success' : 'failure',
+          status: statusCode >= 400 ? 'failure' : statusCode >= 300 ? 'warning' : 'success',
+          errorMessage,
           duration,
-          metadata: {
-            query: req.query,
-            params: req.params
-          }
+          metadata: { query: req.query },
         });
       }
 
-      // Call original send
-      originalSend.call(this, data);
+      return originalSend.call(this, data);
     };
 
     next();

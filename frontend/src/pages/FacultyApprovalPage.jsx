@@ -235,13 +235,13 @@ const FacultyApprovalPage = () => {
               {pendingFaculty.map((faculty) => (
                 <div
                   key={faculty._id}
-                  className="bg-white dark:bg-gray-800 rounded-xl shadow-lg hover:shadow-xl transition-shadow overflow-hidden border-2 border-yellow-200 dark:border-yellow-700"
+                  className="bg-white dark:bg-gray-800 rounded-xl shadow-lg hover:shadow-xl transition-shadow overflow-hidden border-2 border-orange-200 dark:border-orange-700"
                 >
                   <div className="p-6">
                     {/* Header with Status Badge */}
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-xl flex items-center justify-center text-white text-2xl font-bold">
+                        <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-500 rounded-xl flex items-center justify-center text-white text-2xl font-bold">
                           {faculty.firstName?.charAt(0)}{faculty.lastName?.charAt(0)}
                         </div>
                         <div>
@@ -249,14 +249,14 @@ const FacultyApprovalPage = () => {
                             {faculty.fullName || `${faculty.firstName} ${faculty.lastName}`}
                           </h3>
                           <div className="flex items-center gap-2 mt-1">
-                            <Clock className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
+                            <Clock className="w-4 h-4 text-orange-600 dark:text-orange-400" />
                             <span className="text-sm text-gray-600 dark:text-gray-400">
                               Pending since: {formatDate(faculty.pendingApprovalDate)}
                             </span>
                           </div>
                         </div>
                       </div>
-                      <div className="px-4 py-2 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 rounded-lg font-semibold flex items-center gap-2">
+                      <div className="px-4 py-2 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded-lg font-semibold flex items-center gap-2">
                         <AlertCircle className="w-4 h-4" />
                         Pending Approval
                       </div>
@@ -273,7 +273,7 @@ const FacultyApprovalPage = () => {
                       </div>
 
                       <div className="flex items-start gap-3">
-                        <Building2 className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
+                        <Building2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-0.5" />
                         <div>
                           <div className="text-xs text-gray-500 dark:text-gray-400 uppercase font-medium">Department</div>
                           <div className="text-gray-900 dark:text-white font-medium">
@@ -283,7 +283,7 @@ const FacultyApprovalPage = () => {
                       </div>
 
                       <div className="flex items-start gap-3">
-                        <GraduationCap className="w-5 h-5 text-purple-600 dark:text-purple-400 flex-shrink-0 mt-0.5" />
+                        <GraduationCap className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
                         <div>
                           <div className="text-xs text-gray-500 dark:text-gray-400 uppercase font-medium">Qualification</div>
                           <div className="text-gray-900 dark:text-white font-medium">
@@ -294,7 +294,7 @@ const FacultyApprovalPage = () => {
 
                       {faculty.facultyProfile?.specialization && (
                         <div className="flex items-start gap-3">
-                          <BookOpen className="w-5 h-5 text-indigo-600 dark:text-indigo-400 flex-shrink-0 mt-0.5" />
+                          <BookOpen className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
                           <div>
                             <div className="text-xs text-gray-500 dark:text-gray-400 uppercase font-medium">Specialization</div>
                             <div className="text-gray-900 dark:text-white font-medium">
@@ -310,7 +310,7 @@ const FacultyApprovalPage = () => {
                       <button
                         onClick={() => handleApprove(faculty._id, faculty.fullName || `${faculty.firstName} ${faculty.lastName}`)}
                         disabled={actionLoading === faculty._id}
-                        className="flex-1 py-3 px-4 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-lg font-semibold flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex-1 py-3 px-4 bg-gradient-to-r from-emerald-600 to-emerald-600 hover:from-emerald-700 hover:to-emerald-700 text-white rounded-lg font-semibold flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {actionLoading === faculty._id ? (
                           <>
@@ -392,7 +392,7 @@ const FacultyApprovalPage = () => {
                       <button
                         onClick={() => handleRejectClick(faculty)}
                         disabled={actionLoading === faculty._id}
-                        className="flex-1 py-3 px-4 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white rounded-lg font-semibold flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex-1 py-3 px-4 bg-gradient-to-r from-red-600 to-red-600 hover:from-red-700 hover:to-red-700 text-white rounded-lg font-semibold flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <XCircle className="w-5 h-5" />
                         Reject Account

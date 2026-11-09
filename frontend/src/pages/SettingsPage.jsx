@@ -87,7 +87,7 @@ const Toggle = ({ checked, onChange, label, disabled }) => (
       checked ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
     }`}
   >
-    <span className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${checked ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
+    <span aria-hidden="true" className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 dark:bg-white ${checked ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
   </button>
 );
 
@@ -107,7 +107,7 @@ const SettingRow = ({ icon: Icon, title, description, checked, onChange, disable
       <div className="min-w-0">
         <h4 className={`font-medium ${disabled ? 'text-gray-400 dark:text-dark-text-muted' : 'text-gray-900 dark:text-dark-text-primary'}`}>{title}</h4>
         <p className="text-sm text-gray-500 dark:text-dark-text-muted">{description}</p>
-        {note && <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">{note}</p>}
+        {note && <p className="mt-1 text-xs text-orange-700 dark:text-orange-400">{note}</p>}
       </div>
     </div>
     <Toggle checked={!!checked} onChange={onChange} label={title} disabled={disabled} />
@@ -197,9 +197,9 @@ const passwordRules = (pw, current) => [
 const strengthMeta = [
   { label: 'Too weak', color: 'bg-red-500', text: 'text-red-600 dark:text-red-400' },
   { label: 'Weak', color: 'bg-red-500', text: 'text-red-600 dark:text-red-400' },
-  { label: 'Fair', color: 'bg-yellow-500', text: 'text-yellow-700 dark:text-yellow-400' },
+  { label: 'Fair', color: 'bg-orange-500', text: 'text-orange-700 dark:text-orange-400' },
   { label: 'Good', color: 'bg-blue-500', text: 'text-blue-600 dark:text-blue-400' },
-  { label: 'Strong', color: 'bg-green-500', text: 'text-green-600 dark:text-green-400' },
+  { label: 'Strong', color: 'bg-emerald-500', text: 'text-emerald-600 dark:text-emerald-400' },
 ];
 
 /* ---------- Page ---------- */
@@ -407,7 +407,7 @@ const SettingsPage = () => {
 
   const themeOptions = [
     { id: 'light', label: 'Light', icon: Sun, iconCls: 'text-yellow-500', preview: 'bg-white border-gray-200', bar: 'bg-gray-200' },
-    { id: 'dark', label: 'Dark', icon: Moon, iconCls: 'text-indigo-500', preview: 'bg-gray-800 border-gray-700', bar: 'bg-gray-600' },
+    { id: 'dark', label: 'Dark', icon: Moon, iconCls: 'text-blue-500', preview: 'bg-gray-800 border-gray-700', bar: 'bg-gray-600' },
     { id: 'system', label: 'Match my device', icon: Monitor, iconCls: 'text-gray-500', preview: 'bg-gradient-to-r from-white to-gray-800 border-gray-300', bar: 'bg-gray-400' },
   ];
 
@@ -432,7 +432,7 @@ const SettingsPage = () => {
       <div className="mx-auto max-w-6xl">
         {/* Header */}
         <div className="mb-8 flex items-center gap-4">
-          <div className="rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 p-3 shadow-lg shadow-blue-600/20">
+          <div className="rounded-2xl bg-gradient-to-br from-blue-600 to-blue-700 p-3 shadow-lg shadow-blue-600/20">
             <Settings className="h-8 w-8 text-white" />
           </div>
           <div>
@@ -449,7 +449,7 @@ const SettingsPage = () => {
               to="/profile"
               className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm transition hover:border-blue-200 dark:border-dark-border-subtle dark:bg-dark-card dark:hover:border-blue-800"
             >
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 font-semibold text-white">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-blue-500 to-blue-600 font-semibold text-white">
                 {avatar ? <img src={avatar} alt="" className="h-full w-full object-cover" /> : initials || 'U'}
               </div>
               <div className="min-w-0">
@@ -493,14 +493,14 @@ const SettingsPage = () => {
             {/* Account status */}
             <div className={`rounded-2xl border p-4 ${
               accountOk
-                ? 'border-green-200 bg-gradient-to-br from-green-50 to-emerald-50 dark:border-green-800 dark:from-green-900/20 dark:to-emerald-900/20'
-                : 'border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20'
+                ? 'border-emerald-200 bg-gradient-to-br from-emerald-50 to-emerald-50 dark:border-emerald-800 dark:from-emerald-900/20 dark:to-emerald-900/20'
+                : 'border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-900/20'
             }`}
             >
               <div className="mb-1.5 flex items-center gap-2">
                 {accountOk
-                  ? <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
-                  : <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400" />}
+                  ? <CheckCircle className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                  : <AlertCircle className="h-5 w-5 text-orange-600 dark:text-orange-400" />}
                 <h3 className="font-semibold text-gray-900 dark:text-dark-text-primary">
                   {accountOk ? 'Account active' : verified ? 'Account inactive' : 'Email not verified'}
                 </h3>
@@ -558,7 +558,7 @@ const SettingsPage = () => {
                           )}
                           <ul id="password-rules" className="mt-2 grid gap-1 sm:grid-cols-2">
                             {rules.map((r) => (
-                              <li key={r.label} className={`flex items-center gap-1.5 text-xs ${r.ok ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-dark-text-muted'}`}>
+                              <li key={r.label} className={`flex items-center gap-1.5 text-xs ${r.ok ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-500 dark:text-dark-text-muted'}`}>
                                 {r.ok ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5 opacity-50" />}
                                 {r.label}{r.required ? '' : ' (recommended)'}
                               </li>
@@ -574,7 +574,7 @@ const SettingsPage = () => {
                             onChange={(e) => setSecurityForm({ ...securityForm, confirmPassword: e.target.value })}
                           />
                           {passwordsMatch && (
-                            <p className="mt-1 flex items-center gap-1 text-xs text-green-600"><Check className="h-3.5 w-3.5" /> Passwords match</p>
+                            <p className="mt-1 flex items-center gap-1 text-xs text-emerald-600"><Check className="h-3.5 w-3.5" /> Passwords match</p>
                           )}
                           {passwordsMismatch && (
                             <p className="mt-1 flex items-center gap-1 text-xs text-red-600"><AlertCircle className="h-3.5 w-3.5" /> Passwords don’t match</p>
@@ -634,7 +634,7 @@ const SettingsPage = () => {
                       )}
                     </div>
                     {!sessionsTracked && (
-                      <p className="mb-3 rounded-lg bg-amber-50 p-3 text-xs text-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
+                      <p className="mb-3 rounded-lg bg-orange-50 p-3 text-xs text-orange-800 dark:bg-orange-900/20 dark:text-orange-300">
                         This browser signed in before device tracking started, so it isn’t listed. Sign out and back in to see it here.
                       </p>
                     )}
@@ -689,7 +689,7 @@ const SettingsPage = () => {
                       </button>
                     </div>
                     {failedToday > 0 && (
-                      <div className="mb-3 flex gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800/60 dark:bg-amber-900/20 dark:text-amber-200">
+                      <div className="mb-3 flex gap-3 rounded-xl border border-orange-200 bg-orange-50 p-3 text-sm text-orange-900 dark:border-orange-800/60 dark:bg-orange-900/20 dark:text-orange-200">
                         <ShieldAlert className="h-5 w-5 shrink-0" />
                         <span>
                           <strong>{failedToday} failed sign-in{failedToday === 1 ? '' : 's'}</strong> in the last 24 hours.

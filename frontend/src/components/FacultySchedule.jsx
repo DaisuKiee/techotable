@@ -44,8 +44,8 @@ const hashOf = (key) => {
 const backgroundFor = (key) => CARD_BACKGROUNDS[hashOf(key) % CARD_BACKGROUNDS.length];
 
 const BLOCK_COLORS = [
-  'bg-blue-500', 'bg-emerald-500', 'bg-purple-500', 'bg-amber-500',
-  'bg-rose-500', 'bg-cyan-500', 'bg-indigo-500', 'bg-teal-500',
+  'bg-blue-500', 'bg-emerald-500', 'bg-blue-500', 'bg-orange-500',
+  'bg-red-500', 'bg-blue-500', 'bg-blue-500', 'bg-blue-500',
 ];
 const colorFor = (key) => BLOCK_COLORS[hashOf(key) % BLOCK_COLORS.length];
 
@@ -437,8 +437,8 @@ const FacultySchedule = () => {
   if (!facultyId) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
-        <div className="w-20 h-20 bg-amber-100 dark:bg-amber-900/40 rounded-full flex items-center justify-center mb-4">
-          <AlertTriangle className="w-10 h-10 text-amber-600" />
+        <div className="w-20 h-20 bg-orange-100 dark:bg-orange-900/40 rounded-full flex items-center justify-center mb-4">
+          <AlertTriangle className="w-10 h-10 text-orange-600" />
         </div>
         <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
           No faculty profile linked
@@ -527,7 +527,7 @@ const FacultySchedule = () => {
           icon={Users}
           label={stats.sections === 1 ? 'Section' : 'Sections'}
           value={stats.sections}
-          tone="bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-300"
+          tone="bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300"
         />
         <StatTile
           icon={Clock}
@@ -539,7 +539,7 @@ const FacultySchedule = () => {
           icon={Calendar}
           label="Teaching days"
           value={stats.days}
-          tone="bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-300"
+          tone="bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-300"
         />
       </div>
 
@@ -553,8 +553,8 @@ const FacultySchedule = () => {
             </p>
             {todayInfo.current ? (
               <p className="text-sm text-gray-900 dark:text-white mt-1">
-                <span className="inline-flex items-center gap-1.5 mr-2 px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 text-xs font-semibold">
-                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" /> Now
+                <span className="inline-flex items-center gap-1.5 mr-2 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-xs font-semibold">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Now
                 </span>
                 <span className="font-semibold">{todayInfo.current.subjectCode}</span>
                 {' · '}{todayInfo.current.section}
@@ -778,7 +778,7 @@ const FacultySchedule = () => {
                           onClick={() => openMeeting(m)}
                           className={`absolute z-20 text-white rounded-lg overflow-hidden shadow-md hover:shadow-xl hover:z-30 transition-all border-2 text-left focus:outline-none focus:ring-2 focus:ring-blue-400 ${
                             isConflicted
-                              ? 'border-yellow-400 ring-2 ring-red-400/50'
+                              ? 'border-orange-400 ring-2 ring-red-400/50'
                               : 'border-white/20'
                           }`}
                           style={{
@@ -798,7 +798,7 @@ const FacultySchedule = () => {
                           <div className={`absolute inset-0 ${isConflicted ? 'bg-red-900/80' : 'bg-black/40'}`} />
                           <div className="relative z-10 h-full flex flex-col items-center justify-center text-center px-2">
                             {isConflicted && (
-                              <AlertTriangle className="absolute top-1 right-1 w-4 h-4 text-yellow-300 animate-pulse" />
+                              <AlertTriangle className="absolute top-1 right-1 w-4 h-4 text-orange-300 animate-pulse" />
                             )}
                             <div className="font-bold text-sm truncate w-full">{m.subjectCode}</div>
                             {roomy && <div className="text-xs opacity-90 truncate w-full">{m.section}</div>}
@@ -876,7 +876,7 @@ const FacultySchedule = () => {
                       isConflicted
                         ? 'border-red-300 dark:border-red-700'
                         : live
-                        ? 'border-green-300 dark:border-green-700'
+                        ? 'border-emerald-300 dark:border-emerald-700'
                         : 'border-gray-200 dark:border-gray-700'
                     }`}
                   >
@@ -889,7 +889,7 @@ const FacultySchedule = () => {
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="font-semibold text-gray-900 dark:text-white">{m.subjectCode}</h3>
                         {live && (
-                          <span className="px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 text-[11px] font-semibold">
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-[11px] font-semibold">
                             Now
                           </span>
                         )}

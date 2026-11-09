@@ -81,9 +81,9 @@ const Section = ({ icon: Icon, title, right, children, tone = 'gray' }) => {
 const InfoRow = ({ icon: Icon, label, color = 'blue', children }) => {
   const colors = {
     blue: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400',
-    purple: 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400',
-    indigo: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400',
-    amber: 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400',
+    purple: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400',
+    indigo: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400',
+    amber: 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400',
   };
   return (
     <div className="flex items-start gap-3">
@@ -109,7 +109,7 @@ const Stars = ({ value }) => (
         key={n}
         className={`w-4 h-4 ${
           n <= Math.round(value)
-            ? 'text-amber-400 fill-amber-400'
+            ? 'text-orange-400 fill-orange-400'
             : 'text-gray-300 dark:text-gray-600'
         }`}
       />
@@ -121,8 +121,8 @@ const DegreeCard = ({ badge, degree, color }) => {
   if (!degree?.degree) return null;
   const colors = {
     blue: 'border-blue-500 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400',
-    purple: 'border-purple-500 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400',
-    green: 'border-green-500 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400',
+    purple: 'border-blue-500 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400',
+    green: 'border-emerald-500 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400',
   };
   const [border, ...badgeClasses] = colors[color].split(' ');
   return (
@@ -247,7 +247,7 @@ const FacultyDetailsModal = ({ faculty: listFaculty, onClose, onEdit }) => {
     currentLoad > maxLoad + LOAD_ALLOWANCE
       ? { label: 'Overload', text: 'text-red-600 dark:text-red-400', bar: 'bg-red-500', chip: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' }
       : currentLoad > maxLoad
-      ? { label: 'Near limit', text: 'text-amber-600 dark:text-amber-400', bar: 'bg-amber-500', chip: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300' }
+      ? { label: 'Near limit', text: 'text-orange-600 dark:text-orange-400', bar: 'bg-orange-500', chip: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300' }
       : { label: 'Normal', text: 'text-emerald-600 dark:text-emerald-400', bar: 'bg-emerald-500', chip: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' };
   // The schema field is `specializations`; this read `specialization`, so the
   // section never showed
@@ -297,7 +297,7 @@ const FacultyDetailsModal = ({ faculty: listFaculty, onClose, onEdit }) => {
     // Read-only, so no "discard changes?" (its search box is just a filter)
     <ModalShell onClose={onClose} size="xl" labelledBy="faculty-modal-title" guardDirty={false} focusFirstField={false}>
         {/* Header */}
-        <div className="relative flex-shrink-0 bg-gradient-to-r from-blue-600 to-indigo-700 px-5 py-5 sm:rounded-t-2xl sm:px-6">
+        <div className="relative flex-shrink-0 bg-gradient-to-r from-blue-600 to-blue-700 px-5 py-5 sm:rounded-t-2xl sm:px-6">
           <button
             type="button"
             onClick={onClose}
@@ -344,7 +344,7 @@ const FacultyDetailsModal = ({ faculty: listFaculty, onClose, onEdit }) => {
                   {faculty.employmentType || 'Regular'}
                 </span>
                 {faculty.administrativeDesignation && (
-                  <span className="rounded-full bg-amber-300 px-2.5 py-0.5 text-xs font-semibold text-amber-950">
+                  <span className="rounded-full bg-orange-300 px-2.5 py-0.5 text-xs font-semibold text-orange-950">
                     {faculty.administrativeDesignation}
                   </span>
                 )}
@@ -390,7 +390,7 @@ const FacultyDetailsModal = ({ faculty: listFaculty, onClose, onEdit }) => {
         <div className="flex-1 space-y-4 overflow-y-auto bg-gray-50 p-4 dark:bg-gray-900/60 sm:p-6" role="tabpanel">
           {/* ================= OVERVIEW ================= */}
           {detailState === 'error' && (
-            <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-800/60 dark:bg-amber-900/20 dark:text-amber-200">
+            <div className="flex items-center gap-2 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-sm text-orange-900 dark:border-orange-800/60 dark:bg-orange-900/20 dark:text-orange-200">
               <AlertTriangle className="h-4 w-4 flex-shrink-0" />
               Couldn’t load the full profile. Showing the summary from the list.
             </div>
@@ -402,7 +402,7 @@ const FacultyDetailsModal = ({ faculty: listFaculty, onClose, onEdit }) => {
                 <StatCard icon={BookOpen} tone="purple" value={subjectExperience.length} unit="different subjects taught" label="Subjects" />
                 <StatCard
                   icon={Star}
-                  tone="amber"
+                  tone="blue"
                   value={overallRating ? overallRating.toFixed(1) : '—'}
                   unit={overallRating ? 'average out of 5' : 'no ratings yet'}
                   label="Rating"
@@ -490,7 +490,7 @@ const FacultyDetailsModal = ({ faculty: listFaculty, onClose, onEdit }) => {
                             title="Copy email"
                           >
                             {copied ? (
-                              <Check className="w-3.5 h-3.5 text-green-600" />
+                              <Check className="w-3.5 h-3.5 text-emerald-600" />
                             ) : (
                               <Copy className="w-3.5 h-3.5 text-gray-500" />
                             )}
@@ -527,7 +527,7 @@ const FacultyDetailsModal = ({ faculty: listFaculty, onClose, onEdit }) => {
                     {formatDate(faculty.user?.lastLogin, true) || <Missing>{detailState === 'loading' ? 'Loading…' : 'Never signed in'}</Missing>}
                   </InfoRow>
                   {faculty.administrativeDesignation && (
-                    <InfoRow icon={Award} label="Administrative Role" color="amber">
+                    <InfoRow icon={Award} label="Administrative Role" color="blue">
                       {faculty.administrativeDesignation}
                     </InfoRow>
                   )}
@@ -541,7 +541,7 @@ const FacultyDetailsModal = ({ faculty: listFaculty, onClose, onEdit }) => {
                       <p className="mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">Qualified to teach in</p>
                       <div className="flex flex-wrap gap-1.5">
                         {programs.map((p) => (
-                          <span key={p} className="rounded-md bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300">{p}</span>
+                          <span key={p} className="rounded-md bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-900/50 dark:text-blue-300">{p}</span>
                         ))}
                       </div>
                     </div>
@@ -551,7 +551,7 @@ const FacultyDetailsModal = ({ faculty: listFaculty, onClose, onEdit }) => {
                       <p className="mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">Specializations</p>
                       <div className="flex flex-wrap gap-1.5">
                         {specializations.map((spec) => (
-                          <span key={spec} className="rounded-md bg-purple-100 px-2 py-0.5 text-xs font-semibold text-purple-800 dark:bg-purple-900/40 dark:text-purple-300">{spec}</span>
+                          <span key={spec} className="rounded-md bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-800 dark:bg-blue-900/40 dark:text-blue-300">{spec}</span>
                         ))}
                       </div>
                     </div>
@@ -589,7 +589,7 @@ const FacultyDetailsModal = ({ faculty: listFaculty, onClose, onEdit }) => {
                   icon={Award}
                   title="Qualifications"
                   right={
-                    <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">
+                    <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
                       {faculty.qualifications.length} on record
                     </span>
                   }
@@ -632,7 +632,7 @@ const FacultyDetailsModal = ({ faculty: listFaculty, onClose, onEdit }) => {
                     </InfoRow>
                   ))}
                   {!hasDegrees && (
-                    <InfoRow icon={Award} label="Special training & certifications" color="amber">
+                    <InfoRow icon={Award} label="Special training & certifications" color="blue">
                       {faculty.specialTraining ? <span className="whitespace-pre-line">{faculty.specialTraining}</span> : <Missing>None recorded</Missing>}
                     </InfoRow>
                   )}
@@ -664,11 +664,11 @@ const FacultyDetailsModal = ({ faculty: listFaculty, onClose, onEdit }) => {
                     <span className="px-3 py-1 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
                       {subjectExperience.length} subjects · {totalSemesters} semesters taught
                     </span>
-                    <span className="px-3 py-1 rounded-full bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">
+                    <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
                       {activeRecently} taught recently
                     </span>
                     {staleCount > 0 && (
-                      <span className="px-3 py-1 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+                      <span className="px-3 py-1 rounded-full bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300">
                         {staleCount} need refresher
                       </span>
                     )}
@@ -704,7 +704,7 @@ const FacultyDetailsModal = ({ faculty: listFaculty, onClose, onEdit }) => {
                         onClick={() => setOnlyStale((v) => !v)}
                         className={`px-3 py-2 text-sm font-semibold rounded-lg border transition-colors ${
                           onlyStale
-                            ? 'bg-amber-500 text-white border-amber-500'
+                            ? 'bg-orange-500 text-white border-orange-500'
                             : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                         }`}
                       >
@@ -728,10 +728,10 @@ const FacultyDetailsModal = ({ faculty: listFaculty, onClose, onEdit }) => {
                         const recent = s.lastTaughtYearsAgo <= 1;
                         const isTop3 = sortBy === 'experience' && !query && !onlyStale && index < 3;
                         const tone = s.isStale
-                          ? { card: 'bg-amber-50/60 border-amber-300 dark:bg-amber-900/10 dark:border-amber-700/50', bar: 'from-amber-400 to-orange-500', txt: 'text-amber-700 dark:text-amber-400' }
+                          ? { card: 'bg-orange-50/60 border-orange-300 dark:bg-orange-900/10 dark:border-orange-700/50', bar: 'from-orange-400 to-orange-500', txt: 'text-orange-700 dark:text-orange-400' }
                           : recent
-                          ? { card: 'bg-green-50/60 border-green-300 dark:bg-green-900/10 dark:border-green-700/50', bar: 'from-green-400 to-emerald-500', txt: 'text-green-700 dark:text-green-400' }
-                          : { card: 'bg-white/60 border-gray-300 dark:bg-gray-800/30 dark:border-gray-600', bar: 'from-blue-400 to-indigo-500', txt: 'text-gray-600 dark:text-gray-400' };
+                          ? { card: 'bg-emerald-50/60 border-emerald-300 dark:bg-emerald-900/10 dark:border-emerald-700/50', bar: 'from-emerald-400 to-emerald-500', txt: 'text-emerald-700 dark:text-emerald-400' }
+                          : { card: 'bg-white/60 border-gray-300 dark:bg-gray-800/30 dark:border-gray-600', bar: 'from-blue-400 to-blue-500', txt: 'text-gray-600 dark:text-gray-400' };
 
                         return (
                           <div
@@ -745,7 +745,7 @@ const FacultyDetailsModal = ({ faculty: listFaculty, onClose, onEdit }) => {
                                 <div
                                   className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${
                                     isTop3
-                                      ? 'bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-md'
+                                      ? 'bg-gradient-to-br from-orange-400 to-orange-500 text-white shadow-md'
                                       : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
                                   }`}
                                 >
@@ -757,7 +757,7 @@ const FacultyDetailsModal = ({ faculty: listFaculty, onClose, onEdit }) => {
                                       {s.subjectCode || s.subjectName}
                                     </p>
                                     {s.program && (
-                                      <span className="px-2 py-0.5 text-xs font-semibold rounded bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300">
+                                      <span className="px-2 py-0.5 text-xs font-semibold rounded bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300">
                                         {s.program}
                                       </span>
                                     )}
@@ -804,8 +804,8 @@ const FacultyDetailsModal = ({ faculty: listFaculty, onClose, onEdit }) => {
                                   </div>
                                 ) : null}
                                 {s.selfRating ? (
-                                  <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800 dark:bg-amber-900/30 dark:text-amber-300" title="The teacher's own rating of how well they teach this subject">
-                                    <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                                  <span className="inline-flex items-center gap-1 rounded-md bg-orange-50 px-2 py-0.5 text-xs font-semibold text-orange-800 dark:bg-orange-900/30 dark:text-orange-300" title="The teacher's own rating of how well they teach this subject">
+                                    <Star className="h-3.5 w-3.5 fill-orange-400 text-orange-400" />
                                     Self-rated {s.selfRating}/5
                                   </span>
                                 ) : null}
@@ -821,9 +821,9 @@ const FacultyDetailsModal = ({ faculty: listFaculty, onClose, onEdit }) => {
                                     : `Taught ${describeRecency(o.yearsAgo)}`}
                                   className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-semibold ${
                                     o.yearsAgo === 0
-                                      ? 'bg-green-600 text-white shadow-sm'
+                                      ? 'bg-emerald-600 text-white shadow-sm'
                                       : o.yearsAgo === 1
-                                      ? 'bg-green-200 text-green-900 dark:bg-green-800 dark:text-green-100'
+                                      ? 'bg-emerald-200 text-emerald-900 dark:bg-emerald-800 dark:text-emerald-100'
                                       : o.yearsAgo >= STALE_AFTER_YEARS
                                       ? 'bg-gray-300 text-gray-700 dark:bg-gray-700 dark:text-gray-400'
                                       : 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300'
@@ -842,9 +842,9 @@ const FacultyDetailsModal = ({ faculty: listFaculty, onClose, onEdit }) => {
                             </div>
 
                             {s.isStale && (
-                              <div className="mt-3 flex items-center gap-2 px-3 py-2 bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700 rounded-lg">
-                                <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />
-                                <p className="text-xs text-amber-800 dark:text-amber-300 font-medium">
+                              <div className="mt-3 flex items-center gap-2 px-3 py-2 bg-orange-100 dark:bg-orange-900/30 border border-orange-300 dark:border-orange-700 rounded-lg">
+                                <AlertTriangle className="w-4 h-4 text-orange-600 flex-shrink-0" />
+                                <p className="text-xs text-orange-800 dark:text-orange-300 font-medium">
                                   Last taught {s.lastTaughtYearsAgo} years ago — may need a refresher
                                 </p>
                               </div>
@@ -872,9 +872,9 @@ const FacultyDetailsModal = ({ faculty: listFaculty, onClose, onEdit }) => {
                   <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
                     <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">Legend</p>
                     <div className="flex flex-wrap gap-4 text-xs text-gray-600 dark:text-gray-400">
-                      <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-green-500" />Recent (0–1 yr)</span>
+                      <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-emerald-500" />Recent (0–1 yr)</span>
                       <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-blue-500" />2–{STALE_AFTER_YEARS - 1} yrs ago</span>
-                      <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-amber-500" />Stale ({STALE_AFTER_YEARS}+ yrs)</span>
+                      <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-orange-500" />Stale ({STALE_AFTER_YEARS}+ yrs)</span>
                     </div>
                   </div>
                 </>

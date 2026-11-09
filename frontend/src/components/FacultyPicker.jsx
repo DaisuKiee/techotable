@@ -57,7 +57,7 @@ const matchTone = (pct) =>
   pct >= 70
     ? { bar: 'bg-emerald-500', text: 'text-emerald-700 dark:text-emerald-300', bg: 'bg-emerald-50 dark:bg-emerald-900/30' }
     : pct >= 40
-    ? { bar: 'bg-amber-500', text: 'text-amber-700 dark:text-amber-300', bg: 'bg-amber-50 dark:bg-amber-900/30' }
+    ? { bar: 'bg-orange-500', text: 'text-orange-700 dark:text-orange-300', bg: 'bg-orange-50 dark:bg-orange-900/30' }
     : { bar: 'bg-gray-400', text: 'text-gray-600 dark:text-gray-300', bg: 'bg-gray-100 dark:bg-gray-700' };
 
 /* ───────────────────────── faculty picker ───────────────────────── */
@@ -158,7 +158,7 @@ const FacultyPicker = ({
       hint={hint}
       aside={
         loadingScores ? (
-          <span className="flex items-center gap-1 text-xs text-purple-600">
+          <span className="flex items-center gap-1 text-xs text-blue-600">
             <Loader className="h-3 w-3 animate-spin" /> Ranking…
           </span>
         ) : (
@@ -167,7 +167,7 @@ const FacultyPicker = ({
             side="bottom"
             align="end"
           >
-            <button type="button" aria-label="How ranking works" className="rounded-full p-1 text-gray-400 hover:text-purple-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500">
+            <button type="button" aria-label="How ranking works" className="rounded-full p-1 text-gray-400 hover:text-blue-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
               <Info className="h-4 w-4" />
             </button>
           </Tip>
@@ -223,7 +223,7 @@ const FacultyPicker = ({
                     </span>
                     {topPick && (
                       <Tip text={`Top ${score.rank} recommendation for this subject`} className="flex-shrink-0">
-                        <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                        <Star className="h-3.5 w-3.5 fill-orange-400 text-orange-400" />
                       </Tip>
                     )}
                   </span>
@@ -257,7 +257,7 @@ const FacultyPicker = ({
         </p>
       )}
       {rankingNote && !loadingScores && (
-        <p className="mt-3 flex items-start gap-1.5 rounded-lg bg-purple-50 px-3 py-2 text-xs text-purple-700 dark:bg-purple-900/20 dark:text-purple-300">
+        <p className="mt-3 flex items-start gap-1.5 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-700 dark:bg-blue-900/20 dark:text-blue-300">
           <Sparkles className="mt-0.5 h-3 w-3 flex-shrink-0" />
           <span>{rankingNote}</span>
         </p>

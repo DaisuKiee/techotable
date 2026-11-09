@@ -28,9 +28,9 @@ const fmtTime = (t) => {
 };
 
 const SUBJECT_COLORS = [
-  'bg-blue-600', 'bg-purple-600', 'bg-teal-600', 'bg-rose-600',
-  'bg-orange-500', 'bg-indigo-600', 'bg-emerald-600', 'bg-pink-600',
-  'bg-cyan-600', 'bg-amber-600'
+  'bg-blue-600', 'bg-blue-600', 'bg-blue-600', 'bg-red-600',
+  'bg-orange-500', 'bg-blue-600', 'bg-emerald-600', 'bg-blue-600',
+  'bg-blue-600', 'bg-orange-600'
 ];
 
 const getSubjectColor = (subjectCode) => {
@@ -224,7 +224,7 @@ const FacultyDragDrop = ({ filters, onAssignmentChange }) => {
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-semibold transition-colors disabled:opacity-60"
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition-colors disabled:opacity-60"
               >
                 {saving
                   ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -251,11 +251,11 @@ const FacultyDragDrop = ({ filters, onAssignmentChange }) => {
           Assigned
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded bg-amber-100 border border-amber-400" />
+          <div className="w-3 h-3 rounded bg-orange-100 border border-orange-400" />
           Pending save
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded bg-green-100 border-2 border-green-400" />
+          <div className="w-3 h-3 rounded bg-emerald-100 border-2 border-emerald-400" />
           Drop target
         </div>
         <div className="flex items-center gap-1.5">
@@ -321,8 +321,8 @@ const FacultyDragDrop = ({ filters, onAssignmentChange }) => {
                     </div>
                     <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ${
                       load >= 6 ? 'bg-red-100 text-red-700' :
-                      load >= 3 ? 'bg-amber-100 text-amber-700' :
-                      'bg-green-100 text-green-700'
+                      load >= 3 ? 'bg-orange-100 text-orange-700' :
+                      'bg-emerald-100 text-emerald-700'
                     }`}>
                       {load}
                     </span>
@@ -370,7 +370,7 @@ const FacultyDragDrop = ({ filters, onAssignmentChange }) => {
                         <tr key={slot}>
                           <td
                             colSpan={DAYS.length + 1}
-                            className="px-3 py-1.5 text-center text-xs font-semibold text-amber-700 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-300 border-b border-gray-200 dark:border-gray-600"
+                            className="px-3 py-1.5 text-center text-xs font-semibold text-orange-700 bg-orange-50 dark:bg-orange-900/20 dark:text-orange-300 border-b border-gray-200 dark:border-gray-600"
                           >
                             🍽 Lunch Break — 12:00 PM – 1:00 PM
                           </td>
@@ -410,7 +410,7 @@ const FacultyDragDrop = ({ filters, onAssignmentChange }) => {
                               onDrop={e => handleDrop(e, day, slot)}
                               className={`px-1.5 py-1.5 border-b border-r border-gray-100 dark:border-gray-700 last:border-r-0 align-top transition-colors ${
                                 isHovered && !isEmpty
-                                  ? 'bg-green-50 dark:bg-green-900/20 ring-2 ring-inset ring-green-400'
+                                  ? 'bg-emerald-50 dark:bg-emerald-900/20 ring-2 ring-inset ring-emerald-400'
                                   : isHovered && isEmpty
                                   ? 'bg-gray-100 dark:bg-gray-700'
                                   : isDragging && !isEmpty
@@ -439,7 +439,7 @@ const FacultyDragDrop = ({ filters, onAssignmentChange }) => {
                                     <div
                                       key={i}
                                       className={`rounded-lg overflow-hidden mb-1 last:mb-0 ${
-                                        isPending ? 'ring-2 ring-amber-400' : ''
+                                        isPending ? 'ring-2 ring-orange-400' : ''
                                       }`}
                                     >
                                       {/* Colored top bar */}
@@ -449,7 +449,7 @@ const FacultyDragDrop = ({ filters, onAssignmentChange }) => {
                                       {/* Faculty name */}
                                       <div className={`px-2 py-1 text-[10px] ${
                                         isPending
-                                          ? 'bg-amber-50 dark:bg-amber-900/20'
+                                          ? 'bg-orange-50 dark:bg-orange-900/20'
                                           : 'bg-blue-50 dark:bg-blue-900/10'
                                       }`}>
                                         {facultyName ? (
@@ -463,7 +463,7 @@ const FacultyDragDrop = ({ filters, onAssignmentChange }) => {
                                           {sched.section} · {sched.room || 'TBA'}
                                         </p>
                                         {isPending && (
-                                          <p className="text-amber-600 font-semibold mt-0.5">● Pending</p>
+                                          <p className="text-orange-600 font-semibold mt-0.5">● Pending</p>
                                         )}
                                       </div>
                                     </div>
@@ -483,26 +483,26 @@ const FacultyDragDrop = ({ filters, onAssignmentChange }) => {
 
           {/* Pending changes summary */}
           {pendingChanges.length > 0 && (
-            <div className="mt-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-2xl p-4">
+            <div className="mt-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-2xl p-4">
               <div className="flex items-center gap-2 mb-3">
-                <AlertCircle className="w-4 h-4 text-amber-600" />
-                <span className="text-sm font-bold text-amber-900 dark:text-amber-100">
+                <AlertCircle className="w-4 h-4 text-orange-600" />
+                <span className="text-sm font-bold text-orange-900 dark:text-orange-100">
                   {pendingChanges.length} unsaved assignment{pendingChanges.length > 1 ? 's' : ''}
                 </span>
               </div>
               <div className="space-y-1.5">
                 {pendingChanges.map((c, i) => (
                   <div key={i} className="flex items-center gap-2 text-sm">
-                    <BookOpen className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
-                    <span className="text-amber-800 dark:text-amber-200">
+                    <BookOpen className="w-3.5 h-3.5 text-orange-600 flex-shrink-0" />
+                    <span className="text-orange-800 dark:text-orange-200">
                       <span className="font-semibold">{c.subject}</span>
-                      <span className="text-amber-600"> · {c.day} {c.time}</span>
-                      <span className="text-amber-800"> → </span>
+                      <span className="text-orange-600"> · {c.day} {c.time}</span>
+                      <span className="text-orange-800"> → </span>
                       <span className="font-semibold">{c.facultyName}</span>
                     </span>
                     <button
                       onClick={() => setPendingChanges(prev => prev.filter((_, idx) => idx !== i))}
-                      className="ml-auto text-amber-500 hover:text-amber-700 transition-colors"
+                      className="ml-auto text-orange-500 hover:text-orange-700 transition-colors"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
@@ -512,14 +512,14 @@ const FacultyDragDrop = ({ filters, onAssignmentChange }) => {
               <div className="flex gap-2 mt-3">
                 <button
                   onClick={handleDiscard}
-                  className="px-4 py-2 text-sm border border-amber-300 text-amber-700 rounded-lg hover:bg-amber-100 transition-colors font-medium"
+                  className="px-4 py-2 text-sm border border-orange-300 text-orange-700 rounded-lg hover:bg-orange-100 transition-colors font-medium"
                 >
                   Discard all
                 </button>
                 <button
                   onClick={handleSave}
                   disabled={saving}
-                  className="px-4 py-2 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-semibold disabled:opacity-60 flex items-center gap-2"
+                  className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-semibold disabled:opacity-60 flex items-center gap-2"
                 >
                   {saving
                     ? <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />

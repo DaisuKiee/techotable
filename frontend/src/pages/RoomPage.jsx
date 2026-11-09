@@ -55,8 +55,8 @@ const RoomCard = ({ room, canManage, onOpen, onEdit, onDeactivate, onRestore }) 
       role="button" tabIndex={0} onClick={() => onOpen(room)}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(room); } }}
       aria-label={`${room.roomCode}, ${room.roomType}, ${room.capacity} seats${inactive ? ', deactivated' : ''}`}
-      className={`group flex cursor-pointer flex-col rounded-xl border bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:bg-gray-800 ${
-        inactive ? 'border-dashed border-gray-300 opacity-75 dark:border-gray-600' : 'border-gray-200 hover:border-indigo-300 dark:border-gray-700 dark:hover:border-indigo-700'}`}
+      className={`group flex cursor-pointer flex-col rounded-xl border bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:bg-gray-800 ${
+        inactive ? 'border-dashed border-gray-300 opacity-75 dark:border-gray-600' : 'border-gray-200 hover:border-blue-300 dark:border-gray-700 dark:hover:border-blue-700'}`}
     >
       <div className="flex items-start gap-3">
         <span className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg ${meta.tile}`}><Icon className="h-5 w-5" /></span>
@@ -73,8 +73,8 @@ const RoomCard = ({ room, canManage, onOpen, onEdit, onDeactivate, onRestore }) 
         <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${meta.chip}`}>{room.roomType}</span>
         {inactive && <span className="rounded-full bg-gray-200 px-2 py-0.5 text-[11px] font-semibold text-gray-700 dark:bg-gray-700 dark:text-gray-300">Deactivated</span>}
         {room.usage?.overCapacity && <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-semibold text-red-700 dark:bg-red-900/40 dark:text-red-300"><AlertTriangle className="h-3 w-3" /> Over capacity</span>}
-        {blocked > 0 && <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-300"><CalendarX className="h-3 w-3" /> {blocked} blocked</span>}
-        {home.length > 0 && <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300" title={`Home room of ${home.join(', ')}`}><Home className="h-3 w-3" /> {home.length === 1 ? home[0] : `${home.length} sections`}</span>}
+        {blocked > 0 && <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-semibold text-orange-800 dark:bg-orange-900/40 dark:text-orange-300"><CalendarX className="h-3 w-3" /> {blocked} blocked</span>}
+        {home.length > 0 && <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" title={`Home room of ${home.join(', ')}`}><Home className="h-3 w-3" /> {home.length === 1 ? home[0] : `${home.length} sections`}</span>}
       </div>
 
       {!!room.facilities?.length && (
@@ -87,7 +87,7 @@ const RoomCard = ({ room, canManage, onOpen, onEdit, onDeactivate, onRestore }) 
 
       {canManage && (
         <div className="mt-3 flex items-center gap-1 border-t border-gray-100 pt-2 opacity-100 transition-opacity dark:border-gray-700 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
-          <button type="button" onClick={stop(onEdit)} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-900/30"><Pencil className="h-3.5 w-3.5" /> Edit</button>
+          <button type="button" onClick={stop(onEdit)} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/30"><Pencil className="h-3.5 w-3.5" /> Edit</button>
           {inactive ? (
             <button type="button" onClick={stop(onRestore)} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/30"><RotateCcw className="h-3.5 w-3.5" /> Restore</button>
           ) : (
@@ -255,12 +255,12 @@ const RoomPage = () => {
               </button>
               <button type="button" onClick={() => setFinderOpen((v) => !v)} aria-pressed={finderOpen}
                 className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${finderOpen
-                  ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-500 dark:bg-indigo-900/40 dark:text-indigo-200'
+                  ? 'border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-500 dark:bg-blue-900/40 dark:text-blue-200'
                   : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700'}`}>
                 <SearchCheck className="h-5 w-5" /><span className="hidden sm:inline">Find a free room</span>
               </button>
               {canManage && (
-                <button type="button" onClick={openCreate} className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-white shadow-md transition-colors hover:bg-indigo-700 hover:shadow-lg">
+                <button type="button" onClick={openCreate} className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white shadow-md transition-colors hover:bg-blue-700 hover:shadow-lg">
                   <Plus className="h-5 w-5" /><span className="hidden sm:inline">Add Room</span>
                 </button>
               )}
@@ -271,11 +271,11 @@ const RoomPage = () => {
           </p>
           {term && (
             <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800">
-              <Gauge className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+              <Gauge className="h-4 w-4 text-blue-600 dark:text-blue-400" />
               <label htmlFor="room-term" className="text-gray-600 dark:text-gray-400">Usage for</label>
               <select id="room-term" value={`${term.academicYear}|${term.semester}`}
                 onChange={(e) => { const [academicYear, semester] = e.target.value.split('|'); setPickedTerm({ academicYear, semester: Number(semester) }); }}
-                className="rounded-md border border-gray-300 bg-white py-1 pl-2 pr-7 text-sm font-semibold text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
+                className="rounded-md border border-gray-300 bg-white py-1 pl-2 pr-7 text-sm font-semibold text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
                 {termOptions.map((t) => (
                   <option key={`${t.academicYear}|${t.semester}`} value={`${t.academicYear}|${t.semester}`}>
                     {t.label}{t.classes ? ` (${t.classes} classes)` : ' (no classes yet)'}
@@ -317,7 +317,7 @@ const RoomPage = () => {
               <Search className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
               <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search rooms"
                 placeholder="Search code, name, feature or section…"
-                className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-10 transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white" />
+                className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-10 transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white" />
               {search && (
                 <button type="button" onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" title="Clear search"><X className="h-4 w-4" /></button>
               )}
@@ -326,7 +326,7 @@ const RoomPage = () => {
               <div className="flex overflow-hidden rounded-lg border border-gray-300 text-sm dark:border-gray-600" role="group" aria-label="Status">
                 {[['active', `Active ${stats.active}`], ['inactive', `Deactivated ${stats.inactive}`], ['all', 'All']].map(([key, label], i) => (
                   <button key={key} type="button" onClick={() => setStatus(key)} aria-pressed={status === key}
-                    className={`px-3 py-2 font-medium transition-colors ${i ? 'border-l border-gray-300 dark:border-gray-600' : ''} ${status === key ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'}`}>
+                    className={`px-3 py-2 font-medium transition-colors ${i ? 'border-l border-gray-300 dark:border-gray-600' : ''} ${status === key ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'}`}>
                     {label}
                   </button>
                 ))}
@@ -350,15 +350,15 @@ const RoomPage = () => {
                 </select>
               </label>
               <div className="flex overflow-hidden rounded-lg border border-gray-300 dark:border-gray-600" role="group" aria-label="View">
-                <button type="button" onClick={() => setView('grid')} aria-pressed={view === 'grid'} title="Cards" className={`px-3 py-2 transition-colors ${view === 'grid' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600'}`}><Grid3x3 className="h-5 w-5" /></button>
-                <button type="button" onClick={() => setView('list')} aria-pressed={view === 'list'} title="Table" className={`border-l border-gray-300 px-3 py-2 transition-colors dark:border-gray-600 ${view === 'list' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600'}`}><List className="h-5 w-5" /></button>
+                <button type="button" onClick={() => setView('grid')} aria-pressed={view === 'grid'} title="Cards" className={`px-3 py-2 transition-colors ${view === 'grid' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600'}`}><Grid3x3 className="h-5 w-5" /></button>
+                <button type="button" onClick={() => setView('list')} aria-pressed={view === 'list'} title="Table" className={`border-l border-gray-300 px-3 py-2 transition-colors dark:border-gray-600 ${view === 'list' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600'}`}><List className="h-5 w-5" /></button>
               </div>
             </div>
           </div>
           {anyFilter && (
             <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-gray-200 pt-3 text-sm dark:border-gray-700">
               <span className="text-gray-600 dark:text-gray-400">Showing {filtered.length} of {rooms.length}</span>
-              <button type="button" onClick={clearFilters} className="text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400">Reset filters</button>
+              <button type="button" onClick={clearFilters} className="text-xs font-medium text-blue-600 hover:underline dark:text-blue-400">Reset filters</button>
             </div>
           )}
         </div>
@@ -377,7 +377,7 @@ const RoomPage = () => {
             <h3 className="mb-1 text-lg font-semibold text-gray-900 dark:text-white">{rooms.length === 0 ? 'No rooms yet' : 'No rooms match'}</h3>
             <p className="mb-5 text-sm text-gray-600 dark:text-gray-400">{rooms.length === 0 ? 'Add the classrooms and labs the generator can use.' : 'Try another search or reset the filters.'}</p>
             {rooms.length === 0 && canManage ? (
-              <button type="button" onClick={openCreate} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 font-medium text-white hover:bg-indigo-700"><Plus className="h-5 w-5" /> Add the first room</button>
+              <button type="button" onClick={openCreate} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 font-medium text-white hover:bg-blue-700"><Plus className="h-5 w-5" /> Add the first room</button>
             ) : (
               <button type="button" onClick={clearFilters} className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Reset filters</button>
             )}
@@ -387,7 +387,7 @@ const RoomPage = () => {
             {groups.map((g) => (
               <section key={g.name} aria-label={g.name}>
                 <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-gray-900 dark:text-white">
-                  <Building className="h-5 w-5 text-indigo-600 dark:text-indigo-400" /> {g.name}
+                  <Building className="h-5 w-5 text-blue-600 dark:text-blue-400" /> {g.name}
                   <span className="text-sm font-normal text-gray-500 dark:text-gray-400">· {g.count} room{g.count === 1 ? '' : 's'}</span>
                 </h2>
                 <div className="space-y-5">
@@ -426,7 +426,7 @@ const RoomPage = () => {
                     return (
                       <tr key={room._id} onClick={() => setDetails(room)} className={`cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50 ${inactive ? 'opacity-60' : ''}`}>
                         <td className="whitespace-nowrap px-4 py-3">
-                          <button type="button" onClick={(e) => { e.stopPropagation(); setDetails(room); }} className="flex items-center gap-2.5 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
+                          <button type="button" onClick={(e) => { e.stopPropagation(); setDetails(room); }} className="flex items-center gap-2.5 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
                             <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${meta.tile}`}><Icon className="h-4 w-4" /></span>
                             <span>
                               <span className="block font-mono font-semibold text-gray-900 dark:text-white">{room.roomCode}</span>
@@ -442,14 +442,14 @@ const RoomPage = () => {
                           <div className="flex flex-wrap gap-1">
                             {inactive && <span className="rounded-full bg-gray-200 px-2 py-0.5 text-[11px] font-semibold text-gray-700 dark:bg-gray-700 dark:text-gray-300">Deactivated</span>}
                             {room.usage?.overCapacity && <span className="rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-semibold text-red-700 dark:bg-red-900/40 dark:text-red-300">Over capacity</span>}
-                            {room.unavailableTimeSlots?.length > 0 && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">{room.unavailableTimeSlots.length} blocked</span>}
-                            {room.usage?.homeSections?.length > 0 && <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">Home: {room.usage.homeSections.join(', ')}</span>}
+                            {room.unavailableTimeSlots?.length > 0 && <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-semibold text-orange-800 dark:bg-orange-900/40 dark:text-orange-300">{room.unavailableTimeSlots.length} blocked</span>}
+                            {room.usage?.homeSections?.length > 0 && <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">Home: {room.usage.homeSections.join(', ')}</span>}
                           </div>
                         </td>
                         {canManage && (
                           <td className="whitespace-nowrap px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                             <div className="flex justify-end gap-1">
-                              <button type="button" onClick={() => openEdit(room)} className="rounded-lg p-2 text-indigo-600 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-900/30" title={`Edit ${room.roomCode}`}><Pencil className="h-4 w-4" /></button>
+                              <button type="button" onClick={() => openEdit(room)} className="rounded-lg p-2 text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/30" title={`Edit ${room.roomCode}`}><Pencil className="h-4 w-4" /></button>
                               <button type="button" onClick={() => openDuplicate(room)} className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700" title={`Duplicate ${room.roomCode}`}><Copy className="h-4 w-4" /></button>
                               {inactive ? (
                                 <button type="button" onClick={() => restore(room)} className="rounded-lg p-2 text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/30" title={`Restore ${room.roomCode}`}><RotateCcw className="h-4 w-4" /></button>

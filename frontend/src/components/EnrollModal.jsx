@@ -91,13 +91,13 @@ const EnrollModal = ({ studentType = 'regular', onClose }) => {
       <ModalBody>
           {result?.success ? (
             <div className="space-y-4">
-              <div className="flex items-start gap-3 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl">
+              <div className="flex items-start gap-3 p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl">
                 <AnimatedCheckIcon className="w-6 h-6" color="#16a34a" />
                 <div>
-                  <p className="font-bold text-green-900 dark:text-green-100">
+                  <p className="font-bold text-emerald-900 dark:text-emerald-100">
                     {result.joined === 'subject' ? 'Subject joined' : 'Enrolled in section'}
                   </p>
-                  <p className="text-sm text-green-700 dark:text-green-300 mt-0.5">
+                  <p className="text-sm text-emerald-700 dark:text-emerald-300 mt-0.5">
                     {result.message}
                   </p>
                 </div>
@@ -170,7 +170,7 @@ const EnrollModal = ({ studentType = 'regular', onClose }) => {
                       )}
                     </div>
                     {result.data?.classCount === 0 && (
-                      <p className="text-xs text-amber-700 dark:text-amber-400">
+                      <p className="text-xs text-orange-700 dark:text-orange-400">
                         No subjects are scheduled for this section yet. They will appear here
                         once your program manager publishes the timetable.
                       </p>

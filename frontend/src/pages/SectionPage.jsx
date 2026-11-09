@@ -33,7 +33,7 @@ const fillPct = (s) =>
   s?.maxStudents ? Math.min(100, Math.round(((s.currentStudents || 0) / s.maxStudents) * 100)) : 0;
 
 const fillBarColor = (pct) =>
-  pct >= 90 ? 'bg-red-600' : pct >= 70 ? 'bg-yellow-500' : 'bg-green-600';
+  pct >= 90 ? 'bg-red-600' : pct >= 70 ? 'bg-orange-500' : 'bg-emerald-600';
 
 const adviserNameOf = (s) =>
   s?.adviser?.user ? `${s.adviser.user.firstName || ''} ${s.adviser.user.lastName || ''}`.trim() : '';
@@ -101,10 +101,10 @@ const downloadCsv = (filename, rows) => {
 };
 
 const Chip = ({ children, onRemove }) => (
-  <span className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 text-xs rounded-md">
+  <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 text-xs rounded-md">
     {children}
     <X
-      className="w-3 h-3 cursor-pointer hover:text-indigo-900 dark:hover:text-indigo-100"
+      className="w-3 h-3 cursor-pointer hover:text-blue-900 dark:hover:text-blue-100"
       onClick={onRemove}
     />
   </span>
@@ -113,10 +113,10 @@ const Chip = ({ children, onRemove }) => (
 const ShiftBadge = ({ shift, solid = false }) => {
   const day = shift === 'Day';
   const cls = solid
-    ? day ? 'bg-amber-600 text-white' : 'bg-indigo-600 text-white'
+    ? day ? 'bg-yellow-400 text-yellow-950' : 'bg-blue-600 text-white'
     : day
     ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300'
-    : 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300';
+    : 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300';
   return (
     <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${solid ? 'shadow-sm' : ''} ${cls}`}>
       {day ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
@@ -198,7 +198,7 @@ const SectionStudentsPanel = ({ section, onClose, onEdit, onCopyCode }) => {
     // Read-only roster: its search box shouldn't trigger "discard changes?"
     <ModalShell variant="drawer" size="sm" onClose={onClose} label={`Section ${section.sectionCode}`} guardDirty={false} focusFirstField={false}>
         {/* Header */}
-        <div className="p-5 bg-gradient-to-br from-indigo-600 to-blue-600 text-white">
+        <div className="p-5 bg-gradient-to-br from-blue-600 to-blue-600 text-white">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="text-xs opacity-80">
@@ -254,7 +254,7 @@ const SectionStudentsPanel = ({ section, onClose, onEdit, onCopyCode }) => {
         <div className="p-4 border-b border-gray-200 dark:border-gray-700 space-y-3">
           <div className="flex items-center justify-between gap-2">
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-              <Users className="w-4 h-4 text-indigo-600" />
+              <Users className="w-4 h-4 text-blue-600" />
               Enrolled students
               {!loading && !error && (
                 <span className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-xs text-gray-700 dark:text-gray-300">
@@ -288,7 +288,7 @@ const SectionStudentsPanel = ({ section, onClose, onEdit, onCopyCode }) => {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search by name, student ID or email..."
-              className="w-full pl-9 pr-9 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full pl-9 pr-9 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             {query && (
               <button
@@ -322,7 +322,7 @@ const SectionStudentsPanel = ({ section, onClose, onEdit, onCopyCode }) => {
               <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">{error}</p>
               <button
                 onClick={load}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
               >
                 <RefreshCw className="w-4 h-4" /> Try again
               </button>
@@ -349,11 +349,11 @@ const SectionStudentsPanel = ({ section, onClose, onEdit, onCopyCode }) => {
                     className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/60 transition-colors"
                   >
                     <span className="w-6 text-right text-xs text-gray-400 flex-shrink-0">{i + 1}</span>
-                    <div className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center bg-indigo-100 dark:bg-indigo-900/50 flex-shrink-0">
+                    <div className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center bg-blue-100 dark:bg-blue-900/50 flex-shrink-0">
                       {src ? (
                         <img src={src} alt="" className="w-full h-full object-cover" />
                       ) : (
-                        <span className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">
+                        <span className="text-sm font-semibold text-blue-700 dark:text-blue-300">
                           {(s.firstName[0] || '?')}{s.lastName[0] || ''}
                         </span>
                       )}
@@ -367,7 +367,7 @@ const SectionStudentsPanel = ({ section, onClose, onEdit, onCopyCode }) => {
                       </p>
                     </div>
                     {s.irregular && (
-                      <span className="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300 flex-shrink-0">
+                      <span className="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 flex-shrink-0">
                         IRREGULAR
                       </span>
                     )}
@@ -382,7 +382,7 @@ const SectionStudentsPanel = ({ section, onClose, onEdit, onCopyCode }) => {
         <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex gap-2">
           <button
             onClick={() => onEdit(section)}
-            className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors font-medium"
+            className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium"
           >
             <Edit2 className="w-4 h-4" />
             Edit section
@@ -671,7 +671,7 @@ const SectionPage = () => {
   const toggleShift = (shift) => setFilterShift((cur) => (cur === shift ? '' : shift));
 
   const selectClass =
-    'px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm transition-all';
+    'px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm transition-all';
 
   const stop = (fn) => (e) => {
     e.stopPropagation();
@@ -708,7 +708,7 @@ const SectionPage = () => {
               </button>
               <button
                 onClick={() => setShowModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors shadow-md hover:shadow-lg"
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-md hover:shadow-lg"
               >
                 <Plus className="w-5 h-5" />
                 <span className="hidden sm:inline">Add Section</span>
@@ -720,7 +720,7 @@ const SectionPage = () => {
           </p>
           <CurrentTermBar />
           {!loading && homeless.length > 0 && (
-            <div className="mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-800/60 dark:bg-amber-900/20 dark:text-amber-100">
+            <div className="mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-sm text-orange-900 dark:border-orange-800/60 dark:bg-orange-900/20 dark:text-orange-100">
               <DoorOpen className="h-4 w-4 flex-shrink-0" />
               <span className="flex-1">
                 <strong>{homeless.length} section{homeless.length === 1 ? ' has' : 's have'} no home room:</strong>{' '}
@@ -731,7 +731,7 @@ const SectionPage = () => {
                 type="button"
                 onClick={assignHomeRooms}
                 disabled={assigningRooms}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-60"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-orange-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-orange-700 disabled:opacity-60"
               >
                 <RefreshCw className={`h-3.5 w-3.5 ${assigningRooms ? 'animate-spin' : ''}`} />
                 {assigningRooms ? 'Assigning…' : 'Assign home rooms'}
@@ -744,13 +744,13 @@ const SectionPage = () => {
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4 mb-6">
           <StatCard icon={BookOpen} label="Total" value={stats.total} hint="Sections" tone="indigo" onClick={clearFilters} title="Show all sections" />
 
-          <StatCard icon={Sun} label="Day" value={stats.day} hint="Day shift · click to filter" tone="amber" active={filterShift === 'Day'} onClick={() => toggleShift('Day')} title="Filter Day shift" />
+          <StatCard icon={Sun} label="Day" value={stats.day} hint="Day shift · click to filter" tone="yellow" active={filterShift === 'Day'} onClick={() => toggleShift('Day')} title="Filter Day shift" />
 
           <StatCard icon={Moon} label="Night" value={stats.night} hint="Night shift · click to filter" tone="blue" active={filterShift === 'Night'} onClick={() => toggleShift('Night')} title="Filter Night shift" />
 
-          <StatCard icon={Users} label="Students" value={stats.totalStudents} hint="Total Enrolled" tone="emerald" />
+          <StatCard icon={Users} label="Students" value={stats.totalStudents} hint="Total Enrolled" tone="blue" />
 
-          <StatCard icon={TrendingUp} label="Capacity" value={<>{stats.averageCapacity}%</>} hint="Avg. Filled" tone="orange" className="col-span-2 md:col-span-1" />
+          <StatCard icon={TrendingUp} label="Capacity" value={<>{stats.averageCapacity}%</>} hint="Avg. Filled" tone="blue" className="col-span-2 md:col-span-1" />
         </div>
 
         {/* Search and Filters */}
@@ -764,7 +764,7 @@ const SectionPage = () => {
                 placeholder="Search by section code, program, adviser or enrollment code..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white transition-all"
+                className="w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white transition-all"
               />
               {searchTerm && (
                 <button
@@ -834,7 +834,7 @@ const SectionPage = () => {
                   onClick={() => setViewMode('grid')}
                   className={`px-3 py-2 transition-colors ${
                     viewMode === 'grid'
-                      ? 'bg-indigo-600 text-white'
+                      ? 'bg-blue-600 text-white'
                       : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600'
                   }`}
                   title="Grid View"
@@ -845,7 +845,7 @@ const SectionPage = () => {
                   onClick={() => setViewMode('list')}
                   className={`px-3 py-2 border-l border-gray-300 dark:border-gray-600 transition-colors ${
                     viewMode === 'list'
-                      ? 'bg-indigo-600 text-white'
+                      ? 'bg-blue-600 text-white'
                       : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600'
                   }`}
                   title="List View"
@@ -889,7 +889,7 @@ const SectionPage = () => {
             <p className="text-gray-600 dark:text-gray-400 mb-6">Check your connection and try again.</p>
             <button
               onClick={refresh}
-              className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors inline-flex items-center gap-2 text-sm font-medium"
+              className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors inline-flex items-center gap-2 text-sm font-medium"
             >
               <RefreshCw className="w-4 h-4" /> Retry
             </button>
@@ -909,7 +909,7 @@ const SectionPage = () => {
             {sections.length === 0 ? (
               <button
                 onClick={() => setShowModal(true)}
-                className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors inline-flex items-center gap-2"
+                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors inline-flex items-center gap-2"
               >
                 <Plus className="w-5 h-5" />
                 Create First Section
@@ -936,7 +936,7 @@ const SectionPage = () => {
                   onClick={() => openStudents(section)}
                   onKeyDown={cardKeyDown(section)}
                   title="Click to see enrolled students"
-                  className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 hover:shadow-xl hover:border-indigo-300 dark:hover:border-indigo-700 transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 flex flex-col"
+                  className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 hover:shadow-xl hover:border-blue-300 dark:hover:border-blue-700 transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 flex flex-col"
                 >
                   {/* Section Header */}
                   <div className="flex items-start justify-between gap-3 mb-4">
@@ -953,14 +953,14 @@ const SectionPage = () => {
                       {/* Enrollment Code Badge */}
                       {section.enrollmentCode ? (
                         <div className="mt-2 flex items-center gap-2">
-                          <div className="bg-green-100 dark:bg-green-900 border border-green-300 dark:border-green-700 rounded-lg px-3 py-1.5">
-                            <p className="text-xs text-green-700 dark:text-green-300 font-medium">Enrollment Code:</p>
-                            <p className="text-lg font-bold text-green-900 dark:text-green-100 font-mono tracking-wider">{section.enrollmentCode}</p>
+                          <div className="bg-gray-50 dark:bg-gray-900/40 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5">
+                            <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Enrollment Code:</p>
+                            <p className="text-lg font-bold text-gray-900 dark:text-white font-mono tracking-wider">{section.enrollmentCode}</p>
                           </div>
                           <div className="flex flex-col gap-1">
                             <button
                               onClick={stop(() => handleCopyCode(section.enrollmentCode))}
-                              className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900 rounded-lg transition-colors"
+                              className="p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white rounded-lg transition-colors"
                               title="Copy Code"
                             >
                               <Copy className="w-4 h-4" />
@@ -1026,8 +1026,8 @@ const SectionPage = () => {
                     )}
 
                     <div className="flex items-center gap-2 text-sm">
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${section.homeRoom?.isActive !== false && section.homeRoom ? 'bg-indigo-100 dark:bg-indigo-900' : 'bg-amber-100 dark:bg-amber-900/50'}`}>
-                        <DoorOpen className={`w-3.5 h-3.5 ${section.homeRoom?.isActive !== false && section.homeRoom ? 'text-indigo-600 dark:text-indigo-400' : 'text-amber-600 dark:text-amber-400'}`} />
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${section.homeRoom?.isActive !== false && section.homeRoom ? 'bg-blue-100 dark:bg-blue-900' : 'bg-orange-100 dark:bg-orange-900/50'}`}>
+                        <DoorOpen className={`w-3.5 h-3.5 ${section.homeRoom?.isActive !== false && section.homeRoom ? 'text-blue-600 dark:text-blue-400' : 'text-orange-600 dark:text-orange-400'}`} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-gray-600 dark:text-gray-400 text-xs">Home Room</p>
@@ -1035,18 +1035,18 @@ const SectionPage = () => {
                           <p className="font-medium text-gray-900 dark:text-white truncate">
                             {section.homeRoom.roomCode}
                             <span className="text-xs font-normal text-gray-500 dark:text-gray-400"> · {section.homeRoom.capacity} seats</span>
-                            {section.homeRoom.isActive === false && <span className="text-xs font-semibold text-amber-600"> · deactivated</span>}
+                            {section.homeRoom.isActive === false && <span className="text-xs font-semibold text-orange-600"> · deactivated</span>}
                             {section.homeRoom.capacity < section.maxStudents && <span className="text-xs font-semibold text-red-600 dark:text-red-400"> · too small</span>}
                           </p>
                         ) : (
-                          <p className="font-medium text-amber-700 dark:text-amber-400">Not assigned</p>
+                          <p className="font-medium text-orange-700 dark:text-orange-400">Not assigned</p>
                         )}
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2 text-sm">
-                      <div className="w-6 h-6 bg-orange-100 dark:bg-orange-900 rounded-full flex items-center justify-center flex-shrink-0">
-                        <Calendar className="w-3.5 h-3.5 text-orange-600 dark:text-orange-400" />
+                      <div className="w-6 h-6 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center flex-shrink-0">
+                        <Calendar className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
                       </div>
                       <div className="flex-1">
                         <p className="text-gray-600 dark:text-gray-400 text-xs">Academic Period</p>
@@ -1061,14 +1061,14 @@ const SectionPage = () => {
                   <div className="flex gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
                     <button
                       onClick={stop(() => openStudents(section))}
-                      className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2.5 text-sm bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 rounded-lg transition-colors font-medium"
+                      className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2.5 text-sm bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50 rounded-lg transition-colors font-medium"
                     >
                       <Users className="w-4 h-4" />
                       Students
                     </button>
                     <button
                       onClick={stop(() => handleEdit(section))}
-                      className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2.5 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all shadow-sm hover:shadow-md font-medium"
+                      className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all shadow-sm hover:shadow-md font-medium"
                     >
                       <Edit2 className="w-4 h-4" />
                       Edit
@@ -1122,7 +1122,7 @@ const SectionPage = () => {
                               <span className="block font-semibold text-gray-900 dark:text-white">
                                 {section.sectionCode}
                               </span>
-                              <span className={`flex items-center gap-1 text-xs ${section.homeRoom && section.homeRoom.isActive !== false ? 'text-gray-500 dark:text-gray-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                              <span className={`flex items-center gap-1 text-xs ${section.homeRoom && section.homeRoom.isActive !== false ? 'text-gray-500 dark:text-gray-400' : 'text-orange-600 dark:text-orange-400'}`}>
                                 <DoorOpen className="w-3 h-3" />
                                 {section.homeRoom ? section.homeRoom.roomCode : 'No home room'}
                               </span>
@@ -1168,7 +1168,7 @@ const SectionPage = () => {
                           {section.enrollmentCode ? (
                             <button
                               onClick={stop(() => handleCopyCode(section.enrollmentCode))}
-                              className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-200 font-mono text-xs tracking-wider hover:bg-green-200 dark:hover:bg-green-900/60 transition-colors"
+                              className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-gray-100 dark:bg-gray-700/60 text-gray-800 dark:text-gray-200 font-mono text-xs tracking-wider hover:bg-emerald-200 dark:hover:bg-emerald-900/60 transition-colors"
                               title="Copy enrollment code"
                             >
                               {section.enrollmentCode}
@@ -1182,14 +1182,14 @@ const SectionPage = () => {
                           <div className="flex items-center justify-end gap-1">
                             <button
                               onClick={stop(() => openStudents(section))}
-                              className="p-2 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900 rounded-lg transition-colors"
+                              className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900 rounded-lg transition-colors"
                               title="View students"
                             >
                               <Users className="w-4 h-4" />
                             </button>
                             <button
                               onClick={stop(() => handleEdit(section))}
-                              className="p-2 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900 rounded-lg transition-colors"
+                              className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900 rounded-lg transition-colors"
                               title="Edit"
                             >
                               <Edit2 className="w-4 h-4" />

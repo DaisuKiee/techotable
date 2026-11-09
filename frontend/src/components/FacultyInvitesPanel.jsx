@@ -26,7 +26,7 @@ const STATUS = {
   active: { label: 'Active', cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' },
   expired: { label: 'Expired', cls: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300' },
   revoked: { label: 'Cancelled', cls: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' },
-  used_up: { label: 'Limit reached', cls: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300' },
+  used_up: { label: 'Limit reached', cls: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300' },
 };
 
 /** <input type="datetime-local"> value for a Date, in local time. */
@@ -138,7 +138,7 @@ const FacultyInvitesPanel = ({ programs = [], lockedProgram = '', onClose }) => 
 
   return (
     <section className="mb-6 overflow-hidden rounded-xl border border-blue-200 bg-white shadow-sm dark:border-blue-900/50 dark:bg-gray-800" aria-label="Faculty invite links">
-      <div className="flex items-start justify-between gap-3 bg-gradient-to-r from-blue-600 to-indigo-600 px-5 py-4 text-white">
+      <div className="flex items-start justify-between gap-3 bg-gradient-to-r from-blue-600 to-blue-600 px-5 py-4 text-white">
         <div className="flex items-center gap-3">
           <div className="rounded-lg bg-white/20 p-2"><LinkIcon className="h-5 w-5" /></div>
           <div>
@@ -158,7 +158,7 @@ const FacultyInvitesPanel = ({ programs = [], lockedProgram = '', onClose }) => 
         <div className="lg:col-span-3">
           <label htmlFor="invite-program" className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Program</label>
           {lockedProgram ? (
-            <p className="rounded-lg bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">{lockedProgram}</p>
+            <p className="rounded-lg bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">{lockedProgram}</p>
           ) : (
             <select id="invite-program" value={program} onChange={(e) => setProgram(e.target.value)} className={inputCls} required>
               <option value="">Choose a program…</option>
@@ -252,7 +252,7 @@ const FacultyInvitesPanel = ({ programs = [], lockedProgram = '', onClose }) => 
                   className={`rounded-lg border p-4 ${justCreated === inv.code ? 'border-blue-400 ring-2 ring-blue-200 dark:ring-blue-900' : 'border-gray-200 dark:border-gray-700'} ${active ? '' : 'opacity-70'}`}
                 >
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded-md bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300">{inv.program}</span>
+                    <span className="rounded-md bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-900/50 dark:text-blue-300">{inv.program}</span>
                     <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${status.cls}`}>{status.label}</span>
                     {inv.note && <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{inv.note}</span>}
                     {justCreated === inv.code && <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">New: copied to clipboard</span>}

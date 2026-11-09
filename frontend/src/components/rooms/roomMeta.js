@@ -10,14 +10,14 @@ export const MAX_CAPACITY = 500;
 export const TYPE_META = {
   'Lecture Room': {
     icon: DoorOpen,
-    chip: 'bg-slate-100 text-slate-700 dark:bg-slate-700/60 dark:text-slate-200',
-    tile: 'bg-slate-100 text-slate-600 dark:bg-slate-700/60 dark:text-slate-300',
+    chip: 'bg-gray-100 text-gray-700 dark:bg-gray-700/60 dark:text-gray-200',
+    tile: 'bg-gray-100 text-gray-600 dark:bg-gray-700/60 dark:text-gray-300',
     hint: 'Regular classes and lecture hours',
   },
   Laboratory: {
     icon: FlaskConical,
-    chip: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',
-    tile: 'bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-300',
+    chip: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
+    tile: 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300',
     hint: 'Science labs, for lab subjects'
   },
   'Computer Lab': {
@@ -34,8 +34,8 @@ export const TYPE_META = {
   },
   Auditorium: {
     icon: Theater,
-    chip: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300',
-    tile: 'bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-300',
+    chip: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
+    tile: 'bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-300',
     hint: 'Large combined classes and events',
   },
   'Conference Room': {
@@ -76,7 +76,7 @@ export const fmtRange = (a, b) => `${fmtTime(a)} – ${fmtTime(b)}`;
 export const usageTone = (pct) => {
   if (!pct) return { bar: 'bg-gray-300 dark:bg-gray-600', text: 'text-gray-500 dark:text-gray-400', label: 'Not used' };
   if (pct < 50) return { bar: 'bg-emerald-500', text: 'text-emerald-700 dark:text-emerald-400', label: 'Light use' };
-  if (pct < 80) return { bar: 'bg-amber-500', text: 'text-amber-700 dark:text-amber-400', label: 'Busy' };
+  if (pct < 80) return { bar: 'bg-orange-500', text: 'text-orange-700 dark:text-orange-400', label: 'Busy' };
   return { bar: 'bg-red-500', text: 'text-red-700 dark:text-red-400', label: 'Nearly full' };
 };
 

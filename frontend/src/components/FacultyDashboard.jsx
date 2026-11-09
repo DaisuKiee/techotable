@@ -40,7 +40,7 @@ const ProfilePrompt = ({ user, faculty }) => {
   const facultyItems = items.filter((i) => !['photo', 'phone', 'bio'].includes(i.id) && !i.recommended);
 
   return (
-    <section className="rounded-xl border border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 p-5 dark:border-blue-900/50 dark:from-blue-900/20 dark:to-indigo-900/20" aria-label="Complete your profile">
+    <section className="rounded-xl border border-blue-200 bg-gradient-to-r from-blue-50 to-blue-50 p-5 dark:border-blue-900/50 dark:from-blue-900/20 dark:to-blue-900/20" aria-label="Complete your profile">
       <div className="flex flex-wrap items-start gap-4">
         <div className="relative flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full bg-white shadow-sm dark:bg-gray-800">
           <svg viewBox="0 0 36 36" className="absolute inset-0 h-14 w-14 -rotate-90">
@@ -240,7 +240,7 @@ const FacultyDashboard = ({ user }) => {
 
   const LOAD_STYLE = {
     normal: { label: 'Within your load', Icon: CheckCircle2, bar: 'bg-emerald-500', text: 'text-emerald-700 dark:text-emerald-300' },
-    warning: { label: 'Near your limit', Icon: AlertTriangle, bar: 'bg-amber-500', text: 'text-amber-700 dark:text-amber-300' },
+    warning: { label: 'Near your limit', Icon: AlertTriangle, bar: 'bg-orange-500', text: 'text-orange-700 dark:text-orange-300' },
     overload: { label: 'Overloaded', Icon: AlertCircle, bar: 'bg-red-500', text: 'text-red-700 dark:text-red-300' },
   }[load_.key];
 
@@ -293,8 +293,8 @@ const FacultyDashboard = ({ user }) => {
     return (
       <div className="space-y-5">
         {header}
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-center dark:border-amber-800/60 dark:bg-amber-900/20 sm:p-8">
-          <AlertTriangle className="mx-auto h-10 w-10 text-amber-500" />
+        <div className="rounded-xl border border-orange-200 bg-orange-50 p-6 text-center dark:border-orange-800/60 dark:bg-orange-900/20 sm:p-8">
+          <AlertTriangle className="mx-auto h-10 w-10 text-orange-500" />
           <p className="mt-3 font-semibold text-gray-900 dark:text-white">Your account isn’t linked to a faculty profile</p>
           <p className="mx-auto mt-1 max-w-md text-sm text-gray-600 dark:text-gray-400">
             Ask the scheduling office to link your account. Until then you won’t see classes or a timetable here.
@@ -357,8 +357,8 @@ const FacultyDashboard = ({ user }) => {
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
         <StatCard icon={CalendarDays} label="Today" value={today.length} hint={today.length ? `${fmtSpan(Math.round(totals.todayHours * 60))} of teaching` : 'no classes today'} tone="blue" />
-        <StatCard icon={Clock} label="Weekly load" value={hours(load_.total)} hint={`of ${load_.max}h max`} tone={load_.key === 'normal' ? 'violet' : load_.key === 'warning' ? 'amber' : 'red'} />
-        <StatCard icon={BookOpen} label="Classes" value={classes.length} hint={`${totals.sections} section${totals.sections === 1 ? '' : 's'} · ${totals.units} units`} tone="emerald" />
+        <StatCard icon={Clock} label="Weekly load" value={hours(load_.total)} hint={`of ${load_.max}h max`} tone={load_.key === 'normal' ? 'emerald' : load_.key === 'warning' ? 'amber' : 'red'} />
+        <StatCard icon={BookOpen} label="Classes" value={classes.length} hint={`${totals.sections} section${totals.sections === 1 ? '' : 's'} · ${totals.units} units`} tone="blue" />
         <StatCard icon={Users} label="Students" value={totals.students} hint="across your classes" tone="sky" />
       </div>
 
@@ -434,7 +434,7 @@ const FacultyDashboard = ({ user }) => {
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="font-semibold text-gray-900 dark:text-white">{m.cs.subject?.subjectCode}</p>
-                          <span className="rounded-md bg-indigo-50 px-1.5 py-0.5 text-xs font-semibold text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">{m.cs.sectionCode}</span>
+                          <span className="rounded-md bg-blue-50 px-1.5 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">{m.cs.sectionCode}</span>
                           {state === 'done' && <span className="text-xs text-gray-500 dark:text-gray-400">Done</span>}
                           {state === 'now' && <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300">Now</span>}
                         </div>
@@ -525,7 +525,7 @@ const FacultyDashboard = ({ user }) => {
                   >
                     <div className="flex items-start justify-between gap-2">
                       <p className="font-semibold text-gray-900 dark:text-white">{cs.subject?.subjectCode}</p>
-                      <span className="flex-shrink-0 rounded-md bg-indigo-50 px-1.5 py-0.5 text-xs font-semibold text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">{cs.sectionCode}</span>
+                      <span className="flex-shrink-0 rounded-md bg-blue-50 px-1.5 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">{cs.sectionCode}</span>
                     </div>
                     <p className="line-clamp-1 text-sm text-gray-600 dark:text-gray-300">{cs.subject?.subjectName}</p>
                     <p className="mt-2 flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">

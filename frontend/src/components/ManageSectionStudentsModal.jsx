@@ -108,7 +108,7 @@ const ManageSectionStudentsModal = ({ section, onClose, onSuccess }) => {
               {/* Assigned Students Section */}
               <div>
                 <div className="flex items-center gap-2 mb-3">
-                  <CheckCircle className="w-5 h-5 text-green-600" />
+                  <CheckCircle className="w-5 h-5 text-emerald-600" />
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                     Assigned Students ({assignedStudents.length})
                   </h3>
@@ -123,7 +123,7 @@ const ManageSectionStudentsModal = ({ section, onClose, onSuccess }) => {
                     {assignedStudents.map(student => (
                       <div
                         key={student._id}
-                        className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4"
+                        className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg p-4"
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
@@ -134,7 +134,7 @@ const ManageSectionStudentsModal = ({ section, onClose, onSuccess }) => {
                                 className="w-10 h-10 rounded-full object-cover"
                               />
                             ) : (
-                              <div className="w-10 h-10 bg-green-600 rounded-full flex items-center justify-center">
+                              <div className="w-10 h-10 bg-emerald-600 rounded-full flex items-center justify-center">
                                 <span className="text-white font-semibold text-sm">
                                   {student.user?.firstName?.[0]}{student.user?.lastName?.[0]}
                                 </span>
@@ -149,7 +149,7 @@ const ManageSectionStudentsModal = ({ section, onClose, onSuccess }) => {
                               </p>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
+                          <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300">
                             <CheckCircle className="w-5 h-5" />
                             <span className="text-sm font-medium">Assigned</span>
                           </div>

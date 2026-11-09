@@ -86,13 +86,13 @@ const ShiftSelectionModal = ({ user, onShiftSelected }) => {
               </p>
               <div className="space-y-2 text-sm text-gray-600">
                 <p className="flex items-center justify-center">
-                  <span className="text-green-600 mr-2">✓</span> Regular daytime schedule
+                  <span className="text-emerald-600 mr-2">✓</span> Regular daytime schedule
                 </p>
                 <p className="flex items-center justify-center">
-                  <span className="text-green-600 mr-2">✓</span> More course options
+                  <span className="text-emerald-600 mr-2">✓</span> More course options
                 </p>
                 <p className="flex items-center justify-center">
-                  <span className="text-green-600 mr-2">✓</span> Active campus life
+                  <span className="text-emerald-600 mr-2">✓</span> Active campus life
                 </p>
               </div>
             </div>
@@ -103,19 +103,19 @@ const ShiftSelectionModal = ({ user, onShiftSelected }) => {
             onClick={() => setSelectedShift('Night')}
             className={`relative p-8 rounded-2xl border-4 transition-all duration-300 transform hover:scale-102 ${
               selectedShift === 'Night'
-                ? 'border-indigo-500 bg-gradient-to-br from-indigo-50 to-indigo-100 shadow-2xl scale-102'
-                : 'border-gray-200 bg-white hover:border-indigo-300 hover:shadow-xl'
+                ? 'border-blue-500 bg-gradient-to-br from-blue-50 to-blue-100 shadow-2xl scale-102'
+                : 'border-gray-200 bg-white hover:border-blue-300 hover:shadow-xl'
             }`}
           >
             {selectedShift === 'Night' && (
               <div className="absolute top-4 right-4">
-                <CheckCircle className="text-indigo-600" size={32} fill="currentColor" />
+                <CheckCircle className="text-blue-600" size={32} fill="currentColor" />
               </div>
             )}
             <div className="flex flex-col items-center">
               <div className={`w-24 h-24 rounded-full flex items-center justify-center mb-5 transition-all duration-300 ${
                 selectedShift === 'Night' 
-                  ? 'bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-lg' 
+                  ? 'bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg' 
                   : 'bg-gradient-to-br from-gray-200 to-gray-300'
               }`}>
                 <Moon 
@@ -127,18 +127,18 @@ const ShiftSelectionModal = ({ user, onShiftSelected }) => {
               <p className="text-gray-600 text-center mb-3 text-sm">
                 Evening classes for working students
               </p>
-              <p className="text-indigo-600 font-bold text-xl mb-4">
+              <p className="text-blue-600 font-bold text-xl mb-4">
                 4:00 PM - 10:00 PM
               </p>
               <div className="space-y-2 text-sm text-gray-600">
                 <p className="flex items-center justify-center">
-                  <span className="text-green-600 mr-2">✓</span> Work during the day
+                  <span className="text-emerald-600 mr-2">✓</span> Work during the day
                 </p>
                 <p className="flex items-center justify-center">
-                  <span className="text-green-600 mr-2">✓</span> Evening schedule
+                  <span className="text-emerald-600 mr-2">✓</span> Evening schedule
                 </p>
                 <p className="flex items-center justify-center">
-                  <span className="text-green-600 mr-2">✓</span> Flexible learning
+                  <span className="text-emerald-600 mr-2">✓</span> Flexible learning
                 </p>
               </div>
             </div>
@@ -146,8 +146,8 @@ const ShiftSelectionModal = ({ user, onShiftSelected }) => {
         </div>
 
         {/* Info Message */}
-        <div className="bg-gradient-to-r from-yellow-50 to-amber-50 border-2 border-yellow-300 rounded-xl p-4 mb-6">
-          <p className="text-sm text-yellow-900 text-center">
+        <div className="bg-gradient-to-r from-orange-50 to-orange-50 border-2 border-orange-300 rounded-xl p-4 mb-6">
+          <p className="text-sm text-orange-900 text-center">
             <span className="font-semibold">💡 Note:</span> You can change your shift later from your profile settings if needed.
           </p>
         </div>

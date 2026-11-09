@@ -144,14 +144,14 @@ const TagInput = ({ id, label, items, onAdd, onRemove, placeholder }) => {
           {items.map((item, index) => (
             <li
               key={`${item}-${index}`}
-              className="inline-flex items-center gap-1 rounded-md bg-purple-50 py-1 pl-3 pr-1 text-sm font-medium text-purple-800 dark:bg-purple-900/30 dark:text-purple-200"
+              className="inline-flex items-center gap-1 rounded-md bg-blue-50 py-1 pl-3 pr-1 text-sm font-medium text-blue-800 dark:bg-blue-900/30 dark:text-blue-200"
             >
               {item}
               <button
                 type="button"
                 onClick={() => onRemove(index)}
                 aria-label={`Remove ${item}`}
-                className="rounded p-1 text-purple-500 transition hover:bg-purple-100 hover:text-purple-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:hover:bg-purple-800/50 dark:hover:text-white"
+                className="rounded p-1 text-blue-500 transition hover:bg-blue-100 hover:text-blue-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:hover:bg-blue-800/50 dark:hover:text-white"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -212,13 +212,13 @@ const StarRating = ({ value, onChange, label }) => {
             title={SELF_RATING_LABELS[n]}
             onMouseEnter={() => setHover(n)}
             onClick={() => onChange(value === n ? 0 : n)}
-            className="rounded p-0.5 transition-transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+            className="rounded p-0.5 transition-transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
           >
-            <Star className={`h-6 w-6 ${n <= shown ? 'fill-amber-400 text-amber-400' : 'text-gray-300 dark:text-gray-600'}`} />
+            <Star className={`h-6 w-6 ${n <= shown ? 'fill-orange-400 text-orange-400' : 'text-gray-300 dark:text-gray-600'}`} />
           </button>
         ))}
       </div>
-      <span className={`text-xs ${shown ? 'font-medium text-gray-700 dark:text-gray-300' : 'text-amber-700 dark:text-amber-400'}`}>
+      <span className={`text-xs ${shown ? 'font-medium text-gray-700 dark:text-gray-300' : 'text-orange-700 dark:text-orange-400'}`}>
         {shown ? SELF_RATING_LABELS[shown] : 'Not rated yet: how well can you teach this?'}
       </span>
     </div>
@@ -229,7 +229,7 @@ const StarRating = ({ value, onChange, label }) => {
 const Ring = ({ percent }) => {
   const r = 26;
   const c = 2 * Math.PI * r;
-  const tone = percent >= 100 ? 'text-emerald-500' : percent >= 60 ? 'text-blue-500' : 'text-amber-500';
+  const tone = percent >= 100 ? 'text-emerald-500' : percent >= 60 ? 'text-blue-500' : 'text-orange-500';
   return (
     <div className="relative h-16 w-16 flex-shrink-0">
       <svg viewBox="0 0 64 64" className="h-16 w-16 -rotate-90">
@@ -560,7 +560,7 @@ const ProfilePage = () => {
                 <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-700 dark:bg-gray-700 dark:text-gray-200">{facultyData.position}</span>
               )}
               {(isFaculty ? facultyData.programs || [] : [user?.program].filter(Boolean)).map((p) => (
-                <span key={p} className="rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-semibold text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">{p}</span>
+                <span key={p} className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">{p}</span>
               ))}
             </div>
           </div>
@@ -593,7 +593,7 @@ const ProfilePage = () => {
                       >
                         {item.done
                           ? <CheckCircle2 className="mt-px h-4 w-4 flex-shrink-0 text-emerald-500" />
-                          : <Circle className={`mt-px h-4 w-4 flex-shrink-0 ${item.recommended ? 'text-gray-400' : 'text-amber-500'}`} />}
+                          : <Circle className={`mt-px h-4 w-4 flex-shrink-0 ${item.recommended ? 'text-gray-400' : 'text-orange-500'}`} />}
                         <span className={item.done ? 'text-gray-400 line-through dark:text-gray-500' : 'text-gray-700 dark:text-gray-200'}>
                           {item.label}
                           {item.recommended && !item.done && <span className="ml-1 text-gray-400">(optional)</span>}
@@ -616,7 +616,7 @@ const ProfilePage = () => {
                   >
                     <Icon className="h-4 w-4 text-gray-400" />
                     <span className="flex-1">{label}</span>
-                    {count > 0 && <span className="rounded-full bg-amber-100 px-1.5 text-[11px] font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">{count}</span>}
+                    {count > 0 && <span className="rounded-full bg-orange-100 px-1.5 text-[11px] font-semibold text-orange-800 dark:bg-orange-900/40 dark:text-orange-300">{count}</span>}
                   </button>
                 ))}
               </nav>
@@ -707,7 +707,7 @@ const ProfilePage = () => {
                       <dd className="mt-1 flex flex-wrap gap-1.5">
                         {(facultyData.programs || []).length
                           ? facultyData.programs.map((p) => (
-                            <span key={p} className="rounded-md bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300">{p}</span>
+                            <span key={p} className="rounded-md bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-900/50 dark:text-blue-300">{p}</span>
                           ))
                           : <span className="text-gray-400">None yet</span>}
                       </dd>
@@ -772,7 +772,7 @@ const ProfilePage = () => {
                   title="Subject expertise"
                   description="Subjects you’ve taught, and how well you can teach each one. Your self-rating helps the scheduling office give you subjects you’re strong in."
                   badge={expertise.length > 0 && (
-                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${unrated.length ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'}`}>
+                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${unrated.length ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'}`}>
                       {expertise.length - unrated.length} of {expertise.length} rated
                     </span>
                   )}
@@ -782,7 +782,7 @@ const ProfilePage = () => {
                     <ul className="mt-2 space-y-1">
                       {[5, 4, 3, 2, 1].map((n) => (
                         <li key={n} className="flex items-center gap-2">
-                          <span className="inline-flex w-16 text-amber-500">{'★'.repeat(n)}<span className="text-gray-300 dark:text-gray-600">{'★'.repeat(5 - n)}</span></span>
+                          <span className="inline-flex w-16 text-orange-500">{'★'.repeat(n)}<span className="text-gray-300 dark:text-gray-600">{'★'.repeat(5 - n)}</span></span>
                           {SELF_RATING_LABELS[n]}
                         </li>
                       ))}
@@ -807,7 +807,7 @@ const ProfilePage = () => {
                           key={index}
                           className={`rounded-xl border p-4 transition-colors ${
                             subject.subjectCode && !subject.selfRating
-                              ? 'border-amber-300 bg-amber-50/40 dark:border-amber-700/60 dark:bg-amber-900/10'
+                              ? 'border-orange-300 bg-orange-50/40 dark:border-orange-700/60 dark:bg-orange-900/10'
                               : 'border-gray-200 dark:border-gray-700'
                           }`}
                         >
@@ -825,7 +825,7 @@ const ProfilePage = () => {
                                   {subject.semestersTaught > 0 && <span>{subject.semestersTaught} semesters taught</span>}
                                   {subject.rating > 0 && (
                                     <span className="inline-flex items-center gap-1">
-                                      <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                                      <Star className="h-3.5 w-3.5 fill-orange-400 text-orange-400" />
                                       {subject.rating}/5 evaluation
                                     </span>
                                   )}

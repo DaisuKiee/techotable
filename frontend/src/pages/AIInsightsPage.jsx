@@ -281,7 +281,7 @@ const AIInsightsPage = () => {
 
   const getInsightColor = (type) => {
     switch (type) {
-      case 'success': return 'bg-green-50 border-green-200';
+      case 'success': return 'bg-emerald-50 border-emerald-200';
       case 'warning': return 'bg-orange-50 border-orange-200';
       case 'info': return 'bg-blue-50 border-blue-200';
       default: return 'bg-gray-50 border-gray-200';
@@ -317,7 +317,7 @@ const AIInsightsPage = () => {
         </div>
 
         {/* Info Banner */}
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6">
+        <div className="bg-gradient-to-r from-blue-50 to-blue-50 border border-blue-200 rounded-xl p-6">
           <div className="flex items-start gap-4">
             <div className="p-2 bg-blue-600 rounded-lg">
               <Lightbulb className="w-5 h-5 text-white" />
@@ -339,7 +339,7 @@ const AIInsightsPage = () => {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-8">
         <StatCard icon={Calendar} label="Schedules" value={stats.totalSchedules} hint="active classes" tone="blue" loading={loading} />
         <StatCard icon={Target} label="Optimization" value={`${stats.optimizationScore}%`} hint="schedule efficiency" tone="emerald" loading={loading} />
-        <StatCard icon={AlertCircle} label="Conflicts" value={stats.conflictsDetected} hint={stats.conflictsDetected ? 'need attention' : 'none found'} tone={stats.conflictsDetected ? 'orange' : 'gray'} loading={loading} />
+        <StatCard icon={AlertCircle} label="Conflicts" value={stats.conflictsDetected} hint={stats.conflictsDetected ? 'need attention' : 'none found'} tone={stats.conflictsDetected ? 'amber' : 'gray'} loading={loading} />
         <StatCard icon={Activity} label="Room use" value={`${stats.utilizationRate}%`} hint="of room hours booked" tone="purple" loading={loading} />
       </div>
 
@@ -398,10 +398,10 @@ const AIInsightsPage = () => {
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <BarChart3 className="w-5 h-5 text-purple-600" />
+              <BarChart3 className="w-5 h-5 text-blue-600" />
               Resource Utilization
             </h2>
-            <span className="px-2 py-1 text-xs font-medium bg-purple-100 text-purple-800 rounded-full">
+            <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
               {insights.resourceUtilization.length} insights
             </span>
           </div>
@@ -441,7 +441,7 @@ const AIInsightsPage = () => {
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-green-600" />
+            <TrendingUp className="w-5 h-5 text-emerald-600" />
             AI Predictions
           </h2>
         </div>
@@ -457,11 +457,11 @@ const AIInsightsPage = () => {
             {insights.predictions.map((prediction, index) => (
               <div
                 key={index}
-                className="p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg border border-green-200"
+                className="p-4 bg-gradient-to-br from-emerald-50 to-emerald-50 rounded-lg border border-emerald-200"
               >
                 <div className="flex items-start justify-between mb-3">
                   <h3 className="font-medium text-gray-900">{prediction.title}</h3>
-                  <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
+                  <span className="px-2 py-1 text-xs font-medium bg-emerald-100 text-emerald-800 rounded-full">
                     {prediction.confidence}% confidence
                   </span>
                 </div>

@@ -115,7 +115,7 @@ const TestLoginPage = () => {
               
               <button
                 onClick={checkAuth}
-                className="w-full py-2 bg-green-600 hover:bg-green-700 rounded"
+                className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 rounded"
               >
                 🔍 Check Auth State
               </button>
@@ -130,19 +130,19 @@ const TestLoginPage = () => {
               <div className="pt-4 space-y-2 text-sm">
                 <button
                   onClick={() => navigate('/dashboard')}
-                  className="w-full py-2 bg-purple-600 hover:bg-purple-700 rounded"
+                  className="w-full py-2 bg-blue-600 hover:bg-blue-700 rounded"
                 >
                   → Go to Dashboard
                 </button>
                 <button
                   onClick={() => navigate('/dashboard-test')}
-                  className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 rounded"
+                  className="w-full py-2 bg-blue-600 hover:bg-blue-700 rounded"
                 >
                   → Dashboard (Unprotected)
                 </button>
                 <button
                   onClick={() => navigate('/debug-auth')}
-                  className="w-full py-2 bg-pink-600 hover:bg-pink-700 rounded"
+                  className="w-full py-2 bg-blue-600 hover:bg-blue-700 rounded"
                 >
                   → Debug Auth Page
                 </button>
@@ -173,7 +173,7 @@ const TestLoginPage = () => {
                     <div
                       key={index}
                       className={`
-                        ${entry.type === 'success' ? 'text-green-400' : ''}
+                        ${entry.type === 'success' ? 'text-emerald-400' : ''}
                         ${entry.type === 'error' ? 'text-red-400' : ''}
                         ${entry.type === 'info' ? 'text-blue-400' : ''}
                       `}
@@ -191,15 +191,15 @@ const TestLoginPage = () => {
         <div className="mt-6 bg-gray-800 rounded-lg p-6">
           <h2 className="text-2xl font-bold mb-4">Current State</h2>
           <div className="grid grid-cols-3 gap-4 text-center">
-            <div className={`p-4 rounded ${isAuthenticated ? 'bg-green-900' : 'bg-red-900'}`}>
+            <div className={`p-4 rounded ${isAuthenticated ? 'bg-emerald-900' : 'bg-red-900'}`}>
               <div className="text-2xl mb-2">{isAuthenticated ? '✅' : '❌'}</div>
               <div className="text-sm">Authenticated</div>
             </div>
-            <div className={`p-4 rounded ${!!user ? 'bg-green-900' : 'bg-red-900'}`}>
+            <div className={`p-4 rounded ${!!user ? 'bg-emerald-900' : 'bg-red-900'}`}>
               <div className="text-2xl mb-2">{!!user ? '✅' : '❌'}</div>
               <div className="text-sm">User Loaded</div>
             </div>
-            <div className={`p-4 rounded ${!!token ? 'bg-green-900' : 'bg-red-900'}`}>
+            <div className={`p-4 rounded ${!!token ? 'bg-emerald-900' : 'bg-red-900'}`}>
               <div className="text-2xl mb-2">{!!token ? '✅' : '❌'}</div>
               <div className="text-sm">Token Exists</div>
             </div>

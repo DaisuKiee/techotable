@@ -129,7 +129,7 @@ const SubjectModal = ({ mode, subject, onClose }) => {
   return (
     <ModalShell variant="drawer" size="lg" onClose={() => onClose(false)} label={mode === 'edit' ? 'Edit subject' : 'Add subject'} busy={loading}>
         {/* Header */}
-        <div className="px-6 py-4 bg-gradient-to-br from-blue-600 to-indigo-600 text-white flex-shrink-0">
+        <div className="px-6 py-4 bg-gradient-to-br from-blue-600 to-blue-600 text-white flex-shrink-0">
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
               <p className="text-white/70 text-xs font-medium uppercase tracking-wide mb-1">
@@ -273,12 +273,12 @@ const SubjectModal = ({ mode, subject, onClose }) => {
                     </div>
                     
                     {/* Total Contact Hours Info */}
-                    <div className="mt-3 p-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-700 rounded-lg">
+                    <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                           Total Contact Hours per Week:
                         </span>
-                        <span className="text-lg font-bold text-indigo-700 dark:text-indigo-400">
+                        <span className="text-lg font-bold text-blue-700 dark:text-blue-400">
                           {(parseInt(formData.lectureHours) || 0) + (parseInt(formData.labHours) || 0)} hours
                         </span>
                       </div>

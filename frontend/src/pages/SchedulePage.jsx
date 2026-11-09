@@ -885,7 +885,7 @@ const SchedulePage = () => {
                   </button>
                   <button
                     onClick={handleGenerate}
-                    className="flex items-center gap-2 px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors shadow-md hover:shadow-lg text-sm"
+                    className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-md hover:shadow-lg text-sm"
                   >
                     <Wand2 className="w-5 h-5" />
                     <span className="hidden sm:inline">Generate</span>
@@ -1138,7 +1138,7 @@ const SchedulePage = () => {
                         ? 'Nothing left to publish in this view'
                         : `Publish ${stats.draft} draft class(es): their teachers and students will see them and be notified`
                     }
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     <CheckCircle size={14} />
                     Publish {stats.draft > 0 ? `(${stats.draft})` : ''}
@@ -1287,7 +1287,7 @@ const SchedulePage = () => {
                 ))}
               </select>
             ) : (
-              <p className="text-sm text-amber-700 dark:text-amber-400">
+              <p className="text-sm text-orange-700 dark:text-orange-400">
                 No sections exist for {filters.program || 'this program'} in {filters.academicYear}.
                 Create one on the Sections page first.
               </p>
@@ -1377,7 +1377,7 @@ const SchedulePage = () => {
                           <button
                             onClick={handleBatchPublishSelected}
                             disabled={bulkBusy}
-                            className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs sm:text-sm font-medium transition-colors inline-flex items-center gap-1.5 shadow-sm disabled:opacity-60"
+                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs sm:text-sm font-medium transition-colors inline-flex items-center gap-1.5 shadow-sm disabled:opacity-60"
                           >
                             <CheckCircle className="w-4 h-4" />
                             {bulkBusy ? 'Publishing…' : `Publish Selected (${selectedSchedules.length})`}
@@ -1470,7 +1470,7 @@ const SchedulePage = () => {
                           </td>
                           <td className="px-4 py-4 whitespace-nowrap">
                             <div className="flex items-center">
-                              <School className="w-4 h-4 text-purple-600 dark:text-purple-400 mr-2" />
+                              <School className="w-4 h-4 text-blue-600 dark:text-blue-400 mr-2" />
                               <span className="text-sm text-gray-900 dark:text-white">
                                 {getSectionLabel(schedule) || 'N/A'}
                               </span>
@@ -1483,7 +1483,7 @@ const SchedulePage = () => {
                           </td>
                           <td className="px-4 py-4 whitespace-nowrap">
                             <div className="flex items-center">
-                              <MapPin className="w-4 h-4 text-green-600 dark:text-green-400 mr-2" />
+                              <MapPin className="w-4 h-4 text-emerald-600 dark:text-emerald-400 mr-2" />
                               <span className="text-sm text-gray-900 dark:text-white">
                                 {schedule.roomLabel || 'N/A'}
                               </span>
@@ -1510,7 +1510,7 @@ const SchedulePage = () => {
                             <span
                               className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
                                 isPublished
-                                  ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+                                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300'
                                   : 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300'
                               }`}
                             >
@@ -1526,7 +1526,7 @@ const SchedulePage = () => {
                                   className={`p-2 rounded-lg transition-colors disabled:opacity-50 ${
                                     isPublished
                                       ? 'text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900'
-                                      : 'text-green-600 hover:bg-green-50 dark:hover:bg-green-900'
+                                      : 'text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900'
                                   }`}
                                   title={isPublished ? 'Revert to draft' : 'Publish'}
                                   aria-label={isPublished ? 'Revert to draft' : 'Publish schedule'}

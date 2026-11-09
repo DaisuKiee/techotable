@@ -49,27 +49,27 @@ const SORT_OPTIONS = [
 
 // Green: 0-36, Yellow: 37-40, Red: 40+
 const LOAD_STATUS = {
-  normal: { label: 'Normal', Icon: CheckCircle, bar: 'bg-green-600', text: 'text-green-600 dark:text-green-400' },
-  warning: { label: 'Near limit', Icon: AlertTriangle, bar: 'bg-yellow-500', text: 'text-yellow-600 dark:text-yellow-400' },
+  normal: { label: 'Normal', Icon: CheckCircle, bar: 'bg-emerald-600', text: 'text-emerald-600 dark:text-emerald-400' },
+  warning: { label: 'Near limit', Icon: AlertTriangle, bar: 'bg-orange-500', text: 'text-orange-600 dark:text-orange-400' },
   overload: { label: 'Overload', Icon: AlertCircle, bar: 'bg-red-600', text: 'text-red-600 dark:text-red-400' },
 };
 
 const DEGREES = [
   { key: 'bachelorsDegree', label: 'BS', tone: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' },
-  { key: 'mastersDegree', label: 'MS', tone: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300' },
-  { key: 'doctoralDegree', label: 'PhD', tone: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' },
+  { key: 'mastersDegree', label: 'MS', tone: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' },
+  { key: 'doctoralDegree', label: 'PhD', tone: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300' },
 ];
 
-const TONE_GREEN = 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
-const TONE_AMBER = 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300';
+const TONE_GREEN = 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300';
+const TONE_AMBER = 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300';
 const TONE_GRAY = 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300';
-const TAG = 'inline-flex items-center px-2 py-1 rounded-md text-xs bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300';
+const TAG = 'inline-flex items-center px-2 py-1 rounded-md text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
 
 const SECONDARY_BTN =
   'flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors text-sm disabled:opacity-60';
 
 const SELECT_CLASS =
-  'px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm transition-all disabled:bg-gray-100 dark:disabled:bg-gray-600';
+  'px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm transition-all disabled:bg-gray-100 dark:disabled:bg-gray-600';
 
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
 
@@ -246,13 +246,13 @@ const usePersistedState = (key, initial, allowed) => {
 /* ─── Small components ───────────────────────────────────────────────────── */
 
 const Chip = ({ children, onRemove }) => (
-  <span className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 text-xs rounded-md">
+  <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 text-xs rounded-md">
     {children}
     <button
       type="button"
       onClick={onRemove}
       aria-label="Remove filter"
-      className="hover:text-indigo-900 dark:hover:text-indigo-100"
+      className="hover:text-blue-900 dark:hover:text-blue-100"
     >
       <X className="w-3 h-3" />
     </button>
@@ -260,12 +260,12 @@ const Chip = ({ children, onRemove }) => (
 );
 
 const AVATAR_TONES = [
-  'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/70 dark:text-indigo-200',
-  'bg-sky-100 text-sky-700 dark:bg-sky-900/70 dark:text-sky-200',
+  'bg-blue-100 text-blue-700 dark:bg-blue-900/70 dark:text-blue-200',
+  'bg-blue-100 text-blue-700 dark:bg-blue-900/70 dark:text-blue-200',
   'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/70 dark:text-emerald-200',
-  'bg-amber-100 text-amber-800 dark:bg-amber-900/70 dark:text-amber-200',
-  'bg-rose-100 text-rose-700 dark:bg-rose-900/70 dark:text-rose-200',
-  'bg-violet-100 text-violet-700 dark:bg-violet-900/70 dark:text-violet-200',
+  'bg-orange-100 text-orange-800 dark:bg-orange-900/70 dark:text-orange-200',
+  'bg-red-100 text-red-700 dark:bg-red-900/70 dark:text-red-200',
+  'bg-blue-100 text-blue-700 dark:bg-blue-900/70 dark:text-blue-200',
 ];
 
 const Avatar = ({ user, size = 'h-10 w-10', iconSize = 'w-5 h-5', extra = '' }) => {
@@ -438,11 +438,11 @@ const ActionButtons = ({ member, canManage, onView, onEdit, onDelete, onReactiva
     ? 'flex items-center justify-center gap-2 px-3 py-2.5 text-sm rounded-lg transition-all font-medium'
     : 'p-2 rounded-lg transition-colors';
   const viewTone = full
-    ? 'flex-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/50'
-    : 'text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900';
+    ? 'flex-1 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50'
+    : 'text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900';
   const editTone = full
-    ? 'flex-1 bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm hover:shadow-md'
-    : 'text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900';
+    ? 'flex-1 bg-blue-600 hover:bg-blue-700 text-white shadow-sm hover:shadow-md'
+    : 'text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900';
   const deleteTone = full
     ? 'bg-red-600 hover:bg-red-700 text-white shadow-sm hover:shadow-md'
     : 'text-red-600 hover:bg-red-50 dark:hover:bg-red-900';
@@ -517,7 +517,7 @@ const FacultyCard = ({ member, canManage, onView, onEdit, onDelete, onReactivate
       onClick={() => onView(member)}
       onKeyDown={activateOnKey(() => onView(member))}
       title="Click to view details"
-      className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-xl hover:border-indigo-300 dark:hover:border-indigo-700 transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 flex flex-col"
+      className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-xl hover:border-blue-300 dark:hover:border-blue-700 transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 flex flex-col"
     >
       <div
         className="h-24 bg-cover bg-center relative flex-shrink-0"
@@ -554,7 +554,7 @@ const FacultyCard = ({ member, canManage, onView, onEdit, onDelete, onReactivate
               {displayName(member)}
             </h3>
             {member.position && (
-              <p className="text-xs font-medium text-indigo-700 dark:text-indigo-400 truncate flex items-center gap-1">
+              <p className="text-xs font-medium text-blue-700 dark:text-blue-400 truncate flex items-center gap-1">
                 <Briefcase className="w-3 h-3 flex-shrink-0" />
                 {member.position}
               </p>
@@ -565,7 +565,7 @@ const FacultyCard = ({ member, canManage, onView, onEdit, onDelete, onReactivate
               <a
                 href={`mailto:${user.email}`}
                 onClick={(e) => e.stopPropagation()}
-                className="text-xs text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-300 truncate flex items-center gap-1 mt-1"
+                className="text-xs text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-300 truncate flex items-center gap-1 mt-1"
                 title={`Email ${user.email}`}
               >
                 <Mail className="w-3 h-3 flex-shrink-0" />
@@ -576,7 +576,7 @@ const FacultyCard = ({ member, canManage, onView, onEdit, onDelete, onReactivate
               <a
                 href={`tel:${phone}`}
                 onClick={(e) => e.stopPropagation()}
-                className="text-xs text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-300 truncate flex items-center gap-1"
+                className="text-xs text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-300 truncate flex items-center gap-1"
               >
                 <Phone className="w-3 h-3 flex-shrink-0" />
                 {phone}
@@ -584,7 +584,7 @@ const FacultyCard = ({ member, canManage, onView, onEdit, onDelete, onReactivate
             )}
             <div className="flex flex-wrap items-center gap-1 mt-2">
               {user && (
-                <span className="px-2 py-0.5 bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300 text-xs font-bold rounded">
+                <span className="px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 text-xs font-bold rounded">
                   {member.employeeId}
                 </span>
               )}
@@ -606,7 +606,7 @@ const FacultyCard = ({ member, canManage, onView, onEdit, onDelete, onReactivate
           {programs.length > 0 ? (
             <TagList items={programs} limit={programs.length} bold />
           ) : (
-            <span className="inline-flex items-center gap-1 text-xs text-amber-700 dark:text-amber-400">
+            <span className="inline-flex items-center gap-1 text-xs text-orange-700 dark:text-orange-400">
               <AlertCircle className="w-3 h-3" />
               None assigned
             </span>
@@ -631,17 +631,17 @@ const FacultyCard = ({ member, canManage, onView, onEdit, onDelete, onReactivate
         <div className="mb-3 space-y-1">
           {topQualification && (
             <p className="text-xs text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
-              <GraduationCap className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 flex-shrink-0" />
+              <GraduationCap className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
               <span className="truncate">{topQualification}</span>
             </p>
           )}
           <div className="flex items-center gap-3 text-xs text-gray-700 dark:text-gray-300">
             <span className="flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 flex-shrink-0" />
+              <Clock className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
               {getSemestersTaught(member)} sem taught
             </span>
             <span className="flex items-center gap-1.5">
-              <Star className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+              <Star className="w-3.5 h-3.5 text-orange-500 flex-shrink-0" />
               {rating ? `${rating.toFixed(1)}/5.0` : 'Not rated'}
             </span>
           </div>
@@ -659,7 +659,7 @@ const FacultyCard = ({ member, canManage, onView, onEdit, onDelete, onReactivate
                         {s.label}
                       </span>
                       {s.rating && (
-                        <span className="flex items-center gap-0.5 text-xs text-amber-600 dark:text-amber-400">
+                        <span className="flex items-center gap-0.5 text-xs text-orange-600 dark:text-orange-400">
                           <Star className="w-3 h-3 fill-current" />
                           <span className="font-semibold">{s.rating.toFixed(1)}</span>
                         </span>
@@ -742,7 +742,7 @@ const FacultyRow = ({ member, canManage, onView, onEdit, onDelete, onReactivate 
       tabIndex={0}
       onClick={() => onView(member)}
       onKeyDown={activateOnKey(() => onView(member))}
-      className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer focus:outline-none focus:bg-indigo-50 dark:focus:bg-gray-700"
+      className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer focus:outline-none focus:bg-blue-50 dark:focus:bg-gray-700"
       title="Click to view details"
     >
       <td className="px-4 py-4 whitespace-nowrap">
@@ -753,7 +753,7 @@ const FacultyRow = ({ member, canManage, onView, onEdit, onDelete, onReactivate 
               {displayName(member)}
             </div>
             {member.position && (
-              <div className="text-xs text-indigo-700 dark:text-indigo-400 font-medium">
+              <div className="text-xs text-blue-700 dark:text-blue-400 font-medium">
                 {member.position}
                 {member.employmentType ? ` · ${member.employmentType}` : ''}
               </div>
@@ -768,7 +768,7 @@ const FacultyRow = ({ member, canManage, onView, onEdit, onDelete, onReactivate 
         </div>
       </td>
       <td className="px-4 py-4 whitespace-nowrap">
-        <span className="px-2.5 py-1 bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300 text-xs font-bold rounded">
+        <span className="px-2.5 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 text-xs font-bold rounded">
           {member.employeeId}
         </span>
       </td>
@@ -776,7 +776,7 @@ const FacultyRow = ({ member, canManage, onView, onEdit, onDelete, onReactivate 
         {programs.length > 0 ? (
           <TagList items={programs} limit={programs.length} bold />
         ) : (
-          <span className="text-xs text-amber-700 dark:text-amber-400">None</span>
+          <span className="text-xs text-orange-700 dark:text-orange-400">None</span>
         )}
       </td>
       <td className="px-4 py-4">
@@ -1182,7 +1182,7 @@ const FacultyPage = () => {
               )}
               <button
                 onClick={handleCreate}
-                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors shadow-md hover:shadow-lg text-sm"
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-md hover:shadow-lg text-sm"
               >
                 <Plus className="w-5 h-5" />
                 <span className="hidden sm:inline">Add Faculty</span>
@@ -1262,7 +1262,7 @@ const FacultyPage = () => {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 onKeyDown={(e) => e.key === 'Escape' && (setSearchTerm(''), e.target.blur())}
-                className="w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white transition-all"
+                className="w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white transition-all"
               />
               {searchTerm && (
                 <button
@@ -1286,7 +1286,7 @@ const FacultyPage = () => {
                     aria-pressed={filterStatus === value}
                     className={`px-3 py-2 text-sm transition-colors ${i > 0 ? 'border-l border-gray-300 dark:border-gray-600' : ''} ${
                       filterStatus === value
-                        ? 'bg-indigo-600 text-white'
+                        ? 'bg-blue-600 text-white'
                         : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
                     }`}
                   >
@@ -1363,7 +1363,7 @@ const FacultyPage = () => {
                     aria-label={title}
                     className={`px-3 py-2 transition-colors ${i > 0 ? 'border-l border-gray-300 dark:border-gray-600' : ''} ${
                       viewMode === mode
-                        ? 'bg-indigo-600 text-white'
+                        ? 'bg-blue-600 text-white'
                         : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600'
                     }`}
                   >
@@ -1416,7 +1416,7 @@ const FacultyPage = () => {
             <p className="text-gray-600 dark:text-gray-400 mb-6">Check your connection and try again.</p>
             <button
               onClick={handleRefresh}
-              className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors inline-flex items-center gap-2 text-sm font-medium"
+              className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors inline-flex items-center gap-2 text-sm font-medium"
             >
               <RefreshCw className="w-4 h-4" /> Retry
             </button>
@@ -1440,7 +1440,7 @@ const FacultyPage = () => {
               canManage && (
                 <button
                   onClick={handleCreate}
-                  className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors inline-flex items-center gap-2"
+                  className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors inline-flex items-center gap-2"
                 >
                   <Plus className="w-5 h-5" />
                   Add First Faculty
@@ -1488,8 +1488,8 @@ const FacultyPage = () => {
                             <button
                               type="button"
                               onClick={() => setSortKey(key)}
-                              className={`inline-flex items-center gap-1 uppercase tracking-wider hover:text-indigo-600 dark:hover:text-indigo-400 ${
-                                active ? 'text-indigo-600 dark:text-indigo-400' : ''
+                              className={`inline-flex items-center gap-1 uppercase tracking-wider hover:text-blue-600 dark:hover:text-blue-400 ${
+                                active ? 'text-blue-600 dark:text-blue-400' : ''
                               }`}
                               title={`Sort by ${label.toLowerCase()}`}
                             >

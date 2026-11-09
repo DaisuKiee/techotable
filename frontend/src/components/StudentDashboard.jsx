@@ -66,13 +66,13 @@ const Panel = ({ icon: Icon, title, subtitle, action, children, className = '' }
 const EmptyState = ({ icon: Icon, tone = 'gray', title, children, action }) => (
   <div className={`rounded-xl border p-6 text-center sm:p-8 ${
     tone === 'amber'
-      ? 'border-amber-200 bg-amber-50 dark:border-amber-800/60 dark:bg-amber-900/20'
+      ? 'border-orange-200 bg-orange-50 dark:border-orange-800/60 dark:bg-orange-900/20'
       : tone === 'blue'
         ? 'border-blue-200 bg-blue-50 dark:border-blue-800/60 dark:bg-blue-900/20'
         : 'border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800'
   }`}
   >
-    <Icon className={`mx-auto h-10 w-10 ${tone === 'amber' ? 'text-amber-500' : tone === 'blue' ? 'text-blue-500' : 'text-gray-400'}`} />
+    <Icon className={`mx-auto h-10 w-10 ${tone === 'amber' ? 'text-orange-500' : tone === 'blue' ? 'text-blue-500' : 'text-gray-400'}`} />
     <p className="mt-3 font-semibold text-gray-900 dark:text-white">{title}</p>
     <p className="mx-auto mt-1 max-w-md text-sm text-gray-600 dark:text-gray-400">{children}</p>
     {action}
@@ -309,7 +309,7 @@ const StudentDashboard = ({ user }) => {
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
             <StatCard icon={CalendarDays} label="Today" value={today.length} hint={today.length ? `${fmtSpan(Math.round(totals.todayHours * 60))} of class` : 'no classes today'} tone="blue" />
             <StatCard icon={Clock} label="This week" value={`${Math.round(totals.weekHours * 10) / 10}h`} hint={`${meetings.length} class meetings`} tone="violet" />
-            <StatCard icon={BookOpen} label="Subjects" value={classes.length} hint={`${totals.units} units total`} tone="emerald" />
+            <StatCard icon={BookOpen} label="Subjects" value={classes.length} hint={`${totals.units} units total`} tone="blue" />
             <StatCard
               icon={profile.enrollmentStatus === 'enrolled' ? CheckCircle2 : AlertTriangle}
               label="Status"

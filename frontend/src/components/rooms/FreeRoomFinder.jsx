@@ -3,7 +3,7 @@ import { SearchCheck, Loader2, ChevronDown, X } from 'lucide-react';
 import { roomAPI, getErrorMessage } from '../../services/api';
 import { DAYS, ROOM_TYPES, TIME_OPTIONS, fmtTime, fmtRange, typeMeta, toMin } from './roomMeta';
 
-const SELECT = 'rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 dark:border-gray-600 dark:bg-gray-700 dark:text-white';
+const SELECT = 'rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 dark:border-gray-600 dark:bg-gray-700 dark:text-white';
 
 // Default to the next weekday class hour, so the first answer is useful as is
 const defaults = () => {
@@ -59,10 +59,10 @@ const FreeRoomFinder = ({ term, onOpenRoom, onClose }) => {
   const taken = result?.unavailable || [];
 
   return (
-    <section className="mb-6 rounded-xl border border-indigo-200 bg-indigo-50/60 p-4 dark:border-indigo-900/60 dark:bg-indigo-950/30" aria-label="Find a free room">
+    <section className="mb-6 rounded-xl border border-blue-200 bg-blue-50/60 p-4 dark:border-blue-900/60 dark:bg-blue-950/30" aria-label="Find a free room">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div>
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white"><SearchCheck className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /> Find a free room</h2>
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white"><SearchCheck className="h-4 w-4 text-blue-600 dark:text-blue-400" /> Find a free room</h2>
           <p className="text-xs text-gray-600 dark:text-gray-400">Checks {result?.term?.label || term?.label || 'this term'}’s classes and each room’s blocked times.</p>
         </div>
         <button type="button" onClick={onClose} className="rounded-full p-1 text-gray-500 hover:bg-white/70 dark:hover:bg-gray-800" title="Close"><X className="h-4 w-4" /></button>
@@ -92,7 +92,7 @@ const FreeRoomFinder = ({ term, onOpenRoom, onClose }) => {
             {ROOM_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
         </label>
-        {loading && <Loader2 className="mb-2.5 h-4 w-4 animate-spin text-indigo-500" />}
+        {loading && <Loader2 className="mb-2.5 h-4 w-4 animate-spin text-blue-500" />}
       </div>
 
       {error ? (

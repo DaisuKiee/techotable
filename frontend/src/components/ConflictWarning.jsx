@@ -24,7 +24,7 @@ const ConflictWarning = ({ conflicts, onDismiss }) => {
       case 'medium':
         return 'bg-orange-50 border-orange-200 text-orange-800';
       case 'low':
-        return 'bg-yellow-50 border-yellow-200 text-yellow-800';
+        return 'bg-orange-50 border-orange-200 text-orange-800';
       default:
         return 'bg-gray-50 border-gray-200 text-gray-800';
     }

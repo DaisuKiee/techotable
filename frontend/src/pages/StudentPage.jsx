@@ -19,18 +19,18 @@ const STATUS = {
   enrolled: { label: 'Enrolled', cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300' },
   not_enrolled: { label: 'Not enrolled', cls: 'bg-gray-100 text-gray-700 dark:bg-gray-700/60 dark:text-gray-300' },
   dropped: { label: 'Dropped', cls: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300' },
-  graduated: { label: 'Graduated', cls: 'bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-300' },
+  graduated: { label: 'Graduated', cls: 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300' },
 };
 
 const YEAR_LABEL = { 1: '1st year', 2: '2nd year', 3: '3rd year', 4: '4th year', 5: '5th year' };
 
 const AVATAR_TONES = [
-  'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/70 dark:text-indigo-200',
-  'bg-sky-100 text-sky-700 dark:bg-sky-900/70 dark:text-sky-200',
+  'bg-blue-100 text-blue-700 dark:bg-blue-900/70 dark:text-blue-200',
+  'bg-blue-100 text-blue-700 dark:bg-blue-900/70 dark:text-blue-200',
   'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/70 dark:text-emerald-200',
-  'bg-amber-100 text-amber-800 dark:bg-amber-900/70 dark:text-amber-200',
-  'bg-rose-100 text-rose-700 dark:bg-rose-900/70 dark:text-rose-200',
-  'bg-violet-100 text-violet-700 dark:bg-violet-900/70 dark:text-violet-200',
+  'bg-orange-100 text-orange-800 dark:bg-orange-900/70 dark:text-orange-200',
+  'bg-red-100 text-red-700 dark:bg-red-900/70 dark:text-red-200',
+  'bg-blue-100 text-blue-700 dark:bg-blue-900/70 dark:text-blue-200',
 ];
 
 const FILE_BASE = (process.env.REACT_APP_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
@@ -60,11 +60,11 @@ const StatusBadge = ({ status }) => {
 };
 
 const SectionBadge = ({ student }) => (student.sectionCode ? (
-  <span className="rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">
+  <span className="rounded-md bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
     {student.sectionCode}
   </span>
 ) : (
-  <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+  <span className="inline-flex items-center gap-1 rounded-md bg-orange-50 px-2 py-0.5 text-xs font-semibold text-orange-700 dark:bg-orange-900/30 dark:text-orange-300">
     <AlertTriangle className="h-3 w-3" /> No section
   </span>
 ));
@@ -79,9 +79,9 @@ const FilterSelect = ({ value, onChange, children, label, disabled }) => (
     value={value}
     disabled={disabled}
     onChange={(e) => onChange(e.target.value)}
-    className={`rounded-lg border px-3 py-2.5 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-70 dark:text-white ${
+    className={`rounded-lg border px-3 py-2.5 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-70 dark:text-white ${
       value
-        ? 'border-indigo-300 bg-indigo-50 text-indigo-900 dark:border-indigo-700 dark:bg-indigo-900/30'
+        ? 'border-blue-300 bg-blue-50 text-blue-900 dark:border-blue-700 dark:bg-blue-900/30'
         : 'border-gray-300 bg-white text-gray-700 dark:border-gray-600 dark:bg-gray-700'
     }`}
   >
@@ -295,8 +295,8 @@ const StudentPage = () => {
         type="button"
         onClick={() => setModal({ student })}
         className={compact
-          ? 'rounded-lg p-2 text-indigo-600 transition-colors hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-900/40'
-          : 'flex flex-1 items-center justify-center gap-2 rounded-lg bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-700 transition-colors hover:bg-indigo-100 dark:bg-indigo-900/40 dark:text-indigo-300 dark:hover:bg-indigo-900/70'}
+          ? 'rounded-lg p-2 text-blue-600 transition-colors hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/40'
+          : 'flex flex-1 items-center justify-center gap-2 rounded-lg bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-100 dark:bg-blue-900/40 dark:text-blue-300 dark:hover:bg-blue-900/70'}
         aria-label={`Edit ${displayName(student)}`}
         title="Edit"
       >
@@ -339,7 +339,7 @@ const StudentPage = () => {
             <button type="button" onClick={exportCsv} className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700" title="Download the students shown as CSV (opens in Excel)">
               <Download className="h-4 w-4" /> Export
             </button>
-            <button type="button" onClick={() => setModal({ student: null })} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700 focus:outline-none focus:ring-4 focus:ring-indigo-500/30">
+            <button type="button" onClick={() => setModal({ student: null })} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-500/30">
               <Plus className="h-4 w-4" /> Add student
             </button>
           </div>
@@ -350,7 +350,7 @@ const StudentPage = () => {
           <StatCard icon={Users} label="Students" value={counts.total} hint={hasFilters ? 'matching filters' : 'in total'} tone="indigo" active={!hasFilters} onClick={clearFilters} />
           <StatCard icon={UserCheck} label="Enrolled" value={counts.enrolled} hint="click to show only these" tone="emerald" active={filters.status === 'enrolled'} onClick={() => toggleFilter('status', 'enrolled')} />
           <StatCard icon={AlertTriangle} label="No section" value={counts.unassigned} hint={counts.unassigned ? 'need a section assigned' : 'everyone is placed'} tone="amber" active={filters.assignment === 'unassigned'} onClick={() => toggleFilter('assignment', 'unassigned')} />
-          <StatCard icon={Shuffle} label="Irregular" value={counts.irregular} hint="take individual subjects" tone="orange" active={filters.studentType === 'irregular'} onClick={() => toggleFilter('studentType', 'irregular')} />
+          <StatCard icon={Shuffle} label="Irregular" value={counts.irregular} hint="take individual subjects" tone="blue" active={filters.studentType === 'irregular'} onClick={() => toggleFilter('studentType', 'irregular')} />
         </div>
 
         {/* Search and filters */}
@@ -366,7 +366,7 @@ const StudentPage = () => {
                 onKeyDown={(e) => e.key === 'Escape' && setSearchInput('')}
                 placeholder="Search name, student ID, email or section   ( / )"
                 aria-label="Search students"
-                className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-9 text-sm transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-9 text-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
               />
               {refreshing && !loading && <RefreshCw className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-gray-400" />}
             </div>
@@ -399,7 +399,7 @@ const StudentPage = () => {
                     onClick={() => setViewMode(mode)}
                     aria-pressed={viewMode === mode}
                     title={label}
-                    className={`px-3 py-2 transition-colors ${viewMode === mode ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'}`}
+                    className={`px-3 py-2 transition-colors ${viewMode === mode ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'}`}
                   >
                     <Icon className="h-5 w-5" />
                   </button>
@@ -414,9 +414,9 @@ const StudentPage = () => {
                 {loading ? 'Filtering…' : `${students.length} match${students.length === 1 ? '' : 'es'}:`}
               </span>
               {chips.map((c) => (
-                <span key={c.key} className="inline-flex items-center gap-1 rounded-md bg-indigo-100 px-2 py-1 text-xs capitalize text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-300">
+                <span key={c.key} className="inline-flex items-center gap-1 rounded-md bg-blue-100 px-2 py-1 text-xs capitalize text-blue-700 dark:bg-blue-900/60 dark:text-blue-300">
                   {c.label}
-                  <button type="button" onClick={c.clear} aria-label={`Remove filter ${c.label}`} className="hover:text-indigo-900 dark:hover:text-indigo-100">
+                  <button type="button" onClick={c.clear} aria-label={`Remove filter ${c.label}`} className="hover:text-blue-900 dark:hover:text-blue-100">
                     <X className="h-3 w-3" />
                   </button>
                 </span>
@@ -461,7 +461,7 @@ const StudentPage = () => {
                 <button type="button" onClick={() => setShowImport(true)} className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">
                   <Upload className="h-4 w-4" /> Import CSV
                 </button>
-                <button type="button" onClick={() => setModal({ student: null })} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700">
+                <button type="button" onClick={() => setModal({ student: null })} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
                   <Plus className="h-4 w-4" /> Add student
                 </button>
               </div>
@@ -470,13 +470,13 @@ const StudentPage = () => {
         ) : viewMode === 'grid' ? (
           <div className={`grid grid-cols-1 gap-4 transition-opacity md:grid-cols-2 lg:grid-cols-3 ${refreshing ? 'opacity-60' : ''}`}>
             {students.map((student) => (
-              <div key={student._id} className="flex flex-col rounded-xl border border-gray-200 bg-white p-5 transition-all hover:border-indigo-300 hover:shadow-lg dark:border-gray-700 dark:bg-gray-800 dark:hover:border-indigo-700">
+              <div key={student._id} className="flex flex-col rounded-xl border border-gray-200 bg-white p-5 transition-all hover:border-blue-300 hover:shadow-lg dark:border-gray-700 dark:bg-gray-800 dark:hover:border-blue-700">
                 <div className="mb-4 flex items-start gap-3">
                   <Avatar student={student} />
                   <div className="min-w-0 flex-1">
                     <h3 className="truncate font-bold text-gray-900 dark:text-white" title={displayName(student)}>{displayName(student)}</h3>
                     {student.user?.email ? (
-                      <a href={`mailto:${student.user.email}`} className="flex items-center gap-1 truncate text-xs text-gray-600 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400">
+                      <a href={`mailto:${student.user.email}`} className="flex items-center gap-1 truncate text-xs text-gray-600 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400">
                         <Mail className="h-3 w-3 flex-shrink-0" /> <span className="truncate">{student.user.email}</span>
                       </a>
                     ) : null}
@@ -554,7 +554,7 @@ const StudentPage = () => {
                       <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-700 dark:text-gray-300"><TypeLabel type={student.studentType} /></td>
                       <td className="whitespace-nowrap px-4 py-3"><StatusBadge status={student.enrollmentStatus} /></td>
                       <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
-                        {student.contactNumber ? <a href={`tel:${student.contactNumber}`} className="hover:text-indigo-600 dark:hover:text-indigo-400">{student.contactNumber}</a> : '—'}
+                        {student.contactNumber ? <a href={`tel:${student.contactNumber}`} className="hover:text-blue-600 dark:hover:text-blue-400">{student.contactNumber}</a> : '—'}
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-1">{actions(student, true)}</div>

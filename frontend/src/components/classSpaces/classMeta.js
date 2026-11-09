@@ -7,14 +7,14 @@
    same everywhere. Inline hex rather than Tailwind classes so the colour can
    be computed at runtime; the tints use alpha so they work in dark mode too. */
 export const ACCENTS = [
-  { hex: '#0f766e', name: 'teal' },
+  // Cool shades only: red, orange and green are reserved for status
+  // (problem / attention / good), so a subject never looks like an alert.
+  { hex: '#2563eb', name: 'blue' },
+  { hex: '#1e40af', name: 'navy' },
+  { hex: '#0369a1', name: 'ocean' },
   { hex: '#4f46e5', name: 'indigo' },
-  { hex: '#be185d', name: 'rose' },
-  { hex: '#b45309', name: 'amber' },
-  { hex: '#047857', name: 'emerald' },
-  { hex: '#7c3aed', name: 'violet' },
-  { hex: '#0369a1', name: 'sky' },
-  { hex: '#c2410c', name: 'orange' },
+  { hex: '#0e7490', name: 'lagoon' },
+  { hex: '#475569', name: 'slate' },
 ];
 
 const hash = (key) => {
@@ -149,14 +149,15 @@ export const timeAgo = (date) => {
 
 /* ---- Files ------------------------------------------------------------- */
 
+// One neutral tile for every type: the label (PDF, DOC...) carries the meaning
 const FILE_KINDS = [
-  { kind: 'PDF', match: /\.pdf$/i, hex: '#dc2626' },
-  { kind: 'DOC', match: /\.(docx?|odt|rtf|txt)$/i, hex: '#2563eb' },
-  { kind: 'PPT', match: /\.(pptx?|odp|key)$/i, hex: '#ea580c' },
-  { kind: 'XLS', match: /\.(xlsx?|csv|ods)$/i, hex: '#16a34a' },
-  { kind: 'IMG', match: /\.(png|jpe?g|gif|webp|svg|bmp)$/i, hex: '#9333ea' },
-  { kind: 'ZIP', match: /\.(zip|rar|7z|tar|gz)$/i, hex: '#64748b' },
-  { kind: 'VID', match: /\.(mp4|mov|avi|mkv|webm)$/i, hex: '#db2777' },
+  { kind: 'PDF', match: /\.pdf$/i, hex: '#475569' },
+  { kind: 'DOC', match: /\.(docx?|odt|rtf|txt)$/i, hex: '#475569' },
+  { kind: 'PPT', match: /\.(pptx?|odp|key)$/i, hex: '#475569' },
+  { kind: 'XLS', match: /\.(xlsx?|csv|ods)$/i, hex: '#475569' },
+  { kind: 'IMG', match: /\.(png|jpe?g|gif|webp|svg|bmp)$/i, hex: '#475569' },
+  { kind: 'ZIP', match: /\.(zip|rar|7z|tar|gz)$/i, hex: '#475569' },
+  { kind: 'VID', match: /\.(mp4|mov|avi|mkv|webm)$/i, hex: '#475569' },
 ];
 
 export const fileKind = (material) => {

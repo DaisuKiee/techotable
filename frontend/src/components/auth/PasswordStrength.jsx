@@ -16,7 +16,7 @@ export const PASSWORD_RULES = [
 const STRENGTH = [
   { label: '', bar: 'bg-gray-200 dark:bg-dark-border-default', text: '' },
   { label: 'Weak', bar: 'bg-red-500', text: 'text-red-600 dark:text-red-400' },
-  { label: 'Fair', bar: 'bg-amber-500', text: 'text-amber-600 dark:text-amber-400' },
+  { label: 'Fair', bar: 'bg-orange-500', text: 'text-orange-600 dark:text-orange-400' },
   { label: 'Good', bar: 'bg-blue-500', text: 'text-blue-600 dark:text-blue-400' },
   { label: 'Strong', bar: 'bg-emerald-500', text: 'text-emerald-600 dark:text-emerald-400' },
 ];

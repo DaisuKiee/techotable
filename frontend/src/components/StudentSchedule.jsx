@@ -531,7 +531,7 @@ const StudentSchedule = () => {
           icon={Calendar}
           label="Class days"
           value={stats.days}
-          tone="bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-300"
+          tone="bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300"
         />
         <StatTile
           icon={Clock}
@@ -543,7 +543,7 @@ const StudentSchedule = () => {
           icon={Users}
           label={stats.teachers === 1 ? 'Instructor' : 'Instructors'}
           value={stats.teachers}
-          tone="bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-300"
+          tone="bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-300"
         />
       </div>
 
@@ -560,8 +560,8 @@ const StudentSchedule = () => {
             </p>
             {todayInfo.current ? (
               <p className="text-sm text-gray-900 dark:text-white mt-1">
-                <span className="inline-flex items-center gap-1.5 mr-2 px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 text-xs font-semibold">
-                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" /> Now
+                <span className="inline-flex items-center gap-1.5 mr-2 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-xs font-semibold">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Now
                 </span>
                 <span className="font-semibold">{todayInfo.current.subjectCode}</span>
                 {todayInfo.current.room && ` · ${todayInfo.current.room}`}
@@ -765,7 +765,7 @@ const StudentSchedule = () => {
                           onClick={() => setActiveMeeting(m)}
                           className={`absolute z-20 text-white rounded-lg overflow-hidden shadow-md hover:shadow-xl hover:z-30 transition-all border-2 text-left focus:outline-none focus:ring-2 focus:ring-blue-400 ${
                             isConflicted
-                              ? 'border-yellow-400 ring-2 ring-red-400/50'
+                              ? 'border-orange-400 ring-2 ring-red-400/50'
                               : 'border-white/20'
                           }`}
                           style={{
@@ -785,7 +785,7 @@ const StudentSchedule = () => {
                           <div className={`absolute inset-0 ${isConflicted ? 'bg-red-900/80' : 'bg-black/40'}`} />
                           <div className="relative z-10 h-full flex flex-col items-center justify-center text-center px-2">
                             {isConflicted && (
-                              <AlertTriangle className="absolute top-1 right-1 w-4 h-4 text-yellow-300 animate-pulse" />
+                              <AlertTriangle className="absolute top-1 right-1 w-4 h-4 text-orange-300 animate-pulse" />
                             )}
                             <div className="font-bold text-xs sm:text-sm truncate w-full">{m.subjectCode}</div>
                             {roomy && m.subjectName && (
@@ -868,7 +868,7 @@ const StudentSchedule = () => {
                       isConflicted
                         ? 'border-red-300 dark:border-red-700'
                         : live
-                        ? 'border-green-300 dark:border-green-700'
+                        ? 'border-emerald-300 dark:border-emerald-700'
                         : 'border-gray-200 dark:border-gray-700'
                     }`}
                   >
@@ -889,7 +889,7 @@ const StudentSchedule = () => {
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="font-semibold text-gray-900 dark:text-white">{m.subjectCode}</h3>
                         {live && (
-                          <span className="px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 text-[11px] font-semibold">
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-[11px] font-semibold">
                             Now
                           </span>
                         )}
@@ -974,7 +974,7 @@ const StudentSchedule = () => {
                           <div className="flex flex-wrap items-center gap-2">
                             <p className="font-semibold text-gray-900 dark:text-white">{m.subjectCode}</p>
                             {live && (
-                              <span className="px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 text-[11px] font-semibold">
+                              <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-[11px] font-semibold">
                                 Now
                               </span>
                             )}
@@ -1018,15 +1018,15 @@ const StudentSchedule = () => {
 
       {/* Classes with no meeting times yet would otherwise vanish from the grid */}
       {classesWithoutTimes.length > 0 && (
-        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
-          <p className="text-sm font-semibold text-amber-900 dark:text-amber-200 mb-2">
+        <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-xl p-4">
+          <p className="text-sm font-semibold text-orange-900 dark:text-orange-200 mb-2">
             Not yet scheduled
           </p>
           <div className="space-y-1">
             {classesWithoutTimes.map((cs) => (
               <div
                 key={cs._id}
-                className="flex items-center gap-2 text-sm text-amber-800 dark:text-amber-300"
+                className="flex items-center gap-2 text-sm text-orange-800 dark:text-orange-300"
               >
                 <BookOpen className="w-3.5 h-3.5 flex-shrink-0" />
                 <span className="font-medium">{cs.subject?.subjectCode}</span>
@@ -1034,7 +1034,7 @@ const StudentSchedule = () => {
               </div>
             ))}
           </div>
-          <p className="text-xs text-amber-700 dark:text-amber-400 mt-2">
+          <p className="text-xs text-orange-700 dark:text-orange-400 mt-2">
             These classes have no meeting times set yet.
           </p>
         </div>

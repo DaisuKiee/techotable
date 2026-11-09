@@ -158,7 +158,7 @@ const TimetableGrid = ({
 
   const statusClasses = (schedule) =>
     schedule.status === 'published'
-      ? 'bg-green-50 border-green-500 hover:bg-green-100 dark:bg-green-900/40 dark:border-green-400'
+      ? 'bg-emerald-50 border-emerald-500 hover:bg-emerald-100 dark:bg-emerald-900/40 dark:border-emerald-400'
       : 'bg-orange-50 border-orange-500 hover:bg-orange-100 dark:bg-orange-900/40 dark:border-orange-400';
 
   /** One class block. Stretches to fill its cell. */
@@ -244,11 +244,11 @@ const TimetableGrid = ({
           {TIME_SLOTS.map(time => {
             if (isLunchBreak(time)) {
               return (
-                <div key={time} className="flex items-center gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
-                  <span className="w-16 flex-shrink-0 text-xs font-medium text-amber-800 dark:text-amber-200">
+                <div key={time} className="flex items-center gap-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg px-3 py-2">
+                  <span className="w-16 flex-shrink-0 text-xs font-medium text-orange-800 dark:text-orange-200">
                     {shortHourLabel(time)}
                   </span>
-                  <span className="text-sm font-semibold text-amber-800 dark:text-amber-200 flex items-center gap-2">
+                  <span className="text-sm font-semibold text-orange-800 dark:text-orange-200 flex items-center gap-2">
                     <Utensils size={14} />
                     Lunch Break
                   </span>
@@ -317,7 +317,7 @@ const TimetableGrid = ({
                       to 7 while the table can have a different number of days. */}
                   <td
                     colSpan={days.length + 1}
-                    className="border-b border-gray-200 dark:border-gray-600 bg-amber-50 dark:bg-amber-900/20 px-3 py-1.5 text-center text-xs font-semibold text-amber-700 dark:text-amber-300"
+                    className="border-b border-gray-200 dark:border-gray-600 bg-orange-50 dark:bg-orange-900/20 px-3 py-1.5 text-center text-xs font-semibold text-orange-700 dark:text-orange-300"
                   >
                     <span className="inline-flex items-center gap-2">
                       <Utensils size={13} />

@@ -101,7 +101,7 @@ const AvatarUpload = ({ user, onUpdate }) => {
               className="w-full h-full object-cover"
             />
           ) : (
-            <div className="w-full h-full bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center">
+            <div className="w-full h-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
               <span className="text-4xl font-bold text-white">{getInitials()}</span>
             </div>
           )}
@@ -139,7 +139,7 @@ const AvatarUpload = ({ user, onUpdate }) => {
       <div className="flex gap-2">
         <label
           htmlFor="avatar-upload"
-          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <FiUpload className="w-4 h-4" />
           {uploading ? 'Uploading...' : 'Upload Photo'}

@@ -194,7 +194,7 @@ const SubjectEnrollmentModal = ({ subject, onClose }) => {
         <div>
           <div className="font-bold">Subject Code Copied!</div>
           <div className="text-sm mt-1 font-mono">{code}</div>
-          <div className="text-xs mt-2 text-green-100">
+          <div className="text-xs mt-2 text-emerald-100">
             📋 For {subject.subjectCode} in {sectionName}
           </div>
         </div>,
@@ -314,7 +314,7 @@ const SubjectEnrollmentModal = ({ subject, onClose }) => {
                         {enrollmentCode && (
                           <button
                             onClick={() => handleCopyCode(enrollmentCode, sectionCode)}
-                            className="flex items-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl transition-all font-semibold shadow-lg hover:shadow-xl"
+                            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-all font-semibold shadow-lg hover:shadow-xl"
                           >
                             <Copy className="w-4 h-4" />
                             <span>Copy</span>
@@ -329,7 +329,7 @@ const SubjectEnrollmentModal = ({ subject, onClose }) => {
                         <div className="flex items-center justify-between">
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-2">
-                              <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400" />
+                              <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                               <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">
                                 Active Subject Code
                               </p>

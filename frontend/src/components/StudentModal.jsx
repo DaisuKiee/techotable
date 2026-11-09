@@ -16,7 +16,7 @@ const STATUSES = [
 const inputCls = (invalid) => `w-full rounded-lg border px-3.5 py-2.5 text-sm transition-colors focus:outline-none focus:ring-2 dark:bg-gray-700 dark:text-white disabled:cursor-not-allowed disabled:bg-gray-100 dark:disabled:bg-gray-600 ${
   invalid
     ? 'border-red-400 focus:border-red-500 focus:ring-red-500/30 dark:border-red-500'
-    : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500/30 dark:border-gray-600'
+    : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500/30 dark:border-gray-600'
 }`;
 
 const Field = ({ label, required, error, hint, children, className = '' }) => (
@@ -37,7 +37,7 @@ const Panel = ({ icon: Icon, title, children, aside }) => (
   <section className="rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800">
     <div className="mb-4 flex items-center justify-between gap-2">
       <h3 className="flex items-center gap-2 font-semibold text-gray-900 dark:text-white">
-        <Icon className="h-5 w-5 text-indigo-600 dark:text-indigo-400" /> {title}
+        <Icon className="h-5 w-5 text-blue-600 dark:text-blue-400" /> {title}
       </h3>
       {aside}
     </div>
@@ -213,7 +213,7 @@ const StudentModal = ({ student, onClose }) => {
           </div>
         )}
         {!hasAccount && (
-          <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-100">
+          <div className="flex items-start gap-2 rounded-lg border border-orange-200 bg-orange-50 p-3 text-sm text-orange-900 dark:border-orange-800 dark:bg-orange-900/20 dark:text-orange-100">
             <Info className="mt-0.5 h-4 w-4 flex-shrink-0" />
             This record has no login account (it was removed), so name and email can't be edited. Academic details still save.
           </div>
@@ -333,7 +333,7 @@ const StudentModal = ({ student, onClose }) => {
                   <option key={s._id} value={s.subjectCode}>{s.subjectName}</option>
                 ))}
               </datalist>
-              <button type="button" onClick={() => addSubject()} disabled={!subjectInput.trim()} className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50">
+              <button type="button" onClick={() => addSubject()} disabled={!subjectInput.trim()} className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50">
                 <Plus className="h-4 w-4" /> Add
               </button>
             </div>
@@ -342,7 +342,7 @@ const StudentModal = ({ student, onClose }) => {
                 {form.subjectCodes.map((code) => {
                   const known = knownSubject(code);
                   return (
-                    <li key={code} title={known ? known.subjectName : 'Not a subject of this program'} className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-sm font-medium ${known ? 'bg-indigo-50 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200' : 'bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200'}`}>
+                    <li key={code} title={known ? known.subjectName : 'Not a subject of this program'} className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-sm font-medium ${known ? 'bg-blue-50 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200' : 'bg-orange-50 text-orange-800 dark:bg-orange-900/30 dark:text-orange-200'}`}>
                       {code}
                       {known && <span className="hidden max-w-[10rem] truncate text-xs font-normal opacity-70 sm:inline">{known.subjectName}</span>}
                       <button type="button" onClick={() => removeSubject(code)} aria-label={`Remove ${code}`} className="rounded opacity-70 hover:opacity-100"><X className="h-3.5 w-3.5" /></button>

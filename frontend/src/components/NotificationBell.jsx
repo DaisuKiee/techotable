@@ -88,7 +88,7 @@ const NotificationBell = () => {
               <div className="min-w-0">
                 <h3 className="font-semibold text-gray-900 dark:text-white">Notifications</h3>
                 <p className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
-                  <span className={`h-1.5 w-1.5 rounded-full ${status === 'live' ? 'bg-emerald-500' : status === 'connecting' ? 'bg-amber-400' : 'bg-gray-400'}`} />
+                  <span className={`h-1.5 w-1.5 rounded-full ${status === 'live' ? 'bg-emerald-500' : status === 'connecting' ? 'bg-orange-400' : 'bg-gray-400'}`} />
                   {status === 'live' ? 'Live' : status === 'connecting' ? 'Connecting…' : 'Reconnecting…'}
                   {unread > 0 && <span>· {unread} unread</span>}
                 </p>

@@ -13,13 +13,13 @@ const GRID_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Satu
 // between regenerations and is easy to follow across the week.
 const BLOCK_COLORS = [
   'bg-blue-100 border-blue-300 text-blue-900',
-  'bg-purple-100 border-purple-300 text-purple-900',
-  'bg-teal-100 border-teal-300 text-teal-900',
-  'bg-rose-100 border-rose-300 text-rose-900',
-  'bg-amber-100 border-amber-300 text-amber-900',
+  'bg-blue-100 border-blue-300 text-blue-900',
+  'bg-blue-100 border-blue-300 text-blue-900',
+  'bg-red-100 border-red-300 text-red-900',
+  'bg-orange-100 border-orange-300 text-orange-900',
   'bg-emerald-100 border-emerald-300 text-emerald-900',
-  'bg-cyan-100 border-cyan-300 text-cyan-900',
-  'bg-indigo-100 border-indigo-300 text-indigo-900',
+  'bg-blue-100 border-blue-300 text-blue-900',
+  'bg-blue-100 border-blue-300 text-blue-900',
 ];
 
 const blockColor = (code = '') => {
@@ -202,13 +202,13 @@ const SectionInsight = ({ sectionId }) => {
   const rows = showAll ? subjects : subjects.slice(0, 6);
   const tone = {
     error: 'border-red-200 bg-red-50 text-red-800 dark:border-red-800/60 dark:bg-red-900/20 dark:text-red-200',
-    warning: 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-800/60 dark:bg-amber-900/20 dark:text-amber-100',
+    warning: 'border-orange-200 bg-orange-50 text-orange-900 dark:border-orange-800/60 dark:bg-orange-900/20 dark:text-orange-100',
     info: 'border-blue-200 bg-blue-50 text-blue-900 dark:border-blue-800/60 dark:bg-blue-900/20 dark:text-blue-100',
   };
 
   return (
-    <div className="mt-3 overflow-hidden rounded-xl border border-purple-200 bg-white dark:border-purple-900/60 dark:bg-gray-800">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-purple-100 bg-purple-50/60 px-4 py-3 dark:border-purple-900/50 dark:bg-purple-900/20">
+    <div className="mt-3 overflow-hidden rounded-xl border border-blue-200 bg-white dark:border-blue-900/60 dark:bg-gray-800">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-blue-100 bg-blue-50/60 px-4 py-3 dark:border-blue-900/50 dark:bg-blue-900/20">
         <div>
           <p className="font-semibold text-gray-900 dark:text-white">{section.sectionCode}</p>
           <p className="text-xs text-gray-600 dark:text-gray-300">
@@ -273,12 +273,12 @@ const SectionInsight = ({ sectionId }) => {
                     </td>
                     <td className="py-1.5 pr-3 text-xs">{s.saturdayOnly ? 'Saturday' : s.needsLab ? 'Lab' : 'Home room'}</td>
                     <td className="py-1.5 pr-3 text-xs">
-                      {s.experiencedFaculty ? `${s.experiencedFaculty} teacher${s.experiencedFaculty === 1 ? '' : 's'}` : <span className="text-amber-700 dark:text-amber-300">none yet</span>}
+                      {s.experiencedFaculty ? `${s.experiencedFaculty} teacher${s.experiencedFaculty === 1 ? '' : 's'}` : <span className="text-orange-700 dark:text-orange-300">none yet</span>}
                     </td>
                     <td className="py-1.5 text-xs">
                       {s.scheduled
                         ? <span className="rounded-full bg-emerald-100 px-2 py-0.5 font-medium text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300">Scheduled</span>
-                        : <span className="rounded-full bg-purple-100 px-2 py-0.5 font-medium text-purple-700 dark:bg-purple-900/50 dark:text-purple-300">To schedule</span>}
+                        : <span className="rounded-full bg-blue-100 px-2 py-0.5 font-medium text-blue-700 dark:bg-blue-900/50 dark:text-blue-300">To schedule</span>}
                     </td>
                   </tr>
                 ))}
@@ -286,7 +286,7 @@ const SectionInsight = ({ sectionId }) => {
             </table>
           </div>
           {subjects.length > 6 && (
-            <button type="button" onClick={() => setShowAll((v) => !v)} className="mt-2 text-xs font-medium text-purple-700 hover:underline dark:text-purple-300">
+            <button type="button" onClick={() => setShowAll((v) => !v)} className="mt-2 text-xs font-medium text-blue-700 hover:underline dark:text-blue-300">
               {showAll ? 'Show fewer' : `Show all ${subjects.length} subjects`}
             </button>
           )}
@@ -553,7 +553,7 @@ const GenerateScheduleModal = ({ onClose }) => {
   const getStatusColor = (status) => {
     switch (status) {
       case 'success':
-        return 'text-green-600';
+        return 'text-emerald-600';
       case 'partial':
         return 'text-orange-600';
       case 'failed':
@@ -566,7 +566,7 @@ const GenerateScheduleModal = ({ onClose }) => {
   const getStatusIcon = (status) => {
     switch (status) {
       case 'success':
-        return <CheckCircle size={20} className="text-green-600" />;
+        return <CheckCircle size={20} className="text-emerald-600" />;
       case 'partial':
         return <AlertTriangle size={20} className="text-orange-600" />;
       case 'failed':
@@ -594,7 +594,7 @@ const GenerateScheduleModal = ({ onClose }) => {
       panelClassName="transition-[max-width] duration-300"
     >
         {/* Header */}
-        <div className="bg-purple-600 px-4 sm:px-6 py-4 flex-shrink-0 sm:rounded-t-2xl">
+        <div className="bg-blue-600 px-4 sm:px-6 py-4 flex-shrink-0 sm:rounded-t-2xl">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center min-w-0">
               <Wand2 className="text-white mr-3 flex-shrink-0" size={22} />
@@ -602,7 +602,7 @@ const GenerateScheduleModal = ({ onClose }) => {
                 <h3 className="text-base sm:text-lg font-semibold text-white truncate">
                   Schedule Generator
                 </h3>
-                <p className="text-xs text-purple-200 truncate">
+                <p className="text-xs text-blue-200 truncate">
                   {isORTools ? 'Google OR-Tools constraint solver' : 'Built-in constraint solver'}
                 </p>
               </div>
@@ -610,7 +610,7 @@ const GenerateScheduleModal = ({ onClose }) => {
             <button
               onClick={handleClose}
               aria-label="Close"
-              className="text-purple-100 hover:text-white transition-colors flex-shrink-0"
+              className="text-blue-100 hover:text-white transition-colors flex-shrink-0"
             >
               <X size={22} />
             </button>
@@ -637,7 +637,7 @@ const GenerateScheduleModal = ({ onClose }) => {
                 <button
                   type="button"
                   onClick={() => setShowSettings(true)}
-                  className="ml-auto font-medium text-purple-600 hover:text-purple-800 hover:underline"
+                  className="ml-auto font-medium text-blue-600 hover:text-blue-800 hover:underline"
                 >
                   Change settings
                 </button>
@@ -659,7 +659,7 @@ const GenerateScheduleModal = ({ onClose }) => {
                     onChange={handleChange}
                     required
                     disabled={generating || loadingSections}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 disabled:opacity-50"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                   >
                     <option value="">-- Select a Section --</option>
                     {availableSections.map(section => (
@@ -706,17 +706,17 @@ const GenerateScheduleModal = ({ onClose }) => {
                         aria-pressed={formData.priority === value}
                         className={`rounded-lg border p-3 text-left transition-colors disabled:opacity-50 ${
                           formData.priority === value
-                            ? 'border-purple-500 bg-purple-50 ring-1 ring-purple-500'
-                            : 'border-gray-300 hover:border-purple-300 hover:bg-gray-50'
+                            ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-500'
+                            : 'border-gray-300 hover:border-blue-300 hover:bg-gray-50'
                         }`}
                       >
                         <span className={`block text-sm font-semibold ${
-                          formData.priority === value ? 'text-purple-900' : 'text-gray-900'
+                          formData.priority === value ? 'text-blue-900' : 'text-gray-900'
                         }`}>
                           {label}
                         </span>
                         <span className={`block text-xs mt-0.5 ${
-                          formData.priority === value ? 'text-purple-700' : 'text-gray-500'
+                          formData.priority === value ? 'text-blue-700' : 'text-gray-500'
                         }`}>
                           {hint}
                         </span>
@@ -733,10 +733,10 @@ const GenerateScheduleModal = ({ onClose }) => {
                   type="button"
                   onClick={() => setShowAdvanced((open) => !open)}
                   aria-expanded={showAdvanced}
-                  className="flex w-full items-center justify-between text-sm font-semibold text-gray-900 hover:text-purple-700"
+                  className="flex w-full items-center justify-between text-sm font-semibold text-gray-900 hover:text-blue-700"
                 >
                   <span className="flex items-center">
-                    <Wand2 size={18} className="mr-2 text-purple-600" />
+                    <Wand2 size={18} className="mr-2 text-blue-600" />
                     Advanced Options
                   </span>
                   <span className="text-xs font-normal text-gray-500">
@@ -757,7 +757,7 @@ const GenerateScheduleModal = ({ onClose }) => {
                       value={formData.method}
                       onChange={handleChange}
                       disabled={generating}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 disabled:opacity-50"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                     >
                       <option value="ortools" disabled={!ortoolsStatus?.available}>
                         OR-Tools constraint solver {!ortoolsStatus?.available && '(not installed)'}
@@ -787,8 +787,8 @@ const GenerateScheduleModal = ({ onClose }) => {
                             disabled={generating}
                             className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors disabled:opacity-50 ${
                               formData.timeLimit === preset
-                                ? 'bg-purple-600 border-purple-600 text-white'
-                                : 'bg-white border-gray-300 text-gray-700 hover:border-purple-400'
+                                ? 'bg-blue-600 border-blue-600 text-white'
+                                : 'bg-white border-gray-300 text-gray-700 hover:border-blue-400'
                             }`}
                           >
                             {preset}s
@@ -803,7 +803,7 @@ const GenerateScheduleModal = ({ onClose }) => {
                           min="10"
                           max="300"
                           aria-label="Optimization time limit in seconds"
-                          className="w-24 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 disabled:opacity-50"
+                          className="w-24 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                         />
                       </div>
                       <p className="text-xs text-gray-500 mt-1.5">
@@ -821,21 +821,21 @@ const GenerateScheduleModal = ({ onClose }) => {
                 {ortoolsStatus && !ortoolsStatus.available && (
                   <div className={`mt-4 p-3 rounded-lg ${
                     ortoolsStatus.available 
-                      ? 'bg-green-50 border border-green-200' 
-                      : 'bg-yellow-50 border border-yellow-200'
+                      ? 'bg-emerald-50 border border-emerald-200' 
+                      : 'bg-orange-50 border border-orange-200'
                   }`}>
                     <p className="text-sm flex items-center">
                       {ortoolsStatus.available ? (
                         <>
-                          <CheckCircle size={16} className="text-green-600 mr-2" />
-                          <span className="text-green-800">
+                          <CheckCircle size={16} className="text-emerald-600 mr-2" />
+                          <span className="text-emerald-800">
                             Google OR-Tools is available and ready
                           </span>
                         </>
                       ) : (
                         <>
-                          <AlertTriangle size={16} className="text-yellow-600 mr-2" />
-                          <span className="text-yellow-800">
+                          <AlertTriangle size={16} className="text-orange-600 mr-2" />
+                          <span className="text-orange-800">
                             OR-Tools is not installed on the server, so the built-in solver is used.
                             Same rules and priorities. To enable it: pip install ortools
                           </span>
@@ -851,40 +851,40 @@ const GenerateScheduleModal = ({ onClose }) => {
             {previewData && previewData.success && previewData.preview && (
               <div className="mb-6">
                 {/* Preview Header */}
-                <div className="mb-4 p-4 bg-purple-50 rounded-lg border border-purple-200">
+                <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="flex items-center gap-2 mb-1">
-                        <h4 className="text-sm font-semibold text-purple-900">
+                        <h4 className="text-sm font-semibold text-blue-900">
                           Schedule Preview - {previewData.sectionInfo?.sectionCode}
                         </h4>
                         {/* Names the engine that actually produced this. It
                             used to read "AI-Powered" off a flag that fell back
                             to the form's own toggle, so it appeared even for a
                             pure constraint solve. */}
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-200 text-purple-900">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-200 text-blue-900">
                           <Sparkles size={12} className="mr-1" />
                           {engineName(previewData.engine)}
                         </span>
                       </div>
-                      <p className="text-xs text-purple-700">
+                      <p className="text-xs text-blue-700">
                         {stats.scheduledSubjects ?? 0} of {stats.totalSubjects ?? 0} subjects scheduled
                       </p>
                       {previewData.methodNote && (
-                        <p className="text-xs text-purple-600 mt-1 italic">
+                        <p className="text-xs text-blue-600 mt-1 italic">
                           {previewData.methodNote}
                         </p>
                       )}
                     </div>
-                    <CheckCircle className="text-purple-600" size={24} />
+                    <CheckCircle className="text-blue-600" size={24} />
                   </div>
                 </div>
 
                 {/* Statistics */}
                 <div className="grid grid-cols-3 gap-3 mb-4">
-                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                    <p className="text-xs text-green-600 font-medium">Scheduled</p>
-                    <p className="text-2xl font-bold text-green-700">
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
+                    <p className="text-xs text-emerald-600 font-medium">Scheduled</p>
+                    <p className="text-2xl font-bold text-emerald-700">
                       {stats.scheduledSubjects ?? 0}
                     </p>
                   </div>
@@ -941,12 +941,12 @@ const GenerateScheduleModal = ({ onClose }) => {
 
                 {/* Solver notes, e.g. room capacity relaxed */}
                 {previewData.diagnostics?.length > 0 && (
-                  <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                    <p className="text-xs font-semibold text-amber-900 mb-1.5">Worth knowing</p>
+                  <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                    <p className="text-xs font-semibold text-orange-900 mb-1.5">Worth knowing</p>
                     <ul className="space-y-1">
                       {previewData.diagnostics.map((d, i) => (
-                        <li key={i} className="text-xs text-amber-800 flex gap-2">
-                          <span className="text-amber-500 flex-shrink-0">•</span>
+                        <li key={i} className="text-xs text-orange-800 flex gap-2">
+                          <span className="text-orange-500 flex-shrink-0">•</span>
                           <span>{d}</span>
                         </li>
                       ))}
@@ -978,7 +978,7 @@ const GenerateScheduleModal = ({ onClose }) => {
                       <button
                         type="button"
                         onClick={() => setShowSubjectList((v) => !v)}
-                        className="text-xs font-medium text-purple-600 hover:text-purple-800 hover:underline"
+                        className="text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline"
                       >
                         {showSubjectList ? 'Hide details' : `Show details (${previewData.preview.schedules.length})`}
                       </button>
@@ -995,7 +995,7 @@ const GenerateScheduleModal = ({ onClose }) => {
                     </h5>
                     <div className="space-y-2">
                       {previewData.preview.schedules.map((schedule, idx) => (
-                        <div key={idx} className="bg-white rounded-lg p-3 border border-gray-200 hover:border-purple-300 transition-colors">
+                        <div key={idx} className="bg-white rounded-lg p-3 border border-gray-200 hover:border-blue-300 transition-colors">
                           <div className="flex items-start justify-between mb-2">
                             <div className="flex-1">
                               <div className="flex items-center gap-2 mb-1">
@@ -1005,7 +1005,7 @@ const GenerateScheduleModal = ({ onClose }) => {
                                 {/* Guarded: the OR-Tools path did not send units,
                                     which rendered a bare " units" badge */}
                                 {schedule.metadata.units != null && (
-                                  <span className="text-xs px-2 py-0.5 bg-purple-100 text-purple-700 rounded">
+                                  <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded">
                                     {schedule.metadata.units} units
                                   </span>
                                 )}
@@ -1149,22 +1149,22 @@ const GenerateScheduleModal = ({ onClose }) => {
 
             {/* Loading State */}
             {generating && (
-              <div className="mb-6 p-6 bg-purple-50 rounded-lg border border-purple-200">
+              <div className="mb-6 p-6 bg-blue-50 rounded-lg border border-blue-200">
                 <div className="flex flex-col items-center justify-center">
-                  <Loader className="animate-spin text-purple-600" size={40} />
-                  <p className="mt-4 text-sm font-medium text-purple-900">
+                  <Loader className="animate-spin text-blue-600" size={40} />
+                  <p className="mt-4 text-sm font-medium text-blue-900">
                     Solving the timetable
                     {elapsed > 0 && ` · ${elapsed}s`}
                   </p>
-                  <div className="w-full max-w-xs h-1.5 bg-purple-200 rounded-full mt-3 overflow-hidden">
+                  <div className="w-full max-w-xs h-1.5 bg-blue-200 rounded-full mt-3 overflow-hidden">
                     <div
-                      className="h-full bg-purple-600 transition-all duration-1000"
+                      className="h-full bg-blue-600 transition-all duration-1000"
                       style={{
                         width: `${Math.min(100, (elapsed / Math.max(1, formData.timeLimit)) * 100)}%`,
                       }}
                     />
                   </div>
-                  <p className="text-xs text-purple-700 mt-2">
+                  <p className="text-xs text-blue-700 mt-2">
                     {isORTools
                       ? `OR-Tools uses up to ${formData.timeLimit}s to search for the best timetable.`
                       : `The built-in solver usually finishes in a few seconds (at most ${formData.timeLimit}s).`}
@@ -1178,17 +1178,17 @@ const GenerateScheduleModal = ({ onClose }) => {
                 a deterministic recency-weighted score over teaching history,
                 and no language model is involved in generating a timetable. */}
             {!generating && !previewData && (
-              <div className="mb-6 p-4 bg-purple-50 rounded-lg border border-purple-200">
-                <h4 className="text-sm font-semibold text-purple-900 mb-2 flex items-center">
+              <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <h4 className="text-sm font-semibold text-blue-900 mb-2 flex items-center">
                   <Sparkles size={16} className="mr-2" />
                   How generation works
                 </h4>
-                <p className="text-xs text-purple-800 mb-2">
+                <p className="text-xs text-blue-800 mb-2">
                   {isORTools
                     ? 'A constraint solver (Google OR-Tools CP-SAT) places every class at once, searching for the best timetable that breaks none of these rules:'
                     : 'The built-in constraint solver places every class, moving any that clash until none do, then keeps improving the timetable for your chosen priority. It breaks none of these rules:'}
                 </p>
-                <ul className="text-xs text-purple-800 space-y-1">
+                <ul className="text-xs text-blue-800 space-y-1">
                   <li>• One teacher and one room per class, never double-booked</li>
                   <li>• A section is never in two classes at the same time</li>
                   <li>• Teaching load stays within each faculty member's remaining cap</li>
@@ -1196,12 +1196,12 @@ const GenerateScheduleModal = ({ onClose }) => {
                   <li>• Labs only go in lab rooms, and rooms must fit the section</li>
                   <li>• A section with a home room has all its non-lab classes there</li>
                 </ul>
-                <p className="text-xs text-purple-800 mt-2">
+                <p className="text-xs text-blue-800 mt-2">
                   Among the timetables that satisfy all of that, it prefers the one matching
                   your chosen priority — scored from each teacher's recency-weighted history
                   with the subject, their specialisations, and how evenly load is spread.
                 </p>
-                <p className="text-xs font-medium text-purple-900 mt-2">
+                <p className="text-xs font-medium text-blue-900 mt-2">
                   Nothing is saved until you review the preview and approve it.
                 </p>
               </div>
@@ -1225,7 +1225,7 @@ const GenerateScheduleModal = ({ onClose }) => {
               <button
                 type="submit"
                 disabled={generating || !formData.section}
-                className="flex items-center justify-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {generating ? (
                   <>
@@ -1246,7 +1246,7 @@ const GenerateScheduleModal = ({ onClose }) => {
                 <button
                   type="submit"
                   disabled={generating || saving}
-                  className="flex items-center justify-center px-4 py-2 border border-purple-300 text-purple-700 bg-white rounded-lg hover:bg-purple-50 disabled:opacity-50 transition-colors"
+                  className="flex items-center justify-center px-4 py-2 border border-blue-300 text-blue-700 bg-white rounded-lg hover:bg-blue-50 disabled:opacity-50 transition-colors"
                 >
                   {generating ? (
                     <>
@@ -1266,7 +1266,7 @@ const GenerateScheduleModal = ({ onClose }) => {
                   // A preview that failed the conflict check is not saveable
                   disabled={saving || generating || (stats.conflictsDetected ?? 0) > 0}
                   title={(stats.conflictsDetected ?? 0) > 0 ? 'Resolve the conflicts listed above first' : undefined}
-                  className="flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {saving ? (
                     <>

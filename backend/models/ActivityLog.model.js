@@ -32,7 +32,8 @@ const ActivityLogSchema = new mongoose.Schema({
     enum: [
       'user', 'faculty', 'student', 'subject', 'room', 
       'schedule', 'classSpace', 'announcement', 'material',
-      'system', 'auth', 'analyze-subject-compatibility', 'background-summary'
+      'system', 'auth', 'analyze-subject-compatibility', 'background-summary',
+      'section', 'program', 'term', 'notification', 'ai', 'import'
     ]
   },
   resourceId: {

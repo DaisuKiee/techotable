@@ -394,7 +394,7 @@ const SchedulePage = () => {
                 </button>
                 <button
                   onClick={handleGenerate}
-                  className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                  className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >
                   <Wand2 size={20} className="mr-2" />
                   Generate
@@ -405,7 +405,7 @@ const SchedulePage = () => {
                     else if (viewMode === 'builder') setViewMode('dragdrop');
                     else setViewMode('calendar');
                   }}
-                  className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                  className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >
                   {viewMode === 'calendar' && (
                     <>
@@ -552,7 +552,7 @@ const SchedulePage = () => {
                 <button
                   onClick={handlePublish}
                   disabled={!hasFilters}
-                  className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <CheckCircle size={18} className="mr-2" />
                   Publish Schedule
@@ -571,7 +571,7 @@ const SchedulePage = () => {
         </div>
         <div className="bg-white rounded-lg shadow p-4 dark:bg-gray-800">
           <p className="text-sm text-gray-600 dark:text-gray-400">Published</p>
-          <p className="text-2xl font-bold text-green-600 dark:text-green-400">{stats.published}</p>
+          <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{stats.published}</p>
         </div>
         <div className="bg-white rounded-lg shadow p-4 dark:bg-gray-800">
           <p className="text-sm text-gray-600 dark:text-gray-400">Conflicts</p>
@@ -669,7 +669,7 @@ const SchedulePage = () => {
                   <div className={`px-4 py-2 rounded-lg font-medium ${
                     user.shift === 'Day' 
                       ? 'bg-blue-100 text-blue-800 border-2 border-blue-500 dark:bg-blue-900 dark:text-blue-200 dark:border-blue-400'
-                      : 'bg-indigo-100 text-indigo-800 border-2 border-indigo-500 dark:bg-indigo-900 dark:text-indigo-200 dark:border-indigo-400'
+                      : 'bg-blue-100 text-blue-800 border-2 border-blue-500 dark:bg-blue-900 dark:text-blue-200 dark:border-blue-400'
                   }`}>
                     {user.shift} {user.shift === 'Day' ? '(7 AM - 4 PM)' : '(4 PM - 10 PM)'}
                   </div>
@@ -717,7 +717,7 @@ const SchedulePage = () => {
       {viewMode === 'calendar' && (
         <div className="mt-4 flex items-center gap-4 text-sm">
           <div className="flex items-center">
-            <div className="w-4 h-4 bg-green-500 rounded mr-2"></div>
+            <div className="w-4 h-4 bg-emerald-500 rounded mr-2"></div>
             <span className="text-gray-700 dark:text-gray-300">Published</span>
           </div>
           <div className="flex items-center">

@@ -126,12 +126,12 @@ const StaffDashboard = ({ user }) => {
       detail: 'Assign them so their timetable appears',
     },
     stats.totalSubjects - stats.scheduledSubjects > 0 && {
-      icon: BookOpen, tone: 'blue', to: '/schedules',
+      icon: BookOpen, tone: 'amber', to: '/schedules',
       title: `${stats.totalSubjects - stats.scheduledSubjects} subjects not scheduled yet`,
       detail: stats.term ? `Semester ${stats.term.semester}, AY ${stats.term.academicYear}` : `${stats.scheduledSubjects} of ${stats.totalSubjects} have classes`,
     },
     stats.draftSchedules > 0 && {
-      icon: FileEdit, tone: 'blue', to: '/schedules',
+      icon: FileEdit, tone: 'amber', to: '/schedules',
       title: `${stats.draftSchedules} schedule${stats.draftSchedules === 1 ? '' : 's'} still in draft`,
       detail: 'Publish when the timetable is final',
     },
@@ -139,7 +139,7 @@ const StaffDashboard = ({ user }) => {
 
   const TODO_TONE = {
     red: 'bg-red-50 text-red-600 dark:bg-red-900/40 dark:text-red-300',
-    amber: 'bg-amber-50 text-amber-600 dark:bg-amber-900/40 dark:text-amber-300',
+    amber: 'bg-orange-50 text-orange-600 dark:bg-orange-900/40 dark:text-orange-300',
     blue: 'bg-blue-50 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300',
   };
 
@@ -273,12 +273,17 @@ const StaffDashboard = ({ user }) => {
       ))}
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4 xl:grid-cols-6">
-        <StatCard icon={Calendar} label="Schedules" value={stats.totalSchedules} hint={`${stats.publishedSchedules} published · ${stats.draftSchedules} draft`} tone="blue" />
-        <StatCard icon={BookOpen} label="Subjects" value={`${pct(stats.scheduledSubjects, stats.totalSubjects)}%`} hint={`${stats.scheduledSubjects} of ${stats.totalSubjects} scheduled${stats.term ? ` · sem ${stats.term.semester}` : ''}`} tone="emerald" />
-        <StatCard icon={Users} label="Faculty" value={stats.activeFaculty} hint={`${stats.teachingFaculty} teaching`} tone="indigo" />
-        <StatCard icon={GraduationCap} label="Students" value={stats.totalStudents} hint={stats.unassignedStudents ? `${stats.unassignedStudents} need a section` : 'all placed'} tone={stats.unassignedStudents ? 'amber' : 'sky'} />
-        <StatCard icon={Layers} label="Sections" value={stats.totalSections} hint={`${stats.totalClasses} class spaces`} tone="violet" />
-        <StatCard icon={DoorOpen} label="Rooms" value={stats.totalRooms} hint={today.length ? `${roomsInUse} in use right now` : 'none in use today'} tone="orange" />
+        {/* Colour = state: amber when it's listed under "Needs attention",
+            emerald when that part is finished, blue for plain counts. */}
+        <StatCard icon={Calendar} label="Schedules" value={stats.totalSchedules} hint={`${stats.publishedSchedules} published · ${stats.draftSchedules} draft`}
+          tone={!stats.totalSchedules ? 'gray' : stats.draftSchedules ? 'amber' : 'emerald'} />
+        <StatCard icon={BookOpen} label="Subjects" value={`${pct(stats.scheduledSubjects, stats.totalSubjects)}%`} hint={`${stats.scheduledSubjects} of ${stats.totalSubjects} scheduled${stats.term ? ` · sem ${stats.term.semester}` : ''}`}
+          tone={!stats.totalSubjects ? 'gray' : stats.scheduledSubjects >= stats.totalSubjects ? 'emerald' : 'amber'} />
+        <StatCard icon={Users} label="Faculty" value={stats.activeFaculty} hint={`${stats.teachingFaculty} teaching`} tone="blue" />
+        <StatCard icon={GraduationCap} label="Students" value={stats.totalStudents} hint={stats.unassignedStudents ? `${stats.unassignedStudents} need a section` : 'all placed'}
+          tone={!stats.totalStudents ? 'gray' : stats.unassignedStudents ? 'amber' : 'emerald'} />
+        <StatCard icon={Layers} label="Sections" value={stats.totalSections} hint={`${stats.totalClasses} class spaces`} tone="blue" />
+        <StatCard icon={DoorOpen} label="Rooms" value={stats.totalRooms} hint={today.length ? `${roomsInUse} in use right now` : 'none in use today'} tone="blue" />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">

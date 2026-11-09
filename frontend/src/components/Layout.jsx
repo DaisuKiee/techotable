@@ -122,7 +122,7 @@ const TermCard = ({ info, expanded, compact = false, onNavigate }) => {
       title={expanded ? undefined : (summary ? `Semesters: ${summary.configured}/${summary.total} programs` : term?.label)}
       className={`mx-3 mb-3 block rounded-xl transition-colors ${
         expanded ? (compact ? 'px-3 py-2.5' : 'p-3') : 'px-0 py-2'
-      } ${unset ? 'bg-amber-400/15 hover:bg-amber-400/25' : 'bg-white/10 hover:bg-white/15 dark:bg-dark-elevated dark:hover:bg-dark-hover'}`}
+      } ${unset ? 'bg-orange-400/15 hover:bg-orange-400/25' : 'bg-white/10 hover:bg-white/15 dark:bg-dark-elevated dark:hover:bg-dark-hover'}`}
     >
       {expanded && compact && !summary && !unset ? (
         // One row on desktop, so the nav above keeps its room
@@ -141,7 +141,7 @@ const TermCard = ({ info, expanded, compact = false, onNavigate }) => {
       ) : expanded ? (
         <>
           <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-blue-200/80 dark:text-dark-text-muted">
-            {unset ? <AlertTriangle className="h-3.5 w-3.5 text-amber-300" /> : <CalendarRange className="h-3.5 w-3.5" />}
+            {unset ? <AlertTriangle className="h-3.5 w-3.5 text-orange-300" /> : <CalendarRange className="h-3.5 w-3.5" />}
             Current term
           </div>
           {summary ? (
@@ -149,7 +149,7 @@ const TermCard = ({ info, expanded, compact = false, onNavigate }) => {
               Set up for <strong>{summary.configured} of {summary.total}</strong> programs
             </p>
           ) : unset ? (
-            <p className="mt-1 text-sm text-amber-100">
+            <p className="mt-1 text-sm text-orange-100">
               {term?.academicYear} semesters aren’t set up yet
             </p>
           ) : (
@@ -168,7 +168,7 @@ const TermCard = ({ info, expanded, compact = false, onNavigate }) => {
         </>
       ) : (
         <div className="flex flex-col items-center gap-0.5 text-blue-100 dark:text-dark-text-secondary">
-          {unset ? <AlertTriangle className="h-5 w-5 text-amber-300" /> : <CalendarRange className="h-5 w-5" />}
+          {unset ? <AlertTriangle className="h-5 w-5 text-orange-300" /> : <CalendarRange className="h-5 w-5" />}
           <span className="text-[10px] font-semibold leading-tight">
             {summary ? `${summary.configured}/${summary.total}` : current ? `${term.daysLeft}d` : unset ? 'Set up' : '—'}
           </span>
@@ -414,7 +414,7 @@ const Layout = ({ children }) => {
 
   // Desktop rows are a little tighter so every group fits a laptop screen
   // without scrolling; the phone menu keeps the larger touch targets.
-  const navLinkClass = (active, compact = false) => `flex items-center gap-4 px-4 ${compact ? 'py-2' : 'py-3'} rounded-xl transition-all duration-200 group relative focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow-300 dark:focus-visible:ring-dark-blue-primary ${
+  const navLinkClass = (active, compact = false) => `flex items-center gap-4 px-4 ${compact ? 'py-2' : 'py-3'} rounded-xl transition-all duration-200 group relative focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 dark:focus-visible:ring-dark-blue-primary ${
     active
       ? 'bg-yellow-400 dark:bg-dark-blue-hover text-blue-900 dark:text-white shadow-lg shadow-yellow-500/30 dark:shadow-none'
       : 'text-blue-100 dark:text-dark-text-secondary hover:bg-white/10 dark:hover:bg-dark-hover hover:text-white'
@@ -882,15 +882,11 @@ const Layout = ({ children }) => {
       }`}>
         {/* Page Header - Desktop */}
         <div className="hidden lg:block sticky top-0 z-30 bg-white dark:bg-dark-main border-b border-gray-200 dark:border-dark-border-subtle backdrop-blur-sm bg-white/80 dark:bg-dark-main/80">
-          <div className="flex items-center justify-between px-8 py-4">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-dark-text-primary">
-                {currentPage}
-              </h1>
-              <p className="text-sm text-gray-500 dark:text-dark-text-muted mt-1">
-                {user?.program ? `${user.program} Program` : 'Management System'}
-              </p>
-            </div>
+          <div className="flex items-center justify-between px-8 py-3">
+            {/* Pages carry their own title, so the bar only says whose view this is */}
+            <p className="text-sm font-medium text-gray-500 dark:text-dark-text-muted">
+              {user?.program ? `${user.program} Program` : 'Management System'}
+            </p>
 
             {/* Theme switch + notification bell */}
             <div className="flex items-center gap-1">

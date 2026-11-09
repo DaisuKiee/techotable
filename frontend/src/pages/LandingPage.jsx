@@ -153,13 +153,13 @@ const SectionHeading = ({ eyebrow, title, subtitle, align = 'center' }) => (
  * Clearly an example - no real names.
  */
 const SAMPLE_BLOCKS = [
-  { day: 0, start: 0, len: 2, code: 'CC 111', who: 'Intro to Computing', tone: 'bg-rose-200/90 border-rose-500 text-rose-950' },
+  { day: 0, start: 0, len: 2, code: 'CC 111', who: 'Intro to Computing', tone: 'bg-red-200/90 border-red-500 text-red-950' },
   { day: 0, start: 2, len: 2, code: 'GEE-TEM', who: 'Entrepreneurial Mind', tone: 'bg-amber-200/90 border-amber-500 text-amber-950' },
   { day: 1, start: 0, len: 3, code: 'GEC-RPH', who: 'Philippine History', tone: 'bg-emerald-200/90 border-emerald-500 text-emerald-950' },
-  { day: 2, start: 1, len: 3, code: 'CC 112 L', who: 'Programming Lab', tone: 'bg-orange-200/90 border-orange-500 text-orange-950' },
-  { day: 3, start: 0, len: 2, code: 'PATHFR 1', who: 'PE & Fitness', tone: 'bg-cyan-200/90 border-cyan-500 text-cyan-950' },
-  { day: 3, start: 2, len: 2, code: 'GEC-MMW', who: 'Mathematics', tone: 'bg-indigo-200/90 border-indigo-500 text-indigo-950' },
-  { day: 4, start: 0, len: 3, code: 'NSTP 1', who: 'Saturday-ready', tone: 'bg-sky-200/90 border-sky-500 text-sky-950' },
+  { day: 2, start: 1, len: 3, code: 'CC 112 L', who: 'Programming Lab', tone: 'bg-amber-200/90 border-amber-500 text-amber-950' },
+  { day: 3, start: 0, len: 2, code: 'PATHFR 1', who: 'PE & Fitness', tone: 'bg-blue-200/90 border-blue-500 text-blue-950' },
+  { day: 3, start: 2, len: 2, code: 'GEC-MMW', who: 'Mathematics', tone: 'bg-blue-200/90 border-blue-500 text-blue-950' },
+  { day: 4, start: 0, len: 3, code: 'NSTP 1', who: 'Saturday-ready', tone: 'bg-blue-200/90 border-blue-500 text-blue-950' },
 ];
 
 const BLOCK_STAGGER = 220; // ms between classes being "placed"
@@ -454,7 +454,7 @@ const LandingPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-950 to-slate-950 text-white overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-950 to-gray-950 text-white overflow-hidden">
       {/* Navigation overlay: the same walk, compressed into the 0.8s before
           the route changes */}
       {navigating && <CampusWalkLoader duration={0.8} compact />}
@@ -572,9 +572,9 @@ const LandingPage = () => {
               style={{ backgroundImage: `url(${image})` }}
             >
               {/* Lighter overlay - images more visible */}
-              <div className="absolute inset-0 bg-gradient-to-br from-slate-950/60 via-blue-950/50 to-slate-950/60"></div>
+              <div className="absolute inset-0 bg-gradient-to-br from-gray-950/60 via-blue-950/50 to-gray-950/60"></div>
               {/* Bottom blend overlay */}
-              <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-b from-transparent to-slate-950"></div>
+              <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-b from-transparent to-gray-950"></div>
             </div>
             );
           })}
@@ -653,7 +653,7 @@ const LandingPage = () => {
       </section>
 
       {/* ── How it works: the real core loop ── */}
-      <section id="how-it-works" className="relative bg-slate-950 py-20 sm:py-28">
+      <section id="how-it-works" className="relative bg-gray-950 py-20 sm:py-28">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <SectionHeading
             eyebrow="How it works"
@@ -685,7 +685,7 @@ const LandingPage = () => {
       </section>
 
       {/* ── Product shot: what a generated week looks like ── */}
-      <section className="bg-gradient-to-b from-slate-950 to-blue-950 pb-20 sm:pb-28">
+      <section className="bg-gradient-to-b from-gray-950 to-blue-950 pb-20 sm:pb-28">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
           <div className="grid items-center gap-10 lg:grid-cols-2">
             <div>
@@ -733,7 +733,7 @@ const LandingPage = () => {
                 delay={(i % 3) * 110}
                 className="group rounded-2xl border border-white/10 bg-white/[0.04] p-6 hover:-translate-y-1 hover:border-yellow-400/40 hover:bg-white/[0.07] hover:shadow-xl hover:shadow-black/30"
               >
-                <span className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-blue-500/15 text-blue-300 transition-all duration-300 group-hover:rotate-6 group-hover:scale-110 group-hover:bg-yellow-400/15 group-hover:text-yellow-300">
+                <span className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-blue-500/15 text-blue-300 transition-all duration-300 group-hover:rotate-6 group-hover:scale-110 group-hover:bg-amber-400/15 group-hover:text-amber-300">
                   <Icon className="h-5 w-5" />
                 </span>
                 <h3 className="mb-2 font-bold text-white">{title}</h3>
@@ -745,7 +745,7 @@ const LandingPage = () => {
       </section>
 
       {/* ── Roles ── */}
-      <section className="bg-gradient-to-b from-blue-950 to-slate-950 py-20 sm:py-28">
+      <section className="bg-gradient-to-b from-blue-950 to-gray-950 py-20 sm:py-28">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <SectionHeading
             eyebrow="One system, five roles"
@@ -789,7 +789,7 @@ const LandingPage = () => {
       </section>
 
       {/* ── Closing CTA + footer ── */}
-      <section className="bg-slate-950 px-4 py-20 text-center">
+      <section className="bg-gray-950 px-4 py-20 text-center">
         <Reveal from="scale">
         <h2 className="mb-4 text-3xl font-black sm:text-4xl">
           Ready to build this semester’s timetable?
@@ -816,7 +816,7 @@ const LandingPage = () => {
         </Reveal>
       </section>
 
-      <footer className="border-t border-white/10 bg-slate-950 py-8 text-center text-xs text-gray-500">
+      <footer className="border-t border-white/10 bg-gray-950 py-8 text-center text-xs text-gray-500">
         <div className="mb-2 flex items-center justify-center gap-2">
           <img src={ctuLogo} alt="" className="h-6 w-6 object-contain" />
           <span className="font-semibold text-gray-300">CTU Daanbantayan · College of Technology Education</span>

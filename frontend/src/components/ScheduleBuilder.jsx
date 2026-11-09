@@ -103,15 +103,15 @@ const fmtTime = (t) => {
  */
 const SUBJECT_COLORS = [
   { bg: 'bg-blue-600', light: 'bg-blue-50 dark:bg-blue-900/20', border: 'border-blue-200 dark:border-blue-700', text: 'text-blue-700 dark:text-blue-300', tile: 'bg-blue-100 dark:bg-blue-900/40', edge: 'border-blue-500', ink: 'text-blue-900 dark:text-blue-100' },
-  { bg: 'bg-purple-600', light: 'bg-purple-50 dark:bg-purple-900/20', border: 'border-purple-200 dark:border-purple-700', text: 'text-purple-700 dark:text-purple-300', tile: 'bg-purple-100 dark:bg-purple-900/40', edge: 'border-purple-500', ink: 'text-purple-900 dark:text-purple-100' },
-  { bg: 'bg-teal-600', light: 'bg-teal-50 dark:bg-teal-900/20', border: 'border-teal-200 dark:border-teal-700', text: 'text-teal-700 dark:text-teal-300', tile: 'bg-teal-100 dark:bg-teal-900/40', edge: 'border-teal-500', ink: 'text-teal-900 dark:text-teal-100' },
-  { bg: 'bg-rose-600', light: 'bg-rose-50 dark:bg-rose-900/20', border: 'border-rose-200 dark:border-rose-700', text: 'text-rose-700 dark:text-rose-300', tile: 'bg-rose-100 dark:bg-rose-900/40', edge: 'border-rose-500', ink: 'text-rose-900 dark:text-rose-100' },
+  { bg: 'bg-blue-600', light: 'bg-blue-50 dark:bg-blue-900/20', border: 'border-blue-200 dark:border-blue-700', text: 'text-blue-700 dark:text-blue-300', tile: 'bg-blue-100 dark:bg-blue-900/40', edge: 'border-blue-500', ink: 'text-blue-900 dark:text-blue-100' },
+  { bg: 'bg-blue-600', light: 'bg-blue-50 dark:bg-blue-900/20', border: 'border-blue-200 dark:border-blue-700', text: 'text-blue-700 dark:text-blue-300', tile: 'bg-blue-100 dark:bg-blue-900/40', edge: 'border-blue-500', ink: 'text-blue-900 dark:text-blue-100' },
+  { bg: 'bg-red-600', light: 'bg-red-50 dark:bg-red-900/20', border: 'border-red-200 dark:border-red-700', text: 'text-red-700 dark:text-red-300', tile: 'bg-red-100 dark:bg-red-900/40', edge: 'border-red-500', ink: 'text-red-900 dark:text-red-100' },
   { bg: 'bg-orange-600', light: 'bg-orange-50 dark:bg-orange-900/20', border: 'border-orange-200 dark:border-orange-700', text: 'text-orange-700 dark:text-orange-300', tile: 'bg-orange-100 dark:bg-orange-900/40', edge: 'border-orange-500', ink: 'text-orange-900 dark:text-orange-100' },
-  { bg: 'bg-indigo-600', light: 'bg-indigo-50 dark:bg-indigo-900/20', border: 'border-indigo-200 dark:border-indigo-700', text: 'text-indigo-700 dark:text-indigo-300', tile: 'bg-indigo-100 dark:bg-indigo-900/40', edge: 'border-indigo-500', ink: 'text-indigo-900 dark:text-indigo-100' },
+  { bg: 'bg-blue-600', light: 'bg-blue-50 dark:bg-blue-900/20', border: 'border-blue-200 dark:border-blue-700', text: 'text-blue-700 dark:text-blue-300', tile: 'bg-blue-100 dark:bg-blue-900/40', edge: 'border-blue-500', ink: 'text-blue-900 dark:text-blue-100' },
   { bg: 'bg-emerald-600', light: 'bg-emerald-50 dark:bg-emerald-900/20', border: 'border-emerald-200 dark:border-emerald-700', text: 'text-emerald-700 dark:text-emerald-300', tile: 'bg-emerald-100 dark:bg-emerald-900/40', edge: 'border-emerald-500', ink: 'text-emerald-900 dark:text-emerald-100' },
-  { bg: 'bg-pink-600', light: 'bg-pink-50 dark:bg-pink-900/20', border: 'border-pink-200 dark:border-pink-700', text: 'text-pink-700 dark:text-pink-300', tile: 'bg-pink-100 dark:bg-pink-900/40', edge: 'border-pink-500', ink: 'text-pink-900 dark:text-pink-100' },
-  { bg: 'bg-cyan-600', light: 'bg-cyan-50 dark:bg-cyan-900/20', border: 'border-cyan-200 dark:border-cyan-700', text: 'text-cyan-700 dark:text-cyan-300', tile: 'bg-cyan-100 dark:bg-cyan-900/40', edge: 'border-cyan-500', ink: 'text-cyan-900 dark:text-cyan-100' },
-  { bg: 'bg-amber-600', light: 'bg-amber-50 dark:bg-amber-900/20', border: 'border-amber-200 dark:border-amber-700', text: 'text-amber-700 dark:text-amber-300', tile: 'bg-amber-100 dark:bg-amber-900/40', edge: 'border-amber-500', ink: 'text-amber-900 dark:text-amber-100' },
+  { bg: 'bg-blue-600', light: 'bg-blue-50 dark:bg-blue-900/20', border: 'border-blue-200 dark:border-blue-700', text: 'text-blue-700 dark:text-blue-300', tile: 'bg-blue-100 dark:bg-blue-900/40', edge: 'border-blue-500', ink: 'text-blue-900 dark:text-blue-100' },
+  { bg: 'bg-blue-600', light: 'bg-blue-50 dark:bg-blue-900/20', border: 'border-blue-200 dark:border-blue-700', text: 'text-blue-700 dark:text-blue-300', tile: 'bg-blue-100 dark:bg-blue-900/40', edge: 'border-blue-500', ink: 'text-blue-900 dark:text-blue-100' },
+  { bg: 'bg-orange-600', light: 'bg-orange-50 dark:bg-orange-900/20', border: 'border-orange-200 dark:border-orange-700', text: 'text-orange-700 dark:text-orange-300', tile: 'bg-orange-100 dark:bg-orange-900/40', edge: 'border-orange-500', ink: 'text-orange-900 dark:text-orange-100' },
 ];
 
 const getSubjectColor = (subjectCode) => {
@@ -1171,7 +1171,7 @@ const ScheduleBuilder = ({
                 Check the room (pre-filled from the section)
               </li>
               <li className="flex items-center gap-1">
-                <span className="w-4 h-4 rounded-full bg-green-600 text-white text-[10px] font-bold flex items-center justify-center">5</span>
+                <span className="w-4 h-4 rounded-full bg-emerald-600 text-white text-[10px] font-bold flex items-center justify-center">5</span>
                 Save All
               </li>
             </ol>
@@ -1257,7 +1257,7 @@ const ScheduleBuilder = ({
                 <button
                   onClick={handleSaveAll}
                   disabled={saving || readyCount !== pendingCount}
-                  className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-semibold transition-colors disabled:opacity-60"
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition-colors disabled:opacity-60"
                   title={readyCount !== pendingCount ? `${pendingCount - readyCount} still need faculty/room` : ''}
                 >
                   {saving
@@ -1279,9 +1279,9 @@ const ScheduleBuilder = ({
         {/* Legend */}
         <div className="flex items-center gap-4 mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400 flex-wrap">
           <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-blue-100 border border-blue-300" />Saved</div>
-          <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-amber-100 border-2 border-amber-400" />Needs faculty/room</div>
-          <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-green-100 border-2 border-green-400" />Ready to save</div>
-          <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-amber-50 border border-amber-300" />Lunch</div>
+          <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-orange-100 border-2 border-orange-400" />Needs faculty/room</div>
+          <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-emerald-100 border-2 border-emerald-400" />Ready to save</div>
+          <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-orange-50 border border-orange-300" />Lunch</div>
           <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-orange-100 border-2 border-orange-500" />Instructor busy elsewhere</div>
           <span className="text-gray-500 dark:text-gray-400">Drag a placed card to move it · drop it on the bin to remove</span>
           <div className="flex items-center gap-1.5 ml-auto text-gray-500 dark:text-gray-400">
@@ -1419,7 +1419,7 @@ const ScheduleBuilder = ({
                           className={`flex w-full items-center gap-1.5 rounded-md border px-1.5 py-1 text-left text-[10px] transition-colors ${
                             hasFaculty
                               ? 'border-gray-200 bg-white text-gray-700 hover:border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200'
-                              : 'border-amber-400 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:border-amber-600 dark:bg-amber-900/20 dark:text-amber-300'
+                              : 'border-orange-400 bg-orange-50 text-orange-700 hover:bg-orange-100 dark:border-orange-600 dark:bg-orange-900/20 dark:text-orange-300'
                           }`}
                         >
                           <User className="h-3 w-3 flex-shrink-0" />
@@ -1429,7 +1429,7 @@ const ScheduleBuilder = ({
                           <ChevronDown className="ml-auto h-3 w-3 flex-shrink-0 opacity-60" />
                         </button>
                         {!hasFaculty && !isLimitReached && (
-                          <p className="text-[9px] text-amber-600 dark:text-amber-400 mt-0.5">
+                          <p className="text-[9px] text-orange-600 dark:text-orange-400 mt-0.5">
                             Set a faculty to enable dragging
                           </p>
                         )}
@@ -1481,7 +1481,7 @@ const ScheduleBuilder = ({
                       return (
                         <tr key={slot.time}>
                           <td colSpan={DAYS.length + 1}
-                            className="px-3 py-1.5 text-center text-xs font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 border-b border-gray-200 dark:border-gray-600">
+                            className="px-3 py-1.5 text-center text-xs font-semibold text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-900/20 border-b border-gray-200 dark:border-gray-600">
                             🍽 Lunch Break — 12:00 PM – 1:00 PM
                           </td>
                         </tr>
@@ -1565,7 +1565,7 @@ const ScheduleBuilder = ({
                                   // a class elsewhere at this day and time.
                                   ? 'bg-orange-50 dark:bg-orange-900/20 ring-2 ring-inset ring-orange-500'
                                   : free
-                                  ? 'bg-green-50 dark:bg-green-900/20 ring-2 ring-inset ring-green-500'
+                                  ? 'bg-emerald-50 dark:bg-emerald-900/20 ring-2 ring-inset ring-emerald-500'
                                   : isDragging && isEmpty
                                   ? 'bg-blue-50/40 dark:bg-blue-900/10'
                                   : ''
@@ -1660,7 +1660,7 @@ const ScheduleBuilder = ({
                                     // carried by the coloured ring and the
                                     // status dot rather than a different shape.
                                     className={`relative flex-1 min-h-0 flex flex-col overflow-hidden rounded-md border-l-[3px] px-1.5 py-1 ${color.tile} ${color.edge} cursor-grab active:cursor-grabbing transition-all hover:brightness-95 hover:shadow-sm group ring-1 ${
-                                      isReady ? 'ring-green-500/70' : 'ring-amber-500/70'
+                                      isReady ? 'ring-emerald-500/70' : 'ring-orange-500/70'
                                     } ${
                                       drag?.kind === 'pending' && String(drag.id) === String(ps.tempId) ? 'opacity-40' : ''
                                     }`}
@@ -1670,7 +1670,7 @@ const ScheduleBuilder = ({
                                       <span
                                         aria-hidden="true"
                                         className={`mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full ${
-                                          isReady ? 'bg-green-500' : 'bg-amber-500'
+                                          isReady ? 'bg-emerald-500' : 'bg-orange-500'
                                         }`}
                                       />
                                       <p className={`${color.ink} flex-1 text-[11px] font-bold leading-tight truncate`}>
@@ -1764,8 +1764,8 @@ const ScheduleBuilder = ({
                                 </div>
                               )}
                               {isEmpty && free && (
-                                <div className="flex-1 min-h-0 border-2 border-green-500 bg-green-100 dark:bg-green-900/40 rounded-lg flex items-center justify-center">
-                                  <span className="text-[10px] text-green-700 dark:text-green-300 font-bold">
+                                <div className="flex-1 min-h-0 border-2 border-emerald-500 bg-emerald-100 dark:bg-emerald-900/40 rounded-lg flex items-center justify-center">
+                                  <span className="text-[10px] text-emerald-700 dark:text-emerald-300 font-bold">
                                     {hover.hours}h here
                                   </span>
                                 </div>
@@ -1786,15 +1786,15 @@ const ScheduleBuilder = ({
           {pendingCount > 0 && (
             <div className={`mt-4 rounded-2xl border p-4 ${
               readyCount === pendingCount
-                ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700'
-                : 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-700'
+                ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-700'
+                : 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-700'
             }`}>
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   {readyCount === pendingCount
-                    ? <CheckCircle className="w-4 h-4 text-green-600" />
-                    : <AlertCircle className="w-4 h-4 text-amber-600" />}
-                  <span className={`text-sm font-bold ${readyCount === pendingCount ? 'text-green-900 dark:text-green-100' : 'text-amber-900 dark:text-amber-100'}`}>
+                    ? <CheckCircle className="w-4 h-4 text-emerald-600" />
+                    : <AlertCircle className="w-4 h-4 text-orange-600" />}
+                  <span className={`text-sm font-bold ${readyCount === pendingCount ? 'text-emerald-900 dark:text-emerald-100' : 'text-orange-900 dark:text-orange-100'}`}>
                     {readyCount === pendingCount
                       ? `All ${pendingCount} schedule(s) ready to save`
                       : `${pendingCount - readyCount} of ${pendingCount} still need faculty/room`}
@@ -1803,7 +1803,7 @@ const ScheduleBuilder = ({
                 <button
                   onClick={handleSaveAll}
                   disabled={saving || readyCount !== pendingCount}
-                  className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
                 >
                   {saving ? <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                   Save All
@@ -1815,13 +1815,13 @@ const ScheduleBuilder = ({
                   const code = ps.subjectData?.subjectCode;
                   const color = getSubjectColor(code);
                   return (
-                    <div key={i} className={`flex items-center gap-2 text-sm rounded-lg px-3 py-2 ${isReady ? 'bg-green-100/60 dark:bg-green-900/20' : 'bg-amber-100/60 dark:bg-amber-900/20'}`}>
+                    <div key={i} className={`flex items-center gap-2 text-sm rounded-lg px-3 py-2 ${isReady ? 'bg-emerald-100/60 dark:bg-emerald-900/20' : 'bg-orange-100/60 dark:bg-orange-900/20'}`}>
                       <div className={`w-2 h-2 rounded-full flex-shrink-0 ${color.bg}`} />
                       <span className="font-semibold text-gray-900 dark:text-white">{code}</span>
                       <span className="text-gray-500 text-xs">· {ps.timeSlots[0]?.day} {ps.timeSlots[0]?.startTime}–{ps.timeSlots[0]?.endTime}</span>
                       {isReady
-                        ? <CheckCircle className="w-3.5 h-3.5 text-green-600 ml-auto" />
-                        : <span className="text-amber-600 text-xs ml-auto">needs {!ps.faculty ? 'faculty' : ''}{!ps.faculty && !ps.room ? ' + ' : ''}{!ps.room ? 'room' : ''}</span>
+                        ? <CheckCircle className="w-3.5 h-3.5 text-emerald-600 ml-auto" />
+                        : <span className="text-orange-600 text-xs ml-auto">needs {!ps.faculty ? 'faculty' : ''}{!ps.faculty && !ps.room ? ' + ' : ''}{!ps.room ? 'room' : ''}</span>
                       }
                       <button onClick={() => setEditingSchedule(ps)} className="text-blue-600 text-xs hover:underline">Edit</button>
                       <button onClick={() => removePending(ps.tempId)} className="text-gray-400 hover:text-red-500 transition-colors"><X className="w-3.5 h-3.5" /></button>
@@ -1871,21 +1871,21 @@ const ScheduleBuilder = ({
               <div
                 className={`flex flex-shrink-0 items-center gap-2 border-b px-6 py-2.5 text-sm ${
                   chosen
-                    ? 'border-green-100 bg-green-50 dark:border-green-800 dark:bg-green-900/20'
-                    : 'border-amber-100 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20'
+                    ? 'border-emerald-100 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-900/20'
+                    : 'border-orange-100 bg-orange-50 dark:border-orange-800 dark:bg-orange-900/20'
                 }`}
               >
                 {chosen ? (
                   <>
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                    <span className="font-medium text-green-700 dark:text-green-300">
+                    <CheckCircle className="h-4 w-4 text-emerald-600" />
+                    <span className="font-medium text-emerald-700 dark:text-emerald-300">
                       {facultyName(chosen)} — ready to drag onto the grid
                     </span>
                   </>
                 ) : (
                   <>
-                    <AlertCircle className="h-4 w-4 text-amber-600" />
-                    <span className="font-medium text-amber-700 dark:text-amber-300">
+                    <AlertCircle className="h-4 w-4 text-orange-600" />
+                    <span className="font-medium text-orange-700 dark:text-orange-300">
                       Pick a faculty to enable dragging
                     </span>
                   </>

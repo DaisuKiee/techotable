@@ -218,7 +218,7 @@ const SectionModal = ({ section, faculty, onClose, onSubmit }) => {
                     className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-semibold transition-all ${
                       formData.shift === shift
                         ? shift === 'Day'
-                          ? 'bg-amber-600 text-white shadow-lg scale-105'
+                          ? 'bg-orange-600 text-white shadow-lg scale-105'
                           : 'bg-blue-600 text-white shadow-lg scale-105'
                         : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
                     }`}
@@ -337,7 +337,7 @@ const SectionModal = ({ section, faculty, onClose, onSubmit }) => {
                   {errors.room || `Already the home room of ${roomTakenBy}. Each section needs its own room.`}
                 </p>
               ) : chosenRoom && chosenRoom.capacity < Number(formData.maxStudents || 0) ? (
-                <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-400">
+                <p className="mt-1.5 text-xs text-orange-700 dark:text-orange-400">
                   {chosenRoom.roomCode} seats {chosenRoom.capacity}, fewer than this section’s {formData.maxStudents} students.
                 </p>
               ) : (

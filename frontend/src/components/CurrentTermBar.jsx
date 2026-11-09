@@ -31,12 +31,12 @@ const CurrentTermBar = () => {
     <div className={`mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-lg border px-3 py-2 text-sm ${
       isSet || summary
         ? 'border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800'
-        : 'border-amber-200 bg-amber-50 dark:border-amber-800/60 dark:bg-amber-900/20'
+        : 'border-orange-200 bg-orange-50 dark:border-orange-800/60 dark:bg-orange-900/20'
     }`}
     >
       {summary ? (
         <span className="flex items-center gap-2 text-gray-800 dark:text-gray-200">
-          <CalendarRange className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+          <CalendarRange className="h-4 w-4 text-blue-600 dark:text-blue-400" />
           Semesters set up for <strong>{summary.configured} of {summary.total}</strong> programs
         </span>
       ) : isSet ? (
@@ -45,14 +45,14 @@ const CurrentTermBar = () => {
           <span><strong>{term.label}</strong> · {term.status === 'current' ? `${term.daysLeft} days left` : 'between terms'}</span>
         </span>
       ) : (
-        <span className="flex items-center gap-2 text-amber-900 dark:text-amber-100">
+        <span className="flex items-center gap-2 text-orange-900 dark:text-orange-100">
           <AlertTriangle className="h-4 w-4" />
           Semester dates for {term.academicYear} aren’t set up yet. Set them on the Semesters page.
         </span>
       )}
       <span className="ml-auto flex gap-3 text-xs font-medium">
-        <Link to="/semesters" className="text-indigo-600 hover:underline dark:text-indigo-400">Semesters</Link>
-        <Link to="/semesters?tab=archive" className="inline-flex items-center gap-1 text-indigo-600 hover:underline dark:text-indigo-400">
+        <Link to="/semesters" className="text-blue-600 hover:underline dark:text-blue-400">Semesters</Link>
+        <Link to="/semesters?tab=archive" className="inline-flex items-center gap-1 text-blue-600 hover:underline dark:text-blue-400">
           <Archive className="h-3.5 w-3.5" /> Archive
         </Link>
       </span>

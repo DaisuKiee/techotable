@@ -23,12 +23,15 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        // Brand blue (same as Tailwind blue). Colour roles across the app:
+        // blue = brand/info, emerald = success, amber = attention,
+        // red = danger, gray = everything neutral.
         primary: {
-          50: '#f0f9ff',
-          100: '#e0f2fe',
-          500: '#0ea5e9',
-          600: '#0284c7',
-          700: '#0369a1',
+          50: '#eff6ff',
+          100: '#dbeafe',
+          500: '#3b82f6',
+          600: '#2563eb',
+          700: '#1d4ed8',
         },
         cote: {
           blue: '#0369a1',

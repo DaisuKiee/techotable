@@ -482,7 +482,7 @@ const ScheduleModal = ({ mode, schedule, subjects: propSubjects, sections: propS
                 from the Schedules list, where publishing also notifies people. */}
             <div className={`rounded-lg border p-3 text-sm ${schedule?.status === 'published'
               ? 'border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-200'
-              : 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200'}`}>
+              : 'border-orange-200 bg-orange-50 text-orange-900 dark:border-orange-800 dark:bg-orange-900/20 dark:text-orange-200'}`}>
               {schedule?.status === 'published' ? (
                 <>
                   <span className="font-semibold">Published.</span> The teacher and students see this class; they’re notified when you save a change to its time, room or teacher.

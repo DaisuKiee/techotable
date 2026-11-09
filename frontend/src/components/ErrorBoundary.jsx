@@ -51,7 +51,7 @@ class Boundary extends React.Component {
     return (
       <div role="alert" className="flex min-h-[60vh] items-center justify-center bg-gray-50 px-4 py-16 dark:bg-dark-main">
         <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 text-center shadow-sm dark:border-dark-border-default dark:bg-dark-card sm:p-8">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-orange-100 text-orange-600 dark:bg-orange-500/15 dark:text-orange-300">
             <AlertTriangle className="h-6 w-6" />
           </div>
           <h1 className="mt-4 text-lg font-semibold text-gray-900 dark:text-dark-text-primary">

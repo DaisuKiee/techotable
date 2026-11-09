@@ -109,7 +109,7 @@ const CreateAnnouncementModal = ({ classSpaceId, announcement, onClose }) => {
           {/* Pin as a switch: one clear control instead of a checkbox inside a grey box */}
           <label htmlFor="isPinned" className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-gray-200 p-4 dark:border-gray-700">
             <span className="flex items-start gap-3">
-              <Pin className="mt-0.5 h-4 w-4 text-amber-500" />
+              <Pin className="mt-0.5 h-4 w-4 text-orange-500" />
               <span>
                 <span className="block text-sm font-medium text-gray-900 dark:text-white">Pin to top</span>
                 <span className="block text-xs text-gray-500 dark:text-gray-400">Stays above newer posts until unpinned</span>
@@ -123,7 +123,7 @@ const CreateAnnouncementModal = ({ classSpaceId, announcement, onClose }) => {
               onChange={handleChange}
               className="peer sr-only"
             />
-            <span className="relative h-6 w-11 flex-shrink-0 rounded-full bg-gray-300 transition-colors after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:bg-amber-500 peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-amber-400 dark:bg-gray-600" aria-hidden="true" />
+            <span className="relative h-6 w-11 flex-shrink-0 rounded-full bg-gray-300 transition-colors after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:bg-orange-500 peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-orange-400 dark:bg-gray-600" aria-hidden="true" />
           </label>
         </ModalBody>
 

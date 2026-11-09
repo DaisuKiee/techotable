@@ -225,7 +225,7 @@ const FacultyModal = ({ mode, faculty, onClose }) => {
       <div className="bg-gray-50 dark:bg-gray-900 p-6">
           {/* Faculty Preview Card (Edit Mode) */}
           {mode === 'edit' && faculty && (
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-5 mb-6 border-2 border-blue-200 dark:border-blue-800">
+            <div className="bg-gradient-to-br from-blue-50 to-blue-50 dark:from-blue-900/20 dark:to-blue-900/20 rounded-xl p-5 mb-6 border-2 border-blue-200 dark:border-blue-800">
               <div className="flex items-start gap-4">
                 <div className="flex-shrink-0">
                   {faculty.user?.profilePicture ? (
@@ -261,13 +261,13 @@ const FacultyModal = ({ mode, faculty, onClose }) => {
                     <span className={`px-2.5 py-1 text-xs font-semibold rounded ${
                       faculty.employmentType === 'Regular'
                         ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
-                        : 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300'
+                        : 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
                     }`}>
                       {faculty.employmentType || 'Regular'}
                     </span>
                     <span className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
                       faculty.isActive 
-                        ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300'
                         : 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
                     }`}>
                       <AnimatedUserCheck className="w-3 h-3" />
@@ -522,7 +522,7 @@ const FacultyModal = ({ mode, faculty, onClose }) => {
                         {formData.specializations.filter(s => s.trim()).map((spec, idx) => (
                           <span
                             key={idx}
-                            className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300"
+                            className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
                           >
                             <BookOpen className="w-3 h-3 mr-1" />
                             {spec}
@@ -566,7 +566,7 @@ const FacultyModal = ({ mode, faculty, onClose }) => {
               </div>
 
               {/* Educational Background Section (from Excel Template) */}
-              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-5 border-2 border-blue-200 dark:border-blue-700">
+              <div className="bg-gradient-to-br from-blue-50 to-blue-50 dark:from-blue-900/20 dark:to-blue-900/20 rounded-xl p-5 border-2 border-blue-200 dark:border-blue-700">
                 <div className="flex items-center gap-2 mb-4">
                   <Award className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                   <h3 className="text-lg font-bold text-gray-900 dark:text-white">Educational Background</h3>
@@ -620,9 +620,9 @@ const FacultyModal = ({ mode, faculty, onClose }) => {
                 </div>
 
                 {/* Master's Degree */}
-                <div className="bg-white dark:bg-gray-800 rounded-lg p-4 mb-4 border border-purple-200 dark:border-purple-700">
+                <div className="bg-white dark:bg-gray-800 rounded-lg p-4 mb-4 border border-blue-200 dark:border-blue-700">
                   <h4 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-                    <BookOpen className="w-4 h-4 text-purple-600" />
+                    <BookOpen className="w-4 h-4 text-blue-600" />
                     Master's Degree
                   </h4>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -635,7 +635,7 @@ const FacultyModal = ({ mode, faculty, onClose }) => {
                         value={formData.mastersDegree.degree}
                         onChange={(e) => handleDegreeChange('mastersDegree', 'degree', e.target.value)}
                         placeholder="e.g., MIT, MAEd"
-                        className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white placeholder-gray-400"
+                        className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white placeholder-gray-400"
                       />
                     </div>
                     <div>
@@ -647,7 +647,7 @@ const FacultyModal = ({ mode, faculty, onClose }) => {
                         value={formData.mastersDegree.major}
                         onChange={(e) => handleDegreeChange('mastersDegree', 'major', e.target.value)}
                         placeholder="e.g., Information Technology"
-                        className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white placeholder-gray-400"
+                        className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white placeholder-gray-400"
                       />
                     </div>
                     <div>
@@ -659,16 +659,16 @@ const FacultyModal = ({ mode, faculty, onClose }) => {
                         value={formData.mastersDegree.minor}
                         onChange={(e) => handleDegreeChange('mastersDegree', 'minor', e.target.value)}
                         placeholder="Optional"
-                        className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white placeholder-gray-400"
+                        className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white placeholder-gray-400"
                       />
                     </div>
                   </div>
                 </div>
 
                 {/* Doctoral Degree */}
-                <div className="bg-white dark:bg-gray-800 rounded-lg p-4 mb-4 border border-green-200 dark:border-green-700">
+                <div className="bg-white dark:bg-gray-800 rounded-lg p-4 mb-4 border border-emerald-200 dark:border-emerald-700">
                   <h4 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-                    <BookOpen className="w-4 h-4 text-green-600" />
+                    <BookOpen className="w-4 h-4 text-emerald-600" />
                     Doctoral Degree
                   </h4>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -681,7 +681,7 @@ const FacultyModal = ({ mode, faculty, onClose }) => {
                         value={formData.doctoralDegree.degree}
                         onChange={(e) => handleDegreeChange('doctoralDegree', 'degree', e.target.value)}
                         placeholder="e.g., Ph.D., Ed.D."
-                        className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white placeholder-gray-400"
+                        className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-gray-700 dark:text-white placeholder-gray-400"
                       />
                     </div>
                     <div>
@@ -693,7 +693,7 @@ const FacultyModal = ({ mode, faculty, onClose }) => {
                         value={formData.doctoralDegree.major}
                         onChange={(e) => handleDegreeChange('doctoralDegree', 'major', e.target.value)}
                         placeholder="e.g., Educational Management"
-                        className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white placeholder-gray-400"
+                        className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-gray-700 dark:text-white placeholder-gray-400"
                       />
                     </div>
                     <div>
@@ -705,7 +705,7 @@ const FacultyModal = ({ mode, faculty, onClose }) => {
                         value={formData.doctoralDegree.minor}
                         onChange={(e) => handleDegreeChange('doctoralDegree', 'minor', e.target.value)}
                         placeholder="Optional"
-                        className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white placeholder-gray-400"
+                        className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-gray-700 dark:text-white placeholder-gray-400"
                       />
                     </div>
                   </div>

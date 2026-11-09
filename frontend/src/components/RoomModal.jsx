@@ -10,7 +10,7 @@ import {
   typeMeta, toMin, fmtTime,
 } from './rooms/roomMeta';
 
-const INPUT = 'w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 dark:border-gray-600 dark:bg-gray-700 dark:text-white';
+const INPUT = 'w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 dark:border-gray-600 dark:bg-gray-700 dark:text-white';
 const INPUT_ERR = 'border-red-400 dark:border-red-500 focus:border-red-500 focus:ring-red-500/30';
 
 const blankEquipment = () => ({ name: '', quantity: 1, condition: 'Good' });
@@ -66,7 +66,7 @@ const Card = ({ icon: Icon, title, hint, action, children }) => (
     <div className="mb-4 flex items-start justify-between gap-3">
       <div>
         <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
-          <Icon className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /> {title}
+          <Icon className="h-4 w-4 text-blue-600 dark:text-blue-400" /> {title}
         </h3>
         {hint && <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{hint}</p>}
       </div>
@@ -170,7 +170,7 @@ const RoomModal = ({ mode, room, rooms = [], suggestedCode = '', onClose }) => {
   return (
     <ModalShell variant="drawer" size="lg" onClose={() => onClose(false)} label={heading} busy={saving} panelClassName="bg-gray-50 dark:bg-gray-900">
       {/* Header with a live summary of the room */}
-      <div className="flex-shrink-0 bg-gradient-to-br from-indigo-600 to-blue-600 px-6 py-4 text-white">
+      <div className="flex-shrink-0 bg-gradient-to-br from-blue-600 to-blue-600 px-6 py-4 text-white">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="mb-1 text-xs font-medium uppercase tracking-wide text-white/70">
@@ -241,12 +241,12 @@ const RoomModal = ({ mode, room, rooms = [], suggestedCode = '', onClose }) => {
               return (
                 <button key={type} type="button" role="radio" aria-checked={active} onClick={() => set('roomType', type)}
                   className={`flex items-start gap-3 rounded-lg border p-3 text-left transition-all ${active
-                    ? 'border-indigo-500 bg-indigo-50 ring-1 ring-indigo-500 dark:border-indigo-400 dark:bg-indigo-900/30'
+                    ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-500 dark:border-blue-400 dark:bg-blue-900/30'
                     : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700/50'}`}>
                   <span className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg ${meta.tile}`}><Icon className="h-4 w-4" /></span>
                   <span className="min-w-0">
                     <span className="flex items-center gap-1.5 text-sm font-semibold text-gray-900 dark:text-white">
-                      {type}{active && <Check className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />}
+                      {type}{active && <Check className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />}
                     </span>
                     <span className="block text-xs text-gray-500 dark:text-gray-400">{meta.hint}</span>
                   </span>
@@ -255,7 +255,7 @@ const RoomModal = ({ mode, room, rooms = [], suggestedCode = '', onClose }) => {
             })}
           </div>
           {wasLab && !isLab && (
-            <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
+            <p className="mt-3 rounded-lg bg-orange-50 px-3 py-2 text-xs text-orange-800 dark:bg-orange-900/20 dark:text-orange-300">
               This room stops counting as a lab. Sections whose home room it is still have their labs here; other sections’ lab sessions won’t be placed here.
             </p>
           )}
@@ -270,7 +270,7 @@ const RoomModal = ({ mode, room, rooms = [], suggestedCode = '', onClose }) => {
             </div>
             <FieldError>{show('capacity')}</FieldError>
             {editing && room?.usage?.largestClass > 0 && Number(form.capacity) < room.usage.largestClass && (
-              <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-400">
+              <p className="mt-1.5 text-xs text-orange-700 dark:text-orange-400">
                 A class here this term has {room.usage.largestClass} students, more than {form.capacity} seats.
               </p>
             )}
@@ -284,14 +284,14 @@ const RoomModal = ({ mode, room, rooms = [], suggestedCode = '', onClose }) => {
               return (
                 <button key={name} type="button" aria-pressed={on} onClick={() => toggleFeature(name)}
                   className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${on
-                    ? 'border-indigo-500 bg-indigo-600 text-white'
-                    : 'border-gray-300 bg-white text-gray-700 hover:border-indigo-300 hover:bg-indigo-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'}`}>
+                    ? 'border-blue-500 bg-blue-600 text-white'
+                    : 'border-gray-300 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'}`}>
                   {on && <Check className="h-3 w-3" />}{name}
                 </button>
               );
             })}
             {extraFeatures.map((name) => (
-              <span key={name} className="inline-flex items-center gap-1 rounded-full border border-indigo-500 bg-indigo-600 py-1.5 pl-3 pr-1.5 text-xs font-medium text-white">
+              <span key={name} className="inline-flex items-center gap-1 rounded-full border border-blue-500 bg-blue-600 py-1.5 pl-3 pr-1.5 text-xs font-medium text-white">
                 {name}
                 <button type="button" onClick={() => toggleFeature(name)} className="rounded-full p-0.5 hover:bg-white/20" aria-label={`Remove ${name}`}><X className="h-3 w-3" /></button>
               </span>
@@ -306,7 +306,7 @@ const RoomModal = ({ mode, room, rooms = [], suggestedCode = '', onClose }) => {
         </Card>
 
         <Card icon={Wrench} title="Equipment" hint="Countable items and their condition, e.g. 40 computers, 1 projector."
-          action={<button type="button" onClick={() => set('equipment', [...form.equipment, blankEquipment()])} className="inline-flex flex-shrink-0 items-center gap-1 whitespace-nowrap text-xs font-semibold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"><Plus className="h-3.5 w-3.5" /> Add item</button>}>
+          action={<button type="button" onClick={() => set('equipment', [...form.equipment, blankEquipment()])} className="inline-flex flex-shrink-0 items-center gap-1 whitespace-nowrap text-xs font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400"><Plus className="h-3.5 w-3.5" /> Add item</button>}>
           {form.equipment.length === 0 ? (
             <p className="text-sm italic text-gray-500 dark:text-gray-400">No equipment listed.</p>
           ) : (
@@ -329,7 +329,7 @@ const RoomModal = ({ mode, room, rooms = [], suggestedCode = '', onClose }) => {
         </Card>
 
         <Card icon={CalendarX} title="Blocked times" hint="Weekly times the room can’t be used, e.g. maintenance. New timetables and manual edits keep classes out of them."
-          action={<button type="button" onClick={addSlot} className="inline-flex flex-shrink-0 items-center gap-1 whitespace-nowrap text-xs font-semibold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"><Plus className="h-3.5 w-3.5" /> Add time</button>}>
+          action={<button type="button" onClick={addSlot} className="inline-flex flex-shrink-0 items-center gap-1 whitespace-nowrap text-xs font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400"><Plus className="h-3.5 w-3.5" /> Add time</button>}>
           {form.unavailableTimeSlots.length === 0 ? (
             <p className="text-sm italic text-gray-500 dark:text-gray-400">Available all week.</p>
           ) : (
@@ -373,7 +373,7 @@ const RoomModal = ({ mode, room, rooms = [], suggestedCode = '', onClose }) => {
         </span>
         <div className="ml-auto flex gap-2">
           <button type="button" onClick={() => onClose(false)} disabled={saving} className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Cancel</button>
-          <button type="submit" form="room-form" disabled={saving} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60">
+          <button type="submit" form="room-form" disabled={saving} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-60">
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
             {saving ? 'Saving…' : editing ? 'Save changes' : 'Add room'}
           </button>

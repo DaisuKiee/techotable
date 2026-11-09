@@ -61,7 +61,7 @@ export const RoomWeekGrid = ({ classes = [], blocked = [] }) => {
           const pos = place(b.day, b.startTime, b.endTime);
           return pos && (
             <div key={`b${i}`} title={`Blocked ${fmtRange(b.startTime, b.endTime)}${b.reason ? `: ${b.reason}` : ''}`}
-              className="z-[1] m-0.5 overflow-hidden rounded border border-amber-300 px-1.5 py-0.5 text-amber-900 dark:border-amber-700 dark:text-amber-200"
+              className="z-[1] m-0.5 overflow-hidden rounded border border-orange-300 px-1.5 py-0.5 text-orange-900 dark:border-orange-700 dark:text-orange-200"
               style={{ ...pos, background: 'repeating-linear-gradient(135deg, rgba(251,191,36,.18) 0 6px, rgba(251,191,36,.35) 6px 12px)' }}>
               <div className="truncate font-semibold">Blocked</div>
               {b.reason && <div className="truncate text-[10px]">{b.reason}</div>}
@@ -78,7 +78,7 @@ export const RoomWeekGrid = ({ classes = [], blocked = [] }) => {
               ? 'border-red-300 bg-red-50 text-red-900 dark:border-red-700 dark:bg-red-900/30 dark:text-red-200'
               : c.isLab
                 ? 'border-blue-300 bg-blue-50 text-blue-900 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-100'
-                : 'border-indigo-300 bg-indigo-50 text-indigo-900 dark:border-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-100';
+                : 'border-blue-300 bg-blue-50 text-blue-900 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-100';
           return (
             <div key={`${c._id}-${i}`} className={`z-[2] m-0.5 overflow-hidden rounded border px-1.5 py-0.5 leading-tight ${tone}`} style={pos}
               title={c.hidden ? `${c.sectionCode}, ${fmtRange(slot.startTime, slot.endTime)}`
@@ -144,7 +144,7 @@ const RoomDetailsDrawer = ({ room, term, canManage, onClose, onEdit, onDuplicate
         </div>
         {canManage && (
           <div className="mt-3 flex flex-wrap gap-2">
-            <button type="button" onClick={() => onEdit(r)} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-700"><Pencil className="h-4 w-4" /> Edit</button>
+            <button type="button" onClick={() => onEdit(r)} className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-700"><Pencil className="h-4 w-4" /> Edit</button>
             <button type="button" onClick={() => onDuplicate(r)} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"><Copy className="h-4 w-4" /> Duplicate</button>
             {r.isActive === false ? (
               <button type="button" onClick={() => onRestore(r)} className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 px-3 py-1.5 text-sm font-medium text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-300 dark:hover:bg-emerald-900/30"><RotateCcw className="h-4 w-4" /> Restore</button>
@@ -190,7 +190,7 @@ const RoomDetailsDrawer = ({ room, term, canManage, onClose, onEdit, onDuplicate
 
         <section>
           <div className="mb-2 flex flex-wrap items-end justify-between gap-2">
-            <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white"><Clock className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /> Week at a glance</h3>
+            <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white"><Clock className="h-4 w-4 text-blue-600 dark:text-blue-400" /> Week at a glance</h3>
             <span className="text-xs text-gray-500 dark:text-gray-400">{data?.term?.label || term?.label || ''}</span>
           </div>
           {error ? (
@@ -203,9 +203,9 @@ const RoomDetailsDrawer = ({ room, term, canManage, onClose, onEdit, onDuplicate
             <>
               <RoomWeekGrid classes={data.classes} blocked={r.unavailableTimeSlots} />
               <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
-                <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm border border-indigo-300 bg-indigo-50" /> Lecture</span>
+                <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm border border-blue-300 bg-blue-50" /> Lecture</span>
                 <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm border border-blue-300 bg-blue-50" /> Lab session</span>
-                <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm border border-amber-300 bg-amber-100" /> Blocked</span>
+                <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm border border-orange-300 bg-orange-100" /> Blocked</span>
                 {data.classes.some((c) => c.hidden) && <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm border border-gray-300 bg-gray-100" /> Another program’s class</span>}
                 {data.classes.length === 0 && <span>No classes in this room this term.</span>}
               </div>
@@ -235,7 +235,7 @@ const RoomDetailsDrawer = ({ room, term, canManage, onClose, onEdit, onDuplicate
 
         <div className="grid gap-4 md:grid-cols-2">
           <section className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-            <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white"><CalendarX className="h-4 w-4 text-amber-600" /> Blocked times</h3>
+            <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white"><CalendarX className="h-4 w-4 text-orange-600" /> Blocked times</h3>
             {(r.unavailableTimeSlots || []).length === 0 ? (
               <p className="text-sm text-gray-500 dark:text-gray-400">Available all week.</p>
             ) : (
@@ -250,13 +250,13 @@ const RoomDetailsDrawer = ({ room, term, canManage, onClose, onEdit, onDuplicate
             )}
           </section>
           <section className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-            <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white"><Home className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /> Home room of</h3>
+            <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white"><Home className="h-4 w-4 text-blue-600 dark:text-blue-400" /> Home room of</h3>
             {(data?.homeSections || []).length === 0 ? (
               <p className="text-sm text-gray-500 dark:text-gray-400">No section uses it as a home room. A section’s home room holds all of its classes; set one on the Sections page.</p>
             ) : (
               <div className="flex flex-wrap gap-1.5">
                 {data.homeSections.map((s) => (
-                  <span key={s._id} className={`rounded-md px-2 py-1 text-xs font-medium ${s.maxStudents > r.capacity ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' : 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'}`}
+                  <span key={s._id} className={`rounded-md px-2 py-1 text-xs font-medium ${s.maxStudents > r.capacity ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' : 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'}`}
                     title={s.maxStudents > r.capacity ? `Up to ${s.maxStudents} students: more than the room seats` : `Up to ${s.maxStudents} students`}>
                     {s.sectionCode}
                   </span>
@@ -265,13 +265,13 @@ const RoomDetailsDrawer = ({ room, term, canManage, onClose, onEdit, onDuplicate
             )}
           </section>
           <section className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-            <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white"><Layers className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /> Features</h3>
+            <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white"><Layers className="h-4 w-4 text-blue-600 dark:text-blue-400" /> Features</h3>
             {(r.facilities || []).length === 0 ? <p className="text-sm text-gray-500 dark:text-gray-400">None listed.</p> : (
               <div className="flex flex-wrap gap-1.5">{r.facilities.map((f) => <span key={f} className="rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-700 dark:bg-gray-700 dark:text-gray-200">{f}</span>)}</div>
             )}
           </section>
           <section className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-            <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white"><Wrench className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /> Equipment</h3>
+            <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white"><Wrench className="h-4 w-4 text-blue-600 dark:text-blue-400" /> Equipment</h3>
             {(r.equipment || []).length === 0 ? <p className="text-sm text-gray-500 dark:text-gray-400">None listed.</p> : (
               <ul className="space-y-1 text-sm">
                 {r.equipment.map((eq, i) => (
@@ -287,7 +287,7 @@ const RoomDetailsDrawer = ({ room, term, canManage, onClose, onEdit, onDuplicate
 
         {r.notes && (
           <section className="rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
-            <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white"><StickyNote className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /> Notes</h3>
+            <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white"><StickyNote className="h-4 w-4 text-blue-600 dark:text-blue-400" /> Notes</h3>
             <p className="whitespace-pre-line">{r.notes}</p>
           </section>
         )}
@@ -345,18 +345,18 @@ export const DeactivateRoomDialog = ({ room, onClose, onDone }) => {
           {!impact && !error && <span className="flex items-center gap-2 text-gray-500"><Loader2 className="h-4 w-4 animate-spin" /> Checking what uses this room…</span>}
           {impact && !inUse && <span className="text-emerald-700 dark:text-emerald-400">No active classes or sections use this room.</span>}
           {impact && inUse && (
-            <div className="space-y-1.5 text-amber-900 dark:text-amber-200">
+            <div className="space-y-1.5 text-orange-900 dark:text-orange-200">
               <p className="flex items-center gap-1.5 font-semibold"><AlertTriangle className="h-4 w-4" /> Still in use</p>
               {impact.terms.map((t) => <p key={t.label}>{t.classes} class{t.classes === 1 ? '' : 'es'} in {t.label}</p>)}
               {impact.homeSections.length > 0 && <p>Home room of {impact.homeSections.slice(0, 6).join(', ')}{impact.homeSections.length > 6 ? '…' : ''}. They’ll each be moved to another free room.</p>}
-              {impact.classes > 0 && <p className="text-xs text-amber-800/80 dark:text-amber-300/80">Booked classes keep this room until you move them. Editing one will ask for a different room.</p>}
+              {impact.classes > 0 && <p className="text-xs text-orange-800/80 dark:text-orange-300/80">Booked classes keep this room until you move them. Editing one will ask for a different room.</p>}
             </div>
           )}
         </div>
 
         <label htmlFor="deactivate-reason" className="mt-4 block text-xs font-semibold text-gray-700 dark:text-gray-300">Reason (optional)</label>
         <input id="deactivate-reason" value={reason} onChange={(e) => setReason(e.target.value)} maxLength={200} placeholder="e.g. Under renovation until March"
-          className="mt-1.5 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 dark:border-gray-600 dark:bg-gray-700 dark:text-white" />
+          className="mt-1.5 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 dark:border-gray-600 dark:bg-gray-700 dark:text-white" />
 
         {error && <p role="alert" className="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
 

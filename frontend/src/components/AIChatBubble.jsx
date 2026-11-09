@@ -556,7 +556,7 @@ const AIChatBubble = () => {
             style={{ width: CHAT_W, height: CHAT_H }}
           >
             {/* Header */}
-            <div className="relative flex flex-shrink-0 items-center justify-between overflow-hidden border-b border-gray-100 bg-gradient-to-r from-blue-50 via-white to-indigo-50 px-4 py-3 dark:border-gray-800 dark:from-blue-950/60 dark:via-gray-900 dark:to-indigo-950/60">
+            <div className="relative flex flex-shrink-0 items-center justify-between overflow-hidden border-b border-gray-100 bg-gradient-to-r from-blue-50 via-white to-blue-50 px-4 py-3 dark:border-gray-800 dark:from-blue-950/60 dark:via-gray-900 dark:to-blue-950/60">
               <div className="relative z-10 flex items-center gap-2.5">
                 <div
                   ref={headerIconRef}
@@ -564,7 +564,7 @@ const AIChatBubble = () => {
                   style={{ visibility: flight ? 'hidden' : 'visible' }}
                 >
                   <AnimatedRobotHeadNoChatBubble className="h-10 w-10" />
-                  <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-white bg-green-400 dark:border-gray-900" />
+                  <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-400 dark:border-gray-900" />
                 </div>
                 <div>
                   <h3 className="text-base font-bold leading-tight text-gray-900 dark:text-white">B-LO</h3>
@@ -754,7 +754,7 @@ const AIChatBubble = () => {
           <div ref={flyBubbleRef} className="absolute inset-0" style={{ opacity: 0 }}>
             <AnimatedRobotHead className="w-full h-full drop-shadow-lg" />
             <span
-              className="absolute top-0 right-0 bg-green-400 rounded-full"
+              className="absolute top-0 right-0 bg-emerald-400 rounded-full"
               style={{ width: '20%', height: '20%', border: '1px solid white' }}
             ></span>
           </div>
@@ -777,7 +777,7 @@ const AIChatBubble = () => {
       >
         <div className="relative transition-transform duration-300 group-hover:scale-110 group-active:scale-95 group-active:rotate-12">
           <AnimatedRobotHead className="w-20 h-20 drop-shadow-lg" />
-          <span className="absolute top-0 right-0 w-4 h-4 bg-green-400 rounded-full border-2 border-white animate-pulse"></span>
+          <span className="absolute top-0 right-0 w-4 h-4 bg-emerald-400 rounded-full border-2 border-white animate-pulse"></span>
         </div>
       </button>
 

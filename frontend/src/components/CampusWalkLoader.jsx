@@ -45,11 +45,20 @@ const CampusWalkLoader = ({
         86%  { transform: translateX(262px); opacity: 1; }
         100% { transform: translateX(276px) scale(.82); opacity: 0; }
       }
-      @keyframes cw-bob   { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.6px); } }
-      @keyframes cw-leg-a { 0%, 100% { transform: rotate(26deg); }  50% { transform: rotate(-26deg); } }
-      @keyframes cw-leg-b { 0%, 100% { transform: rotate(-26deg); } 50% { transform: rotate(26deg); } }
-      @keyframes cw-arm-a { 0%, 100% { transform: rotate(-30deg); } 50% { transform: rotate(30deg); } }
-      @keyframes cw-arm-b { 0%, 100% { transform: rotate(30deg); }  50% { transform: rotate(-30deg); } }
+      /* Waddle: rock over each foot and bounce on every step */
+      @keyframes cw-bob {
+        0%, 100% { transform: translateY(0) rotate(-4deg); }
+        25%      { transform: translateY(-1.8px) rotate(0deg); }
+        50%      { transform: translateY(0) rotate(4deg); }
+        75%      { transform: translateY(-1.8px) rotate(0deg); }
+      }
+      @keyframes cw-squish { 0%, 50%, 100% { transform: scale(1.04, .96); } 25%, 75% { transform: scale(.98, 1.02); } }
+      @keyframes cw-blink  { 0%, 90%, 100% { transform: scaleY(1); } 94% { transform: scaleY(.1); } }
+      @keyframes cw-shadow { 0%, 50%, 100% { transform: scaleX(1); opacity: .35; } 25%, 75% { transform: scaleX(.85); opacity: .25; } }
+      @keyframes cw-leg-a { 0%, 100% { transform: rotate(24deg); }  50% { transform: rotate(-24deg); } }
+      @keyframes cw-leg-b { 0%, 100% { transform: rotate(-24deg); } 50% { transform: rotate(24deg); } }
+      @keyframes cw-arm-a { 0%, 100% { transform: rotate(-34deg); } 50% { transform: rotate(34deg); } }
+      @keyframes cw-arm-b { 0%, 100% { transform: rotate(34deg); }  50% { transform: rotate(-34deg); } }
       @keyframes cw-door  { 0%, 68% { opacity: .15; } 88%, 100% { opacity: 1; } }
       @keyframes cw-beam  { 0%, 72% { opacity: 0; } 90%, 100% { opacity: .3; } }
       @keyframes cw-progress { from { transform: scaleX(0); } to { transform: scaleX(1); } }
@@ -62,7 +71,10 @@ const CampusWalkLoader = ({
       .cw-cloud    { animation: cw-cloud 9s ease-in-out infinite alternate; }
 
       .cw-walker   { animation: cw-walk var(--cw-d) cubic-bezier(.45, .05, .55, .95) both; }
-      .cw-bob      { animation: cw-bob .5s ease-in-out infinite; }
+      .cw-bob      { transform-box: fill-box; transform-origin: 50% 100%; animation: cw-bob .5s ease-in-out infinite; }
+      .cw-squish   { transform-box: fill-box; transform-origin: 50% 100%; animation: cw-squish .5s ease-in-out infinite; }
+      .cw-blink    { transform-box: fill-box; transform-origin: center; animation: cw-blink 2.6s ease-in-out infinite; }
+      .cw-shadow   { transform-box: fill-box; transform-origin: center; animation: cw-shadow .5s ease-in-out infinite; }
       /* Limbs swing from the hip / shoulder: the top-centre of each line */
       .cw-limb     { transform-box: fill-box; transform-origin: 50% 0%; }
       .cw-leg-a    { animation: cw-leg-a .5s ease-in-out infinite; }
@@ -77,6 +89,7 @@ const CampusWalkLoader = ({
       /* Reduced motion: a still scene with the student at the gate */
       @media (prefers-reduced-motion: reduce) {
         .cw-fade-in, .cw-logo, .cw-halo, .cw-star, .cw-cloud, .cw-bob, .cw-limb, .cw-dust,
+        .cw-squish, .cw-blink, .cw-shadow,
         .cw-door, .cw-beam, .cw-progress { animation: none !important; }
         .cw-walker { animation: none !important; transform: translateX(230px); }
       }
@@ -160,8 +173,9 @@ const CampusWalkLoader = ({
           <path className="cw-beam" d="M277 101 L266 112 H310 L299 101 Z" fill="#facc15" />
           <rect x="250" y="62" width="76" height="39" rx="2" fill="#1e3a8a" stroke="#3b82f6" strokeWidth="1.2" />
           <path d="M244 63 L288 40 L332 63 Z" fill="#1e40af" stroke="#60a5fa" strokeWidth="1.2" strokeLinejoin="round" />
-          <circle cx="288" cy="54" r="5" fill="#facc15" />
-          <text x="288" y="56.3" textAnchor="middle" fontSize="5" fontWeight="700" fill="#1e3a8a">CTU</text>
+          {/* CTU seal on the gable */}
+          <circle cx="288" cy="54" r="6.2" fill="#ffffff" stroke="#facc15" strokeWidth=".8" />
+          <image href={ctuLogo} x="282.6" y="48.6" width="10.8" height="10.8" preserveAspectRatio="xMidYMid meet" />
           {[256, 270, 306, 320].map((x) => (
             <rect key={x} x={x - 2} y="65" width="4" height="36" fill="#93c5fd" opacity=".35" />
           ))}
@@ -173,32 +187,72 @@ const CampusWalkLoader = ({
           <path d="M288.6 30.5 h9 l-2.5 3 l2.5 3 h-9 Z" fill="#facc15" />
         </g>
 
-        {/* The student. Outer group walks, inner group bobs, limbs swing,
-            so no two animations fight over the same transform. */}
+        {/* The student: a chubby kid in the school polo, waddling to class.
+            Outer group walks, the next rocks/bounces, the body squishes and
+            the limbs swing, so no two animations fight over one transform. */}
         <g transform="translate(14 101)">
           <g className="cw-walker">
+            {/* Shadow stays on the ground while the body bounces */}
+            <ellipse className="cw-shadow" cx="0" cy="0.5" rx="11" ry="1.8" fill="#020617" />
             <g className="cw-bob">
               {/* Drawn slightly larger than the scenery so the walk reads at a glance */}
-              <g transform="scale(1.3)">
+              <g transform="scale(1.2)">
               {/* Dust kicked up behind the heels */}
-              <circle className="cw-dust" cx="-6" cy="-1" r="1.6" fill="#94a3b8" />
+              <circle className="cw-dust" cx="-9" cy="-1" r="1.6" fill="#94a3b8" />
 
               {/* Back leg + back arm (drawn first, behind the body) */}
-              <line className="cw-limb cw-leg-b" x1="0" y1="-12" x2="0" y2="0" stroke="#1e293b" strokeWidth="3.2" strokeLinecap="round" />
-              <line className="cw-limb cw-arm-b" x1="0" y1="-24" x2="0" y2="-14" stroke="#1d4ed8" strokeWidth="2.6" strokeLinecap="round" />
+              <g className="cw-limb cw-leg-b">
+                <rect x="-4.6" y="-10" width="5" height="9.4" rx="2.4" fill="#172554" />
+                <ellipse cx="-1.4" cy="-0.9" rx="3.4" ry="1.7" fill="#0f172a" />
+              </g>
+              <g className="cw-limb cw-arm-b">
+                <rect x="-1.4" y="-22" width="4" height="7.5" rx="2" fill="#dbeafe" />
+                <circle cx="0.6" cy="-14" r="2.1" fill="#e8b48c" />
+              </g>
 
-              {/* Backpack */}
-              <rect x="-7.5" y="-25" width="5" height="10" rx="1.6" fill="#facc15" />
-              {/* Body (school shirt) */}
-              <rect x="-3" y="-26" width="6" height="15" rx="2.5" fill="#3b82f6" />
-              {/* Head and hair */}
-              <circle cx="0.5" cy="-31" r="4.6" fill="#f5c9a1" />
-              <path d="M-4 -32 a4.8 4.8 0 0 1 9.2 -1.6 q-3.4 -0.4 -5.2 1.4 q-1.6 -0.8 -4 0.2 Z" fill="#1f2937" />
-              <circle cx="2.6" cy="-31.4" r=".6" fill="#1f2937" />
+              <g className="cw-squish">
+                {/* Backpack with a strap over the shoulder */}
+                <rect x="-13" y="-24" width="7" height="12" rx="3" fill="#facc15" />
+                <rect x="-12.2" y="-18.5" width="5.4" height="4.2" rx="1.4" fill="#eab308" />
+                {/* Round tummy: white polo over navy pants */}
+                <ellipse cx="0" cy="-14.5" rx="9" ry="9.5" fill="#f8fafc" stroke="#cbd5e1" strokeWidth=".6" />
+                <path d="M-8.4 -11 A9 9.5 0 0 0 8.4 -11 Z" fill="#1e3a8a" />
+                <rect x="-8.4" y="-11.6" width="16.8" height="1.4" fill="#0f172a" opacity=".55" />
+                <ellipse cx="-3" cy="-17" rx="3.4" ry="4.4" fill="#ffffff" opacity=".7" />
+                <path d="M-6.4 -14.2 L-7.2 -21" stroke="#ca8a04" strokeWidth="1.6" strokeLinecap="round" />
+                {/* Collar and school ID on a lanyard */}
+                <path d="M-1.5 -23.4 L2 -20.6 L5.4 -23.2" fill="none" stroke="#2563eb" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M2 -20.6 L4.2 -16.4" stroke="#2563eb" strokeWidth=".7" />
+                <rect x="2.8" y="-16.6" width="3.4" height="4.2" rx=".6" fill="#facc15" />
+                <rect x="3.5" y="-15.8" width="2" height="1.4" rx=".3" fill="#1e3a8a" />
+
+                {/* Big round head */}
+                <circle cx="1.5" cy="-29.5" r="7.6" fill="#f5c9a1" />
+                <circle cx="-1.6" cy="-28.6" r="1.7" fill="#e8b48c" />
+                {/* Hair with a little fringe */}
+                <path
+                  d="M-6.2 -26.4 C-7.8 -33.6 -2 -38.6 3.8 -37.2 C7.6 -36.3 9.6 -33.6 9.2 -31 C6.8 -32.8 4 -33 2 -31.6 C0.8 -33 -1.2 -32.6 -2.2 -30.8 C-3.2 -28.8 -4.4 -27.2 -6.2 -26.4 Z"
+                  fill="#1f2937"
+                />
+                {/* Glasses, blinking eye, rosy cheek and a smile */}
+                <g className="cw-blink">
+                  <circle cx="5.6" cy="-29.6" r=".85" fill="#1f2937" />
+                </g>
+                <circle cx="5.6" cy="-29.6" r="2.3" fill="none" stroke="#1f2937" strokeWidth=".6" />
+                <path d="M3.3 -29.8 L-0.4 -29.2" stroke="#1f2937" strokeWidth=".6" />
+                <circle cx="6.4" cy="-26.4" r="1.6" fill="#fb7185" opacity=".45" />
+                <path d="M6.6 -24.9 q1.4 .9 2.6 -.2" fill="none" stroke="#7c2d12" strokeWidth=".6" strokeLinecap="round" />
+              </g>
 
               {/* Front leg + front arm */}
-              <line className="cw-limb cw-leg-a" x1="0" y1="-12" x2="0" y2="0" stroke="#334155" strokeWidth="3.2" strokeLinecap="round" />
-              <line className="cw-limb cw-arm-a" x1="0" y1="-24" x2="0" y2="-14" stroke="#60a5fa" strokeWidth="2.6" strokeLinecap="round" />
+              <g className="cw-limb cw-leg-a">
+                <rect x="-0.6" y="-10" width="5" height="9.4" rx="2.4" fill="#1e3a8a" />
+                <ellipse cx="2.6" cy="-0.9" rx="3.4" ry="1.7" fill="#1e293b" />
+              </g>
+              <g className="cw-limb cw-arm-a">
+                <rect x="-1.6" y="-22" width="4.2" height="7.5" rx="2.1" fill="#eff6ff" stroke="#93c5fd" strokeWidth=".6" />
+                <circle cx="0.5" cy="-14" r="2.2" fill="#f5c9a1" />
+              </g>
               </g>
             </g>
           </g>

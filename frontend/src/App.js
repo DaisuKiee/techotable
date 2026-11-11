@@ -8,6 +8,7 @@ import { NotificationProvider } from './context/NotificationContext';
 import { CacheProvider } from './context/CacheContext';
 import { ConfirmProvider } from './context/ConfirmContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import { ShellOutlet } from './components/Layout';
 import ErrorBoundary from './components/ErrorBoundary';
 import './i18n'; // Initialize i18n
 
@@ -98,144 +99,154 @@ function App() {
             <Route path="/debug-auth" element={<DebugAuthPage />} />
             <Route path="/dashboard-test" element={<DashboardPage />} />
             <Route path="/dashboard-minimal" element={<MinimalDashboard />} />
-            <Route 
-              path="/dashboard" 
+            {/* Every signed-in page shares one persistent frame (sidebar, header),
+                so navigating swaps only the page. Role checks stay on each route. */}
+            <Route
               element={
                 <ProtectedRoute>
-                  <DashboardPage />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/faculty" 
-              element={
-                <ProtectedRoute allowedRoles={['admin', 'scheduling_officer', 'program_manager']}>
-                  <FacultyPage />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/faculty/approvals" 
-              element={
-                <ProtectedRoute allowedRoles={['admin', 'scheduling_officer', 'program_manager']}>
-                  <FacultyApprovalPage />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/subjects" 
-              element={
-                <ProtectedRoute allowedRoles={['admin', 'scheduling_officer', 'program_manager']}>
-                  <SubjectPage />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/rooms" 
-              element={
-                <ProtectedRoute allowedRoles={['admin', 'scheduling_officer', 'program_manager']}>
-                  <RoomPage />
-                </ProtectedRoute>
-              } 
-            />
-            <Route
-              path="/schedules/builder"
-              element={
-                <ProtectedRoute allowedRoles={['admin', 'scheduling_officer', 'program_manager']}>
-                  <ScheduleBuilderPage />
+                  <ShellOutlet />
                 </ProtectedRoute>
               }
-            />
-            <Route 
-              path="/schedules" 
-              element={
-                <ProtectedRoute>
-                  <SchedulePage />
-                </ProtectedRoute>
-              } 
-            />
-            <Route
-              path="/semesters"
-              element={
-                <ProtectedRoute allowedRoles={['admin', 'scheduling_officer', 'program_manager']}>
-                  <SemesterPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route 
-              path="/sections" 
-              element={
-                <ProtectedRoute allowedRoles={['admin', 'scheduling_officer', 'program_manager']}>
-                  <SectionPage />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/classes" 
-              element={
-                <ProtectedRoute>
-                  <ClassSpacePage />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/classes/:classSlug" 
-              element={
-                <ProtectedRoute>
-                  <ClassSpacePage />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/students" 
-              element={
-                <ProtectedRoute allowedRoles={['admin', 'scheduling_officer', 'program_manager']}>
-                  <StudentPage />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/profile" 
-              element={
-                <ProtectedRoute>
-                  <ProfilePage />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/settings" 
-              element={
-                <ProtectedRoute>
-                  <SettingsPage />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/analytics" 
-              element={
-                <ProtectedRoute allowedRoles={['admin', 'scheduling_officer', 'program_manager']}>
-                  <AnalyticsPage />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/faculty-analytics" 
-              element={
-                <ProtectedRoute allowedRoles={['admin', 'scheduling_officer', 'program_manager']}>
-                  <FacultyAnalyticsPage />
-                </ProtectedRoute>
-              } 
-            />
-            {/* Old AI Insights address */}
-            <Route path="/ai" element={<Navigate to="/faculty-analytics" replace />} />
-            <Route 
-              path="/activity" 
-              element={
-                <ProtectedRoute allowedRoles={['admin', 'scheduling_officer', 'program_manager']}>
-                  <ActivityLogPage />
-                </ProtectedRoute>
-              } 
-            />
+            >
+              <Route 
+                path="/dashboard" 
+                element={
+                  <ProtectedRoute>
+                    <DashboardPage />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/faculty" 
+                element={
+                  <ProtectedRoute allowedRoles={['admin', 'scheduling_officer', 'program_manager']}>
+                    <FacultyPage />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/faculty/approvals" 
+                element={
+                  <ProtectedRoute allowedRoles={['admin', 'scheduling_officer', 'program_manager']}>
+                    <FacultyApprovalPage />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/subjects" 
+                element={
+                  <ProtectedRoute allowedRoles={['admin', 'scheduling_officer', 'program_manager']}>
+                    <SubjectPage />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/rooms" 
+                element={
+                  <ProtectedRoute allowedRoles={['admin', 'scheduling_officer', 'program_manager']}>
+                    <RoomPage />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route
+                path="/schedules/builder"
+                element={
+                  <ProtectedRoute allowedRoles={['admin', 'scheduling_officer', 'program_manager']}>
+                    <ScheduleBuilderPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route 
+                path="/schedules" 
+                element={
+                  <ProtectedRoute>
+                    <SchedulePage />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route
+                path="/semesters"
+                element={
+                  <ProtectedRoute allowedRoles={['admin', 'scheduling_officer', 'program_manager']}>
+                    <SemesterPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route 
+                path="/sections" 
+                element={
+                  <ProtectedRoute allowedRoles={['admin', 'scheduling_officer', 'program_manager']}>
+                    <SectionPage />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/classes" 
+                element={
+                  <ProtectedRoute>
+                    <ClassSpacePage />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/classes/:classSlug" 
+                element={
+                  <ProtectedRoute>
+                    <ClassSpacePage />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/students" 
+                element={
+                  <ProtectedRoute allowedRoles={['admin', 'scheduling_officer', 'program_manager']}>
+                    <StudentPage />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/profile" 
+                element={
+                  <ProtectedRoute>
+                    <ProfilePage />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/settings" 
+                element={
+                  <ProtectedRoute>
+                    <SettingsPage />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/analytics" 
+                element={
+                  <ProtectedRoute allowedRoles={['admin', 'scheduling_officer', 'program_manager']}>
+                    <AnalyticsPage />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/faculty-analytics" 
+                element={
+                  <ProtectedRoute allowedRoles={['admin', 'scheduling_officer', 'program_manager']}>
+                    <FacultyAnalyticsPage />
+                  </ProtectedRoute>
+                } 
+              />
+              {/* Old AI Insights address */}
+              <Route path="/ai" element={<Navigate to="/faculty-analytics" replace />} />
+              <Route 
+                path="/activity" 
+                element={
+                  <ProtectedRoute allowedRoles={['admin', 'scheduling_officer', 'program_manager']}>
+                    <ActivityLogPage />
+                  </ProtectedRoute>
+                } 
+              />
+            </Route>
             <Route path="/access-denied" element={<AccessDeniedPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>

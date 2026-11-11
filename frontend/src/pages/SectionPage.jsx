@@ -11,7 +11,7 @@ import {
   Calendar, Grid3x3, List, RefreshCw, Copy, AlertTriangle,
   TrendingUp, UserCheck, DoorOpen
 } from 'lucide-react';
-import { ModalShell } from '../components/modal/ModalShell';
+import { ModalShell, ModalHeader, ModalBody, ModalFooter, ModalButton } from '../components/modal/ModalShell';
 import { usePrograms } from '../hooks/usePrograms';
 import StatCard from '../components/StatCard';
 import { useAuth } from '../context/AuthContext';
@@ -164,6 +164,98 @@ const GridSkeleton = () => (
     ))}
   </SkeletonRegion>
 );
+
+/* ─── Renew enrollment code ───────────────────────────────────────────────
+ * A full section's code has expired. Renewing it then means making room:
+ * the capacity goes above the head count (e.g. 40/40 -> 41) so the student
+ * still waiting can join, and the new code expires again once that fills.
+ */
+const isSectionFull = (s) => (s?.currentStudents || 0) >= (s?.maxStudents || 0) && (s?.maxStudents || 0) > 0;
+
+const RenewCodeModal = ({ section, onClose, onRenewed }) => {
+  const current = section.currentStudents || 0;
+  const full = isSectionFull(section);
+  const [capacity, setCapacity] = useState(full ? current + 1 : section.maxStudents);
+  const [busy, setBusy] = useState(false);
+  const seats = section.homeRoom?.capacity;
+  const value = Number(capacity);
+  const invalid = full && (!Number.isInteger(value) || value <= current || value > 200);
+
+  const submit = async () => {
+    if (invalid) return;
+    setBusy(true);
+    try {
+      const res = await sectionAPI.regenerateEnrollmentCode(section._id, full ? { maxStudents: value } : undefined);
+      toast.success(res.data?.message || 'Enrollment code renewed');
+      onRenewed();
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Could not renew the code'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <ModalShell onClose={onClose} size="sm" label={`Renew enrollment code for ${section.sectionCode}`} busy={busy} guardDirty={false}>
+      <ModalHeader
+        icon={RefreshCw}
+        tone={full ? 'amber' : 'blue'}
+        title="Renew enrollment code"
+        subtitle={`${section.sectionCode} · ${current}/${section.maxStudents} students`}
+        onClose={onClose}
+        closeDisabled={busy}
+      />
+      <ModalBody className="space-y-4">
+        {full ? (
+          <>
+            <p className="rounded-lg border border-orange-200 bg-orange-50 p-3 text-sm text-orange-900 dark:border-orange-800/60 dark:bg-orange-900/20 dark:text-orange-200">
+              {section.sectionCode} is full, so its code <span className="font-mono font-semibold line-through">{section.enrollmentCode}</span> has expired.
+              To let another student join, raise the capacity. The new code stops working again once the section fills up.
+            </p>
+            <label className="block">
+              <span className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">New capacity</span>
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={() => setCapacity((c) => Math.max(current + 1, Number(c) - 1))} className="h-10 w-10 rounded-lg border border-gray-300 text-lg font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700" aria-label="One less seat">−</button>
+                <input
+                  type="number"
+                  min={current + 1}
+                  max={200}
+                  value={capacity}
+                  onChange={(e) => setCapacity(e.target.value)}
+                  className="h-10 w-24 rounded-lg border border-gray-300 bg-white px-3 text-center text-base font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  aria-describedby="renew-capacity-hint"
+                />
+                <button type="button" onClick={() => setCapacity((c) => Math.min(200, Number(c) + 1))} className="h-10 w-10 rounded-lg border border-gray-300 text-lg font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700" aria-label="One more seat">+</button>
+                <span className="text-sm text-gray-500 dark:text-gray-400">was {section.maxStudents}</span>
+              </div>
+              <span id="renew-capacity-hint" className={`mt-1.5 block text-xs ${invalid ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                {invalid
+                  ? `Must be at least ${current + 1} (one more than the ${current} students already in).`
+                  : `${value - current} seat${value - current === 1 ? '' : 's'} will open.`}
+              </span>
+            </label>
+            {seats && value > seats && (
+              <p className="text-xs text-orange-700 dark:text-orange-300">
+                Home room {section.homeRoom.roomCode} has {seats} seats, fewer than {value}. Check the room can take them.
+              </p>
+            )}
+          </>
+        ) : (
+          <p className="text-sm text-gray-700 dark:text-gray-300">
+            {section.sectionCode} gets a new code and the current one, <span className="font-mono font-semibold">{section.enrollmentCode}</span>, stops working.
+            Students already in the section are not affected.
+          </p>
+        )}
+      </ModalBody>
+      <ModalFooter>
+        <ModalButton variant="secondary" onClick={onClose} disabled={busy}>Cancel</ModalButton>
+        <ModalButton onClick={submit} loading={busy} disabled={invalid} icon={RefreshCw}>
+          {full ? 'Raise capacity & renew' : 'Renew code'}
+        </ModalButton>
+      </ModalFooter>
+    </ModalShell>
+  );
+};
 
 /* ─── Students slide-over ────────────────────────────────────────────────── */
 
@@ -434,7 +526,8 @@ const SectionPage = () => {
   const [filterYear, setFilterYear] = useState('');
   const [sortKey, setSortKey] = useState('code');
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
-  const [regeneratingId, setRegeneratingId] = useState(null);
+
+  const [renewing, setRenewing] = useState(null); // section whose code is being renewed
   const [viewingId, setViewingId] = useState(null); // section whose students are open
   const [refreshing, setRefreshing] = useState(false);
 
@@ -603,30 +696,8 @@ const SectionPage = () => {
     setEditingSection(null);
   };
 
-  const handleRegenerateCode = (section) => {
-    setConfirmDialog({
-      isOpen: true,
-      title: 'Regenerate Enrollment Code',
-      message: 'Are you sure you want to regenerate the enrollment code? The old code will no longer work.',
-      itemName: `${section.sectionCode} - Current Code: ${section.enrollmentCode}`,
-      type: 'warning',
-      confirmText: 'Regenerate',
-      onConfirm: async () => {
-        try {
-          setRegeneratingId(section._id);
-          await sectionAPI.regenerateEnrollmentCode(section._id);
-          toast.success('Enrollment code regenerated successfully!');
-          reloadSections();
-        } catch (error) {
-          console.error('Regenerate code error:', error);
-          toast.error(error.response?.data?.message || 'Failed to regenerate enrollment code');
-        } finally {
-          setRegeneratingId(null);
-          closeConfirmDialog();
-        }
-      }
-    });
-  };
+  // Opens the renew window; a full section has to raise its capacity there
+  const handleRegenerateCode = (section) => setRenewing(section);
 
   const handleCopyCode = (code) => {
     navigator.clipboard?.writeText(code);
@@ -972,31 +1043,36 @@ const SectionPage = () => {
                         {section.program} • Year {section.yearLevel}
                       </p>
                       {/* Enrollment Code Badge */}
-                      {section.enrollmentCode ? (
+                      {section.enrollmentCode ? (() => {
+                        const expired = isSectionFull(section);
+                        return (
                         <div className="mt-2 flex items-center gap-2">
-                          <div className="bg-gray-50 dark:bg-gray-900/40 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5">
-                            <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Enrollment Code:</p>
-                            <p className="text-lg font-bold text-gray-900 dark:text-white font-mono tracking-wider">{section.enrollmentCode}</p>
+                          <div className={`rounded-lg border border-dashed px-3 py-1.5 ${expired ? 'border-orange-300 bg-orange-50 dark:border-orange-700 dark:bg-orange-900/20' : 'border-gray-300 bg-gray-50 dark:border-gray-600 dark:bg-gray-900/40'}`}>
+                            <p className={`text-xs font-medium ${expired ? 'text-orange-700 dark:text-orange-300' : 'text-gray-500 dark:text-gray-400'}`}>
+                              {expired ? 'Code expired · section full' : 'Enrollment Code:'}
+                            </p>
+                            <p className={`text-lg font-bold font-mono tracking-wider ${expired ? 'text-gray-400 line-through dark:text-gray-500' : 'text-gray-900 dark:text-white'}`}>{section.enrollmentCode}</p>
                           </div>
                           <div className="flex flex-col gap-1">
                             <button
                               onClick={stop(() => handleCopyCode(section.enrollmentCode))}
-                              className="p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white rounded-lg transition-colors"
-                              title="Copy Code"
+                              disabled={expired}
+                              className="p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                              title={expired ? 'This code no longer works' : 'Copy code'}
                             >
                               <Copy className="w-4 h-4" />
                             </button>
                             <button
                               onClick={stop(() => handleRegenerateCode(section))}
-                              disabled={regeneratingId === section._id}
-                              className="p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50"
-                              title="Regenerate Code"
+                              className={`p-2 rounded-lg transition-colors ${expired ? 'bg-orange-100 text-orange-700 hover:bg-orange-200 dark:bg-orange-900/40 dark:text-orange-300 dark:hover:bg-orange-900/60' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                              title={expired ? 'Renew the code (raise capacity)' : 'Renew code'}
                             >
-                              <RefreshCw className={`w-4 h-4 ${regeneratingId === section._id ? 'animate-spin' : ''}`} />
+                              <RefreshCw className="w-4 h-4" />
                             </button>
                           </div>
                         </div>
-                      ) : (
+                        );
+                      })() : (
                         <div className="mt-2 inline-block">
                           <div className="bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5">
                             <p className="text-xs text-gray-500 font-medium">Enrollment Code:</p>
@@ -1186,7 +1262,15 @@ const SectionPage = () => {
                           </div>
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap">
-                          {section.enrollmentCode ? (
+                          {section.enrollmentCode && isSectionFull(section) ? (
+                            <button
+                              onClick={stop(() => handleRegenerateCode(section))}
+                              className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-orange-100 dark:bg-orange-900/40 text-orange-800 dark:text-orange-200 text-xs font-medium hover:bg-orange-200 dark:hover:bg-orange-900/60 transition-colors"
+                              title="Section full: the code expired. Click to raise capacity and renew."
+                            >
+                              <span className="font-mono line-through opacity-70">{section.enrollmentCode}</span> Expired · Renew
+                            </button>
+                          ) : section.enrollmentCode ? (
                             <button
                               onClick={stop(() => handleCopyCode(section.enrollmentCode))}
                               className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-gray-100 dark:bg-gray-700/60 text-gray-800 dark:text-gray-200 font-mono text-xs tracking-wider hover:bg-emerald-200 dark:hover:bg-emerald-900/60 transition-colors"
@@ -1257,6 +1341,13 @@ const SectionPage = () => {
         )}
 
         {/* Confirm Dialog */}
+        {renewing && (
+          <RenewCodeModal
+            section={renewing}
+            onClose={() => setRenewing(null)}
+            onRenewed={() => { setRenewing(null); reloadSections(); }}
+          />
+        )}
         <ConfirmDialog
           isOpen={confirmDialog.isOpen}
           onClose={closeConfirmDialog}

@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { UserX, Clock, Mail, Building2, GraduationCap, BookOpen, AlertCircle, XCircle, RefreshCw } from 'lucide-react';
+import { UserX, CheckCircle2, Clock, Mail, Building2, GraduationCap, BookOpen, AlertCircle, XCircle, RefreshCw } from 'lucide-react';
 import { ModalShell, ModalHeader, ModalBody, ModalFooter, ModalButton } from '../components/modal/ModalShell';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import Layout from '../components/Layout';
 import { Bone, SkeletonRegion } from '../components/ui/Skeleton';
 import dashboardBg from '../assets/images/backgrounds/bg.jpg';
-import AnimatedUserCheck from '../components/AnimatedUserCheck';
 import { useConfirm } from '../context/ConfirmContext';
 
 import { getErrorMessage } from '../services/api';
@@ -119,28 +118,27 @@ const FacultyApprovalPage = () => {
 
   return (
     <Layout>
-      <div className="p-6">
-        {/* Header */}
-        <div className="mb-8">
-          <div 
-            className="rounded-2xl shadow-xl p-8 text-white bg-cover bg-center relative overflow-hidden"
+      <div className="mx-auto max-w-6xl">
+        {/* Header: stacks on phones, side by side from small tablets up */}
+        <div className="mb-6 sm:mb-8">
+          <div
+            className="rounded-2xl shadow-xl p-5 sm:p-8 text-white bg-cover bg-center relative overflow-hidden"
             style={{
               backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.7)), url(${dashboardBg})`
             }}
           >
-            <div className="flex items-center justify-between relative z-10">
-              <div>
-                <h1 className="text-4xl font-bold mb-2 flex items-center gap-3">
-                  <AnimatedUserCheck className="w-10 h-10" />
+            <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <h1 className="mb-1 text-2xl font-bold sm:mb-2 sm:text-3xl lg:text-4xl">
                   Faculty Approval Queue
                 </h1>
-                <p className="text-white/90 text-lg">
+                <p className="text-sm text-white/90 sm:text-lg">
                   Review and approve pending faculty registrations
                 </p>
               </div>
-              <div className="text-right">
-                <div className="text-5xl font-bold">{loading ? <span className="inline-block h-12 w-14 rounded-lg bg-white/20 align-middle" aria-hidden="true" /> : pendingFaculty.length}</div>
-                <div className="text-white/80">Pending</div>
+              <div className="flex items-baseline gap-2 self-start rounded-xl bg-white/10 px-4 py-2 sm:block sm:self-auto sm:bg-transparent sm:p-0 sm:text-right">
+                <div className="text-3xl font-bold sm:text-5xl">{loading ? <span className="inline-block h-12 w-14 rounded-lg bg-white/20 align-middle" aria-hidden="true" /> : pendingFaculty.length}</div>
+                <div className="text-sm text-white/80 sm:text-base">Pending</div>
               </div>
             </div>
           </div>
@@ -152,8 +150,8 @@ const FacultyApprovalPage = () => {
             <SkeletonRegion label="Loading pending approvals" className="space-y-4">
               {[0, 1].map((i) => (
                 <div key={i} className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border-2 border-gray-200 dark:border-gray-700">
-                  <div className="p-6">
-                    <div className="flex items-start justify-between mb-4">
+                  <div className="p-4 sm:p-6">
+                    <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:items-start sm:justify-between">
                       <div className="flex items-center gap-3">
                         <Bone className="w-16 h-16 rounded-xl" />
                         <div>
@@ -161,7 +159,7 @@ const FacultyApprovalPage = () => {
                           <span className="mt-1 flex h-5 items-center gap-2"><Bone className="h-4 w-4" /><Bone className="h-3 w-44" /></span>
                         </div>
                       </div>
-                      <Bone className="h-10 w-44 rounded-lg" />
+                      <Bone className="h-9 w-40 self-start rounded-lg sm:h-10 sm:w-44" />
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 rounded-lg border border-gray-100 p-4 dark:border-gray-700">
                       {[0, 1, 2].map((k) => (
@@ -174,13 +172,13 @@ const FacultyApprovalPage = () => {
                         </div>
                       ))}
                     </div>
-                    <div className="flex items-center gap-3"><Bone className="h-12 flex-1 rounded-lg" /><Bone className="h-12 flex-1 rounded-lg" /></div>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:gap-3"><Bone className="h-12 flex-1 rounded-lg" /><Bone className="h-12 flex-1 rounded-lg" /></div>
                   </div>
                 </div>
               ))}
             </SkeletonRegion>
           ) : pendingFaculty.length === 0 ? (
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-12 text-center">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg px-6 py-10 sm:p-12 text-center">
               <div className="w-20 h-20 mx-auto mb-4">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="80" height="80" role="img" aria-label="Done">
                   <style>
@@ -249,7 +247,7 @@ const FacultyApprovalPage = () => {
                   <circle className="ring" cx="60" cy="60" r="52"/>
                 </svg>
               </div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-2">
                 All Caught Up!
               </h2>
               <p className="text-gray-600 dark:text-gray-400">
@@ -263,15 +261,15 @@ const FacultyApprovalPage = () => {
                   key={faculty._id}
                   className="bg-white dark:bg-gray-800 rounded-xl shadow-lg hover:shadow-xl transition-shadow overflow-hidden border-2 border-orange-200 dark:border-orange-700"
                 >
-                  <div className="p-6">
-                    {/* Header with Status Badge */}
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-500 rounded-xl flex items-center justify-center text-white text-2xl font-bold">
+                  <div className="p-4 sm:p-6">
+                    {/* Header with Status Badge: badge drops under the name on phones */}
+                    <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="w-12 h-12 sm:w-16 sm:h-16 flex-shrink-0 bg-gradient-to-br from-blue-500 to-blue-500 rounded-xl flex items-center justify-center text-white text-lg sm:text-2xl font-bold">
                           {faculty.firstName?.charAt(0)}{faculty.lastName?.charAt(0)}
                         </div>
-                        <div>
-                          <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+                        <div className="min-w-0">
+                          <h3 className="break-words text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">
                             {faculty.fullName || `${faculty.firstName} ${faculty.lastName}`}
                           </h3>
                           <div className="flex items-center gap-2 mt-1">
@@ -282,19 +280,19 @@ const FacultyApprovalPage = () => {
                           </div>
                         </div>
                       </div>
-                      <div className="px-4 py-2 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded-lg font-semibold flex items-center gap-2">
+                      <div className="self-start flex-shrink-0 px-3 py-1.5 sm:px-4 sm:py-2 text-sm sm:text-base bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded-lg font-semibold flex items-center gap-2">
                         <AlertCircle className="w-4 h-4" />
                         Pending Approval
                       </div>
                     </div>
 
                     {/* Faculty Details Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 mb-5 sm:mb-6 bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 sm:p-4">
                       <div className="flex items-start gap-3">
                         <Mail className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
                         <div>
                           <div className="text-xs text-gray-500 dark:text-gray-400 uppercase font-medium">Email</div>
-                          <div className="text-gray-900 dark:text-white font-medium">{faculty.email}</div>
+                          <div className="break-all text-gray-900 dark:text-white font-medium">{faculty.email}</div>
                         </div>
                       </div>
 
@@ -331,8 +329,8 @@ const FacultyApprovalPage = () => {
                       )}
                     </div>
 
-                    {/* Action Buttons */}
-                    <div className="flex items-center gap-3">
+                    {/* Action Buttons: stacked on phones, side by side from small tablets up */}
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
                       <button
                         onClick={() => handleApprove(faculty._id, faculty.fullName || `${faculty.firstName} ${faculty.lastName}`)}
                         disabled={actionLoading === faculty._id}
@@ -345,72 +343,7 @@ const FacultyApprovalPage = () => {
                           </>
                         ) : (
                           <>
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="20" height="20" role="img" aria-label="Approve" className="inline-block">
-                              <style>
-                                {`
-                                  .circle {
-                                    fill: none;
-                                    stroke: currentColor;
-                                    stroke-width: 6;
-                                    stroke-linecap: round;
-                                    stroke-dasharray: 327;
-                                    stroke-dashoffset: 327;
-                                    transform: rotate(-90deg);
-                                    transform-origin: 60px 60px;
-                                    animation: draw-circle 0.7s ease-out forwards;
-                                  }
-                                  .fill {
-                                    fill: currentColor;
-                                    opacity: 0;
-                                    transform-origin: 60px 60px;
-                                    animation: fill-in 0.35s ease-out 0.7s forwards;
-                                  }
-                                  .check {
-                                    fill: none;
-                                    stroke: #ffffff;
-                                    stroke-width: 8;
-                                    stroke-linecap: round;
-                                    stroke-linejoin: round;
-                                    stroke-dasharray: 60;
-                                    stroke-dashoffset: 60;
-                                    animation: draw-check 0.4s ease-out 0.9s forwards;
-                                  }
-                                  .badge {
-                                    transform-origin: 60px 60px;
-                                    animation: pop 0.5s ease-out 1.1s;
-                                  }
-                                  .ring {
-                                    fill: none;
-                                    stroke: currentColor;
-                                    stroke-width: 3;
-                                    opacity: 0;
-                                    transform-origin: 60px 60px;
-                                    animation: pulse 0.8s ease-out 1.1s;
-                                  }
-                                  @keyframes draw-circle { to { stroke-dashoffset: 0; } }
-                                  @keyframes fill-in { to { opacity: 1; } }
-                                  @keyframes draw-check { to { stroke-dashoffset: 0; } }
-                                  @keyframes pop {
-                                    0%   { transform: scale(1); }
-                                    50%  { transform: scale(1.12); }
-                                    100% { transform: scale(1); }
-                                  }
-                                  @keyframes pulse {
-                                    0%   { opacity: 0.6; transform: scale(1); }
-                                    100% { opacity: 0;   transform: scale(1.5); }
-                                  }
-                                  @media (prefers-reduced-motion: reduce) {
-                                    .circle, .fill, .check, .badge, .ring { animation-duration: 0.01s; animation-delay: 0s; }
-                                  }
-                                `}
-                              </style>
-                              <g className="badge">
-                                <circle className="fill" cx="60" cy="60" r="52"/>
-                                <circle className="circle" cx="60" cy="60" r="52"/>
-                                <path className="check" d="M38 62 L54 78 L83 44"/>
-                              </g>
-                              <circle className="ring" cx="60" cy="60" r="52"/>
-                            </svg>
+                            <CheckCircle2 className="w-5 h-5" aria-hidden="true" />
                             Approve Account
                           </>
                         )}

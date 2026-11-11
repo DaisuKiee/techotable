@@ -237,6 +237,7 @@ const TONES = {
   purple: 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300',
   emerald: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
   amber: 'bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300',
+  orange: 'bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300',
   red: 'bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300',
 };
 

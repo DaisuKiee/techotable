@@ -18,6 +18,7 @@ const {
   deleteMaterial,
   enrollByCode,
   unenrollFromClass,
+  leaveSection,
 } = require('../controllers/classSpace.controller');
 const { protect, authorize } = require('../middleware/auth.middleware');
 const { uploadMaterial: uploadMaterialFile } = require('../middleware/upload.middleware');
@@ -30,6 +31,7 @@ const TEACHING = [...STAFF, 'faculty'];
 
 /* -------- student enrollment (declared before /:id so it isn't shadowed) -------- */
 router.post('/join', authorize('student'), joinByCode);
+router.post('/leave-section', authorize('student'), leaveSection);
 router.post('/:id/leave', authorize('student'), leaveClassSpace);
 router.post('/enroll-by-code', authorize('student'), enrollByCode);
 router.delete('/:id/unenroll', authorize('student'), unenrollFromClass);

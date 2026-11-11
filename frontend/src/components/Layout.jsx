@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, createContext, useContext } from 'react';
+import { Link, Outlet, useNavigate, useLocation, useNavigationType } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   Users, BookOpen, DoorOpen, Calendar,
@@ -178,7 +178,16 @@ const TermCard = ({ info, expanded, compact = false, onNavigate }) => {
   );
 };
 
-const Layout = ({ children }) => {
+/**
+ * The app frame (sidebar, header, chat bubble) is mounted ONCE for every
+ * signed-in page by <ShellOutlet/> in App.js. Pages still wrap themselves in
+ * <Layout>, which then just renders the page: before, each page mounted its
+ * own frame, so every click rebuilt the sidebar - its scroll jumped back to
+ * the top, it collapsed, and the term and approval counts were fetched again.
+ */
+const ShellContext = createContext(false);
+
+const AppShell = ({ children }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -215,13 +224,26 @@ const Layout = ({ children }) => {
     };
   }, [userMenuOpen, mobileUserMenuOpen]);
 
-  // Collapse the hover sidebar and close menus when the route changes
+  // Close menus when the route changes. The hover sidebar stays as it is:
+  // collapsing it under the pointer right after a click made it jump.
+  const navigationType = useNavigationType();
+  const navRef = useRef(null);
   useEffect(() => {
-    clearTimeout(hoverTimer.current);
-    setSidebarExpanded(false);
     setUserMenuOpen(false);
     setMobileUserMenuOpen(false);
     setMobileSidebarOpen(false);
+  }, [location.pathname]);
+
+  // A new page starts at the top; Back/Forward (POP) leave the scroll alone
+  useLayoutEffect(() => {
+    if (navigationType !== 'POP') window.scrollTo(0, 0);
+  }, [location.pathname, navigationType]);
+
+  // Keep the active item in view in the sidebar (e.g. after navigating from a
+  // link on the page), without moving the list when it's already visible
+  useEffect(() => {
+    const el = navRef.current?.querySelector('[aria-current="page"]');
+    if (el) el.scrollIntoView({ block: 'nearest' });
   }, [location.pathname]);
 
   useEffect(() => { writeStored(COLLAPSED_GROUPS_KEY, collapsedGroups); }, [collapsedGroups]);
@@ -516,8 +538,8 @@ const Layout = ({ children }) => {
         {/* Logo Section */}
         <div className="relative flex items-center py-5 px-4 border-b border-blue-500/30 dark:border-dark-border-subtle">
           <Link to="/dashboard" className="flex items-center gap-3 min-w-0" aria-label="Dashboard">
-            <div className="w-12 h-12 flex-shrink-0 bg-white/10 dark:bg-dark-blue-primary rounded-xl flex items-center justify-center backdrop-blur-sm">
-              <img src={ctuLogo} alt="CTU" className="w-8 h-8" />
+            <div className="w-12 h-12 flex-shrink-0 flex items-center justify-center">
+              <img src={ctuLogo} alt="CTU" className="w-11 h-11 drop-shadow" />
             </div>
             <div className={`overflow-hidden transition-all duration-300 ${
               sidebarExpanded ? 'w-auto opacity-100' : 'w-0 opacity-0'
@@ -531,7 +553,7 @@ const Layout = ({ children }) => {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-3 py-4 overflow-y-auto overflow-x-hidden custom-scrollbar">
+        <nav ref={navRef} className="flex-1 px-3 py-4 overflow-y-auto overflow-x-hidden custom-scrollbar">
           {navGroups.map((group, groupIndex) => {
             const open = isGroupOpen(group);
             const panelId = `nav-group-${groupIndex}`;
@@ -730,8 +752,8 @@ const Layout = ({ children }) => {
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-blue-500/30 dark:border-dark-border-subtle">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-white/10 dark:bg-dark-blue-primary rounded-xl flex items-center justify-center">
-                <img src={ctuLogo} alt="CTU" className="w-7 h-7" />
+              <div className="w-10 h-10 flex items-center justify-center">
+                <img src={ctuLogo} alt="CTU" className="w-9 h-9 drop-shadow" />
               </div>
               <div>
                 <h1 className="text-white dark:text-dark-text-primary font-bold text-base">CTU Daanbantayan</h1>
@@ -940,5 +962,20 @@ const Layout = ({ children }) => {
     </div>
   );
 };
+
+/** Pages wrap themselves in this; inside the shared shell it adds nothing. */
+const Layout = ({ children }) => {
+  const inShell = useContext(ShellContext);
+  return inShell ? children : <AppShell>{children}</AppShell>;
+};
+
+/** Route element for every signed-in page: one persistent frame + the page. */
+export const ShellOutlet = () => (
+  <ShellContext.Provider value>
+    <AppShell>
+      <Outlet />
+    </AppShell>
+  </ShellContext.Provider>
+);
 
 export default Layout;

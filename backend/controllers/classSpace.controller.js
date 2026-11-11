@@ -535,8 +535,18 @@ exports.joinByCode = async (req, res) => {
       });
     }
 
-    if (section.currentStudents >= section.maxStudents) {
-      return res.status(400).json({ success: false, message: 'This section is already full' });
+    // A full section's code has expired. Claim the seat atomically, so two
+    // students joining at the same moment can't both take the last one.
+    const seat = await Section.updateOne(
+      { _id: section._id, $expr: { $lt: ['$currentStudents', '$maxStudents'] } },
+      { $inc: { currentStudents: 1 } }
+    );
+    if (!seat.modifiedCount) {
+      return res.status(400).json({
+        success: false,
+        code: 'CODE_EXPIRED',
+        message: `This enrollment code has expired because ${section.sectionCode} is full (${section.currentStudents}/${section.maxStudents}). Ask your program manager for a renewed code.`,
+      });
     }
 
     const previousSectionCode = student.sectionCode;
@@ -565,7 +575,7 @@ exports.joinByCode = async (req, res) => {
       );
     }
 
-    await Section.updateOne({ _id: section._id }, { $inc: { currentStudents: 1 } });
+    // (The seat was already claimed above.)
 
     // Enroll into every subject the section takes
     const joined = await syncSectionEnrollment(student);
@@ -1229,5 +1239,43 @@ exports.unenrollFromClass = async (req, res) => {
 
   } catch (error) {
     sendError(res, error, 'Error dropping class');
+  }
+};
+
+// @desc    Leave your section: frees the seat (an expired code works again
+//          once there's room) and drops the section's classes. Classes joined
+//          individually with a class code are kept.
+// @route   POST /api/classSpaces/leave-section
+// @access  Private (students)
+exports.leaveSection = async (req, res) => {
+  try {
+    const student = await getStudentFor(req.user);
+    if (!student) {
+      return res.status(404).json({ success: false, message: 'No student profile is linked to your account.' });
+    }
+    const previous = student.sectionCode;
+    if (!previous) {
+      return res.status(400).json({ success: false, message: 'You are not in a section.' });
+    }
+
+    const spaces = await ClassSpace.find({ sectionCode: previous });
+    for (const cs of spaces) {
+      if (cs.removeStudent(student._id)) await cs.save();
+    }
+    await Student.updateOne(
+      { _id: student._id },
+      {
+        $pull: { enrolledClasses: { $in: spaces.map(s => s._id) } },
+        $set: { sectionCode: null, enrollmentStatus: 'not_enrolled' },
+      }
+    );
+    await Section.updateOne(
+      { sectionCode: previous, currentStudents: { $gt: 0 } },
+      { $inc: { currentStudents: -1 } }
+    );
+
+    res.json({ success: true, message: `You left ${previous}` });
+  } catch (error) {
+    sendError(res, error, 'Could not leave your section');
   }
 };

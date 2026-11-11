@@ -457,6 +457,31 @@ exports.regenerateEnrollmentCode = async (req, res) => {
       });
     }
 
+    // A full section's code has expired. Renewing it means making room: the
+    // capacity must go above the current head count (e.g. 40/40 -> 41) so the
+    // student still waiting can join; the new code expires again once full.
+    const current = section.currentStudents || 0;
+    const requested = req.body.maxStudents !== undefined && req.body.maxStudents !== null && req.body.maxStudents !== ''
+      ? Number(req.body.maxStudents)
+      : null;
+    if (requested !== null) {
+      if (!Number.isInteger(requested) || requested < 1 || requested > 200) {
+        return res.status(400).json({ success: false, message: 'Capacity must be a whole number from 1 to 200.' });
+      }
+      if (requested < current) {
+        return res.status(400).json({ success: false, message: `Capacity can't be below the ${current} students already in ${section.sectionCode}.` });
+      }
+      section.maxStudents = requested;
+    }
+    if (current >= section.maxStudents) {
+      return res.status(400).json({
+        success: false,
+        code: 'SECTION_FULL',
+        message: `${section.sectionCode} is full (${current}/${section.maxStudents}). Raise the capacity to at least ${current + 1} to renew its code.`,
+        data: { currentStudents: current, maxStudents: section.maxStudents },
+      });
+    }
+
     // Generate new unique enrollment code
     let enrollmentCode;
     let isUnique = false;
@@ -487,7 +512,9 @@ exports.regenerateEnrollmentCode = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: 'Enrollment code regenerated successfully',
+      message: requested !== null
+        ? `New code for ${section.sectionCode}; capacity is now ${section.maxStudents}`
+        : 'Enrollment code renewed',
       data: updatedSection
     });
   } catch (error) {

@@ -386,6 +386,7 @@ export const classSpaceAPI = {
   // SUBJECT class code. The backend routes on the student's studentType.
   join: (code) => api.post('/classSpaces/join', { code }),
   leave: (id) => api.post(`/classSpaces/${id}/leave`),
+  leaveSection: () => api.post('/classSpaces/leave-section'),
   
   // Self-enrollment with class code (for irregular students)
   enrollByCode: (classCode) => api.post('/classSpaces/enroll-by-code', { classCode }),
@@ -412,7 +413,8 @@ export const sectionAPI = {
   getByProgramAndYear: (program, year, params) => 
     api.get(`/sections/program/${program}/year/${year}`, { params }),
   getStats: () => api.get('/sections/stats'),
-  regenerateEnrollmentCode: (id) => api.put(`/sections/${id}/regenerate-code`),
+  // `data.maxStudents` raises capacity; required when the section is full
+  regenerateEnrollmentCode: (id, data) => api.put(`/sections/${id}/regenerate-code`, data || {}),
   // Give every active section without a valid home room its own room
   assignHomeRooms: (data) => api.post('/sections/home-rooms/assign', data)
 };

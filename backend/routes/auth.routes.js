@@ -27,10 +27,16 @@ const rateLimit = require('express-rate-limit');
 const { protect, authorize } = require('../middleware/auth.middleware');
 
 // Validation middleware
+//
+// NOTE: do NOT use .normalizeEmail() here. It strips dots from Gmail
+// addresses ("a.b@gmail.com" -> "ab@gmail.com"), while /auth/signup stores
+// the address exactly as typed. That mismatch meant anyone who signed up with
+// a dot in their Gmail address could never log in: the lookup searched for an
+// address that was never stored. Lowercasing is all the normalising we do,
+// and the controllers already lowercase before querying.
 const registerValidation = [
   body('email')
     .isEmail()
-    .normalizeEmail()
     .withMessage('Please provide a valid email'),
   body('password')
     .isLength({ min: 6 })
@@ -48,7 +54,6 @@ const registerValidation = [
 const loginValidation = [
   body('email')
     .isEmail()
-    .normalizeEmail()
     .withMessage('Please provide a valid email'),
   body('password')
     .notEmpty()

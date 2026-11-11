@@ -24,10 +24,12 @@ const { checkProgramAccess } = require('../middleware/programAccess.middleware')
 const { facultyProgramGuard, applicantProgramGuard } = require('../utils/programScope');
 
 // Validation middleware
+// No .normalizeEmail(): it strips dots from Gmail addresses, so the stored
+// address stopped matching what the person types when signing in. The address
+// is kept as given and lowercased by the model instead.
 const createFacultyValidation = [
   body('email')
     .isEmail()
-    .normalizeEmail()
     .withMessage('Please provide a valid email'),
   body('password')
     .isLength({ min: 6 })

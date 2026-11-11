@@ -11,7 +11,7 @@
  */
 
 const APP_URL = (process.env.FRONTEND_URL || process.env.CLIENT_URL || 'http://localhost:3000').replace(/\/$/, '');
-const { LOGO_CID } = require('./mailer');
+const { LOGO_CID, logoAvailable } = require('./mailer');
 
 const C = {
   ink: '#111827',
@@ -174,8 +174,11 @@ const renderEmail = (o) => {
   const [strong, soft, onSoft] = toneOf(tone);
   const year = new Date().getFullYear();
   // The CTU seal, embedded in the message itself (cid:, see mailer.js), so it
-  // shows in every inbox without depending on a public URL
-  const logo = `<img src="cid:${LOGO_CID}" width="36" height="36" alt="CTU" style="display:block;border:0;border-radius:50%;background:#ffffff;">`;
+  // shows in every inbox without depending on a public URL. If the logo file
+  // isn't on this server, fall back to a text badge so the email still sends.
+  const logo = logoAvailable()
+    ? `<img src="cid:${LOGO_CID}" width="36" height="36" alt="CTU" style="display:block;border:0;border-radius:50%;background:#ffffff;">`
+    : `<span style="display:inline-block;width:36px;height:36px;line-height:36px;border-radius:50%;background:${C.gold};color:${C.navy};font-family:${FONT};font-size:11px;font-weight:800;text-align:center;">CTU</span>`;
 
   const html = `<!DOCTYPE html>
 <html lang="en" xmlns="http://www.w3.org/1999/xhtml">

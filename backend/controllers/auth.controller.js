@@ -77,6 +77,31 @@ exports.register = async (req, res) => {
 // @desc    Login user
 // @route   POST /api/auth/login
 // @access  Public
+/**
+ * Find the account for a sign-in, tolerating both forms a Gmail address may
+ * have been stored in:
+ *   - exactly as typed (what /auth/signup does, dots kept), and
+ *   - with the dots stripped, for older accounts created through
+ *     /auth/register back when it ran normalizeEmail().
+ * Without the second lookup those older accounts would stop matching now that
+ * the address is no longer normalised on the way in.
+ */
+const findUserForSignIn = async (rawEmail) => {
+  const email = String(rawEmail || '').toLowerCase().trim();
+  const lookup = (value) => User.findOne({ email: value })
+    .select('+password')
+    .populate('facultyProfile');
+
+  const user = await lookup(email);
+  if (user) return user;
+
+  const [local, domain] = email.split('@');
+  if (local && local.includes('.') && /^(gmail|googlemail)\.com$/.test(domain || '')) {
+    return lookup(`${local.replace(/\./g, '')}@${domain}`);
+  }
+  return null;
+};
+
 exports.login = async (req, res) => {
   try {
     // Validate request
@@ -88,9 +113,7 @@ exports.login = async (req, res) => {
     const { email, password } = req.body;
 
     // Check if user exists and include password for comparison
-    const user = await User.findOne({ email: email.toLowerCase() })
-      .select('+password')
-      .populate('facultyProfile');
+    const user = await findUserForSignIn(email);
 
     const attempt = { user, email: String(email).toLowerCase() };
 

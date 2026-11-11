@@ -16,6 +16,7 @@
  * Resend; plain Gmail will rewrite or flag the From.
  */
 
+const fs = require('fs');
 const path = require('path');
 const nodemailer = require('nodemailer');
 
@@ -55,11 +56,31 @@ const envelope = () => ({
 
 /** The CTU seal travels inside each email as an inline image (Content-ID). */
 const LOGO_CID = 'ctu-logo@timetable';
-const LOGO_PATH = path.join(__dirname, '..', 'assets', 'email', 'ctu-logo.png');
+// In the backend root so it's a single easy file to deploy. Falls back to the
+// old assets/email/ location if that's where it ends up on a given host.
+const LOGO_PATH = [
+  path.join(__dirname, '..', 'ctu-logo.png'),
+  path.join(__dirname, '..', 'assets', 'email', 'ctu-logo.png'),
+].find((p) => { try { return fs.existsSync(p); } catch { return false; } })
+  || path.join(__dirname, '..', 'ctu-logo.png');
+
+/**
+ * Is the logo file present? Checked once. When it's missing (e.g. not deployed
+ * to the server), the template shows a text badge instead and the email still
+ * sends — a missing logo must never block a password reset or verification.
+ */
+let logoPresent = null;
+const logoAvailable = () => {
+  if (logoPresent === null) {
+    try { logoPresent = fs.existsSync(LOGO_PATH); } catch { logoPresent = false; }
+    if (!logoPresent) console.warn(`Email logo not found at ${LOGO_PATH}; emails will use the text badge.`);
+  }
+  return logoPresent;
+};
 
 /** Inline attachments for the images an email's HTML references. */
-const inlineAssets = (html) => (String(html || '').includes(`cid:${LOGO_CID}`)
+const inlineAssets = (html) => (logoAvailable() && String(html || '').includes(`cid:${LOGO_CID}`)
   ? { attachments: [{ filename: 'ctu-logo.png', path: LOGO_PATH, cid: LOGO_CID, contentDisposition: 'inline' }] }
   : {});
 
-module.exports = { getTransport, fromHeader, senderAddress, envelope, inlineAssets, LOGO_CID };
+module.exports = { getTransport, fromHeader, senderAddress, envelope, inlineAssets, LOGO_CID, logoAvailable };

@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import { usePrograms } from '../hooks/usePrograms';
 import { AuthLayout, AuthField, PasswordField, FormAlert, SubmitButton } from '../components/auth/AuthLayout';
 import { PasswordChecklist, passwordProblem, confirmProblem, liveConfirmProblem } from '../components/auth/PasswordStrength';
+import { safeNext } from '../utils/pendingJoin';
 
 const FEATURES = [
   { icon: Calendar, title: 'Your schedule', text: 'Your whole week, on any device.' },
@@ -147,7 +148,9 @@ const SignupPage = () => {
           { duration: 5000, icon: '📧' }
         );
 
-        navigate('/login', {
+        // Keep a ?next= (e.g. a section join link) for after signing in
+        const next = safeNext(window.location.search);
+        navigate(next ? `/login?next=${encodeURIComponent(next)}` : '/login', {
           state: {
             message: 'Account created! Please check your email to verify your account.',
             email: formData.email.trim()

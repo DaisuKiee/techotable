@@ -1279,3 +1279,38 @@ exports.leaveSection = async (req, res) => {
     sendError(res, error, 'Could not leave your section');
   }
 };
+
+// @desc    What a section join link points to, before joining: lets the page
+//          show the section, warn a student who'd be moved from another one,
+//          and explain an expired (full) code. Doesn't enroll anyone.
+// @route   GET /api/classSpaces/join-preview/:code
+// @access  Private (students)
+exports.joinPreview = async (req, res) => {
+  try {
+    const code = String(req.params.code || '').toUpperCase().trim();
+    const [section, student] = await Promise.all([
+      Section.findOne({ enrollmentCode: code, isActive: true })
+        .select('sectionCode program yearLevel semester shift academicYear maxStudents currentStudents')
+        .lean(),
+      getStudentFor(req.user),
+    ]);
+    if (!section) {
+      return res.status(404).json({ success: false, message: 'This join link is not valid. Ask your program manager for a new one.' });
+    }
+    res.json({
+      success: true,
+      data: {
+        sectionCode: section.sectionCode,
+        program: section.program,
+        yearLevel: section.yearLevel,
+        semester: section.semester,
+        shift: section.shift,
+        academicYear: section.academicYear,
+        full: (section.currentStudents || 0) >= (section.maxStudents || 0),
+        currentSection: student?.sectionCode || null,
+      },
+    });
+  } catch (error) {
+    sendError(res, error, 'Could not read this join link');
+  }
+};

@@ -8,7 +8,7 @@ import toast from 'react-hot-toast';
 import {
   Plus, Edit2, Trash2, Search, Sun, Moon,
   Users, BookOpen, GraduationCap, X, Download,
-  Calendar, Grid3x3, List, RefreshCw, Copy, AlertTriangle,
+  Calendar, Grid3x3, List, RefreshCw, Copy, AlertTriangle, Link2,
   TrendingUp, UserCheck, DoorOpen
 } from 'lucide-react';
 import { ModalShell, ModalHeader, ModalBody, ModalFooter, ModalButton } from '../components/modal/ModalShell';
@@ -704,6 +704,14 @@ const SectionPage = () => {
     toast.success('Enrollment code copied!');
   };
 
+  // Share as a link instead: a student who opens it signs in and is enrolled
+  // in the section automatically (see JoinSectionPage)
+  const joinLinkFor = (code) => `${window.location.origin}/join/${code}`;
+  const handleCopyLink = (section) => {
+    navigator.clipboard?.writeText(joinLinkFor(section.enrollmentCode));
+    toast.success(`Join link for ${section.sectionCode} copied`);
+  };
+
   const clearFilters = () => {
     setSearchTerm('');
     setFilterProgram('');
@@ -1046,6 +1054,7 @@ const SectionPage = () => {
                       {section.enrollmentCode ? (() => {
                         const expired = isSectionFull(section);
                         return (
+                        <div>
                         <div className="mt-2 flex items-center gap-2">
                           <div className={`rounded-lg border border-dashed px-3 py-1.5 ${expired ? 'border-orange-300 bg-orange-50 dark:border-orange-700 dark:bg-orange-900/20' : 'border-gray-300 bg-gray-50 dark:border-gray-600 dark:bg-gray-900/40'}`}>
                             <p className={`text-xs font-medium ${expired ? 'text-orange-700 dark:text-orange-300' : 'text-gray-500 dark:text-gray-400'}`}>
@@ -1055,14 +1064,6 @@ const SectionPage = () => {
                           </div>
                           <div className="flex flex-col gap-1">
                             <button
-                              onClick={stop(() => handleCopyCode(section.enrollmentCode))}
-                              disabled={expired}
-                              className="p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
-                              title={expired ? 'This code no longer works' : 'Copy code'}
-                            >
-                              <Copy className="w-4 h-4" />
-                            </button>
-                            <button
                               onClick={stop(() => handleRegenerateCode(section))}
                               className={`p-2 rounded-lg transition-colors ${expired ? 'bg-orange-100 text-orange-700 hover:bg-orange-200 dark:bg-orange-900/40 dark:text-orange-300 dark:hover:bg-orange-900/60' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
                               title={expired ? 'Renew the code (raise capacity)' : 'Renew code'}
@@ -1070,6 +1071,28 @@ const SectionPage = () => {
                               <RefreshCw className="w-4 h-4" />
                             </button>
                           </div>
+                        </div>
+                        {/* Share either the code or a join link */}
+                        <div className="mt-2 inline-flex overflow-hidden rounded-lg border border-gray-200 text-xs font-medium dark:border-gray-600" role="group" aria-label={`Share ${section.sectionCode}`}>
+                          <button
+                            type="button"
+                            onClick={stop(() => handleCopyCode(section.enrollmentCode))}
+                            disabled={expired}
+                            title={expired ? 'This code no longer works' : 'Copy the code for students to type in'}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent dark:text-gray-200 dark:hover:bg-gray-700"
+                          >
+                            <Copy className="h-3.5 w-3.5" /> Copy code
+                          </button>
+                          <button
+                            type="button"
+                            onClick={stop(() => handleCopyLink(section))}
+                            disabled={expired}
+                            title={expired ? 'This link no longer works' : 'Copy a link: students sign in and are enrolled automatically'}
+                            className="flex items-center gap-1.5 border-l border-gray-200 px-2.5 py-1.5 text-blue-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent dark:border-gray-600 dark:text-blue-300 dark:hover:bg-blue-900/30"
+                          >
+                            <Link2 className="h-3.5 w-3.5" /> Copy link
+                          </button>
+                        </div>
                         </div>
                         );
                       })() : (
@@ -1271,6 +1294,7 @@ const SectionPage = () => {
                               <span className="font-mono line-through opacity-70">{section.enrollmentCode}</span> Expired · Renew
                             </button>
                           ) : section.enrollmentCode ? (
+                            <>
                             <button
                               onClick={stop(() => handleCopyCode(section.enrollmentCode))}
                               className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-gray-100 dark:bg-gray-700/60 text-gray-800 dark:text-gray-200 font-mono text-xs tracking-wider hover:bg-emerald-200 dark:hover:bg-emerald-900/60 transition-colors"
@@ -1279,6 +1303,15 @@ const SectionPage = () => {
                               {section.enrollmentCode}
                               <Copy className="w-3 h-3" />
                             </button>
+                            <button
+                              onClick={stop(() => handleCopyLink(section))}
+                              className="ml-1 inline-flex items-center rounded-md p-1 text-blue-700 hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-900/30"
+                              title="Copy join link"
+                              aria-label={`Copy join link for ${section.sectionCode}`}
+                            >
+                              <Link2 className="w-3.5 h-3.5" />
+                            </button>
+                            </>
                           ) : (
                             <span className="text-xs text-gray-400 italic">None</span>
                           )}

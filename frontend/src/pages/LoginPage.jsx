@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { Mail, Lock, Wand2, ShieldCheck, FolderOpen } from 'lucide-react';
 import { AuthLayout, AuthField, PasswordField, FormAlert, SubmitButton } from '../components/auth/AuthLayout';
 import CampusWalkLoader from '../components/CampusWalkLoader';
+import { safeNext, pendingJoinPath } from '../utils/pendingJoin';
 
 // What the system actually does, shown beside the form
 const FEATURES = [
@@ -38,6 +39,10 @@ const LoginPage = () => {
   const emailRef = useRef(null);
   const passwordRef = useRef(null);
 
+  // Back to where the user was headed: ?next=, or a section join link
+  // opened before signing in (it survives email verification)
+  const afterLogin = () => safeNext(location.search) || pendingJoinPath() || '/dashboard';
+
   // Start where the user needs to type: the password when sign-up already
   // handed over the email, otherwise the email.
   useEffect(() => {
@@ -48,8 +53,9 @@ const LoginPage = () => {
   // Redirect if already authenticated (but not mid success animation)
   useEffect(() => {
     if (isAuthenticated && !loginSuccess) {
-      navigate('/dashboard');
+      navigate(afterLogin());
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, loginSuccess, navigate]);
 
   const handleChange = (e) => {
@@ -70,7 +76,7 @@ const LoginPage = () => {
     if (result.success) {
       setLoginSuccess(true);
       // Let the walk-in finish before the dashboard replaces it
-      setTimeout(() => navigate('/dashboard'), 1300);
+      setTimeout(() => navigate(afterLogin()), 1300);
     } else {
       setLoading(false);
       // Kept on the page as well as in the toast, which disappears

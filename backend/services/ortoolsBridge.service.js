@@ -753,22 +753,41 @@ async function withWarmStart(pythonInput, timeLimit) {
  * timetable is NOT a reason to fall back: that answer is real. 'builtin'
  * skips OR-Tools entirely.
  */
+// After OR-Tools fails to start (no Python, or the ortools package missing -
+// e.g. on a Node-only host like Pterodactyl), skip it for a while instead of
+// paying for a failed Python start and a warm-start run on every request.
+// SCHEDULER_ENGINE=builtin in .env skips it for good.
+const ORTOOLS_RETRY_MS = 30 * 60 * 1000;
+let ortoolsDownUntil = 0;
+
+const builtinOnly = () => String(process.env.SCHEDULER_ENGINE || '').toLowerCase() === 'builtin'
+  || Date.now() < ortoolsDownUntil;
+
+const FALLBACK_NOTE = 'OR-Tools could not run on this server, so the built-in constraint solver produced this '
+  + 'timetable. It applies the same rules and priorities.';
+
 async function solveWithEngine(pythonInput, engine, timeLimit) {
   if (engine === 'builtin') {
     return { result: await solveInWorker(pythonInput), engine: 'builtin' };
+  }
+  if (builtinOnly()) {
+    const result = await solveInWorker(pythonInput);
+    result.diagnostics = [FALLBACK_NOTE, ...(result.diagnostics || [])];
+    return { result, engine: 'builtin', fellBack: true };
   }
   try {
     const hinted = await withWarmStart(pythonInput, timeLimit);
     return { result: await callPythonOptimizer(hinted, timeLimit + 15), engine: 'ortools' };
   } catch (err) {
     if (!err.unavailable) throw err;
-    console.warn('OR-Tools unavailable, using the built-in solver:', err.message.slice(0, 200));
+    ortoolsDownUntil = Date.now() + ORTOOLS_RETRY_MS;
+    console.warn(
+      'OR-Tools unavailable, using the built-in solver (not retrying for 30 minutes; '
+      + 'set SCHEDULER_ENGINE=builtin to skip it entirely):',
+      err.message.slice(0, 200)
+    );
     const result = await solveInWorker(pythonInput);
-    result.diagnostics = [
-      'OR-Tools could not run on this server, so the built-in constraint solver produced this '
-      + 'timetable. It applies the same rules and priorities.',
-      ...(result.diagnostics || []),
-    ];
+    result.diagnostics = [FALLBACK_NOTE, ...(result.diagnostics || [])];
     return { result, engine: 'builtin', fellBack: true };
   }
 }
@@ -1040,6 +1059,7 @@ async function checkORToolsAvailability() {
       };
     }
     if (found?.error) {
+      ortoolsDownUntil = Date.now() + ORTOOLS_RETRY_MS;
       return {
         available: false,
         pythonFound: true,
@@ -1052,6 +1072,7 @@ async function checkORToolsAvailability() {
     }
   }
 
+  ortoolsDownUntil = Date.now() + ORTOOLS_RETRY_MS;
   return {
     available: false,
     pythonFound: false,

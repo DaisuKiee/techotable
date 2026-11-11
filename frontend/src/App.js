@@ -31,6 +31,7 @@ import SubjectPage from './pages/SubjectPage';
 import RoomPage from './pages/RoomPage';
 import SchedulePage from './pages/SchedulePage';
 import ScheduleBuilderPage from './pages/ScheduleBuilderPage';
+import JoinSectionPage from './pages/JoinSectionPage';
 import SectionPage from './pages/SectionPage';
 import ClassSpacePage from './pages/ClassSpacePage';
 import StudentPage from './pages/StudentPage';
@@ -96,6 +97,8 @@ function App() {
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
             <Route path="/verify-email/:token" element={<EmailVerificationPage />} />
+            {/* Section join link: sign in, then the student is enrolled automatically */}
+            <Route path="/join/:code" element={<JoinSectionPage />} />
             <Route path="/debug-auth" element={<DebugAuthPage />} />
             <Route path="/dashboard-test" element={<DashboardPage />} />
             <Route path="/dashboard-minimal" element={<MinimalDashboard />} />

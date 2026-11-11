@@ -1,3 +1,4 @@
+import { useConfirm } from '../context/ConfirmContext';
 import React, { useState, useEffect, useRef } from 'react';
 import { facultyAPI, scheduleAPI, subjectAPI, getErrorMessage } from '../services/api';
 import toast from 'react-hot-toast';
@@ -41,6 +42,7 @@ const getSubjectColor = (subjectCode) => {
 };
 
 const FacultyDragDrop = ({ filters, onAssignmentChange }) => {
+  const confirm = useConfirm();
   const [faculty, setFaculty] = useState([]);
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -168,8 +170,13 @@ const FacultyDragDrop = ({ filters, onAssignmentChange }) => {
     }
   };
 
-  const handleDiscard = () => {
-    if (!window.confirm('Discard all pending changes?')) return;
+  const handleDiscard = async () => {
+    if (!(await confirm({
+      title: 'Discard pending changes?',
+      message: 'Every change you haven\'t saved yet is undone.',
+      confirmText: 'Discard',
+      type: 'danger',
+    }))) return;
     setPendingChanges([]);
     loadData();
   };

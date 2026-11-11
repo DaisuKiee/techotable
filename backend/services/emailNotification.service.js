@@ -10,7 +10,7 @@ const Faculty = require('../models/Faculty.model');
 const Schedule = require('../models/Schedule.model');
 
 // Create reusable transporter
-const { getTransport, envelope } = require('./mailer');
+const { getTransport, envelope, inlineAssets } = require('./mailer');
 
 /**
  * Whether this address wants the email: its owner can turn email off
@@ -56,6 +56,7 @@ const sendEmail = async (to, subject, html, { preference, text } = {}) => {
       subject,
       html,
       ...(text ? { text } : {}),
+      ...inlineAssets(html),
     };
 
     const info = await getTransport().sendMail(mailOptions);

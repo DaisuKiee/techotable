@@ -1,3 +1,4 @@
+import toast from 'react-hot-toast';
 // Schedule Export Utilities
 
 /**
@@ -5,7 +6,7 @@
  */
 export const exportToCSV = (schedules, filename = 'schedule.csv') => {
   if (!schedules || schedules.length === 0) {
-    alert('No schedules to export');
+    toast('No schedules to export. Adjust the filters first.');
     return;
   }
 
@@ -101,7 +102,7 @@ export const exportToCSV = (schedules, filename = 'schedule.csv') => {
  */
 export const exportToOfficialPDF = (schedules, filters = {}) => {
   if (!schedules || schedules.length === 0) {
-    alert('No schedules to export');
+    toast('No schedules to export. Adjust the filters first.');
     return;
   }
 
@@ -546,7 +547,7 @@ function findClassesInTimeSlot(schedules, day, timeSlot) {
  */
 export const exportToPrintableHTML = (schedules, filters = {}) => {
   if (!schedules || schedules.length === 0) {
-    alert('No schedules to export');
+    toast('No schedules to export. Adjust the filters first.');
     return;
   }
 
@@ -695,7 +696,7 @@ export const exportToPrintableHTML = (schedules, filters = {}) => {
  */
 export const exportToJSON = (schedules, filename = 'schedule.json') => {
   if (!schedules || schedules.length === 0) {
-    alert('No schedules to export');
+    toast('No schedules to export. Adjust the filters first.');
     return;
   }
 
@@ -708,7 +709,7 @@ export const exportToJSON = (schedules, filename = 'schedule.json') => {
  */
 export const exportWeeklyTimetable = (schedules, filters = {}) => {
   if (!schedules || schedules.length === 0) {
-    alert('No schedules to export');
+    toast('No schedules to export. Adjust the filters first.');
     return;
   }
 

@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { dashboardAPI, scheduleAPI, getErrorMessage } from '../services/api';
 import StatCard from './StatCard';
+import { Bone, SkeletonRegion } from './ui/Skeleton';
 import AnimatedClock from './AnimatedClock';
 import dashboardBg from '../assets/images/backgrounds/bg.jpg';
 import { useLiveRefresh } from '../context/NotificationContext';
@@ -30,7 +31,6 @@ const teacherOf = (s) => {
   return `${u?.firstName || ''} ${u?.lastName || ''}`.trim() || 'No teacher yet';
 };
 
-const Bone = ({ className = '' }) => <span className={`block rounded bg-gray-200 dark:bg-gray-700 ${className}`} />;
 
 const Panel = ({ icon: Icon, title, subtitle, action, children, className = '' }) => (
   <section className={`min-w-0 rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-5 ${className}`}>
@@ -152,6 +152,19 @@ const StaffDashboard = ({ user }) => {
     { icon: BarChart3, label: 'Faculty analytics', to: '/faculty-analytics' },
   ];
 
+  const quickActions = (
+    <Panel icon={Wand2} title="Quick actions">
+      <div className="grid grid-cols-2 gap-2">
+        {actions.map((a) => (
+          <Link key={a.label} to={a.to} className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:border-blue-300 hover:bg-blue-50/50 dark:border-gray-700 dark:text-gray-200 dark:hover:border-blue-700 dark:hover:bg-blue-900/10">
+            <a.icon className="h-4 w-4 flex-shrink-0 text-blue-600 dark:text-blue-400" />
+            <span className="truncate">{a.label}</span>
+          </Link>
+        ))}
+      </div>
+    </Panel>
+  );
+
   const header = (
     <div
       className="relative overflow-hidden rounded-2xl border border-white/10 bg-cover bg-center px-5 py-6 text-white shadow-lg sm:px-8 sm:py-7"
@@ -199,25 +212,55 @@ const StaffDashboard = ({ user }) => {
     </div>
   );
 
+  // Same components and grid as the loaded dashboard, so nothing shifts
   if (loading) {
     return (
-      <div className="space-y-5" role="status" aria-label="Loading dashboard">
+      <div className="space-y-5">
         {header}
-        <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-6">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-              <Bone className="h-3 w-16" /><Bone className="mt-4 h-7 w-12" /><Bone className="mt-2 h-3 w-24" />
+        <SkeletonRegion label="Loading dashboard" className="space-y-5">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4 xl:grid-cols-6">
+            <StatCard loading icon={Calendar} label="Schedules" tone="gray" />
+            <StatCard loading icon={BookOpen} label="Subjects" tone="gray" />
+            <StatCard loading icon={Users} label="Faculty" tone="blue" />
+            <StatCard loading icon={GraduationCap} label="Students" tone="gray" />
+            <StatCard loading icon={Layers} label="Sections" tone="blue" />
+            <StatCard loading icon={DoorOpen} label="Rooms" tone="blue" />
+          </div>
+          <div className="grid gap-4 lg:grid-cols-3">
+            <Panel className="lg:col-span-2" icon={Clock} title={isManager ? `Today in ${user.program}` : 'Today on campus'} subtitle={' '}>
+              <ol className="space-y-1.5">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <li key={i} className="flex items-center gap-3 rounded-lg border border-gray-200 px-3 py-2 dark:border-gray-700">
+                    <div className="flex w-[4.5rem] flex-shrink-0 flex-col items-end">
+                      <span className="flex h-5 items-center"><Bone className="h-3.5 w-14" /></span>
+                      <span className="flex h-4 items-center"><Bone className="h-2.5 w-11" /></span>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <span className="flex h-5 items-center"><Bone className="h-3.5" style={{ width: `${45 - (i % 3) * 8}%` }} /></span>
+                      <span className="flex h-4 items-center gap-3"><Bone className="h-2.5 w-14" /><Bone className="h-2.5 w-24" /></span>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </Panel>
+            <div className="min-w-0 space-y-4">
+              <Panel icon={ClipboardCheck} title="Needs attention" subtitle={' '}>
+                <ul className="space-y-1">
+                  {[0, 1, 2].map((i) => (
+                    <li key={i} className="flex items-center gap-3 px-2 py-2">
+                      <Bone className="h-8 w-8 flex-shrink-0 rounded-lg" />
+                      <span className="min-w-0 flex-1">
+                        <span className="flex h-5 items-center"><Bone className="h-3.5 w-3/4" /></span>
+                        <span className="flex h-4 items-center"><Bone className="h-2.5 w-1/2" /></span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </Panel>
+              {quickActions}
             </div>
-          ))}
-        </div>
-        <div className="grid gap-4 lg:grid-cols-3">
-          <div className="rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800 lg:col-span-2">
-            <Bone className="h-4 w-40" />{[0, 1, 2, 3].map((i) => <Bone key={i} className="mt-5 h-10 w-full" />)}
           </div>
-          <div className="rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800">
-            <Bone className="h-4 w-28" />{[0, 1, 2].map((i) => <Bone key={i} className="mt-5 h-8 w-full" />)}
-          </div>
-        </div>
+        </SkeletonRegion>
       </div>
     );
   }
@@ -272,7 +315,7 @@ const StaffDashboard = ({ user }) => {
         </div>
       ))}
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4 xl:grid-cols-6 sk-enter">
         {/* Colour = state: amber when it's listed under "Needs attention",
             emerald when that part is finished, blue for plain counts. */}
         <StatCard icon={Calendar} label="Schedules" value={stats.totalSchedules} hint={`${stats.publishedSchedules} published · ${stats.draftSchedules} draft`}
@@ -286,7 +329,7 @@ const StaffDashboard = ({ user }) => {
         <StatCard icon={DoorOpen} label="Rooms" value={stats.totalRooms} hint={today.length ? `${roomsInUse} in use right now` : 'none in use today'} tone="blue" />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-4 lg:grid-cols-3 sk-enter">
         {/* Today on campus */}
         <Panel
           className="lg:col-span-2"
@@ -359,16 +402,7 @@ const StaffDashboard = ({ user }) => {
             )}
           </Panel>
 
-          <Panel icon={Wand2} title="Quick actions">
-            <div className="grid grid-cols-2 gap-2">
-              {actions.map((a) => (
-                <Link key={a.label} to={a.to} className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:border-blue-300 hover:bg-blue-50/50 dark:border-gray-700 dark:text-gray-200 dark:hover:border-blue-700 dark:hover:bg-blue-900/10">
-                  <a.icon className="h-4 w-4 flex-shrink-0 text-blue-600 dark:text-blue-400" />
-                  <span className="truncate">{a.label}</span>
-                </Link>
-              ))}
-            </div>
-          </Panel>
+          {quickActions}
         </div>
       </div>
     </div>

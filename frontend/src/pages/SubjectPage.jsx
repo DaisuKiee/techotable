@@ -16,6 +16,7 @@ import { accentFor, tint } from '../components/classSpaces/classMeta';
 import { useAuth } from '../context/AuthContext';
 import { usePageState } from '../context/PageStateContext';
 import { usePrograms } from '../hooks/usePrograms';
+import { Bone, SkeletonRegion } from '../components/ui/Skeleton';
 
 const YEAR_LEVELS = [1, 2, 3, 4];
 const SEMESTERS = [1, 2];
@@ -191,17 +192,18 @@ const SubjectTable = ({ subjects, onEdit, onDelete, onCodes, onCopy }) => (
   </div>
 );
 
-/** Static skeleton (no pulse), shaped like the folder grid. */
+/** Loading: folder tiles at the real tile size (glyph, title, count, hint). */
 const FolderSkeleton = () => (
-  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6" aria-label="Loading subjects">
+  <SkeletonRegion label="Loading subjects" className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
     {Array.from({ length: 4 }).map((_, i) => (
-      <div key={i} className="flex flex-col items-center gap-2 p-3">
-        <div className="h-20 w-24 rounded-xl bg-gray-100 dark:bg-gray-800" />
-        <div className="h-3 w-16 rounded bg-gray-100 dark:bg-gray-800" />
-        <div className="h-3 w-12 rounded bg-gray-100 dark:bg-gray-800" />
+      <div key={i} className="flex flex-col items-center gap-0.5 p-3">
+        <Bone className="h-20 w-24 rounded-xl" />
+        <span className="mt-1.5 flex h-5 items-center"><Bone className="h-3.5 w-14" /></span>
+        <span className="flex h-4 items-center"><Bone className="h-2.5 w-20" /></span>
+        <span className="flex h-[16.5px] items-center"><Bone className="h-2 w-14" /></span>
       </div>
     ))}
-  </div>
+  </SkeletonRegion>
 );
 
 const SubjectPage = () => {
@@ -466,7 +468,7 @@ const SubjectPage = () => {
               </div>
             )
           ) : level === 'programs' ? (
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 sk-stagger">
               {programCounts.map(([p, n]) => folder({
                 key: p,
                 title: p,

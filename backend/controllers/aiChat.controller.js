@@ -292,6 +292,36 @@ exports.recommendFacultyForSubject = async (req, res) => {
 
     const experienced = ranked.filter(r => r.experience.timesTaught > 0);
 
+    // Teachers from OTHER departments who have taught this subject (matched by
+    // code or name), plus any already approved for it. The scheduling manager
+    // can borrow them for this subject only.
+    const approved = new Set((subject.guestFaculty || []).map(g => String(g.faculty)));
+    const inProgramIds = candidates.map(c => c._id);
+    let otherDepartments = [];
+    if (subject.program && subject.program !== 'General') {
+      const outsiders = await Faculty.find({ isActive: true, _id: { $nin: inProgramIds } })
+        .populate('user', 'firstName lastName email')
+        .lean();
+      otherDepartments = rankFacultyForSubject(outsiders, subject, { onlyWithCapacity: false })
+        .filter(r => r.experience.timesTaught > 0 || approved.has(String(r.faculty._id)))
+        .slice(0, 8);
+    }
+    const toRow = (r, idx) => ({
+      rank: idx + 1,
+      facultyId: r.faculty._id,
+      employeeId: r.faculty.employeeId,
+      name: `${r.faculty.user?.firstName || ''} ${r.faculty.user?.lastName || ''}`.trim(),
+      department: r.faculty.department || (r.faculty.programs || [])[0] || '',
+      approved: approved.has(String(r.faculty._id)),
+      score: r.score,
+      reason: r.reason,
+      hasCapacity: r.hasCapacity,
+      availableLoad: r.availableLoad,
+      timesTaught: r.experience.timesTaught,
+      lastTaughtAcademicYear: r.experience.lastTaughtAcademicYear,
+      experienceIsDated: r.experience.isStale,
+    });
+
     return res.status(200).json({
       success: true,
       subject: {
@@ -326,6 +356,9 @@ exports.recommendFacultyForSubject = async (req, res) => {
         subjectRating: r.experience.avgRating,
         occurrences: r.experience.occurrences,
       })),
+      // Borrowable for this subject only (see Subject.guestFaculty)
+      otherDepartments: otherDepartments.map(toRow),
+      guestFacultyIds: [...approved],
     });
   } catch (error) {
     return sendError(res, error, 'Failed to generate faculty recommendations');

@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { userAPI } from '../services/api';
 import toast from 'react-hot-toast';
 import { FiCamera, FiTrash2, FiUpload } from 'react-icons/fi';
+import { useConfirm } from '../context/ConfirmContext';
 
 const AvatarUpload = ({ user, onUpdate }) => {
+  const confirm = useConfirm();
   const [uploading, setUploading] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [preview, setPreview] = useState(null);
@@ -72,7 +74,12 @@ const AvatarUpload = ({ user, onUpdate }) => {
   };
 
   const handleDelete = async () => {
-    if (!window.confirm('Are you sure you want to delete your avatar?')) return;
+    if (!(await confirm({
+      title: 'Remove your profile photo?',
+      message: 'Your initials will show instead. You can upload a new photo any time.',
+      confirmText: 'Remove photo',
+      type: 'danger',
+    }))) return;
 
     setDeleting(true);
     try {

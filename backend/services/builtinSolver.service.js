@@ -78,6 +78,9 @@ class BuiltinSolver {
     this.maxBlock = Math.max(1, parseInt(options.max_block_hours ?? 3, 10));
     this.maxRoomCandidates = Math.max(1, parseInt(options.max_room_candidates ?? 6, 10));
     this.weights = { ...DEFAULT_WEIGHTS, ...(options.weights || {}) };
+    // Thorough: after the restarts stop helping, keep improving the best
+    // timetable until the time limit instead of stopping early
+    this.thorough = !!options.thorough;
 
     this.spd = this.slots.length;
     this.horizon = this.days.length * this.spd;
@@ -183,10 +186,16 @@ class BuiltinSolver {
   }
 
   candidateFaculty(klass) {
-    const ok = this.faculty
+    // Same rule as the Python model: a teacher borrowed from another
+    // department ("only_subjects") may only take the subjects they were
+    // approved for
+    const sid = String(klass.subject._id);
+    const allowed = this.faculty
       .map((f, i) => i)
-      .filter(i => this.loadCap[i] >= klass.units);
-    return ok.length ? ok : this.faculty.map((f, i) => i);
+      .filter(i => !(this.faculty[i].only_subjects || []).length
+        || this.faculty[i].only_subjects.map(String).includes(sid));
+    const ok = allowed.filter(i => this.loadCap[i] >= klass.units);
+    return ok.length ? ok : allowed.length ? allowed : this.faculty.map((f, i) => i);
   }
 
   candidateRooms(klass) {
@@ -547,6 +556,15 @@ class BuiltinSolver {
         || (rand() - 0.5);
     });
 
+    return this.repairQueue(order, rand, noise, ejected);
+  }
+
+  /**
+   * Min-conflicts repair: place every queued class, evicting what it clashes
+   * with (evicted classes go back in the queue), until all are placed.
+   */
+  repairQueue(order, rand, noise, ejected) {
+    const n = this.classes.length;
     const queue = [...order];
     const unplaceable = new Set();
     let steps = 0;
@@ -597,6 +615,44 @@ class BuiltinSolver {
     return current;
   }
 
+  /**
+   * Classes to tear out for one rebuild: a random class plus others tied to
+   * it (same section or same teacher), so the rebuild can actually rearrange
+   * a clump of the timetable rather than one class in isolation.
+   */
+  relatedClasses(rand, k) {
+    const n = this.classes.length;
+    const seed = Math.floor(rand() * n);
+    const seedOpt = this.assign[seed];
+    const seedSection = this.classes[seed].sectionKey;
+    const related = [];
+    const others = [];
+    for (let c = 0; c < n; c++) {
+      if (c === seed) continue;
+      const opt = this.assign[c];
+      const tied = this.classes[c].sectionKey === seedSection || (opt && seedOpt && opt.f === seedOpt.f);
+      (tied ? related : others).push(c);
+    }
+    const shuffle = (arr) => {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(rand() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    };
+    return [seed, ...shuffle(related), ...shuffle(others)].slice(0, k);
+  }
+
+  /** Put a saved timetable back as the current state. */
+  restore(snapshot) {
+    this.resetState();
+    snapshot.forEach((opt, c) => this.place(c, { ...opt, starts: [...opt.starts] }));
+  }
+
+  snapshot() {
+    return this.assign.map(a => ({ ...a, starts: [...a.starts] }));
+  }
+
   solve(timeLimitSeconds) {
     const started = Date.now();
     const budgetMs = Math.max(1, Number(timeLimitSeconds) || 60) * 1000;
@@ -622,21 +678,51 @@ class BuiltinSolver {
       const score = this.improve(deadline, rand);
       if (score > bestScore + 1e-9) {
         bestScore = score;
-        best = this.assign.map(a => ({ ...a, starts: [...a.starts] }));
+        best = this.snapshot();
         stale = 0;
       } else {
         stale += 1;
       }
     }
+    const restartScore = bestScore;
+
+    // Thorough mode: ruin and recreate. Tear a few related classes out of the
+    // best timetable, rebuild them with some randomness, polish, and keep the
+    // result only if it scores higher. Repeats until the time limit.
+    let rebuilds = 0;
+    let improvements = 0;
+    if (this.thorough && best) {
+      const n = this.classes.length;
+      const ejected = new Array(n).fill(0);
+      while (Date.now() < deadline) {
+        rebuilds += 1;
+        this.restore(best);
+        // Usually small (2 to ~15% of classes), now and then a bigger shake-up
+        const big = rand() < 0.1;
+        const k = Math.min(n, 2 + Math.floor(rand() * Math.max(1, Math.ceil(n * (big ? 0.35 : 0.15)))));
+        const victims = this.relatedClasses(rand, k);
+        victims.forEach(c => this.remove(c));
+        ejected.fill(0);
+        const rebuilt = this.repairQueue(victims, rand, 20 + rand() * 80, ejected);
+        if (!rebuilt.complete) continue;
+        const score = this.improve(deadline, rand);
+        if (score > bestScore + 1e-9) {
+          bestScore = score;
+          best = this.snapshot();
+          improvements += 1;
+        }
+      }
+    }
 
     const elapsed = (Date.now() - started) / 1000;
-    if (best) {
-      this.resetState();
-      best.forEach((opt, c) => this.place(c, opt));
-    }
+    if (best) this.restore(best);
     return {
       found: !!best,
       score: bestScore,
+      restartScore,
+      rebuilds,
+      improvements,
+      thorough: this.thorough,
       elapsed,
       hitTimeLimit: Date.now() >= deadline,
       lastMissing,
@@ -708,6 +794,11 @@ function summarise(schedules, run) {
     busiest_faculty_units: loads.length ? Math.max(...loads) : 0,
     assignments_with_experience: matched,
     hit_time_limit: run.hitTimeLimit,
+    thorough: !!run.thorough,
+    // Thorough mode: how many rebuilds ran and how many beat the best so far
+    rebuilds: run.rebuilds || 0,
+    rebuild_improvements: run.improvements || 0,
+    score_before_rebuilds: run.restartScore,
   };
 }
 

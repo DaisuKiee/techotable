@@ -1,3 +1,4 @@
+const { randomInt } = require('crypto'); // join codes act as access keys: use a CSPRNG
 const mongoose = require('mongoose');
 
 /**
@@ -166,7 +167,7 @@ ClassSpaceSchema.statics.generateClassCode = function () {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let code = '';
   for (let i = 0; i < 8; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
+    code += chars.charAt(randomInt(chars.length));
   }
   return code;
 };

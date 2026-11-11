@@ -1,7 +1,5 @@
 const crypto = require('crypto');
 
-const isProduction = () => process.env.NODE_ENV === 'production';
-
 /**
  * An error whose message is safe to show to the user.
  * throw new AppError('Room is already booked at that time', 409)
@@ -155,7 +153,8 @@ const sendError = (res, err, fallback = 'Something went wrong. Please try again.
     code: info.code,
     ...(info.errors && { errors: info.errors }),
     ...(serverError && { requestId }),
-    ...(!isProduction() && serverError && err && {
+    // Fail closed: stack traces only when explicitly running in development
+    ...(process.env.NODE_ENV === 'development' && serverError && err && {
       error: err.message,
       stack: err.stack,
     }),

@@ -340,3 +340,123 @@ code {
 .backdrop-blur-sm {
   backdrop-filter: blur(4px);
 }
+
+/* ================================================================
+   Loading skeletons (components/ui/Skeleton.jsx, see SKILLS.MD)
+
+   Tokens: the block colour and its shimmer highlight. Low contrast on
+   purpose; dark mode uses the app's elevated surface.
+   ================================================================ */
+:root {
+  --sk-base: #edf0f3;
+  --sk-shine: #f7f8fa;
+}
+.dark {
+  --sk-base: #273449;  /* dark-elevated */
+  --sk-shine: #2f3d55;
+}
+
+/* One block: a slow, linear gradient sweep (1.8 s loop) */
+.sk {
+  background-color: var(--sk-base);
+  background-image: linear-gradient(90deg, var(--sk-base) 0%, var(--sk-shine) 50%, var(--sk-base) 100%);
+  background-size: 300% 100%;
+  background-repeat: no-repeat;
+  animation: sk-shimmer 1.8s linear infinite;
+}
+@keyframes sk-shimmer {
+  from { background-position: 100% 0; }
+  to   { background-position: 0% 0; }
+}
+
+/* Skeleton wrapper: invisible (but sized) for 200 ms, then fades in,
+   so loads that finish quickly never flash a placeholder. */
+.sk-reveal {
+  opacity: 0;
+  animation: sk-fade 200ms ease-out 200ms forwards;
+}
+
+/* Real content: crossfade in instead of popping */
+.sk-enter {
+  animation: sk-fade 150ms ease-out backwards;
+}
+.sk-stagger > * {
+  animation: sk-fade 150ms ease-out backwards;
+}
+.sk-stagger > *:nth-child(2) { animation-delay: 25ms; }
+.sk-stagger > *:nth-child(3) { animation-delay: 50ms; }
+.sk-stagger > *:nth-child(4) { animation-delay: 75ms; }
+.sk-stagger > *:nth-child(5) { animation-delay: 100ms; }
+.sk-stagger > *:nth-child(6) { animation-delay: 125ms; }
+.sk-stagger > *:nth-child(7) { animation-delay: 150ms; }
+.sk-stagger > *:nth-child(n+8) { animation-delay: 175ms; }
+
+@keyframes sk-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Reduced motion: static muted blocks, no fades (the 200 ms gate stays) */
+@media (prefers-reduced-motion: reduce) {
+  .sk {
+    animation: none;
+    background-image: none;
+  }
+  .sk-reveal {
+    animation-duration: 1ms;
+  }
+  .sk-enter,
+  .sk-stagger > * {
+    animation: none;
+  }
+}
+
+/* ================================================================
+   Accessibility floor (applies everywhere)
+   ================================================================ */
+
+/* Keyboard focus is always visible. :where() has zero specificity, so any
+   component's own focus ring / outline-none utility still wins. */
+:where(a, button, [role="button"], [role="tab"], input, select, textarea, summary, [tabindex]:not([tabindex="-1"])):focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+/* Respect "reduce motion" app-wide: animations jump to their end state,
+   transitions are instant, nothing loops. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* AI replies rendered from Markdown (utils/markdown.js), e.g. the builder assistant */
+.ai-md { overflow-wrap: anywhere; }
+.ai-md > * + * { margin-top: .5rem; }
+.ai-md h4 { font-weight: 600; font-size: .95em; }
+.ai-md ul, .ai-md ol { padding-left: 1.15rem; }
+.ai-md ul { list-style: disc; }
+.ai-md ol { list-style: decimal; }
+.ai-md li + li { margin-top: .2rem; }
+.ai-md strong { font-weight: 600; }
+.ai-md em { font-style: italic; }
+.ai-md a { color: #2563eb; text-decoration: underline; text-underline-offset: 2px; }
+.dark .ai-md a { color: #93c5fd; }
+.ai-md code { background: rgba(100, 116, 139, .15); padding: .05rem .3rem; border-radius: .3rem; font-size: .9em; }
+/* A reply that's still arriving: blinking cursor after the last line */
+.ai-streaming > :last-child::after {
+  content: '';
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: -2px;
+  background: currentColor;
+  animation: ai-caret 1s steps(1) infinite;
+}
+@keyframes ai-caret { 50% { opacity: 0; } }

@@ -27,6 +27,7 @@ import bg1 from '../assets/images/class-spaces-bg/GOOGLE-BLUES.jpe';
 import bg2 from '../assets/images/class-spaces-bg/Google-Green.jpe';
 import bg3 from '../assets/images/class-spaces-bg/Google-Red.jpe';
 import bg4 from '../assets/images/class-spaces-bg/Google-Yellows.jpe';
+import { Bone, SkeletonRegion } from '../components/ui/Skeleton';
 
 /* ─── Constants ──────────────────────────────────────────────────────────── */
 
@@ -398,23 +399,42 @@ const LoadDistribution = ({ stats }) => {
   );
 };
 
+/** Loading: cards laid out like FacultyCard (banner, avatar, name lines, programs, load bar, actions). */
 const ListSkeleton = () => (
-  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" aria-label="Loading faculty">
+  <SkeletonRegion label="Loading faculty" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
     {Array.from({ length: 6 }).map((_, i) => (
-      <div key={i} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <div className="h-24 bg-gray-200 dark:bg-gray-700" />
-        <div className="p-5 space-y-4">
-          <div className="flex gap-3 -mt-12">
-            <div className="h-16 w-16 rounded-full bg-gray-300 dark:bg-gray-600 ring-4 ring-white dark:ring-gray-800" />
+      <div key={i} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col">
+        <div className="h-24 relative flex-shrink-0">
+          <Bone className="absolute inset-0 rounded-none" />
+          <span className="absolute top-3 right-3 h-[22px] w-20 rounded-full bg-white/70 dark:bg-gray-900/60" />
+        </div>
+        <div className="p-5 -mt-8 relative flex flex-col flex-1">
+          <div className="flex items-start gap-3 mb-4">
+            <span className="h-16 w-16 flex-shrink-0 rounded-full bg-white p-1 shadow-lg dark:bg-gray-800"><Bone className="h-full w-full rounded-full" /></span>
+            <div className="flex-1 min-w-0 mt-4">
+              <span className="flex h-6 items-center"><Bone className="h-4" style={{ width: `${70 - (i % 3) * 10}%` }} /></span>
+              <span className="flex h-4 items-center"><Bone className="h-2.5 w-24" /></span>
+              <span className="mt-1 flex h-4 items-center"><Bone className="h-2.5 w-36" /></span>
+              <span className="mt-2 flex gap-1"><Bone className="h-5 w-16" /><Bone className="h-5 w-14" /></span>
+            </div>
           </div>
-          <div className="h-4 w-40 rounded bg-gray-200 dark:bg-gray-700" />
-          <div className="h-3 w-28 rounded bg-gray-100 dark:bg-gray-700/60" />
-          <div className="h-2.5 rounded-full bg-gray-200 dark:bg-gray-700" />
-          <div className="h-10 rounded bg-gray-200 dark:bg-gray-700" />
+          <div className="mb-3">
+            <span className="mb-1 flex h-4 items-center"><Bone className="h-2.5 w-28" /></span>
+            <span className="flex gap-1"><Bone className="h-6 w-14 rounded-md" /><Bone className="h-6 w-14 rounded-md" /></span>
+          </div>
+          <div className="mb-3 flex h-4 items-center gap-3"><Bone className="h-3 w-24" /><Bone className="h-3 w-16" /></div>
+          <div className="mb-4 mt-auto pt-1">
+            <div className="mb-1.5 flex h-5 items-center justify-between"><Bone className="h-3 w-20" /><Bone className="h-3 w-12" /></div>
+            <Bone className="h-2.5 rounded-full" />
+            <div className="mt-1 flex h-4 items-center justify-between"><Bone className="h-2.5 w-14" /><Bone className="h-2.5 w-28" /></div>
+          </div>
+          <div className="flex gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
+            <Bone className="h-9 flex-1 rounded-lg" /><Bone className="h-9 w-10 rounded-lg" /><Bone className="h-9 w-10 rounded-lg" />
+          </div>
         </div>
       </div>
     ))}
-  </div>
+  </SkeletonRegion>
 );
 
 /** Click / Enter / Space on a row-like element opens it, ignoring bubbled events from inner buttons. */
@@ -1211,6 +1231,7 @@ const FacultyPage = () => {
         {/* Statistics. Near limit and Overload double as quick workload filters. */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-4">
           <StatCard
+            loading={showSkeleton}
             icon={AnimatedUsers}
             label="Faculty"
             value={stats.total}
@@ -1220,6 +1241,7 @@ const FacultyPage = () => {
             title="Show all faculty"
           />
           <StatCard
+            loading={showSkeleton}
             icon={AnimatedBarChart}
             label="Avg load"
             value={stats.avgLoad}
@@ -1227,6 +1249,7 @@ const FacultyPage = () => {
             tone="blue"
           />
           <StatCard
+            loading={showSkeleton}
             icon={AlertTriangle}
             label="Near limit"
             value={stats.warning}
@@ -1237,6 +1260,7 @@ const FacultyPage = () => {
             title="Filter faculty near their limit"
           />
           <StatCard
+            loading={showSkeleton}
             icon={AnimatedAlertCircle}
             label="Overload"
             value={stats.overloaded}
@@ -1456,7 +1480,7 @@ const FacultyPage = () => {
             )}
           </div>
         ) : viewMode === 'grid' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sk-stagger">
             {visibleFaculty.map((member) => (
               <FacultyCard
                 key={member._id}

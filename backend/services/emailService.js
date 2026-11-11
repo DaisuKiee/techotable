@@ -5,7 +5,7 @@
 
 const crypto = require('crypto');
 const T = require('./emailTemplates');
-const { getTransport, envelope } = require('./mailer');
+const { getTransport, envelope, inlineAssets } = require('./mailer');
 
 const consoleMode = () => process.env.NODE_ENV === 'development' && process.env.EMAIL_CONSOLE_MODE === 'true';
 
@@ -32,6 +32,7 @@ const send = async (email, rendered, label) => {
       subject: rendered.subject,
       html: rendered.html,
       text: rendered.text,
+      ...inlineAssets(rendered.html),
     });
     console.log(`${label} email sent:`, info.messageId);
     return { success: true, messageId: info.messageId };

@@ -7,6 +7,7 @@ import {
   AlertTriangle, RefreshCw, Search, X, ExternalLink
 } from 'lucide-react';
 import { ModalShell } from './modal/ModalShell';
+import { Bone, SkeletonRegion, TodayStripSkeleton, ScheduleToolbarSkeleton, WeekGridSkeleton } from './ui/Skeleton';
 
 // Import background images (same as ClassSpacePage)
 import bg1 from '../assets/images/class-spaces-bg/GOOGLE-BLUES.jpe';
@@ -131,16 +132,19 @@ const layoutDay = (list) => {
 
 /* ─── Small presentational pieces ───────────────────────────────────────── */
 
+/** Loading: the real stat tiles, toolbar and week grid, with shimmer in place of data. */
 const Skeleton = () => (
-  <div className="space-y-4" aria-label="Loading your schedule">
+  <SkeletonRegion label="Loading your schedule" className="space-y-4">
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-      {[0, 1, 2, 3].map((i) => (
-        <div key={i} className="h-20 rounded-xl bg-gray-200 dark:bg-gray-700" />
-      ))}
+      <StatTile icon={BookOpen} label="Classes" tone="bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300" value={<Bone as="span" className="inline-block h-5 w-10 align-middle" />} />
+      <StatTile icon={Calendar} label="Class days" tone="bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300" value={<Bone as="span" className="inline-block h-5 w-10 align-middle" />} />
+      <StatTile icon={Clock} label="In class per week" tone="bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-300" value={<Bone as="span" className="inline-block h-5 w-10 align-middle" />} />
+      <StatTile icon={Users} label="Instructors" tone="bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-300" value={<Bone as="span" className="inline-block h-5 w-10 align-middle" />} />
     </div>
-    <div className="h-16 rounded-xl bg-gray-200 dark:bg-gray-700" />
-    <div className="h-96 rounded-xl bg-gray-200 dark:bg-gray-700" />
-  </div>
+    <TodayStripSkeleton />
+    <ScheduleToolbarSkeleton />
+    <WeekGridSkeleton rowH={72} timeCol={64} />
+  </SkeletonRegion>
 );
 
 const StatTile = ({ icon: Icon, label, value, tone }) => (
@@ -500,7 +504,7 @@ const StudentSchedule = () => {
   const noMatches = !!query.trim() && visibleMeetings.length === 0;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 sk-enter">
       {/* Conflict Warning Banner */}
       {conflicts.pairs > 0 && (
         <div className="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-4 rounded-lg">

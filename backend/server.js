@@ -8,6 +8,15 @@ require('dotenv').config();
 
 const { requestId, notFound, errorHandler } = require('./middleware/error.middleware');
 
+// Refuse to run without a signing secret: every login token depends on it
+if (!process.env.JWT_SECRET) {
+  console.error('JWT_SECRET is not set. Add a long random value to backend/.env before starting the server.');
+  process.exit(1);
+}
+if (process.env.JWT_SECRET.length < 32) {
+  console.warn('JWT_SECRET is shorter than 32 characters; use a long random value so tokens cannot be guessed.');
+}
+
 const app = express();
 
 // Trust proxy - Required for Render deployment
@@ -32,10 +41,10 @@ app.use(cors({
     // Allow the frontend URL and localhost
     const allowedOrigins = [
       frontendUrl,
-      'http://localhost:3000',
-      'http://localhost:5173',
       'https://time-table-ivory.vercel.app',
-      'https://technotabler.cebutech.digital'
+      'https://technotabler.cebutech.digital',
+      // Local dev servers only when explicitly in development
+      ...(process.env.NODE_ENV === 'development' ? ['http://localhost:3000', 'http://localhost:5173'] : []),
     ];
     
     if (allowedOrigins.includes(normalizedOrigin)) {
@@ -129,7 +138,6 @@ app.get('/api/health', (req, res) => {
     message: 'CoTE Timetabling API is running',
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV,
-    frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000' // Debug: show what FRONTEND_URL is set to
   });
 });
 

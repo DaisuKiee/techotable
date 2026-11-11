@@ -4,11 +4,14 @@ import toast from 'react-hot-toast';
 import {
   BookOpen, GripVertical, Clock, X, Save, RefreshCw,
   Plus, Trash2, AlertCircle, Undo2, Redo2, Search,
-  User, ChevronDown, CheckCircle
+  User, ChevronDown, CheckCircle, PanelLeftClose, PanelLeftOpen, Sparkles
 } from 'lucide-react';
 import { ModalShell } from './modal/ModalShell';
+import { useConfirm } from '../context/ConfirmContext';
 import EditScheduleModal from './EditScheduleModal';
 import FacultyPicker from './FacultyPicker';
+import BuilderAssistant from './BuilderAssistant';
+import { streamChat } from '../utils/streamChat';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -88,12 +91,14 @@ const ALL_TIME_SLOTS = [
   { time: '21:00-22:00', isLunch: false },
 ];
 
-// Format "07:00" → "7AM". The gutter is narrow, and the minutes are always :00.
-const fmtTime = (t) => {
-  const [h] = t.split(':').map(Number);
-  const period = h >= 12 ? 'PM' : 'AM';
-  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
-  return `${h12}${period}`;
+// "08:00-09:00" -> "8:00 – 9:00 AM"; "11:00-12:00" -> "11:00 AM – 12:00 PM"
+const clock = (t) => {
+  const [h, m] = t.split(':').map(Number);
+  return { text: `${h % 12 === 0 ? 12 : h % 12}:${String(m || 0).padStart(2, '0')}`, period: h >= 12 ? 'PM' : 'AM' };
+};
+const fmtRange = (range) => {
+  const [a, b] = range.split('-').map(clock);
+  return a.period === b.period ? `${a.text} – ${b.text} ${b.period}` : `${a.text} ${a.period} – ${b.text} ${b.period}`;
 };
 
 /**
@@ -128,8 +133,15 @@ const ScheduleBuilder = ({
   faculty: propFaculty,
   rooms: propRooms,
   selectedSection,
-  onAssignmentChange
+  onAssignmentChange,
+  // Optional: lets the toolbar switch sections in place
+  sectionOptions = [],
+  onSelectSection,
+  // On the builder page: fill the available height, grid rows stretch to fit,
+  // subject list scrolls on its own
+  fill = false,
 }) => {
+  const confirm = useConfirm();
   const [subjects, setSubjects] = useState([]);
   const [faculty, setFaculty] = useState([]);
   const [rooms, setRooms] = useState([]);
@@ -172,6 +184,29 @@ const ScheduleBuilder = ({
   const [editingSchedule, setEditingSchedule] = useState(null);
   const [editingSavedSchedule, setEditingSavedSchedule] = useState(null);
   const [subjectSearch, setSubjectSearch] = useState('');
+
+  // ── Workspace layout (builder page) ───────────────────────────────────────
+  const fullscreen = !!fill;
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [hideDone, setHideDone] = useState(false);
+  // AI assistant panel (builder page only); remembered between visits
+  const [assistantOpen, setAssistantOpen] = useState(() => {
+    try { return localStorage.getItem('builder.assistant') !== 'closed'; } catch { return true; }
+  });
+  const toggleAssistant = (open) => {
+    setAssistantOpen(open);
+    try { localStorage.setItem('builder.assistant', open ? 'open' : 'closed'); } catch { /* not remembered */ }
+  };
+  const gridBoxRef = useRef(null);
+  const [gridHeight, setGridHeight] = useState(0);
+
+  // Track the grid's available height so the hour rows can fill it
+  useEffect(() => {
+    if (!fullscreen || !gridBoxRef.current || typeof ResizeObserver === 'undefined') return undefined;
+    const ro = new ResizeObserver(([entry]) => setGridHeight(entry.contentRect.height));
+    ro.observe(gridBoxRef.current);
+    return () => ro.disconnect();
+  }, [fullscreen]);
   const [history, setHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
 
@@ -484,6 +519,7 @@ const ScheduleBuilder = ({
       // it is open, since the grid behind it isn't what's being edited.
       if (e.key === 'Escape' && pickerSubject) { setPickerSubject(null); return; }
       if (pickerSubject) return;
+      if (document.querySelector('[role="dialog"][aria-modal="true"]')) return; // a modal is open
       if (e.ctrlKey && e.key === 'z' && !e.shiftKey) { e.preventDefault(); handleUndo(); }
       if ((e.ctrlKey && e.key === 'y') || (e.ctrlKey && e.shiftKey && e.key === 'Z')) { e.preventDefault(); handleRedo(); }
     };
@@ -724,7 +760,7 @@ const ScheduleBuilder = ({
     });
   };
 
-  const handleDrop = (e, day, slotIndex) => {
+  const handleDrop = async (e, day, slotIndex) => {
     e.preventDefault();
     setHover(null);
 
@@ -779,12 +815,14 @@ const ScheduleBuilder = ({
       ? findFacultyConflict(assignedFacultyId, day, startTime, endTime)
       : null;
     if (facultyHit) {
-      const proceed = window.confirm(
-        `This instructor already teaches ${facultyHit.subjectCode || 'a class'} ` +
-        `(${facultyHit.sectionCode || '—'}) on ${day} ` +
-        `${facultyHit.startTime}–${facultyHit.endTime}.\n\n` +
-        `Schedule them here anyway?`
-      );
+      const proceed = await confirm({
+        title: 'Instructor already busy',
+        message: `${facultyName(assignedFacultyId) || 'This instructor'} already teaches ${facultyHit.subjectCode || 'a class'} `
+          + `(${facultyHit.sectionCode || '—'}) on ${day} ${facultyHit.startTime}–${facultyHit.endTime}. `
+          + 'Schedule them here anyway? Only do this for a combined class.',
+        confirmText: 'Schedule anyway',
+        cancelText: 'Pick another slot',
+      });
       if (!proceed) return;
     }
 
@@ -996,8 +1034,8 @@ const ScheduleBuilder = ({
     }
   };
 
+  // Confirmed in EditScheduleModal before this runs
   const handleDeleteSaved = async (scheduleId) => {
-    if (!window.confirm('Delete this schedule? This cannot be undone.')) return;
     setSaving(true);
     try {
       await scheduleAPI.delete(scheduleId);
@@ -1066,12 +1104,6 @@ const ScheduleBuilder = ({
   const filteredSubjects = useMemo(() => {
     let filtered = subjects;
     
-    // Debug: log first subject to see structure
-    if (subjects.length > 0 && selectedSection) {
-      console.log('Sample subject:', subjects[0]);
-      console.log('Selected section:', selectedSection);
-    }
-    
     // Filter by section's program and year level if a section is selected
     if (selectedSection) {
       filtered = filtered.filter(s => {
@@ -1120,6 +1152,160 @@ const ScheduleBuilder = ({
     return totals;
   }, [savedSchedules, pendingSchedules]);
 
+  /** Section progress for the toolbar: subjects fully placed, hours to go. */
+  const progress = useMemo(() => {
+    const list = subjects.filter(s => (selectedSection
+      ? s.program === selectedSection.program && s.yearLevel === selectedSection.yearLevel
+        && s.semester === selectedSection.semester
+      : (!filters.program || s.program === filters.program)
+        && (!filters.yearLevel || s.yearLevel === filters.yearLevel)));
+    let done = 0;
+    let left = 0;
+    list.forEach(s => {
+      const need = (s.lectureHours || 0) + (s.labHours || 0) || s.units || 0;
+      const have = scheduledHoursBySubject.get(String(s._id)) || 0;
+      if (need > 0 && have >= need) done += 1;
+      left += Math.max(0, need - have);
+    });
+    return { total: list.length, done, left };
+  }, [subjects, selectedSection, filters.program, filters.yearLevel, scheduledHoursBySubject]);
+
+  /** Switch section from the toolbar; unsaved cards belong to the old one. */
+  const switchSection = async (id) => {
+    if (!onSelectSection || !id || id === String(selectedSection?._id)) return;
+    if (pendingSchedules.length && !(await confirm({
+      title: 'Switch section?',
+      message: `${pendingSchedules.length} unsaved card${pendingSchedules.length === 1 ? '' : 's'} for ${selectedSection?.sectionCode} will be discarded.`,
+      confirmText: 'Discard and switch',
+      cancelText: 'Stay here',
+    }))) return;
+    setPendingSchedules([]);
+    setHistory([]);
+    setHistoryIndex(-1);
+    onSelectSection(id);
+  };
+
+  // Hour rows fill the screen in full-screen mode (header and lunch row aside)
+  const teachingRows = TIME_SLOTS.filter(t => !t.isLunch).length || 1;
+  const rowH = fullscreen && gridHeight
+    ? Math.max(ROW_H, Math.floor((gridHeight - 44 - (TIME_SLOTS.length - teachingRows) * 30) / teachingRows))
+    : ROW_H;
+
+  // ── AI assistant ───────────────────────────────────────────────────────────
+  // Latest unsaved cards, so several suggestions added in one go build on each
+  // other instead of each starting from the same stale list.
+  const pendingRef = useRef(pendingSchedules);
+  pendingRef.current = pendingSchedules;
+
+  const idOf = (v) => (v && typeof v === 'object' ? v._id : v) || null;
+  const roomLabelOf = (v) => {
+    if (!v) return '';
+    const r = typeof v === 'object' ? v : rooms.find(x => String(x._id) === String(v));
+    return r?.roomCode || r?.roomNumber || '';
+  };
+
+  /** Solver suggestions for the subjects not on the grid yet. */
+  const askForSuggestions = async () => {
+    if (!selectedSection) throw new Error('Choose a section first.');
+    const res = await scheduleAPI.builderSuggest({
+      academicYear: filters.academicYear,
+      semester: selectedSection.semester || filters.semester,
+      program: selectedSection.program || filters.program,
+      yearLevel: selectedSection.yearLevel || filters.yearLevel,
+      section: selectedSection.sectionLetter,
+      sectionCode: selectedSection.sectionCode,
+      shift: selectedSection.shift || filters.shift || 'Day',
+      pending: pendingRef.current.map(p => ({
+        subject: idOf(p.subject), faculty: idOf(p.faculty), room: idOf(p.room), timeSlots: p.timeSlots,
+      })),
+    });
+    return { ...(res.data.data || {}), message: res.data.message };
+  };
+
+  /** Question for B-LO, with what's on the grid as context; streams the answer. */
+  const askAssistant = async (question, onChunk, onEvent, signal) => {
+    const placed = [
+      ...savedSchedules.flatMap(s => (s.timeSlots || []).map(t => ({
+        code: s.subject?.subjectCode, day: t.day, start: t.startTime, end: t.endTime,
+        faculty: s.faculty?.user ? `${s.faculty.user.firstName} ${s.faculty.user.lastName}` : '',
+        room: s.roomLabel || '', saved: true,
+      }))),
+      ...pendingRef.current.flatMap(p => (p.timeSlots || []).map(t => ({
+        code: p.subjectData?.subjectCode, day: t.day, start: t.startTime, end: t.endTime,
+        faculty: facultyName(idOf(p.faculty)), room: roomLabelOf(p.room), saved: false,
+      }))),
+    ];
+    const remaining = subjects
+      .filter(sub => (selectedSection
+        ? sub.program === selectedSection.program && sub.yearLevel === selectedSection.yearLevel && sub.semester === selectedSection.semester
+        : true))
+      .map(sub => {
+        const need = (sub.lectureHours || 0) + (sub.labHours || 0) || sub.units || 0;
+        const have = scheduledHoursBySubject.get(String(sub._id)) || 0;
+        return {
+          code: sub.subjectCode, name: sub.subjectName, hoursLeft: Math.max(0, need - have),
+          faculty: facultyName(subjectFaculty[sub._id]),
+        };
+      })
+      .filter(r => r.hoursLeft > 0);
+
+    return streamChat('/schedules/builder-assistant/stream', {
+      question,
+      state: {
+        section: selectedSection ? {
+          _id: selectedSection._id,
+          sectionCode: selectedSection.sectionCode, program: selectedSection.program,
+          yearLevel: selectedSection.yearLevel, semester: selectedSection.semester,
+          academicYear: filters.academicYear, shift: selectedSection.shift,
+        } : {},
+        placed,
+        remaining,
+      },
+    }, { onChunk, onEvent, signal });
+  };
+
+  /** Add one suggested class as unsaved cards (one per meeting). */
+  const addSuggestion = (suggestion, facultyId) => {
+    const subject = subjects.find(x => String(x._id) === String(suggestion.subject));
+    if (!subject) { toast.error('That subject isn’t in this section’s list'); return 0; }
+
+    const cards = [];
+    const skipped = [];
+    for (const t of suggestion.timeSlots || []) {
+      const slotIndex = TIME_SLOTS.findIndex(x => x.time.startsWith(`${t.startTime}-`));
+      const hours = slotDuration(t);
+      const range = slotIndex >= 0 ? resolveRange(t.day, slotIndex, hours) : { ok: false, reason: `${t.startTime} isn’t on this shift’s grid` };
+      if (!range.ok) { skipped.push(`${t.day.slice(0, 3)} ${t.startTime}: ${range.reason}`); continue; }
+      cards.push({
+        tempId: nextTempId(),
+        subject: subject._id,
+        subjectData: subject,
+        faculty: facultyId || suggestion.faculty || null,
+        room: suggestion.room || defaultRoomFor(subject).roomId || null,
+        program: filters.program,
+        yearLevel: selectedSection?.yearLevel || filters.yearLevel,
+        section: selectedSection?.sectionLetter || 'A',
+        sectionCode: selectedSection?.sectionCode || null,
+        shift: selectedSection?.shift || filters.shift || 'Day',
+        semester: selectedSection?.semester || filters.semester,
+        academicYear: filters.academicYear,
+        timeSlots: [{ day: t.day, startTime: range.startTime, endTime: range.endTime }],
+        maxStudents: selectedSection?.maxStudents || 40,
+        isPublished: false,
+      });
+    }
+    if (cards.length) {
+      const next = [...pendingRef.current, ...cards];
+      pendingRef.current = next;
+      setPendingSchedules(next);
+      pushHistory(next);
+      if (facultyId) setSubjectFaculty(prev => ({ ...prev, [subject._id]: facultyId }));
+      toast.success(`${subject.subjectCode} added. Review it, then Save All`);
+    }
+    if (skipped.length) toast.error(`Skipped ${skipped.length} meeting${skipped.length === 1 ? '' : 's'}: ${skipped[0]}`);
+    return cards.length;
+  };
+
   // ── Loading ────────────────────────────────────────────────────────────────
   if (loading && !subjects.length) {
     return (
@@ -1133,14 +1319,45 @@ const ScheduleBuilder = ({
   }
 
   return (
-    <div className="space-y-4">
+    <div
+      className={fullscreen ? 'flex h-full min-h-0 flex-col gap-3' : 'space-y-4'}
+    >
 
       {/* ── Top action bar ── */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 px-5 py-4 shadow-sm">
+      <div className={`bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm ${fullscreen ? 'flex-shrink-0 px-4 py-2.5' : 'px-5 py-4'}`}>
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white">Schedule Builder</h2>
+              <h2 className={`font-bold text-gray-900 dark:text-white ${fullscreen ? 'text-base' : 'text-lg'}`}>Schedule Builder</h2>
+              {/* Switch section without leaving the builder */}
+              {onSelectSection && sectionOptions.length > 1 && (
+                <select
+                  value={selectedSection?._id || ''}
+                  onChange={e => switchSection(e.target.value)}
+                  aria-label="Section being built"
+                  className="rounded-lg border border-gray-300 bg-white px-2 py-1 text-xs font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                >
+                  {sectionOptions.map(sec => (
+                    <option key={sec._id} value={sec._id}>
+                      {sec.sectionCode} · Y{sec.yearLevel} · Sem {sec.semester} · {sec.shift}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {progress.total > 0 && (
+                <span
+                  className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold ${
+                    progress.done === progress.total
+                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200'
+                      : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200'
+                  }`}
+                  title="Subjects with all their weekly hours placed (saved or pending)"
+                >
+                  {progress.done === progress.total && <CheckCircle className="h-3.5 w-3.5" />}
+                  {progress.done}/{progress.total} subjects placed
+                  {progress.left > 0 && <span className="font-normal opacity-80">· {progress.left} h to go</span>}
+                </span>
+              )}
               {/* Always show which section is being edited, so it's never
                   ambiguous which timetable you're changing. */}
               {selectedSection && (
@@ -1153,7 +1370,7 @@ const ScheduleBuilder = ({
               )}
             </div>
             {/* Numbered steps rather than one run-on sentence */}
-            <ol className="flex items-center gap-3 mt-1 text-xs text-gray-500 dark:text-gray-400 flex-wrap">
+            <ol className={`${fullscreen ? 'hidden' : 'flex'} items-center gap-3 mt-1 text-xs text-gray-500 dark:text-gray-400 flex-wrap`}>
               <li className="flex items-center gap-1">
                 <span className="w-4 h-4 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-[10px] font-bold flex items-center justify-center">1</span>
                 Assign a faculty to a subject
@@ -1241,8 +1458,13 @@ const ScheduleBuilder = ({
             {pendingCount > 0 && (
               <>
                 <button
-                  onClick={() => {
-                    if (window.confirm(`Discard ${pendingCount} pending schedule(s)?`)) {
+                  onClick={async () => {
+                    if (await confirm({
+                      title: `Discard ${pendingCount} unsaved card${pendingCount === 1 ? '' : 's'}?`,
+                      message: 'They are removed from the grid. Saved classes are not affected.',
+                      confirmText: 'Discard',
+                      type: 'danger',
+                    })) {
                       // Record it, otherwise a later Ctrl+Z resurrected the
                       // discarded cards from a stale history entry.
                       setPendingSchedules([]);
@@ -1268,21 +1490,33 @@ const ScheduleBuilder = ({
               </>
             )}
 
+            {fullscreen && (
+              <button
+                type="button"
+                onClick={() => toggleAssistant(!assistantOpen)}
+                aria-pressed={assistantOpen}
+                title={assistantOpen ? 'Hide B-LO' : 'Ask B-LO, your scheduling assistant'}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                  assistantOpen
+                    ? 'border-blue-600 bg-blue-50 text-blue-700 dark:border-blue-500 dark:bg-blue-900/30 dark:text-blue-200'
+                    : 'border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700'
+                }`}
+              >
+                <Sparkles className="w-4 h-4" />
+                B-LO
+              </button>
+            )}
+
             <button onClick={loadData} disabled={loading}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-60">
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
+              <span className={fullscreen ? 'sr-only' : ''}>Refresh</span>
             </button>
           </div>
         </div>
 
-        {/* Legend */}
-        <div className="flex items-center gap-4 mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400 flex-wrap">
-          <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-blue-100 border border-blue-300" />Saved</div>
-          <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-orange-100 border-2 border-orange-400" />Needs faculty/room</div>
-          <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-emerald-100 border-2 border-emerald-400" />Ready to save</div>
-          <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-orange-50 border border-orange-300" />Lunch</div>
-          <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-orange-100 border-2 border-orange-500" />Instructor busy elsewhere</div>
+        {/* Hints */}
+        <div className={`flex items-center gap-4 border-t border-gray-100 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400 flex-wrap ${fullscreen ? 'mt-2 pt-2' : 'mt-3 pt-3'}`}>
           <span className="text-gray-500 dark:text-gray-400">Drag a placed card to move it · drop it on the bin to remove</span>
           <div className="flex items-center gap-1.5 ml-auto text-gray-500 dark:text-gray-400">
             <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-[10px] text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-600">Ctrl+Z</kbd>Undo
@@ -1292,12 +1526,25 @@ const ScheduleBuilder = ({
       </div>
 
       {/* ── Main layout ── */}
-      <div className="flex gap-4 items-start">
+      <div className={fullscreen ? 'flex min-h-0 flex-1 items-stretch gap-3' : 'flex gap-4 items-start'}>
+
+        {/* Collapsed subject list: one slim button brings it back */}
+        {fullscreen && !sidebarOpen && (
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(true)}
+            title="Show subjects"
+            className="flex w-10 flex-shrink-0 flex-col items-center gap-2 rounded-2xl border border-gray-200 bg-white py-3 text-gray-600 shadow-sm hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+          >
+            <PanelLeftOpen className="h-4 w-4" />
+            <span className="text-[10px] font-semibold [writing-mode:vertical-rl]">Subjects</span>
+          </button>
+        )}
 
         {/* Subject sidebar */}
-        <div className="w-60 flex-shrink-0">
+        <div className={fullscreen ? `${sidebarOpen ? 'flex' : 'hidden'} w-64 flex-shrink-0 min-h-0` : 'w-60 flex-shrink-0'}>
           <div
-            className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden sticky top-4"
+            className={`bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden ${fullscreen ? 'flex w-full min-h-0 flex-col' : 'sticky top-4'}`}
             onDragOver={e => { e.preventDefault(); }}
             onDrop={e => {
               e.preventDefault();
@@ -1312,6 +1559,20 @@ const ScheduleBuilder = ({
                 <span className="font-semibold text-gray-900 dark:text-white text-sm">
                   Subjects ({filteredSubjects.length})
                 </span>
+                <label className="ml-auto flex cursor-pointer items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400" title="Hide subjects whose hours are all placed">
+                  <input type="checkbox" checked={hideDone} onChange={e => setHideDone(e.target.checked)} className="h-3 w-3 rounded border-gray-300" />
+                  Hide done
+                </label>
+                {fullscreen && (
+                  <button
+                    type="button"
+                    onClick={() => setSidebarOpen(false)}
+                    title="Hide subjects for a wider grid"
+                    className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-700 dark:hover:text-gray-200"
+                  >
+                    <PanelLeftClose className="h-4 w-4" />
+                  </button>
+                )}
               </div>
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
@@ -1325,7 +1586,7 @@ const ScheduleBuilder = ({
               </div>
             </div>
 
-            <div className="p-2 max-h-[calc(100vh-340px)] overflow-y-auto space-y-1.5">
+            <div className={`p-2 overflow-y-auto space-y-1.5 ${fullscreen ? 'min-h-0 flex-1' : 'max-h-[calc(100vh-340px)]'}`}>
               {filteredSubjects.length === 0 ? (
                 <div className="text-center py-8">
                   <BookOpen className="w-8 h-8 text-gray-300 mx-auto mb-2" />
@@ -1345,6 +1606,7 @@ const ScheduleBuilder = ({
                 const requiredHours =
                   (subject.lectureHours || 0) + (subject.labHours || 0) || subject.units || 0;
                 const isLimitReached = requiredHours > 0 && totalScheduled >= requiredHours;
+                if (hideDone && isLimitReached) return null;
 
                 const isDragging = draggedSubject?._id === subject._id;
                 const assignedFacultyId = subjectFaculty[subject._id] || '';
@@ -1457,17 +1719,17 @@ const ScheduleBuilder = ({
         </div>
 
         {/* Timetable grid */}
-        <div className="flex-1 min-w-0">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
+        <div className={`flex-1 min-w-0 ${fullscreen ? 'flex min-h-0 flex-col' : ''}`}>
+          <div className={`bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden ${fullscreen ? 'flex min-h-0 flex-1 flex-col' : ''}`}>
+            <div ref={gridBoxRef} className={fullscreen ? 'min-h-0 flex-1 overflow-auto' : 'overflow-x-auto'}>
               <table className="w-full border-collapse" style={{ minWidth: '760px' }}>
                 <thead>
                   <tr>
-                    <th className="w-24 px-3 py-3 text-left bg-gray-50 dark:bg-gray-700 border-b border-r border-gray-200 dark:border-gray-600">
+                    <th className={`w-28 px-3 py-3 text-left bg-gray-50 dark:bg-gray-700 border-b border-r border-gray-200 dark:border-gray-600 ${fullscreen ? 'sticky top-0 z-10' : ''}`}>
                       <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Time</span>
                     </th>
                     {DAYS.map(day => (
-                      <th key={day} className="px-2 py-3 text-center bg-gray-50 dark:bg-gray-700 border-b border-r border-gray-200 dark:border-gray-600 last:border-r-0">
+                      <th key={day} className={`px-2 py-3 text-center bg-gray-50 dark:bg-gray-700 border-b border-r border-gray-200 dark:border-gray-600 last:border-r-0 ${fullscreen ? 'sticky top-0 z-10' : ''}`}>
                         <span className="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
                           {day.substring(0, 3)}
                         </span>
@@ -1489,7 +1751,7 @@ const ScheduleBuilder = ({
                     }
 
                     return (
-                      <tr key={slot.time} className={slotIndex % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50/40 dark:bg-gray-750'}>
+                      <tr key={slot.time} className={slotIndex % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50/60 dark:bg-gray-800/60'}>
                         {/* Time label.
                             The fixed height here is what keeps the grid aligned.
                             Without it each row sized itself to its tallest card
@@ -1498,10 +1760,10 @@ const ScheduleBuilder = ({
                             hour labels it was supposed to cover. */}
                         <td
                           className="px-2 py-1 border-b border-r border-gray-100 bg-gray-50/70 align-top dark:border-gray-700 dark:bg-gray-800/60"
-                          style={{ height: ROW_H, width: '56px' }}
+                          style={{ height: rowH, width: '112px' }}
                         >
-                          <span className="block text-right text-[10px] font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                            {fmtTime(slot.time.split('-')[0])}
+                          <span className="block text-right text-[11px] font-medium tabular-nums text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                            {fmtRange(slot.time)}
                           </span>
                         </td>
 
@@ -1570,7 +1832,7 @@ const ScheduleBuilder = ({
                                   ? 'bg-blue-50/40 dark:bg-blue-900/10'
                                   : ''
                               }`}
-                              style={{ minWidth: '110px', height: cellRowSpan * ROW_H }}
+                              style={{ minWidth: '110px', height: cellRowSpan * rowH }}
                               title={
                                 blocked
                                   ? hover.reason
@@ -1782,8 +2044,8 @@ const ScheduleBuilder = ({
             </div>
           </div>
 
-          {/* Pending summary */}
-          {pendingCount > 0 && (
+          {/* Pending summary (the full-screen toolbar carries Save All instead) */}
+          {pendingCount > 0 && !fullscreen && (
             <div className={`mt-4 rounded-2xl border p-4 ${
               readyCount === pendingCount
                 ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-700'
@@ -1832,6 +2094,20 @@ const ScheduleBuilder = ({
             </div>
           )}
         </div>
+
+        {/* B-LO, docked: solver suggestions + questions about this section */}
+        {fullscreen && assistantOpen && (
+          <BuilderAssistant
+            sectionKey={selectedSection?._id || selectedSection?.sectionCode || 'none'}
+            sectionLabel={selectedSection?.sectionCode || ''}
+            onSuggest={askForSuggestions}
+            onAsk={askAssistant}
+            onAdd={addSuggestion}
+            facultyName={facultyName}
+            onClose={() => toggleAssistant(false)}
+            disabled={!selectedSection}
+          />
+        )}
       </div>
 
       {/* Pre-drag faculty picker, opened from a subject card */}

@@ -1,3 +1,4 @@
+const { randomInt } = require('crypto'); // join codes act as access keys: use a CSPRNG
 const mongoose = require('mongoose');
 
 const { programFieldValidator } = require('../utils/programValidator');
@@ -61,6 +62,14 @@ const SubjectSchema = new mongoose.Schema({
     type: String,
     trim: true
   }],
+  // Teachers from OTHER departments the scheduling manager approved for this
+  // subject only (e.g. a BSHM teacher with years of Ethics teaching BSIT's
+  // Ethics). The generator considers them for this subject and nothing else.
+  guestFaculty: [{
+    faculty: { type: mongoose.Schema.Types.ObjectId, ref: 'Faculty', required: true },
+    addedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    addedAt: { type: Date, default: Date.now },
+  }],
   isActive: {
     type: Boolean,
     default: true
@@ -87,7 +96,7 @@ SubjectSchema.statics.generateSubjectCode = function() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Exclude 0, O, 1, I for clarity
   let code = '';
   for (let i = 0; i < 8; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
+    code += chars.charAt(randomInt(chars.length));
   }
   return code;
 };
@@ -101,7 +110,7 @@ SubjectSchema.statics.generateSubjectEnrollmentCode = function() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Exclude 0, O, 1, I
   let code = '';
   for (let i = 0; i < 8; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
+    code += chars.charAt(randomInt(chars.length));
   }
   return code;
 };

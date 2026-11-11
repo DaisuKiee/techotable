@@ -1,4 +1,5 @@
 import React from 'react';
+import { Bone } from './ui/Skeleton';
 
 // Icon tile colours. Colour carries meaning, so there are only five:
 //   blue   = neutral counts and information (the brand colour)
@@ -48,9 +49,13 @@ const StatCard = ({ icon: Icon, label, value, hint, tone = 'indigo', active = fa
         )}
       </div>
       <div className="mt-2 truncate text-2xl font-bold text-gray-900 dark:text-white md:text-3xl">
-        {loading ? <span className="inline-block h-8 w-12 rounded bg-gray-200 align-middle dark:bg-gray-700" /> : value}
+        {loading ? <Bone as="span" className="inline-block h-7 w-12 align-middle" /> : value}
       </div>
-      {hint && <div className="mt-0.5 truncate text-xs text-gray-500 dark:text-gray-400">{hint}</div>}
+      {(hint || loading) && (
+        <div className="mt-0.5 truncate text-xs text-gray-500 dark:text-gray-400">
+          {loading ? <Bone as="span" className="inline-block h-3 w-24 align-middle" /> : hint}
+        </div>
+      )}
     </Tag>
   );
 };

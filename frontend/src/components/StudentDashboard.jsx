@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { studentAPI, classSpaceAPI, getErrorMessage } from '../services/api';
 import StatCard from './StatCard';
+import { Bone, SkeletonRegion, MeetingRowSkeleton, ClassCardSkeleton } from './ui/Skeleton';
 import AnimatedClock from './AnimatedClock';
 import dashboardBg from '../assets/images/backgrounds/bg.jpg';
 import { useLiveRefresh } from '../context/NotificationContext';
@@ -40,8 +41,6 @@ const teacherOf = (cs) => {
   const name = `${u?.firstName || ''} ${u?.lastName || ''}`.trim();
   return name || null;
 };
-
-const Bone = ({ className = '' }) => <span className={`block rounded bg-gray-200 dark:bg-gray-700 ${className}`} />;
 
 const Panel = ({ icon: Icon, title, subtitle, action, children, className = '' }) => (
   <section className={`min-w-0 rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-5 ${className}`}>
@@ -222,29 +221,37 @@ const StudentDashboard = ({ user }) => {
   );
 
   /* ---------- Loading ---------- */
+  // Same components and grid as the loaded dashboard, so nothing shifts
   if (loading) {
     return (
-      <div className="space-y-5" role="status" aria-label="Loading your dashboard">
+      <div className="space-y-5">
         {header}
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
-          {[0, 1, 2, 3].map((i) => (
-            <div key={i} className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-              <Bone className="h-3 w-16" /><Bone className="mt-4 h-7 w-12" /><Bone className="mt-2 h-3 w-24" />
-            </div>
-          ))}
-        </div>
-        <div className="grid gap-4 lg:grid-cols-3">
-          <div className="rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800 lg:col-span-2">
-            <Bone className="h-4 w-40" />
-            {[0, 1, 2].map((i) => (
-              <div key={i} className="mt-5 flex gap-4"><Bone className="h-10 w-16" /><div className="flex-1 space-y-2"><Bone className="h-4 w-1/2" /><Bone className="h-3 w-1/3" /></div></div>
-            ))}
+        <SkeletonRegion label="Loading your dashboard" className="space-y-5">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+            <StatCard loading icon={CalendarDays} label="Today" tone="blue" />
+            <StatCard loading icon={Clock} label="This week" tone="violet" />
+            <StatCard loading icon={BookOpen} label="Subjects" tone="blue" />
+            <StatCard loading icon={CheckCircle2} label="Status" tone="gray" />
           </div>
-          <div className="rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800">
-            <Bone className="h-4 w-28" />
-            {[0, 1, 2, 3, 4, 5].map((i) => <Bone key={i} className="mt-4 h-3 w-full" />)}
+          <div className="grid gap-4 lg:grid-cols-3">
+            <Panel className="lg:col-span-2" icon={Calendar} title="Today’s classes" subtitle={now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}>
+              <ol className="space-y-2">{[0, 1, 2].map((i) => <MeetingRowSkeleton key={i} />)}</ol>
+            </Panel>
+            <Panel icon={CalendarDays} title="This week" subtitle="Classes per day">
+              <ul className="space-y-1">
+                {WEEK.map((d, i) => (
+                  <li key={d} className="px-3 py-2">
+                    <div className="flex h-5 items-center justify-between gap-2"><Bone className="h-3.5 w-20" /><Bone className="h-3 w-16" /></div>
+                    {i % 3 !== 2 && <div className="mt-0.5 flex h-4 items-center"><Bone className="h-2.5 w-3/4" /></div>}
+                  </li>
+                ))}
+              </ul>
+            </Panel>
           </div>
-        </div>
+          <Panel icon={BookOpen} title="My subjects">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{[0, 1, 2].map((i) => <ClassCardSkeleton key={i} />)}</div>
+          </Panel>
+        </SkeletonRegion>
       </div>
     );
   }
@@ -306,7 +313,7 @@ const StudentDashboard = ({ user }) => {
 
       {gate || (
         <>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4 sk-enter">
             <StatCard icon={CalendarDays} label="Today" value={today.length} hint={today.length ? `${fmtSpan(Math.round(totals.todayHours * 60))} of class` : 'no classes today'} tone="blue" />
             <StatCard icon={Clock} label="This week" value={`${Math.round(totals.weekHours * 10) / 10}h`} hint={`${meetings.length} class meetings`} tone="violet" />
             <StatCard icon={BookOpen} label="Subjects" value={classes.length} hint={`${totals.units} units total`} tone="blue" />
@@ -319,7 +326,7 @@ const StudentDashboard = ({ user }) => {
             />
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-3">
+          <div className="grid gap-4 lg:grid-cols-3 sk-enter">
             {/* Today */}
             <Panel
               className="lg:col-span-2"
@@ -439,6 +446,7 @@ const StudentDashboard = ({ user }) => {
 
           {/* Subjects */}
           <Panel
+            className="sk-enter"
             icon={BookOpen}
             title="My subjects"
             subtitle={`${classes.length} subjects · ${totals.units} units${totals.announcements ? ` · ${totals.announcements} announcements` : ''}`}

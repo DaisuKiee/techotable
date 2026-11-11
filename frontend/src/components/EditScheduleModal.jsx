@@ -6,6 +6,7 @@ import {
 import AnimatedCheckIcon from './AnimatedCheckIcon';
 import FacultyPicker, { Tip, Section } from './FacultyPicker';
 import { ModalShell } from './modal/ModalShell';
+import { useConfirm } from '../context/ConfirmContext';
 
 /* ───────────────────────── helpers ───────────────────────── */
 
@@ -53,6 +54,7 @@ const Field = ({ label, value, wide }) => (
 const EditScheduleModal = ({
   schedule, faculty, rooms, onUpdate, onClose, onSave, onDelete, isSaved = false, homeRoomId = null,
 }) => {
+  const confirm = useConfirm();
   const subjectId = schedule?.subject;
   const subjectCode = schedule?.subjectData?.subjectCode;
   const subjectName = schedule?.subjectData?.subjectName;
@@ -212,8 +214,14 @@ const EditScheduleModal = ({
             {isSaved && onDelete && (
               <Tip text="Permanently delete this schedule">
                 <button
-                  onClick={() => {
-                    if (window.confirm('Delete this schedule? This cannot be undone.')) onDelete();
+                  onClick={async () => {
+                    if (await confirm({
+                      title: 'Delete this class?',
+                      message: 'It is removed from the timetable for everyone.',
+                      confirmText: 'Delete',
+                      type: 'danger',
+                      footnote: 'This cannot be undone.',
+                    })) onDelete();
                   }}
                   className="flex items-center gap-2 rounded-lg border border-red-300 px-4 py-2.5 text-sm font-medium text-red-700 transition-colors hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 dark:border-red-600 dark:text-red-300 dark:hover:bg-red-900/20"
                 >

@@ -10,6 +10,7 @@ import {
   FlaskConical, CheckCircle2, Circle, Lock, Briefcase, AlertTriangle, Sparkles,
 } from 'lucide-react';
 import ctuBg from '../assets/images/backgrounds/ctu-bg.jpg';
+import { Bone, SkeletonRegion } from '../components/ui/Skeleton';
 import { profileChecklist } from '../utils/profileCompleteness';
 
 /* ---------- shared styles ---------- */
@@ -501,9 +502,44 @@ const ProfilePage = () => {
   if (loading) {
     return (
       <Layout>
-        <div className="flex h-96 items-center justify-center" role="status" aria-label="Loading profile">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        {/* Same cover, identity row and sections as the loaded page */}
+        <div className="relative h-36 overflow-hidden rounded-2xl bg-cover bg-center md:h-48" style={{ backgroundImage: `url(${ctuBg})` }}>
+          <div className="absolute inset-0 bg-gradient-to-t from-gray-900/70 to-gray-900/10" />
         </div>
+        <SkeletonRegion label="Loading profile" className="mx-auto max-w-6xl px-2 pb-32 sm:px-4">
+          <div className="-mt-14 flex flex-col gap-4 md:-mt-16 md:flex-row md:items-end">
+            <span className="block h-32 w-32 shrink-0 rounded-full border-4 border-white bg-white shadow-lg dark:border-gray-800 dark:bg-gray-800"><Bone className="h-full w-full rounded-full" /></span>
+            <div className="min-w-0 flex-1 md:pb-2">
+              <span className="flex h-8 items-center"><Bone className="h-6 w-56" /></span>
+              <span className="flex h-5 items-center"><Bone className="h-3 w-44" /></span>
+              <span className="mt-2 flex gap-1.5"><Bone className="h-5 w-20 rounded-full" /><Bone className="h-5 w-14 rounded-full" /></span>
+            </div>
+          </div>
+          <div className="mt-6 grid gap-6 lg:grid-cols-[16rem_minmax(0,1fr)]">
+            <aside className="space-y-4">
+              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                <div className="flex items-center gap-3">
+                  <Bone className="h-16 w-16 rounded-full" />
+                  <div><span className="flex h-5 items-center"><Bone className="h-3.5 w-32" /></span><span className="flex h-4 items-center"><Bone className="h-2.5 w-20" /></span></div>
+                </div>
+                <div className="mt-3 space-y-1">{[0, 1, 2].map((i) => <span key={i} className="flex h-7 items-center gap-2 px-2"><Bone className="h-4 w-4 rounded-full" /><Bone className="h-2.5 w-32" /></span>)}</div>
+              </div>
+            </aside>
+            <div className="min-w-0 space-y-6">
+              <Section icon={User} title="Personal information" description="Your name and contact details.">
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                  {['First name', 'Last name', 'Username', 'Phone number'].map((l) => (
+                    <Field key={l} label={l}><Bone className="h-[42px] w-full rounded-lg" /></Field>
+                  ))}
+                </div>
+                <Field label="Skills / occupation"><Bone className="h-[42px] w-full rounded-lg" /></Field>
+              </Section>
+              <Section icon={Info} title="About you" description="A short bio and how your name appears to others.">
+                <Field label="Bio"><Bone className="h-28 w-full rounded-lg" /></Field>
+              </Section>
+            </div>
+          </div>
+        </SkeletonRegion>
       </Layout>
     );
   }

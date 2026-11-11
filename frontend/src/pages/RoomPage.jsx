@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import Layout from '../components/Layout';
 import StatCard from '../components/StatCard';
+import { Bone, SkeletonRegion } from '../components/ui/Skeleton';
 import RoomModal from '../components/RoomModal';
 import RoomDetailsDrawer, { DeactivateRoomDialog } from '../components/rooms/RoomDetailsDrawer';
 import FreeRoomFinder from '../components/rooms/FreeRoomFinder';
@@ -99,16 +100,31 @@ const RoomCard = ({ room, canManage, onOpen, onEdit, onDeactivate, onRestore }) 
   );
 };
 
+/** Loading: a building heading and cards laid out like RoomCard. */
 const SkeletonGrid = () => (
-  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" aria-hidden="true">
-    {Array.from({ length: 8 }, (_, i) => (
-      <div key={i} className="h-44 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-        <div className="flex gap-3"><div className="h-10 w-10 rounded-lg bg-gray-200 dark:bg-gray-700" /><div className="flex-1 space-y-2"><div className="h-4 w-24 rounded bg-gray-200 dark:bg-gray-700" /><div className="h-3 w-32 rounded bg-gray-100 dark:bg-gray-700/60" /></div></div>
-        <div className="mt-4 h-3 w-20 rounded bg-gray-100 dark:bg-gray-700/60" />
-        <div className="mt-10 h-1.5 rounded bg-gray-100 dark:bg-gray-700/60" />
-      </div>
-    ))}
-  </div>
+  <SkeletonRegion label="Loading rooms">
+    <div className="mb-3 flex h-7 items-center gap-2"><Bone className="h-5 w-5 rounded-md" /><Bone className="h-4 w-40" /><Bone className="h-3 w-16" /></div>
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      {Array.from({ length: 8 }, (_, i) => (
+        <div key={i} className="flex flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <div className="flex items-start gap-3">
+            <Bone className="h-10 w-10 flex-shrink-0 rounded-lg" />
+            <div className="min-w-0 flex-1">
+              <span className="flex h-6 items-center"><Bone className="h-4 w-20" /></span>
+              <span className="flex h-4 items-center"><Bone className="h-2.5" style={{ width: `${65 - (i % 3) * 12}%` }} /></span>
+            </div>
+            <Bone className="h-[26px] w-12 flex-shrink-0 rounded-md" />
+          </div>
+          <div className="mt-3 flex gap-1.5"><Bone className="h-5 w-20 rounded-full" />{i % 3 === 0 && <Bone className="h-5 w-16 rounded-full" />}</div>
+          <span className="mt-2 flex h-4 items-center"><Bone className="h-2.5 w-2/3" /></span>
+          <div className="mt-auto pt-3">
+            <div className="flex h-4 items-center justify-between"><Bone className="h-2.5 w-16" /><Bone className="h-2.5 w-7" /></div>
+            <Bone className="mt-1 h-1.5 rounded-full" />
+          </div>
+        </div>
+      ))}
+    </div>
+  </SkeletonRegion>
 );
 
 const RoomPage = () => {
@@ -289,11 +305,11 @@ const RoomPage = () => {
 
         {/* Stats; Labs and Unused double as filters */}
         <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-5 md:gap-4">
-          <StatCard icon={DoorOpen} label="Rooms" value={stats.active} hint={stats.inactive ? `${stats.inactive} deactivated` : 'All active'} tone="indigo" onClick={clearFilters} title="Show all active rooms" />
-          <StatCard icon={Users} label="Seats" value={stats.seats.toLocaleString()} hint={stats.active ? `Avg. ${Math.round(stats.seats / stats.active)} per room` : 'No rooms'} tone="blue" />
-          <StatCard icon={FlaskConical} label="Lab rooms" value={stats.labs} hint="Click to filter" tone="violet" active={type === 'labs'} onClick={() => setType((t) => (t === 'labs' ? '' : 'labs'))} title="Show lab rooms" />
-          <StatCard icon={Gauge} label="Avg. use" value={`${stats.avgUse}%`} hint="Of teachable hours" tone="emerald" />
-          <StatCard icon={CalendarX} label="Unused" value={stats.unused} hint="No classes this term" tone="amber" active={usageFilter === 'unused'} onClick={() => setUsageFilter((u) => (u === 'unused' ? '' : 'unused'))} title="Show rooms with no classes" className="col-span-2 md:col-span-1" />
+          <StatCard loading={loading} icon={DoorOpen} label="Rooms" value={stats.active} hint={stats.inactive ? `${stats.inactive} deactivated` : 'All active'} tone="indigo" onClick={clearFilters} title="Show all active rooms" />
+          <StatCard loading={loading} icon={Users} label="Seats" value={stats.seats.toLocaleString()} hint={stats.active ? `Avg. ${Math.round(stats.seats / stats.active)} per room` : 'No rooms'} tone="blue" />
+          <StatCard loading={loading} icon={FlaskConical} label="Lab rooms" value={stats.labs} hint="Click to filter" tone="violet" active={type === 'labs'} onClick={() => setType((t) => (t === 'labs' ? '' : 'labs'))} title="Show lab rooms" />
+          <StatCard loading={loading} icon={Gauge} label="Avg. use" value={`${stats.avgUse}%`} hint="Of teachable hours" tone="emerald" />
+          <StatCard loading={loading} icon={CalendarX} label="Unused" value={stats.unused} hint="No classes this term" tone="amber" active={usageFilter === 'unused'} onClick={() => setUsageFilter((u) => (u === 'unused' ? '' : 'unused'))} title="Show rooms with no classes" className="col-span-2 md:col-span-1" />
         </div>
 
         {stats.over.length > 0 && (
@@ -383,7 +399,7 @@ const RoomPage = () => {
             )}
           </div>
         ) : view === 'grid' ? (
-          <div className="space-y-8">
+          <div className="space-y-8 sk-enter">
             {groups.map((g) => (
               <section key={g.name} aria-label={g.name}>
                 <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-gray-900 dark:text-white">

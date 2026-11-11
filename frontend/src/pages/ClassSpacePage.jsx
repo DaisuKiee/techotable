@@ -10,7 +10,7 @@ import toast from 'react-hot-toast';
 import {
   BookOpen, Users, Plus, Search, Download, Trash2, Pin, Edit2, ChevronLeft, ChevronRight,
   Copy, RefreshCw, MapPin, LogOut, Mail, Phone, UserPlus, Megaphone, Paperclip,
-  LayoutList, FolderOpen, CalendarDays, KeyRound, X,
+  LayoutList, FolderOpen, CalendarDays, KeyRound,
 } from 'lucide-react';
 import CreateAnnouncementModal from '../components/CreateAnnouncementModal';
 import UploadMaterialModal from '../components/UploadMaterialModal';
@@ -25,6 +25,7 @@ import {
   Avatar, FileBadge, WeekRhythm, NextPill, TodayRail, ClassCard, GridSkeleton,
 } from '../components/classSpaces/ClassVisuals';
 import FolderGlyph from '../components/classSpaces/FolderGlyph';
+import { Bone, SkeletonRegion } from '../components/ui/Skeleton';
 
 const findClassBySlug = (classes, slug) => classes.find((cs) => generateClassSlug(cs) === slug);
 
@@ -32,20 +33,64 @@ const findClassBySlug = (classes, slug) => classes.find((cs) => generateClassSlu
  * Small pieces
  * ------------------------------------------------------------------ */
 
-/** Static placeholder rows while a class's posts load (no pulse). */
+/** Loading shapes for a class's posts, files and students, sized like the real rows. */
 const PostSkeleton = ({ count = 3 }) => (
-  <div className="space-y-3" aria-label="Loading">
+  <SkeletonRegion label="Loading posts" className="space-y-3">
     {Array.from({ length: count }).map((_, n) => (
-      <div key={n} className="flex gap-3 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-        <div className="h-9 w-9 flex-shrink-0 rounded-full bg-gray-100 dark:bg-gray-700" />
-        <div className="flex-1 space-y-2">
-          <div className="h-3 w-1/3 rounded bg-gray-100 dark:bg-gray-700" />
-          <div className="h-4 w-2/3 rounded bg-gray-100 dark:bg-gray-700" />
-          <div className="h-3 w-full rounded bg-gray-100 dark:bg-gray-700" />
+      <div key={n} className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+        <div className="flex items-start gap-3">
+          <Bone className="h-9 w-9 flex-shrink-0 rounded-full" />
+          <div className="min-w-0 flex-1">
+            <span className="flex h-4 items-center gap-2"><Bone className="h-3 w-28" /><Bone className="h-2.5 w-12" /></span>
+            <span className="mt-1 flex h-6 items-center"><Bone className="h-4" style={{ width: n % 2 ? '40%' : '55%' }} /></span>
+            <div className="mt-1 space-y-1.5 py-1"><Bone className="h-3 w-full" /><Bone className="h-3 w-full" /><Bone className="h-3 w-3/5" /></div>
+          </div>
         </div>
       </div>
     ))}
-  </div>
+  </SkeletonRegion>
+);
+
+/** Section folders, same tile as the loaded grid (glyph, section code, class count). */
+const FolderGridSkeleton = () => (
+  <SkeletonRegion label="Loading sections" className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+    {Array.from({ length: 8 }).map((_, i) => (
+      <div key={i} className="flex flex-col items-center gap-1 p-3">
+        <Bone className="h-20 w-24 rounded-xl" />
+        <span className="mt-1 flex h-5 items-center"><Bone className="h-3.5 w-20" /></span>
+        <span className="flex h-4 items-center"><Bone className="h-2.5 w-14" /></span>
+      </div>
+    ))}
+  </SkeletonRegion>
+);
+
+const FileSkeleton = ({ count = 3 }) => (
+  <SkeletonRegion label="Loading files" className="space-y-2">
+    {Array.from({ length: count }).map((_, n) => (
+      <div key={n} className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800">
+        <Bone className="h-[42px] w-[42px] flex-shrink-0 rounded-lg" />
+        <div className="min-w-0 flex-1">
+          <span className="flex h-6 items-center"><Bone className="h-3.5" style={{ width: n % 2 ? '35%' : '50%' }} /></span>
+          <span className="flex h-4 items-center"><Bone className="h-2.5 w-32" /></span>
+        </div>
+        <Bone className="h-8 w-8 flex-shrink-0 rounded-lg" />
+      </div>
+    ))}
+  </SkeletonRegion>
+);
+
+const RosterSkeleton = ({ count = 6 }) => (
+  <SkeletonRegion label="Loading students" className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+    {Array.from({ length: count }).map((_, n) => (
+      <div key={n} className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-3 py-2.5 dark:border-gray-700 dark:bg-gray-800">
+        <Bone className="h-[34px] w-[34px] flex-shrink-0 rounded-full" />
+        <div className="min-w-0 flex-1">
+          <span className="flex h-5 items-center"><Bone className="h-3.5" style={{ width: `${70 - (n % 3) * 12}%` }} /></span>
+          <span className="flex h-4 items-center"><Bone className="h-2.5 w-20" /></span>
+        </div>
+      </div>
+    ))}
+  </SkeletonRegion>
 );
 
 /** Long posts fold to a few lines with a "Show more". */
@@ -710,12 +755,12 @@ const ClassSpacePage = () => {
                         ))}
                       </div>
                     )}
-                    {isLoading ? <PostSkeleton count={2} /> : visibleFiles.length === 0 ? (
+                    {isLoading ? <FileSkeleton /> : visibleFiles.length === 0 ? (
                       <Empty icon={FolderOpen} title={materials.length ? 'No files match' : 'No files yet'}>
                         {materials.length ? 'Try another search or type.' : canManage ? 'Share slides, handouts and readings for the class.' : 'Files your teacher shares will appear here.'}
                       </Empty>
                     ) : (
-                      <div className="space-y-2">{visibleFiles.map((m) => renderFile(m))}</div>
+                      <div className="space-y-2 sk-stagger">{visibleFiles.map((m) => renderFile(m))}</div>
                     )}
                   </>
                 )}
@@ -751,12 +796,12 @@ const ClassSpacePage = () => {
                           <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Students <span className="font-normal text-gray-400">{studentCount}</span></h3>
                           {studentCount > 6 && <SearchField value={peopleQuery} onChange={setPeopleQuery} placeholder="Find a student" className="w-56" />}
                         </div>
-                        {isLoading ? <PostSkeleton count={2} /> : studentCount === 0 ? (
+                        {isLoading ? <RosterSkeleton /> : studentCount === 0 ? (
                           <Empty icon={UserPlus} title="No students yet">Students appear here once they join with the section or class code.</Empty>
                         ) : roster.length === 0 ? (
                           <Empty icon={Search} title="No one matches that search" />
                         ) : (
-                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sk-stagger">
                             {roster.map((enr, i) => {
                               const u = enr.student?.user;
                               const full = `${u?.firstName || '?'} ${u?.lastName || ''}`.trim();
@@ -894,29 +939,21 @@ const ClassSpacePage = () => {
             </div>
           </div>
 
-          {classSpacesLoading && !hasClasses ? <GridSkeleton /> : (
+          {classSpacesLoading && !hasClasses ? (
+            !isStudent && filterSection === 'all' && !searchTerm.trim() ? <FolderGridSkeleton /> : <GridSkeleton />
+          ) : (
             <>
               {hasClasses && (isStudent || isFaculty) && <TodayRail classes={classSpaces} onOpen={(cs) => openClass(cs)} />}
 
-              {/* Section chips (replace the old dropdown) */}
-              {sectionCounts.length > 1 && (
-                <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
-                  {[['all', classSpaces.length], ...sectionCounts].map(([sec, n]) => {
-                    const on = filterSection === sec;
-                    return (
-                      <button
-                        key={sec}
-                        type="button"
-                        onClick={() => setFilterSection(sec)}
-                        className={`inline-flex flex-shrink-0 items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-medium transition-colors ${on ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'bg-white text-gray-600 ring-1 ring-gray-200 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-700 dark:hover:bg-gray-700'}`}
-                      >
-                        {sec === 'all' ? 'All sections' : sec}
-                        <span className={`text-xs ${on ? 'opacity-70' : 'text-gray-400'}`}>{n}</span>
-                        {on && sec !== 'all' && <X className="h-3.5 w-3.5 opacity-70" onClick={(e) => { e.stopPropagation(); setFilterSection('all'); }} />}
-                      </button>
-                    );
-                  })}
-                </div>
+              {/* Inside a section folder: a way back to all sections */}
+              {!isStudent && filterSection !== 'all' && (
+                <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-sm">
+                  <button type="button" onClick={() => setFilterSection('all')} className="inline-flex items-center gap-1 rounded-lg px-1.5 py-1 font-medium text-gray-500 hover:bg-white hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white">
+                    <ChevronLeft className="h-4 w-4" /> All sections
+                  </button>
+                  <span className="text-gray-300 dark:text-gray-600">/</span>
+                  <span className="font-semibold text-gray-900 dark:text-white">{filterSection}</span>
+                </nav>
               )}
 
               {filteredClasses.length === 0 ? (
@@ -957,7 +994,7 @@ const ClassSpacePage = () => {
                   </Empty>
                 )
               ) : showFolderGrid ? (
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 sk-stagger">
                   {groupedClasses.map(([sectionCode, classes]) => (
                     <button
                       key={sectionCode}
@@ -973,7 +1010,7 @@ const ClassSpacePage = () => {
                   ))}
                 </div>
               ) : (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 sk-stagger">
                   {filteredClasses.map((cs) => (
                     <ClassCard key={cs._id} cs={cs} onOpen={(c) => openClass(c)} showSection={filterSection === 'all' && !isStudent} />
                   ))}

@@ -63,20 +63,24 @@ const recencyWeight = (yearsAgo) => {
 };
 
 /** Does a history entry refer to this subject? Prefers code, falls back to name. */
+/** "Ethics", "ETHICS " and "Ethics." are the same subject name. */
+const normName = (n) => String(n || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+
+/**
+ * Same subject? Matches on the code, OR on the name - so a subject taught in
+ * another department under a different code (BSHM's "GE-ETH Ethics" and
+ * BSIT's "GEC-ETH Ethics") still counts as experience.
+ */
 const matchesSubject = (entry, subject) => {
   if (!entry || !subject) return false;
 
   const code = subject.subjectCode || subject.code;
-  if (code && entry.subjectCode) {
-    return String(entry.subjectCode).toLowerCase() === String(code).toLowerCase();
+  if (code && entry.subjectCode && String(entry.subjectCode).toLowerCase() === String(code).toLowerCase()) {
+    return true;
   }
 
-  const name = subject.subjectName || subject.name;
-  if (name && entry.subjectName) {
-    return String(entry.subjectName).toLowerCase() === String(name).toLowerCase();
-  }
-
-  return false;
+  const name = normName(subject.subjectName || subject.name);
+  return !!name && name.length > 2 && normName(entry.subjectName) === name;
 };
 
 /**
@@ -114,11 +118,7 @@ const summarizeSubjectExperience = (faculty, subject, now = new Date()) => {
     });
   } else {
     // Fallback to experiencedSubjects (qualifications/past experience)
-    const subjectCode = subject.subjectCode || subject.code;
-    const experiencedEntry = (faculty?.experiencedSubjects || []).find(
-      exp => exp.subjectCode && subjectCode && 
-             String(exp.subjectCode).toLowerCase() === String(subjectCode).toLowerCase()
-    );
+    const experiencedEntry = (faculty?.experiencedSubjects || []).find(exp => matchesSubject(exp, subject));
     
     if (experiencedEntry) {
       // Parse period like "this year", "last year", "2 years ago"

@@ -239,11 +239,19 @@ class TimetableOptimizer:
         lists the exact specialization.
         """
         units = int(subject.get('units') or 3)
-        candidates = [
+        sid = str(subject.get('_id'))
+        # A teacher borrowed from another department ("only_subjects") may
+        # only take the subjects they were approved for
+        allowed = [
             f_idx for f_idx, f in enumerate(self.faculty)
-            if int(f.get('current_load') or 0) + units <= int(f.get('max_teaching_load') or 24)
+            if not f.get('only_subjects') or sid in {str(x) for x in f['only_subjects']}
         ]
-        return candidates or list(range(len(self.faculty)))
+        candidates = [
+            f_idx for f_idx in allowed
+            if int(self.faculty[f_idx].get('current_load') or 0) + units
+            <= int(self.faculty[f_idx].get('max_teaching_load') or 24)
+        ]
+        return candidates or allowed or list(range(len(self.faculty)))
 
     def _candidate_rooms(self, klass):
         """
@@ -427,6 +435,15 @@ class TimetableOptimizer:
                 [self.fac_vars[(c_idx, f)] for f in klass['faculty_candidates']])
             self.model.AddExactlyOne(
                 [self.room_vars[(c_idx, r)] for r in klass['room_candidates']])
+
+            # Symmetry breaking: a class's equal-length meetings of the same kind
+            # (two 1-hour lectures, three 3-hour labs) are interchangeable, so
+            # fix their order. Same set of timetables, far less duplicate search.
+            lab_from = klass.get('lab_from')
+            for b in range(len(klass['blocks']) - 1):
+                same_kind = (lab_from is None) or ((b >= lab_from) == (b + 1 >= lab_from))
+                if same_kind and klass['blocks'][b] == klass['blocks'][b + 1]:
+                    self.model.Add(self.blocks[(c_idx, b)]['start'] < self.blocks[(c_idx, b + 1)]['start'])
 
             # A subject should not meet twice in one day. Skipped when a subject
             # has more sessions than there are days, otherwise the model would
@@ -685,13 +702,53 @@ class TimetableOptimizer:
 
         return problems
 
+    def add_hints(self, hint):
+        """
+        Warm start: a complete timetable (normally the built-in solver's quick
+        plan) as a starting point. CP-SAT treats hints as suggestions - a bad or
+        partial hint costs nothing - and a good one lets a short time limit be
+        spent improving a timetable instead of finding a first one.
+        """
+        if not hint:
+            return 0
+        fac_index = {str(f['_id']): i for i, f in enumerate(self.faculty)}
+        room_index = {str(r['_id']): i for i, r in enumerate(self.rooms)}
+        slot_index = {s['start']: i for i, s in enumerate(self.slots)}
+        by_key = {(str(h.get('subject_id')), str(h.get('section_code'))): h for h in hint}
+        used = 0
+        for c_idx, klass in enumerate(self.classes):
+            sec = klass['section']
+            h = by_key.get((str(klass['subject']['_id']), str(sec.get('code') or sec.get('letter'))))
+            if not h:
+                continue
+            used += 1
+            f_hint = fac_index.get(str(h.get('faculty_id')))
+            for f_idx in klass['faculty_candidates']:
+                self.model.AddHint(self.fac_vars[(c_idx, f_idx)], 1 if f_idx == f_hint else 0)
+            r_hint = room_index.get(str(h.get('room_id')))
+            for r_idx in klass['room_candidates']:
+                self.model.AddHint(self.room_vars[(c_idx, r_idx)], 1 if r_idx == r_hint else 0)
+            # Match meetings to blocks by length, earliest first (same order the
+            # symmetry-breaking rule imposes)
+            positions = defaultdict(list)
+            for slot in h.get('slots') or []:
+                if slot.get('day') in self.days and slot.get('start') in slot_index:
+                    pos = self.days.index(slot['day']) * self.slots_per_day + slot_index[slot['start']]
+                    positions[int(slot.get('hours') or 0)].append(pos)
+            for lst in positions.values():
+                lst.sort()
+            for b_idx, length in enumerate(klass['blocks']):
+                if positions.get(length):
+                    self.model.AddHint(self.blocks[(c_idx, b_idx)]['start'], positions[length].pop(0))
+        return used
+
     def solve(self, time_limit_seconds=60, workers=8):
         solver = cp_model.CpSolver()
         self._time_limit = max(1, float(time_limit_seconds))
         solver.parameters.max_time_in_seconds = self._time_limit
         # The solver ran single-threaded before, leaving most of the time budget
         # on the table for anything non-trivial.
-        solver.parameters.num_search_workers = max(1, int(workers))
+        solver.parameters.num_workers = max(1, int(workers))
         solver.parameters.log_search_progress = False
         return solver.Solve(self.model), solver
 
@@ -801,6 +858,7 @@ def optimize_schedule(input_json):
         optimizer.create_variables()
         optimizer.add_constraints()
         optimizer.set_objective()
+        hinted = optimizer.add_hints((data.get('options') or {}).get('hint'))
 
         status, solver = optimizer.solve(
             time_limit_seconds=data.get('time_limit', 60),
@@ -819,6 +877,8 @@ def optimize_schedule(input_json):
             'diagnostics': optimizer.diagnostics,
             'skipped': optimizer.skipped,
         }
+        if solved:
+            result['statistics']['warm_start_classes'] = hinted
 
         if not solved:
             result['error'] = (

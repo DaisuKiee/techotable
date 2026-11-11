@@ -3,6 +3,7 @@ import { scheduleAPI, sectionAPI } from '../services/api';
 import toast from 'react-hot-toast';
 import { X, Wand2, Loader, CheckCircle, AlertTriangle, Calendar, Sparkles } from 'lucide-react';
 import { ModalShell } from './modal/ModalShell';
+import { Bone, SkeletonRegion } from './ui/Skeleton';
 
 const YEAR_LEVELS = [1, 2, 3, 4];
 const SEMESTERS = [1, 2];
@@ -47,6 +48,88 @@ const fmtHour = (mins) => {
  * "what was assigned" but not "is this a sensible week" - the question you
  * actually have before saving. Rows span only the hours the solver used.
  */
+/**
+ * Close calls from the generator: classes where another teacher fits about as
+ * well as the one it picked. You choose; a pick swaps the teacher in the
+ * preview before saving. Options that would clash with another pick (same
+ * teacher, overlapping times) or exceed that teacher's spare load are disabled.
+ */
+const slotsOverlap = (a = [], b = []) => a.some((x) => b.some((y) => {
+  if (x.day !== y.day) return false;
+  const [xs, xe, ys, ye] = [toMinutes(x.startTime), toMinutes(x.endTime), toMinutes(y.startTime), toMinutes(y.endTime)];
+  return xs !== null && ys !== null && xs < ye && ys < xe;
+}));
+
+const CloseCallsPanel = ({ calls, schedules, onPick }) => {
+  const current = (call) => String(schedules[call.index]?.faculty || call.chosen.facultyId);
+
+  // Why an alternative can't be picked right now, given the other picks
+  const blockedReason = (call, alt) => {
+    const others = calls.filter((c) => c.index !== call.index && current(c) === alt.facultyId && c.chosen.facultyId !== alt.facultyId);
+    const clash = others.find((c) => slotsOverlap(schedules[c.index]?.timeSlots, schedules[call.index]?.timeSlots));
+    if (clash) return `Already picked for ${clash.subjectCode} at the same time`;
+    const extra = others.reduce((sum, c) => sum + (c.units || 0), 0);
+    if (extra + call.units > alt.spareUnits) return 'Would go over their teaching load';
+    return null;
+  };
+
+  const option = (call, person, { pick, why, blocked }) => {
+    const selected = current(call) === person.facultyId;
+    return (
+      <button
+        key={person.facultyId}
+        type="button"
+        disabled={!!blocked && !selected}
+        onClick={() => onPick(call, person)}
+        aria-pressed={selected}
+        title={blocked || why || undefined}
+        className={`flex min-w-0 flex-1 basis-40 flex-col items-start rounded-lg border px-3 py-2 text-left transition-colors ${
+          selected
+            ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-500 dark:bg-blue-900/30'
+            : 'border-gray-200 bg-white hover:border-blue-300 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-gray-200 dark:border-gray-600 dark:bg-gray-800'
+        }`}
+      >
+        <span className="w-full truncate text-sm font-semibold text-gray-900 dark:text-white">{person.name}</span>
+        <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-gray-600 dark:text-gray-300">
+          Experience {person.experience}
+          {person.qualified && <span className="rounded bg-emerald-100 px-1.5 font-medium text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">Qualified</span>}
+          {pick && <span className="rounded bg-gray-100 px-1.5 font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-300">Generator's pick</span>}
+        </span>
+        {blocked && !selected && <span className="mt-1 text-[11px] text-orange-700 dark:text-orange-300">{blocked}</span>}
+      </button>
+    );
+  };
+
+  return (
+    <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50/60 p-3 dark:border-blue-800/60 dark:bg-blue-900/10">
+      <p className="text-sm font-semibold text-blue-900 dark:text-blue-100">Your call ({calls.length})</p>
+      <p className="mb-3 text-xs text-blue-800 dark:text-blue-200">
+        For these classes another teacher fits about as well as the one the generator picked, so it's your decision.
+        Every option shown is free at those times. Pick one to swap it in before saving.
+      </p>
+      <ul className="space-y-3">
+        {calls.map((call) => (
+          <li key={call.index}>
+            <p className="mb-1.5 text-xs text-gray-700 dark:text-gray-300">
+              <span className="font-semibold text-gray-900 dark:text-white">{call.subjectCode}</span>
+              {call.subjectName ? ` ${call.subjectName}` : ''} · {call.sectionCode} · {call.units} units
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {option(call, call.chosen, { pick: true })}
+              {call.alternatives.map((alt) => option(call, alt, { why: alt.why, blocked: blockedReason(call, alt) }))}
+            </div>
+            {call.alternatives.some((a) => a.why?.startsWith('Stronger')) && (
+              <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
+                The generator passed over a stronger fit here to keep loads balanced or the week workable.
+              </p>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
 const PreviewGrid = ({ schedules }) => {
   const placed = [];
   for (const s of schedules || []) {
@@ -190,11 +273,11 @@ const SectionInsight = ({ sectionId }) => {
   if (error) return <p className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/20 dark:text-red-200">{error}</p>;
   if (!info) {
     return (
-      <div className="mt-3 space-y-2 rounded-xl border border-gray-200 p-4 dark:border-gray-700" aria-busy="true">
-        <span className="block h-4 w-1/3 rounded bg-gray-200 dark:bg-gray-700" />
-        <span className="block h-3 w-2/3 rounded bg-gray-200 dark:bg-gray-700" />
-        <span className="block h-16 w-full rounded bg-gray-200 dark:bg-gray-700" />
-      </div>
+      <SkeletonRegion label="Loading section details" className="mt-3 space-y-2 rounded-xl border border-gray-200 p-4 dark:border-gray-700">
+        <Bone className="h-4 w-1/3" />
+        <Bone className="h-3 w-2/3" />
+        <Bone className="h-16 w-full" />
+      </SkeletonRegion>
     );
   }
 
@@ -322,7 +405,11 @@ const GenerateScheduleModal = ({ onClose }) => {
     // is gone.
     method: 'ortools',
     timeLimit: 60, // seconds; the built-in solver stops early once it stops improving
-    priority: 'balanced' // which objective the solver should favour
+    priority: 'balanced', // which objective the solver should favour
+    // 'quick': the built-in solver stops once it stops improving (seconds).
+    // 'thorough': it keeps improving until the time limit - on real sections
+    // this reached the same score as OR-Tools.
+    thoroughness: 'quick'
   });
 
   // Check OR-Tools availability on mount
@@ -422,7 +509,8 @@ const GenerateScheduleModal = ({ onClose }) => {
         academicYear: selectedSection.academicYear,
         method: formData.method,
         timeLimit: parseInt(formData.timeLimit),
-        priority: formData.priority
+        priority: formData.priority,
+        thoroughness: formData.thoroughness
       };
 
       console.log('Sending preview request:', generateData);
@@ -548,6 +636,19 @@ const GenerateScheduleModal = ({ onClose }) => {
   const engineName = (engine) => (engine === 'builtin' ? 'Built-in solver' : 'OR-Tools');
   // Both generators nest their numbers differently; read once, guarded, so a
   // missing field can't blow up the whole panel.
+  // Swap the teacher on one previewed class (a "Your call" pick)
+  const pickTeacher = useCallback((call, person) => {
+    setPreviewData((prev) => {
+      if (!prev?.preview?.schedules?.[call.index]) return prev;
+      const schedules = prev.preview.schedules.map((sch, i) => (i !== call.index ? sch : {
+        ...sch,
+        faculty: person.facultyId,
+        metadata: { ...sch.metadata, facultyName: person.name, facultyExperience: person.experience },
+      }));
+      return { ...prev, preview: { ...prev.preview, schedules } };
+    });
+  }, []);
+
   const stats = previewData?.preview?.statistics || {};
 
   const getStatusColor = (status) => {
@@ -634,6 +735,12 @@ const GenerateScheduleModal = ({ onClose }) => {
                 <span className="capitalize">{formData.priority}</span>
                 <span className="text-gray-300">·</span>
                 <span>{formData.timeLimit}s budget</span>
+                {previewData.engine === 'builtin' && (
+                  <>
+                    <span className="text-gray-300">·</span>
+                    <span className="capitalize">{formData.thoroughness}</span>
+                  </>
+                )}
                 <button
                   type="button"
                   onClick={() => setShowSettings(true)}
@@ -809,7 +916,49 @@ const GenerateScheduleModal = ({ onClose }) => {
                       <p className="text-xs text-gray-500 mt-1.5">
                         {isORTools
                           ? `OR-Tools searches for up to this long, so generating will take about ${formData.timeLimit}s. Longer budgets can find better timetables.`
-                          : `The built-in solver stops early once its result stops improving, and never runs past ${formData.timeLimit}s.`}
+                          : formData.thoroughness === 'thorough'
+                            ? `The built-in solver keeps improving the timetable for the full ${formData.timeLimit}s.`
+                            : `The built-in solver stops early once its result stops improving, and never runs past ${formData.timeLimit}s.`}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Built-in solver: stop early, or use the whole time limit.
+                      Also applies when OR-Tools falls back to it on a server
+                      without Python. */}
+                  {(
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Search depth
+                      </label>
+                      <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Search depth">
+                        {[
+                          { value: 'quick', label: 'Quick', hint: 'Done in seconds; stops once it stops improving' },
+                          { value: 'thorough', label: 'Thorough', hint: 'Uses the whole time limit to polish the result' },
+                        ].map(({ value, label, hint }) => {
+                          const on = formData.thoroughness === value;
+                          return (
+                            <button
+                              key={value}
+                              type="button"
+                              role="radio"
+                              aria-checked={on}
+                              disabled={generating}
+                              onClick={() => setFormData(prev => ({ ...prev, thoroughness: value }))}
+                              className={`rounded-lg border px-3 py-2 text-left transition-colors disabled:opacity-50 ${
+                                on ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-600' : 'border-gray-300 bg-white hover:border-blue-400'
+                              }`}
+                            >
+                              <span className={`block text-sm font-semibold ${on ? 'text-blue-900' : 'text-gray-900'}`}>{label}</span>
+                              <span className="block text-xs text-gray-500">{hint}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1.5">
+                        {isORTools
+                          ? 'OR-Tools always searches for the full time limit. This setting applies when the server has no Python and the built-in solver runs instead.'
+                          : 'Thorough matched OR-Tools’ result on real sections; Quick is usually within a fraction of a percent.'}
                       </p>
                     </div>
                   )}
@@ -964,6 +1113,36 @@ const GenerateScheduleModal = ({ onClose }) => {
                       {previewData.skipped.map(s => s.subject_code || s.subjectCode).join(', ')}
                     </p>
                   </div>
+                )}
+
+                {/* What this weighting gave up, so the score isn't the whole story */}
+                {previewData.preview.tradeoffs?.notes?.length > 0 && (
+                  <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/60">
+                    <p className="mb-1.5 text-xs font-semibold text-gray-900 dark:text-white">What this plan gives up</p>
+                    <ul className="space-y-1">
+                      {previewData.preview.tradeoffs.notes.map((n, i) => (
+                        <li key={i} className="flex gap-2 text-xs text-gray-700 dark:text-gray-300">
+                          <span className="flex-shrink-0 text-gray-400">•</span><span>{n}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    {previewData.preview.tradeoffs.facts?.busiest && (
+                      <p className="mt-2 text-[11px] text-gray-500 dark:text-gray-400">
+                        Busiest teacher: {previewData.preview.tradeoffs.facts.busiest.name}, {previewData.preview.tradeoffs.facts.busiest.units} of {previewData.preview.tradeoffs.facts.busiest.max} units
+                        {' · '}Idle time between classes: {previewData.preview.tradeoffs.facts.idleHours} h a week.
+                        {' '}Change “What should it optimise for?” to trade differently.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Close calls: the person decides between equally good teachers */}
+                {previewData.preview.closeCalls?.length > 0 && (
+                  <CloseCallsPanel
+                    calls={previewData.preview.closeCalls}
+                    schedules={previewData.preview.schedules}
+                    onPick={pickTeacher}
+                  />
                 )}
 
                 {/* The generated week. This is the thing you actually judge
@@ -1167,7 +1346,9 @@ const GenerateScheduleModal = ({ onClose }) => {
                   <p className="text-xs text-blue-700 mt-2">
                     {isORTools
                       ? `OR-Tools uses up to ${formData.timeLimit}s to search for the best timetable.`
-                      : `The built-in solver usually finishes in a few seconds (at most ${formData.timeLimit}s).`}
+                      : formData.thoroughness === 'thorough'
+                        ? `The built-in solver keeps improving the timetable for ${formData.timeLimit}s.`
+                        : `The built-in solver usually finishes in a few seconds (at most ${formData.timeLimit}s).`}
                   </p>
                 </div>
               </div>

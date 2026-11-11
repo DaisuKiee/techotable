@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { activityLogAPI, facultyAPI, studentAPI, subjectAPI, scheduleAPI, getErrorMessage } from '../services/api';
 import toast from 'react-hot-toast';
 import StatCard from '../components/StatCard';
+import { Bone, SkeletonRegion } from '../components/ui/Skeleton';
 import {
   TrendingUp, Users, BookOpen, Calendar, Activity,
   BarChart3, PieChart, Clock, AlertCircle
@@ -97,16 +98,36 @@ const AnalyticsPage = () => {
     return Object.entries(counts).map(([name, count]) => ({ name, count }));
   };
 
+  // Loading: the real header and cards, with shimmer in place of the numbers
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="p-6">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-gray-900">Analytics Dashboard</h1>
+          <p className="text-gray-600 mt-1">System statistics and insights</p>
+        </div>
+        <SkeletonRegion label="Loading analytics">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6">
+            <StatCard loading icon={Users} label="Students" tone="blue" />
+            <StatCard loading icon={Users} label="Faculty" tone="emerald" />
+            <StatCard loading icon={BookOpen} label="Subjects" tone="purple" />
+            <StatCard loading icon={Calendar} label="Schedules" tone="blue" />
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            {[0, 1].map((i) => (
+              <div key={i} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <span className="mb-4 flex h-7 items-center gap-2"><Bone className="h-5 w-5" /><Bone className="h-4 w-40" /></span>
+                <Bone className="h-64 w-full rounded-lg" />
+              </div>
+            ))}
+          </div>
+        </SkeletonRegion>
       </div>
     );
   }
 
   return (
-    <div className="p-6">
+    <div className="p-6 sk-enter">
       {/* Header */}
       <div className="mb-6">
         <div className="flex justify-between items-center">

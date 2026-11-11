@@ -1,3 +1,4 @@
+const { networkKind } = require('../utils/device');
 const User = require('../models/User.model');
 const jwt = require('jsonwebtoken');
 const { validationResult } = require('express-validator');
@@ -1009,7 +1010,8 @@ exports.getSessions = async (req, res) => {
 
     res.json({
       success: true,
-      data: sessions.map((s) => ({ ...s, current: String(s._id) === req.sessionId })),
+      // network: 'internet' | 'local network' | 'this computer'
+      data: sessions.map((s) => ({ ...s, network: networkKind(s.ip), current: String(s._id) === req.sessionId })),
       // False when signed in with a token from before sessions were tracked
       currentTracked: !!req.sessionId,
     });
@@ -1064,7 +1066,7 @@ exports.getLoginActivity = async (req, res) => {
       .sort({ createdAt: -1 }).limit(15).select('success reason device ip createdAt').lean();
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const failedToday = await LoginEvent.countDocuments({ user: req.user._id, success: false, createdAt: { $gte: since } });
-    res.json({ success: true, data: events, failedToday });
+    res.json({ success: true, data: events.map((e) => ({ ...e, network: networkKind(e.ip) })), failedToday });
   } catch (error) {
     sendError(res, error, 'Error loading your sign-in activity');
   }

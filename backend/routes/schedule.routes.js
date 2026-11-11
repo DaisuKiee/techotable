@@ -16,6 +16,12 @@ const {
   batchDeleteSchedules,
   generateSchedule,
   previewSchedule,
+  builderSuggest,
+  builderAssistant,
+  builderAssistantStream,
+  getBuilderMemory,
+  clearBuilderConversation,
+  deleteBuilderNotes,
   savePreviewedSchedules,
   bulkCreateSchedules,
   checkORToolsStatus,
@@ -62,6 +68,14 @@ router.post('/check-conflicts', checkConflicts);
 router.post('/', authorize('admin', 'scheduling_officer', 'program_manager'), createScheduleValidation, createSchedule);
 router.post('/generate', authorize('admin', 'scheduling_officer', 'program_manager'), generateSchedule);
 router.post('/preview', authorize('admin', 'scheduling_officer', 'program_manager'), previewSchedule);
+router.post('/builder-suggest', authorize('admin', 'scheduling_officer', 'program_manager'), builderSuggest);
+router.post('/builder-assistant', authorize('admin', 'scheduling_officer', 'program_manager'), builderAssistant);
+router.post('/builder-assistant/stream', authorize('admin', 'scheduling_officer', 'program_manager'), builderAssistantStream);
+const builderRoles = authorize('admin', 'scheduling_officer', 'program_manager');
+router.get('/builder-assistant/memory', builderRoles, getBuilderMemory);
+router.delete('/builder-assistant/memory/conversation', builderRoles, clearBuilderConversation);
+router.delete('/builder-assistant/memory/notes', builderRoles, deleteBuilderNotes);
+router.delete('/builder-assistant/memory/notes/:noteId', builderRoles, deleteBuilderNotes);
 router.post('/save-preview', authorize('admin', 'scheduling_officer', 'program_manager'), savePreviewedSchedules);
 // Schedule builder "Save All": validates the whole batch, then writes all or nothing
 router.post('/bulk', authorize('admin', 'scheduling_officer', 'program_manager'), bulkCreateSchedules);

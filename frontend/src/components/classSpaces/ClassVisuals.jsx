@@ -1,5 +1,6 @@
 import React from 'react';
 import { Clock, MapPin, Megaphone, Paperclip, Users, ArrowUpRight } from 'lucide-react';
+import { Bone, SkeletonRegion } from '../ui/Skeleton';
 import {
   WEEK, accentFor, tint, toMin, fmtTime, fmtRange, todayName, nextMeeting, describeNext,
   subjectCodeOf, subjectNameOf, facultyNameOf, timeSlotsOf, roomOf, initialsOf, avatarSrc, fileKind,
@@ -271,18 +272,34 @@ export const ClassCard = ({ cs, onOpen, showSection = true }) => {
   );
 };
 
-/** Skeleton for the grid (static: no pulse). */
+/** Loading: cards shaped exactly like ClassCard (accent bar, chip, 2-line title, teacher, week strip, footer). */
 export const GridSkeleton = () => (
-  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" aria-label="Loading classes">
+  <SkeletonRegion label="Loading classes" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
     {Array.from({ length: 8 }).map((_, i) => (
-      <div key={i} className="h-52 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-        <div className="h-5 w-20 rounded bg-gray-100 dark:bg-gray-700" />
-        <div className="mt-4 h-4 w-3/4 rounded bg-gray-100 dark:bg-gray-700" />
-        <div className="mt-2 h-4 w-1/2 rounded bg-gray-100 dark:bg-gray-700" />
-        <div className="mt-8 flex gap-1">
-          {WEEK.map((d) => <div key={d} className="h-6 w-6 rounded-md bg-gray-100 dark:bg-gray-700" />)}
+      <div key={i} className="relative flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white pl-1.5 dark:border-gray-700 dark:bg-gray-800">
+        <Bone className="absolute inset-y-0 left-0 w-1.5 rounded-none" />
+        <div className="flex flex-1 flex-col p-4">
+          <div className="flex items-start justify-between gap-3">
+            <Bone className="h-5 w-20 rounded-md" />
+            <span className="flex h-4 items-center"><Bone className="h-2.5 w-12" /></span>
+          </div>
+          <div className="mt-2.5 min-h-[2.5rem] space-y-1.5 pt-1">
+            <Bone className="h-3.5 w-11/12" />
+            <Bone className="h-3.5" style={{ width: i % 2 ? '45%' : '60%' }} />
+          </div>
+          <div className="mt-2 flex items-center gap-2">
+            <Bone className="h-5 w-5 rounded-full" /><Bone className="h-3 w-28" />
+          </div>
+          <div className="mt-4 flex items-center justify-between gap-2">
+            <div className="flex gap-1">{WEEK.map((d) => <Bone key={d} className="h-6 w-6 rounded-md" />)}</div>
+            <Bone className="h-3 w-12" />
+          </div>
+        </div>
+        <div className="flex items-center justify-between gap-2 border-t border-gray-100 px-4 py-2.5 dark:border-gray-700/70">
+          <Bone className="h-[22px] w-24 rounded-full" />
+          <span className="flex items-center gap-3"><Bone className="h-3 w-7" /><Bone className="h-3 w-7" /><Bone className="h-3 w-7" /></span>
         </div>
       </div>
     ))}
-  </div>
+  </SkeletonRegion>
 );

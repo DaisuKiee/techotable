@@ -6,6 +6,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import { PageStateProvider } from './context/PageStateContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { CacheProvider } from './context/CacheContext';
+import { ConfirmProvider } from './context/ConfirmContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
 import './i18n'; // Initialize i18n
@@ -28,6 +29,7 @@ import FacultyApprovalPage from './pages/FacultyApprovalPage';
 import SubjectPage from './pages/SubjectPage';
 import RoomPage from './pages/RoomPage';
 import SchedulePage from './pages/SchedulePage';
+import ScheduleBuilderPage from './pages/ScheduleBuilderPage';
 import SectionPage from './pages/SectionPage';
 import ClassSpacePage from './pages/ClassSpacePage';
 import StudentPage from './pages/StudentPage';
@@ -50,6 +52,7 @@ function App() {
           <PageStateProvider>
           <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <NotificationProvider>
+          <ConfirmProvider>
             <div className="min-h-screen bg-gray-50">
             <Toaster 
               position="top-right"
@@ -134,6 +137,14 @@ function App() {
                   <RoomPage />
                 </ProtectedRoute>
               } 
+            />
+            <Route
+              path="/schedules/builder"
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'scheduling_officer', 'program_manager']}>
+                  <ScheduleBuilderPage />
+                </ProtectedRoute>
+              }
             />
             <Route 
               path="/schedules" 
@@ -230,7 +241,8 @@ function App() {
           </Routes>
           </ErrorBoundary>
         </div>
-      </NotificationProvider>
+      </ConfirmProvider>
+          </NotificationProvider>
       </Router>
       </PageStateProvider>
         </CacheProvider>

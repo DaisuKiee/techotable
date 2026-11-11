@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Layout from '../components/Layout';
+import { Bone, SkeletonRegion } from '../components/ui/Skeleton';
 import { activityLogAPI, getErrorMessage } from '../services/api';
 import toast from 'react-hot-toast';
 import {
@@ -110,7 +111,6 @@ const STATUS = {
 
 /* ---------- Pieces ---------- */
 
-const Bone = ({ className = '' }) => <span className={`block rounded bg-gray-100 dark:bg-gray-700/70 ${className}`} />;
 
 const Chip = ({ on, onClick, children }) => (
   <button
@@ -144,18 +144,29 @@ const Card = ({ title, subtitle, children }) => (
   </section>
 );
 
-/** Static skeleton (no pulse). */
+/** Loading: day groups of feed rows at the real row size (avatar, two lines, time). */
 const FeedSkeleton = () => (
-  <div className="space-y-2" aria-label="Loading activity">
-    <Bone className="mb-3 h-3 w-24" />
-    {Array.from({ length: 8 }).map((_, i) => (
-      <div key={i} className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-3.5 dark:border-gray-700 dark:bg-gray-800">
-        <Bone className="h-9 w-9 rounded-full" />
-        <div className="flex-1 space-y-2"><Bone className="h-3.5 w-2/3" /><Bone className="h-3 w-1/3" /></div>
-        <Bone className="h-3 w-12" />
-      </div>
+  <SkeletonRegion label="Loading activity" className="space-y-5">
+    {[5, 3].map((rows, g) => (
+      <section key={g}>
+        <div className="mb-2 flex h-4 items-center gap-3">
+          <Bone className="h-2.5 w-20" /><span className="h-px flex-1 bg-gray-200 dark:bg-gray-700" /><Bone className="h-2.5 w-4" />
+        </div>
+        <ul className="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+          {Array.from({ length: rows }).map((_, i) => (
+            <li key={i} className={`flex items-center gap-3 px-3.5 py-3 ${i ? 'border-t border-gray-100 dark:border-gray-700/70' : ''}`}>
+              <Bone className="h-9 w-9 flex-shrink-0 rounded-full" />
+              <span className="min-w-0 flex-1">
+                <span className="flex h-5 items-center"><Bone className="h-3.5" style={{ width: `${72 - ((i + g) % 4) * 11}%` }} /></span>
+                <span className="mt-0.5 flex h-4 items-center gap-2"><Bone className="h-2.5 w-16" /><Bone className="h-3.5 w-14" /></span>
+              </span>
+              <span className="flex flex-shrink-0 items-center gap-1.5"><Bone className="h-2.5 w-14" /><span className="h-4 w-4" /></span>
+            </li>
+          ))}
+        </ul>
+      </section>
     ))}
-  </div>
+  </SkeletonRegion>
 );
 
 const toCsv = (logs) => {
@@ -392,7 +403,7 @@ const ActivityLogPage = () => {
                   <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{activeFilters.length || search ? 'Try removing a filter or widening the time range.' : 'Nothing was recorded in this time range.'}</p>
                 </div>
               ) : (
-                <div className={`space-y-5 transition-opacity ${refreshing ? 'opacity-60' : ''}`}>
+                <div className={`space-y-5 sk-enter transition-opacity ${refreshing ? 'opacity-60' : ''}`}>
                   {days.map((day) => (
                     <section key={day.label}>
                       <div className="mb-2 flex items-center gap-3">

@@ -1,3 +1,4 @@
+import { useConfirm } from '../context/ConfirmContext';
 import { useState, useEffect } from 'react';
 import BaseModal from './BaseModal';
 import { ModalButton } from './modal/ModalShell';
@@ -12,6 +13,7 @@ import { usePrograms } from '../hooks/usePrograms';
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 const ScheduleModal = ({ mode, schedule, subjects: propSubjects, sections: propSections, faculty: propFaculty, rooms: propRooms, onClose, onDelete }) => {
+  const confirm = useConfirm();
   const { programCodes: PROGRAMS } = usePrograms();
   const [loading, setLoading] = useState(false);
   const [subjects, setSubjects] = useState([]);
@@ -143,7 +145,13 @@ const ScheduleModal = ({ mode, schedule, subjects: propSubjects, sections: propS
 
   const handleDelete = async () => {
     if (mode === 'edit' && schedule) {
-      const confirmed = window.confirm('Are you sure you want to delete this schedule?');
+      const confirmed = await confirm({
+        title: 'Delete this class?',
+        message: 'It is removed from the timetable for everyone.',
+        confirmText: 'Delete',
+        type: 'danger',
+        footnote: 'This cannot be undone.',
+      });
       if (!confirmed) return;
       await onDelete(schedule._id);
       onClose(true);

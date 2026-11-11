@@ -1,3 +1,4 @@
+const { randomInt } = require('crypto'); // join codes act as access keys: use a CSPRNG
 const ClassSpace = require('../models/ClassSpace.model');
 const Schedule = require('../models/Schedule.model');
 const Section = require('../models/Section.model');
@@ -444,7 +445,7 @@ exports.joinByCode = async (req, res) => {
               const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
               let code = '';
               for (let i = 0; i < 8; i++) {
-                code += chars.charAt(Math.floor(Math.random() * chars.length));
+                code += chars.charAt(randomInt(chars.length));
               }
               return code;
             };

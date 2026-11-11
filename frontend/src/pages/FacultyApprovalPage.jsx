@@ -4,8 +4,10 @@ import { ModalShell, ModalHeader, ModalBody, ModalFooter, ModalButton } from '..
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import Layout from '../components/Layout';
+import { Bone, SkeletonRegion } from '../components/ui/Skeleton';
 import dashboardBg from '../assets/images/backgrounds/bg.jpg';
 import AnimatedUserCheck from '../components/AnimatedUserCheck';
+import { useConfirm } from '../context/ConfirmContext';
 
 import { getErrorMessage } from '../services/api';
 const REJECT_REASONS = [
@@ -15,6 +17,7 @@ const REJECT_REASONS = [
 ];
 
 const FacultyApprovalPage = () => {
+  const confirm = useConfirm();
   const [pendingFaculty, setPendingFaculty] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(null);
@@ -40,7 +43,12 @@ const FacultyApprovalPage = () => {
   };
 
   const handleApprove = async (facultyId, facultyName) => {
-    if (!window.confirm(`Are you sure you want to approve ${facultyName}?`)) {
+    if (!(await confirm({
+      title: `Approve ${facultyName}?`,
+      message: 'They can sign in right away and will appear in Faculty and the schedule generator.',
+      confirmText: 'Approve',
+      footnote: null,
+    }))) {
       return;
     }
 
@@ -103,19 +111,6 @@ const FacultyApprovalPage = () => {
     });
   };
 
-  if (loading) {
-    return (
-      <Layout>
-        <div className="flex items-center justify-center" style={{ minHeight: 'calc(100vh - 64px)' }}>
-          <div className="text-center">
-            <RefreshCw className="w-12 h-12 text-blue-600 dark:text-blue-400 animate-spin mx-auto mb-4" />
-            <p className="text-gray-600 dark:text-gray-400">Loading pending approvals...</p>
-          </div>
-        </div>
-      </Layout>
-    );
-  }
-
   const closeReject = () => {
     setShowRejectModal(false);
     setSelectedFaculty(null);
@@ -144,7 +139,7 @@ const FacultyApprovalPage = () => {
                 </p>
               </div>
               <div className="text-right">
-                <div className="text-5xl font-bold">{pendingFaculty.length}</div>
+                <div className="text-5xl font-bold">{loading ? <span className="inline-block h-12 w-14 rounded-lg bg-white/20 align-middle" aria-hidden="true" /> : pendingFaculty.length}</div>
                 <div className="text-white/80">Pending</div>
               </div>
             </div>
@@ -153,7 +148,38 @@ const FacultyApprovalPage = () => {
 
         {/* Content */}
         <div>
-          {pendingFaculty.length === 0 ? (
+          {loading ? (
+            <SkeletonRegion label="Loading pending approvals" className="space-y-4">
+              {[0, 1].map((i) => (
+                <div key={i} className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border-2 border-gray-200 dark:border-gray-700">
+                  <div className="p-6">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <Bone className="w-16 h-16 rounded-xl" />
+                        <div>
+                          <span className="flex h-8 items-center"><Bone className="h-6 w-52" /></span>
+                          <span className="mt-1 flex h-5 items-center gap-2"><Bone className="h-4 w-4" /><Bone className="h-3 w-44" /></span>
+                        </div>
+                      </div>
+                      <Bone className="h-10 w-44 rounded-lg" />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 rounded-lg border border-gray-100 p-4 dark:border-gray-700">
+                      {[0, 1, 2].map((k) => (
+                        <div key={k} className="flex items-start gap-3">
+                          <Bone className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                          <div className="flex-1">
+                            <span className="flex h-4 items-center"><Bone className="h-2.5 w-20" /></span>
+                            <span className="flex h-6 items-center"><Bone className="h-3.5 w-48 max-w-full" /></span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-3"><Bone className="h-12 flex-1 rounded-lg" /><Bone className="h-12 flex-1 rounded-lg" /></div>
+                  </div>
+                </div>
+              ))}
+            </SkeletonRegion>
+          ) : pendingFaculty.length === 0 ? (
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-12 text-center">
               <div className="w-20 h-20 mx-auto mb-4">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="80" height="80" role="img" aria-label="Done">
@@ -231,7 +257,7 @@ const FacultyApprovalPage = () => {
               </p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-4 sk-stagger">
               {pendingFaculty.map((faculty) => (
                 <div
                   key={faculty._id}

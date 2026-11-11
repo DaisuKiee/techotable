@@ -1,3 +1,5 @@
+import { useConfirm } from '../context/ConfirmContext';
+import { Link, useSearchParams } from 'react-router-dom';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Layout from '../components/Layout';
 import { scheduleAPI, subjectAPI, sectionAPI, facultyAPI, roomAPI, getErrorMessage } from '../services/api';
@@ -6,7 +8,7 @@ import toast from 'react-hot-toast';
 import {
   Calendar as CalendarIcon, Plus, Download, Search, X,
   Wand2, AlertTriangle, CheckCircle, FileText, Grid,
-  Clock, BookOpen, School, List, MapPin,
+  Clock, BookOpen, School, MapPin,
   Edit2, Trash2, RefreshCw, Printer, RotateCcw,
   ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight
 } from 'lucide-react';
@@ -14,19 +16,18 @@ import ScheduleModal from '../components/ScheduleModal';
 import GenerateScheduleModal from '../components/GenerateScheduleModal';
 import ConflictWarning from '../components/ConflictWarning';
 import ConfirmDialog from '../components/ConfirmDialog';
-import ScheduleBuilder from '../components/ScheduleBuilder';
 import { exportToCSV, exportToOfficialPDF, exportToPrintableHTML, exportWeeklyTimetable } from '../utils/scheduleExport';
 import { useAuth } from '../context/AuthContext';
 import StudentSchedule from '../components/StudentSchedule';
 import FacultySchedule from '../components/FacultySchedule';
 import { usePrograms } from '../hooks/usePrograms';
+import { Bone, SkeletonRegion } from '../components/ui/Skeleton';
 
 /* ------------------------------------------------------------------ */
 /* Constants & helpers                                                  */
 /* ------------------------------------------------------------------ */
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
-const VIEW_MODE_KEY = 'schedulePage.viewMode';
 
 // `countKey` indexes into `stats`, so the control carries its own counts. They
 // used to sit in a separate strip above that wrote the same statusFilter state.
@@ -108,12 +109,45 @@ const SortHeader = ({ label, sortKey, activeKey, dir, onSort }) => {
   );
 };
 
-const TableSkeleton = () => (
-  <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm py-2" aria-busy="true">
-    {Array.from({ length: 7 }).map((_, i) => (
-      <div key={i} className="h-12 mx-4 my-3 rounded-lg bg-gray-100 dark:bg-gray-700" />
-    ))}
-  </div>
+/** Loading: the real table header and rows of shimmer at the real row height. */
+const TableSkeleton = ({ withActions = false }) => (
+  <SkeletonRegion label="Loading schedules" className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
+    <div className="overflow-x-auto">
+      <table className="w-full">
+        <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
+          <tr>
+            <th className="px-4 py-3 w-10"><Bone className="h-4 w-4" /></th>
+            {['Subject', 'Section', 'Faculty', 'Room', 'Schedule', 'Status'].map((h) => <th key={h} className={TH_CLASS}>{h}</th>)}
+            {withActions && <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Actions</th>}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <tr key={i}>
+              <td className="px-4 py-4 w-10"><Bone className="h-4 w-4" /></td>
+              <td className="px-4 py-4">
+                <div className="flex items-center gap-2">
+                  <Bone className="h-5 w-5 flex-shrink-0" />
+                  <div><span className="flex h-5 items-center"><Bone className="h-3.5 w-20" /></span><span className="flex h-4 items-center"><Bone className="h-2.5" style={{ width: `${8 - (i % 3)}rem` }} /></span></div>
+                </div>
+              </td>
+              <td className="px-4 py-4"><span className="flex h-5 items-center gap-2"><Bone className="h-4 w-4" /><Bone className="h-3.5 w-16" /></span></td>
+              <td className="px-4 py-4"><span className="flex h-5 items-center"><Bone className="h-3.5" style={{ width: `${7 - (i % 2)}rem` }} /></span></td>
+              <td className="px-4 py-4"><span className="flex h-5 items-center gap-2"><Bone className="h-4 w-4" /><Bone className="h-3.5 w-14" /></span></td>
+              <td className="px-4 py-4">
+                <div className="space-y-1">
+                  <span className="flex h-5 items-center"><Bone className="h-3 w-40" /></span>
+                  {i % 2 === 0 && <span className="flex h-5 items-center"><Bone className="h-3 w-36" /></span>}
+                </div>
+              </td>
+              <td className="px-4 py-4"><Bone className="h-6 w-20 rounded-full" /></td>
+              {withActions && <td className="px-4 py-4"><span className="flex justify-end gap-2"><Bone className="h-8 w-8 rounded-lg" /><Bone className="h-8 w-8 rounded-lg" /></span></td>}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </SkeletonRegion>
 );
 
 /** Shared frame for the student and faculty views. */
@@ -134,6 +168,8 @@ const RoleScheduleShell = ({ subtitle, children }) => (
 /* ------------------------------------------------------------------ */
 
 const SchedulePage = () => {
+  const [searchParams] = useSearchParams();
+  const confirm = useConfirm();
   const { user } = useAuth();
   const { programCodes: PROGRAMS } = usePrograms();
 
@@ -154,13 +190,6 @@ const SchedulePage = () => {
     academicYear: getCurrentAcademicYear()
   }));
   const [selectedSection, setSelectedSection] = useState(null);
-  const [viewMode, setViewMode] = useState(() => {
-    try {
-      return localStorage.getItem(VIEW_MODE_KEY) === 'builder' ? 'builder' : 'list';
-    } catch {
-      return 'list';
-    }
-  });
   const [sort, setSort] = useState({ key: 'subject', dir: 'asc' });
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -199,8 +228,6 @@ const SchedulePage = () => {
   const isProgramManager = user?.role === 'program_manager';
   const usesManagementView = !!user && !isStudent && !isFaculty;
 
-  // Only editors can see the builder, whatever was remembered from last time.
-  const activeView = canEditSchedules ? viewMode : 'list';
 
   const closeConfirm = () => setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
 
@@ -442,13 +469,12 @@ const SchedulePage = () => {
 
   /* ------------------------- Misc effects ------------------------- */
 
+  // Coming back from the builder (?section=<id>) restores that section
+  const linkedSection = searchParams.get('section');
   useEffect(() => {
-    try {
-      localStorage.setItem(VIEW_MODE_KEY, viewMode);
-    } catch {
-      /* storage unavailable: the preference just won't persist */
-    }
-  }, [viewMode]);
+    if (linkedSection && allSections.length && !selectedSection) handleSectionSelect(linkedSection);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linkedSection, allSections.length]);
 
   // Close the export menu on outside click / Escape.
   useEffect(() => {
@@ -611,10 +637,11 @@ const SchedulePage = () => {
 
   const handleToggleStatus = async (schedule) => {
     const publishing = schedule.status !== 'published';
-    if (!publishing && !window.confirm(
-      `Move ${schedule.subject?.subjectCode || 'this class'} (${schedule.sectionCode}) back to draft? `
-      + 'Its teacher and students will stop seeing it and will be told it is being changed.'
-    )) return;
+    if (!publishing && !(await confirm({
+      title: `Move ${schedule.subject?.subjectCode || 'this class'} back to draft?`,
+      message: `${schedule.sectionCode}: its teacher and students will stop seeing it and will be told it is being changed.`,
+      confirmText: 'Move to draft',
+    }))) return;
     setBusyId(schedule._id);
     try {
       const res = publishing
@@ -707,10 +734,12 @@ const SchedulePage = () => {
       return;
     }
     if (
-      !window.confirm(
-        `Publish ${count} draft class(es) for ${filters.program} year ${filters.yearLevel}? `
-        + 'They become official: their teachers and students will see them and be notified.'
-      )
+      !(await confirm({
+        title: `Publish ${count} draft class${count === 1 ? '' : 'es'}?`,
+        message: `${filters.program} year ${filters.yearLevel}: they become official, and their teachers and students will see them and be notified.`,
+        confirmText: 'Publish',
+        footnote: null,
+      }))
     ) {
       return;
     }
@@ -1035,37 +1064,17 @@ const SchedulePage = () => {
                 </select>
               )}
 
-              {/* View toggle */}
-              <div className="flex border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden">
-                <button
-                  onClick={() => setViewMode('list')}
-                  aria-pressed={activeView === 'list'}
-                  className={`px-3 py-2 transition-colors ${
-                    activeView === 'list'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600'
-                  }`}
-                  title="List View"
-                  aria-label="List view"
+              {/* The builder is its own page; the chosen section carries over */}
+              {canEditSchedules && (
+                <Link
+                  to={selectedSection ? `/schedules/builder?section=${selectedSection._id}` : '/schedules/builder'}
+                  className="inline-flex items-center gap-2 rounded-lg border border-blue-600 px-3 py-2 text-sm font-semibold text-blue-700 transition-colors hover:bg-blue-50 dark:border-blue-500 dark:text-blue-300 dark:hover:bg-blue-900/30"
+                  title="Open the drag-and-drop schedule builder"
                 >
-                  <List className="w-5 h-5" />
-                </button>
-                {canEditSchedules && (
-                  <button
-                    onClick={() => setViewMode('builder')}
-                    aria-pressed={activeView === 'builder'}
-                    className={`px-3 py-2 border-l border-gray-300 dark:border-gray-600 transition-colors ${
-                      activeView === 'builder'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600'
-                    }`}
-                    title="Schedule Builder"
-                    aria-label="Schedule builder"
-                  >
-                    <Grid className="w-5 h-5" />
-                  </button>
-                )}
-              </div>
+                  <Grid className="h-4 w-4" />
+                  Open builder
+                </Link>
+              )}
             </div>
           </div>
 
@@ -1259,52 +1268,8 @@ const SchedulePage = () => {
             `onAssignmentChange` triggers a cache reload, and keeping the builder
             mounted preserves pending cards, undo history, subject search and
             scroll position. */}
-        {activeView === 'builder' && !builderReady ? (
-          <div className="bg-white dark:bg-gray-800 rounded-xl border-2 border-dashed border-blue-300 dark:border-blue-700 p-10 text-center">
-            <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center mx-auto mb-4">
-              <School className="w-8 h-8 text-blue-600" />
-            </div>
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
-              Choose a section to start building
-            </h3>
-            <p className="text-gray-500 dark:text-gray-400 text-sm max-w-md mx-auto mb-5">
-              Picking a section sets the program, year level, semester and shift in one go,
-              then you can drag subjects onto the timetable.
-            </p>
-
-            {sectionOptions.length > 0 ? (
-              <select
-                value={selectedSection?._id || ''}
-                onChange={(e) => handleSectionSelect(e.target.value)}
-                aria-label="Choose a section"
-                className="px-4 py-2.5 border-2 border-blue-500 rounded-lg text-sm font-semibold text-blue-700 dark:text-blue-300 dark:bg-gray-700 focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Choose a section…</option>
-                {sectionOptions.map((s) => (
-                  <option key={s._id} value={s._id}>
-                    {s.sectionCode} — Year {s.yearLevel} · Sem {s.semester} · {s.shift}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <p className="text-sm text-orange-700 dark:text-orange-400">
-                No sections exist for {filters.program || 'this program'} in {filters.academicYear}.
-                Create one on the Sections page first.
-              </p>
-            )}
-          </div>
-        ) : activeView === 'builder' ? (
-          <ScheduleBuilder
-            filters={filters}
-            subjects={subjects}
-            sections={scopedSections}
-            faculty={faculty}
-            rooms={rooms}
-            selectedSection={selectedSection}
-            onAssignmentChange={reloadSchedulesFromCache}
-          />
-        ) : showSkeleton ? (
-          <TableSkeleton />
+        {showSkeleton ? (
+          <TableSkeleton withActions={canEditSchedules} />
         ) : showError ? (
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-red-200 dark:border-red-800 p-12 text-center">
             <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-3" />
@@ -1324,7 +1289,7 @@ const SchedulePage = () => {
           </div>
         ) : (
           /* LIST VIEW */
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm sk-enter">
             {sortedSchedules.length === 0 ? (
               <div className="p-16 text-center">
                 <CalendarIcon className="w-20 h-20 text-gray-400 mx-auto mb-4" />
@@ -1607,15 +1572,6 @@ const SchedulePage = () => {
           </div>
         )}
 
-        {/* Builder hint */}
-        {activeView === 'builder' && (
-          <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-3 dark:bg-blue-900 dark:border-blue-700">
-            <p className="text-sm text-blue-900 dark:text-blue-100">
-              📚 Schedule Builder: pick a duration, drag a subject onto a time slot, then click the card to assign faculty and a room.
-              Drag a placed card to move it, or onto the sidebar bin to remove it.
-            </p>
-          </div>
-        )}
       </div>
 
       {/* Schedule Modal */}

@@ -1144,7 +1144,8 @@ exports.generateSchedule = async (req, res) => {
       method = 'ortools', // 'ortools' (with automatic fallback) or 'builtin'
       shift = 'Day',      // 'Day' or 'Night'
       timeLimit = 60,     // seconds for OR-Tools
-      priority = 'balanced'  // which objective preset the solver should favour
+      priority = 'balanced',  // which objective preset the solver should favour
+      thoroughness = 'quick'  // built-in solver: 'thorough' uses the whole time limit
     } = req.body;
 
     if (!academicYear || !semester || !program || !yearLevel || !section) {
@@ -1168,7 +1169,8 @@ exports.generateSchedule = async (req, res) => {
       shift,
       timeLimit,
       weights: resolveSolverWeights(priority),
-      engine: resolveEngine(method)
+      engine: resolveEngine(method),
+      thorough: thoroughness === 'thorough'
     });
 
     if (result.success && result.schedules) {
@@ -1237,7 +1239,8 @@ exports.previewSchedule = async (req, res) => {
       method = 'ortools',
       shift = 'Day',
       timeLimit = 60,
-      priority = 'balanced'
+      priority = 'balanced',
+      thoroughness = 'quick'
     } = req.body;
 
     if (!academicYear || !semester || !program || !yearLevel || !section) {
@@ -1260,7 +1263,8 @@ exports.previewSchedule = async (req, res) => {
       shift,
       timeLimit,
       weights: resolveSolverWeights(priority),
-      engine: resolveEngine(method)
+      engine: resolveEngine(method),
+      thorough: thoroughness === 'thorough'
     });
 
     const preview = {
@@ -1670,5 +1674,271 @@ exports.getConflicts = async (req, res) => {
     });
   } catch (error) {
     sendError(res, error, 'Failed to detect conflicts');
+  }
+};
+
+/* ------------------------------------------------------------------ *
+ * Schedule builder assistant
+ * ------------------------------------------------------------------ */
+
+/** Unsaved builder cards -> Schedule-shaped rows the solver treats as fixed. */
+const pendingToRows = (pending = [], sectionCode) => (Array.isArray(pending) ? pending : [])
+  .filter(p => p && p.subject && Array.isArray(p.timeSlots))
+  .slice(0, 200)
+  .map(p => ({
+    subject: String(p.subject),
+    faculty: p.faculty ? String(p.faculty) : null,
+    room: p.room ? String(p.room) : null,
+    sectionCode,
+    timeSlots: p.timeSlots
+      .filter(t => t && t.day && t.startTime && t.endTime)
+      .map(t => ({ day: String(t.day), startTime: String(t.startTime), endTime: String(t.endTime) })),
+  }));
+
+// @desc    Suggest placements for the subjects a section still needs
+// @route   POST /api/schedules/builder-suggest
+// @access  Private (admin, scheduling_officer, program_manager)
+exports.builderSuggest = async (req, res) => {
+  try {
+    const {
+      academicYear, semester, program, yearLevel, section, sectionCode,
+      shift = 'Day', pending = [], priority = 'balanced',
+    } = req.body;
+    if (!academicYear || !semester || !program || !yearLevel || !section) {
+      return res.status(400).json({ success: false, message: 'Choose a section first.' });
+    }
+    if (req.user.role === 'program_manager' && req.user.program && req.user.program !== program) {
+      return res.status(403).json({ success: false, message: 'You can only build schedules for your own program.' });
+    }
+
+    const { previewWithORTools } = require('../services/ortoolsBridge.service');
+    const solved = await previewWithORTools({
+      academicYear, semester, program, yearLevel, section, shift,
+      timeLimit: 10,
+      weights: resolveSolverWeights(priority),
+      engine: 'auto',
+      extraExisting: pendingToRows(pending, sectionCode),
+    });
+
+    res.json({
+      success: !!solved.success,
+      message: solved.message,
+      engine: solved.engine,
+      data: {
+        schedules: solved.preview?.schedules || [],
+        failed: solved.preview?.failed || [],
+        conflicts: solved.preview?.conflicts || [],
+        closeCalls: solved.preview?.closeCalls || [],
+        tradeoffs: solved.preview?.tradeoffs || null,
+        diagnostics: solved.diagnostics || [],
+      },
+    });
+  } catch (error) {
+    sendError(res, error, 'Could not suggest a schedule');
+  }
+};
+
+/**
+ * The question, conversation and system prompt for B-LO in the builder: the
+ * section, what's placed, what's left, and the program's teachers with their
+ * load this term. Returns { error } with a status when the request is refused.
+ */
+const buildBuilderPrompt = async (req) => {
+  const { question, state = {} } = req.body;
+  const q = String(question || '').trim().slice(0, 1000);
+  if (!q) return { status: 400, error: 'Type a question first.' };
+
+  const section = state.section || {};
+  if (req.user.role === 'program_manager' && req.user.program && section.program && req.user.program !== section.program) {
+    return { status: 403, error: 'You can only build schedules for your own program.' };
+  }
+
+  // What's on the builder right now, as plain lines (capped, so a huge
+  // section can't blow up the prompt)
+  const line = (x) => String(x ?? '').replace(/[\r\n]+/g, ' ').slice(0, 160);
+  const placed = (state.placed || []).slice(0, 80).map(c => (
+    `- ${line(c.code)} ${line(c.day)} ${line(c.start)}-${line(c.end)} | teacher: ${line(c.faculty || 'none')}`
+    + ` | room: ${line(c.room || 'none')}${c.saved ? '' : ' (unsaved)'}`
+  ));
+  const remaining = (state.remaining || []).slice(0, 60).map(r => (
+    `- ${line(r.code)} ${line(r.name)}: ${Number(r.hoursLeft) || 0}h still to place`
+    + `${r.faculty ? ` (teacher picked: ${line(r.faculty)})` : ''}`
+  ));
+
+  let teachers = [];
+  if (section.program) {
+    const { getFacultyLoads } = require('../utils/facultyLoad');
+    const [docs, loads] = await Promise.all([
+      Faculty.find({ isActive: true, programs: section.program })
+        .populate('user', 'firstName lastName')
+        .select('user specializations maxTeachingLoad unavailableTimeSlots')
+        .limit(60).lean(),
+      getFacultyLoads({ academicYear: section.academicYear, semester: section.semester }),
+    ]);
+    teachers = docs.map(f => {
+      const l = loads.get(String(f._id)) || {};
+      const name = `${f.user?.firstName || ''} ${f.user?.lastName || ''}`.trim() || 'Unnamed';
+      const off = (f.unavailableTimeSlots || []).map(u => `${u.day} ${u.startTime}-${u.endTime}`).join(', ');
+      return `- ${line(name)}: ${l.units || 0}/${f.maxTeachingLoad || 24} units; `
+        + `specializations: ${line((f.specializations || []).join(', ') || 'none')}`
+        + `${off ? `; unavailable ${line(off)}` : ''}`;
+    });
+  }
+
+  // B-LO's memory: this section's conversation so far, and the notes it keeps
+  // about this user from every earlier conversation
+  const memory = require('../services/assistantMemory.service');
+  const key = String(section._id || section.sectionCode || 'none').slice(0, 60);
+  const remembered = await memory.getContext(req.user._id, 'builder', key);
+
+  const systemPrompt = [
+    'You are B-LO, the scheduling assistant inside the CTU Daanbantayan Schedule Builder. Refer to yourself as B-LO.',
+    'You help a scheduling officer place classes for ONE section on a weekly grid (Monday to Saturday, hourly slots; lunch 12:00-13:00 is never used).',
+    'The timetable must respect: a section, a teacher and a room can each be in one place at a time; a subject should not meet twice on the same day;',
+    'teachers stay within their unit cap and outside their unavailable times; labs belong in laboratory rooms; prefer 8:00 starts over 7:00 and keep days compact.',
+    'Be concrete and brief: name the subject, day, time and teacher. Use short bullet points. If something is impossible, say why and what to change.',
+    'Always finish your answer; keep it under about 200 words.',
+    'Use only the data below. If unsure, say so. Never invent teachers, rooms or subjects.',
+    'The builder also has a "Suggest the rest" button that runs the constraint solver; recommend it when the user wants the whole remaining week filled.',
+    '',
+    `SECTION: ${line(section.sectionCode)} | program ${line(section.program)} | year ${line(section.yearLevel)} | `
+      + `semester ${line(section.semester)} | ${line(section.academicYear)} | ${line(section.shift)} shift`,
+    '',
+    'PLACED CLASSES:', ...(placed.length ? placed : ['- none yet']),
+    '',
+    'SUBJECTS STILL NEEDING HOURS:', ...(remaining.length ? remaining : ['- none, every subject is fully placed']),
+    '',
+    'TEACHERS FOR THIS PROGRAM (load this term):', ...(teachers.length ? teachers : ['- not available']),
+    '',
+    'WHAT YOU REMEMBER ABOUT THIS USER (from earlier conversations; follow these unless the user changes them):',
+    ...(remembered.notes.length ? remembered.notes.map(t => `- ${line(t)}`) : ['- nothing yet']),
+    'If the user asks what you remember, list these. The earlier messages of this conversation are in the chat history.',
+  ].join('\n');
+
+  return { q, systemPrompt, convo: remembered.history, key, label: String(section.sectionCode || '') };
+};
+
+// Room for a full answer: the model's reasoning also counts against this
+const BUILDER_AI_OPTIONS = { temperature: 0.3, maxOutputTokens: 8192 };
+
+// @desc    Ask B-LO about the section being built (whole answer at once)
+// @route   POST /api/schedules/builder-assistant
+// @access  Private (admin, scheduling_officer, program_manager)
+exports.builderAssistant = async (req, res) => {
+  try {
+    const built = await buildBuilderPrompt(req);
+    if (built.error) return res.status(built.status).json({ success: false, message: built.error });
+
+    const { generateChatResponse } = require('../services/gemini.service');
+    const reply = await generateChatResponse(built.q, {}, built.convo, { ...BUILDER_AI_OPTIONS, systemPrompt: built.systemPrompt });
+    if (!reply.success) {
+      return res.status(503).json({
+        success: false,
+        message: 'B-LO is unavailable right now. Try again in a moment, or use "Suggest the rest".',
+      });
+    }
+    const memory = require('../services/assistantMemory.service');
+    await memory.appendExchange(req.user._id, 'builder', built.key, built.label, built.q, reply.message);
+    const remembered = await memory.extractNotes(req.user._id, 'builder', built.label, built.q, reply.message);
+    res.json({ success: true, data: { message: reply.message, remembered } });
+  } catch (error) {
+    sendError(res, error, 'B-LO could not answer');
+  }
+};
+
+// @desc    Ask B-LO, streamed as it's written (Server-Sent Events)
+// @route   POST /api/schedules/builder-assistant/stream
+// @access  Private (admin, scheduling_officer, program_manager)
+exports.builderAssistantStream = async (req, res) => {
+  let built;
+  try {
+    built = await buildBuilderPrompt(req);
+  } catch (error) {
+    return sendError(res, error, 'B-LO could not answer');
+  }
+  if (built.error) return res.status(built.status).json({ success: false, message: built.error });
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders();
+
+  // Stopped by the user (connection closed before the answer finished): an
+  // answer they never saw isn't saved to the conversation
+  let answered = false;
+  let stopped = false;
+  res.on('close', () => { if (!answered) stopped = true; });
+
+  const send = (payload) => {
+    if (stopped) return;
+    res.write(`data: ${JSON.stringify(payload)}\n\n`);
+    if (typeof res.flush === 'function') res.flush(); // through compression()
+  };
+
+  try {
+    const { generateChatResponseStream } = require('../services/gemini.service');
+    const reply = await generateChatResponseStream(
+      built.q, {}, built.convo,
+      (chunk) => send({ type: 'chunk', content: chunk }),
+      { ...BUILDER_AI_OPTIONS, systemPrompt: built.systemPrompt },
+    );
+    if (reply.success && !stopped) {
+      answered = true;
+      send({ type: 'done' });
+      // Save the exchange, then learn from it; the panel shows what was remembered
+      const memory = require('../services/assistantMemory.service');
+      await memory.appendExchange(req.user._id, 'builder', built.key, built.label, built.q, reply.message);
+      const remembered = await memory.extractNotes(req.user._id, 'builder', built.label, built.q, reply.message);
+      if (remembered.length) send({ type: 'memory', added: remembered });
+    } else if (!stopped) {
+      send({ type: 'error', message: 'B-LO is unavailable right now. Try again in a moment, or use "Suggest the rest".' });
+    }
+  } catch (error) {
+    send({ type: 'error', message: 'B-LO could not answer. Try again in a moment.' });
+  }
+  if (!stopped) res.end();
+};
+
+// @desc    B-LO's saved conversation for a section, and its notes
+// @route   GET /api/schedules/builder-assistant/memory?key=<sectionId>
+// @access  Private (admin, scheduling_officer, program_manager)
+exports.getBuilderMemory = async (req, res) => {
+  try {
+    const key = String(req.query.key || 'none').slice(0, 60);
+    const { messages, notes } = await require('../services/assistantMemory.service').getConversation(req.user._id, 'builder', key);
+    res.json({
+      success: true,
+      data: {
+        messages: messages.map(m => ({ role: m.role, content: m.content, at: m.at })),
+        notes: notes.map(n => ({ _id: n._id, text: n.text, source: n.source, at: n.at })),
+      },
+    });
+  } catch (error) {
+    sendError(res, error, 'Could not load B-LO\'s memory');
+  }
+};
+
+// @desc    Forget this section's conversation (notes are kept)
+// @route   DELETE /api/schedules/builder-assistant/memory/conversation?key=<sectionId>
+exports.clearBuilderConversation = async (req, res) => {
+  try {
+    await require('../services/assistantMemory.service').clearConversation(req.user._id, 'builder', String(req.query.key || 'none').slice(0, 60));
+    res.json({ success: true, message: 'Conversation cleared' });
+  } catch (error) {
+    sendError(res, error, 'Could not clear the conversation');
+  }
+};
+
+// @desc    Forget one note, or all notes
+// @route   DELETE /api/schedules/builder-assistant/memory/notes/:noteId?  (no id = all)
+exports.deleteBuilderNotes = async (req, res) => {
+  try {
+    const memory = require('../services/assistantMemory.service');
+    if (req.params.noteId) await memory.deleteNote(req.user._id, 'builder', req.params.noteId);
+    else await memory.clearNotes(req.user._id, 'builder');
+    res.json({ success: true, message: req.params.noteId ? 'B-LO forgot that' : 'B-LO forgot everything it remembered' });
+  } catch (error) {
+    sendError(res, error, 'Could not update B-LO\'s memory');
   }
 };

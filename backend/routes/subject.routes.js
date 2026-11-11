@@ -12,7 +12,9 @@ const {
   bulkImportSubjects,
   getSubjectsByQualification,
   generateSubjectCode,
-  regenerateSubjectCode
+  regenerateSubjectCode,
+  addGuestFaculty,
+  removeGuestFaculty,
 } = require('../controllers/subject.controller');
 const { protect, authorize } = require('../middleware/auth.middleware');
 const { checkProgramAccess } = require('../middleware/programAccess.middleware');
@@ -75,5 +77,9 @@ router.post('/', authorize('admin', 'scheduling_officer', 'program_manager'), ch
 router.post('/bulk-import', authorize('admin', 'scheduling_officer', 'program_manager'), checkProgramAccess('Subject'), bulkImportSubjects);
 router.put('/:id', authorize('admin', 'scheduling_officer', 'program_manager'), checkProgramAccess('Subject'), updateSubject);
 router.delete('/:id', authorize('admin', 'scheduling_officer', 'program_manager'), checkProgramAccess('Subject'), deleteSubject);
+
+// Teachers from other departments approved for one subject
+router.post('/:id/guest-faculty', authorize('admin', 'scheduling_officer', 'program_manager'), checkProgramAccess('Subject'), addGuestFaculty);
+router.delete('/:id/guest-faculty/:facultyId', authorize('admin', 'scheduling_officer', 'program_manager'), checkProgramAccess('Subject'), removeGuestFaculty);
 
 module.exports = router;

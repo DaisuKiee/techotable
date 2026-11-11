@@ -5,6 +5,7 @@ import {
   Download, FileText, BookOpen, AlertTriangle, UserCheck, Shuffle, RefreshCw, Mail, User,
 } from 'lucide-react';
 import Layout from '../components/Layout';
+import { Bone, SkeletonRegion } from '../components/ui/Skeleton';
 import { studentAPI, getErrorMessage } from '../services/api';
 import StudentModal from '../components/StudentModal';
 import BulkImportModal from '../components/BulkImportModal';
@@ -90,7 +91,6 @@ const FilterSelect = ({ value, onChange, children, label, disabled }) => (
 );
 
 // Static placeholders shaped like the real cards and rows (no pulse/shimmer)
-const Bone = ({ className = '' }) => <span className={`block rounded bg-gray-200 dark:bg-gray-700 ${className}`} />;
 
 const CardSkeleton = () => (
   <div className="flex flex-col rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800">
@@ -121,7 +121,7 @@ const CardSkeleton = () => (
 const TableSkeleton = () => (
   <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
     <div className="border-b border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-600 dark:bg-gray-700">
-      <Bone className="h-3 w-1/3 bg-gray-300 dark:bg-gray-600" />
+      <Bone className="h-3 w-1/3" />
     </div>
     <div className="divide-y divide-gray-200 dark:divide-gray-700">
       {Array.from({ length: 8 }).map((_, i) => (
@@ -347,10 +347,10 @@ const StudentPage = () => {
 
         {/* Stats double as quick filters */}
         <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
-          <StatCard icon={Users} label="Students" value={counts.total} hint={hasFilters ? 'matching filters' : 'in total'} tone="indigo" active={!hasFilters} onClick={clearFilters} />
-          <StatCard icon={UserCheck} label="Enrolled" value={counts.enrolled} hint="click to show only these" tone="emerald" active={filters.status === 'enrolled'} onClick={() => toggleFilter('status', 'enrolled')} />
-          <StatCard icon={AlertTriangle} label="No section" value={counts.unassigned} hint={counts.unassigned ? 'need a section assigned' : 'everyone is placed'} tone="amber" active={filters.assignment === 'unassigned'} onClick={() => toggleFilter('assignment', 'unassigned')} />
-          <StatCard icon={Shuffle} label="Irregular" value={counts.irregular} hint="take individual subjects" tone="blue" active={filters.studentType === 'irregular'} onClick={() => toggleFilter('studentType', 'irregular')} />
+          <StatCard loading={loading} icon={Users} label="Students" value={counts.total} hint={hasFilters ? 'matching filters' : 'in total'} tone="indigo" active={!hasFilters} onClick={clearFilters} />
+          <StatCard loading={loading} icon={UserCheck} label="Enrolled" value={counts.enrolled} hint="click to show only these" tone="emerald" active={filters.status === 'enrolled'} onClick={() => toggleFilter('status', 'enrolled')} />
+          <StatCard loading={loading} icon={AlertTriangle} label="No section" value={counts.unassigned} hint={counts.unassigned ? 'need a section assigned' : 'everyone is placed'} tone="amber" active={filters.assignment === 'unassigned'} onClick={() => toggleFilter('assignment', 'unassigned')} />
+          <StatCard loading={loading} icon={Shuffle} label="Irregular" value={counts.irregular} hint="take individual subjects" tone="blue" active={filters.studentType === 'irregular'} onClick={() => toggleFilter('studentType', 'irregular')} />
         </div>
 
         {/* Search and filters */}
@@ -428,13 +428,13 @@ const StudentPage = () => {
 
         {/* List */}
         {loading ? (
-          <div role="status" aria-busy="true" aria-label="Loading students">
+          <SkeletonRegion label="Loading students">
             {viewMode === 'list' ? <TableSkeleton /> : (
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {Array.from({ length: 6 }).map((_, i) => <CardSkeleton key={i} />)}
               </div>
             )}
-          </div>
+          </SkeletonRegion>
         ) : loadError && !students.length ? (
           <div className="rounded-xl border border-red-200 bg-red-50 p-8 text-center dark:border-red-900 dark:bg-red-900/20">
             <AlertTriangle className="mx-auto h-10 w-10 text-red-500" />
@@ -468,7 +468,7 @@ const StudentPage = () => {
             )}
           </div>
         ) : viewMode === 'grid' ? (
-          <div className={`grid grid-cols-1 gap-4 transition-opacity md:grid-cols-2 lg:grid-cols-3 ${refreshing ? 'opacity-60' : ''}`}>
+          <div className={`grid grid-cols-1 gap-4 sk-stagger transition-opacity md:grid-cols-2 lg:grid-cols-3 ${refreshing ? 'opacity-60' : ''}`}>
             {students.map((student) => (
               <div key={student._id} className="flex flex-col rounded-xl border border-gray-200 bg-white p-5 transition-all hover:border-blue-300 hover:shadow-lg dark:border-gray-700 dark:bg-gray-800 dark:hover:border-blue-700">
                 <div className="mb-4 flex items-start gap-3">

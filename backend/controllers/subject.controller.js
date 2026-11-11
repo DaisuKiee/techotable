@@ -537,3 +537,61 @@ exports.regenerateSubjectCode = async (req, res) => {
     sendError(res, error, 'Error regenerating subject enrollment code');
   }
 };
+
+// @desc    Approve a teacher from another department for this subject only
+// @route   POST /api/subjects/:id/guest-faculty   { facultyId }
+// @access  Private (admin, scheduling_officer, program_manager of the subject's program)
+exports.addGuestFaculty = async (req, res) => {
+  try {
+    const Faculty = require('../models/Faculty.model');
+    const { facultyId } = req.body;
+    const [subject, faculty] = await Promise.all([
+      Subject.findById(req.params.id),
+      facultyId ? Faculty.findById(facultyId).populate('user', 'firstName lastName').lean() : null,
+    ]);
+    if (!subject) return res.status(404).json({ success: false, message: 'Subject not found' });
+    if (req.user.role === 'program_manager' && subject.program && subject.program !== req.user.program) {
+      return res.status(403).json({ success: false, message: `You can only change ${req.user.program} subjects` });
+    }
+    if (!faculty || faculty.isActive === false) return res.status(404).json({ success: false, message: 'That teacher was not found or is inactive' });
+
+    if (!subject.guestFaculty.some(g => String(g.faculty) === String(faculty._id))) {
+      subject.guestFaculty.push({ faculty: faculty._id, addedBy: req.user._id });
+      await subject.save();
+    }
+    const name = `${faculty.user?.firstName || ''} ${faculty.user?.lastName || ''}`.trim() || 'The teacher';
+    res.json({
+      success: true,
+      message: `${name} can now be scheduled for ${subject.subjectCode}`,
+      data: { guestFaculty: subject.guestFaculty.map(g => String(g.faculty)) },
+    });
+  } catch (error) {
+    sendError(res, error, 'Could not approve that teacher');
+  }
+};
+
+// @desc    Withdraw that approval
+// @route   DELETE /api/subjects/:id/guest-faculty/:facultyId
+exports.removeGuestFaculty = async (req, res) => {
+  try {
+    if (req.user.role === 'program_manager') {
+      const own = await Subject.findById(req.params.id).select('program').lean();
+      if (own?.program && own.program !== req.user.program) {
+        return res.status(403).json({ success: false, message: `You can only change ${req.user.program} subjects` });
+      }
+    }
+    const subject = await Subject.findByIdAndUpdate(
+      req.params.id,
+      { $pull: { guestFaculty: { faculty: req.params.facultyId } } },
+      { new: true }
+    );
+    if (!subject) return res.status(404).json({ success: false, message: 'Subject not found' });
+    res.json({
+      success: true,
+      message: `Approval for ${subject.subjectCode} removed`,
+      data: { guestFaculty: subject.guestFaculty.map(g => String(g.faculty)) },
+    });
+  } catch (error) {
+    sendError(res, error, 'Could not remove the approval');
+  }
+};

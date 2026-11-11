@@ -16,6 +16,7 @@
  * Resend; plain Gmail will rewrite or flag the From.
  */
 
+const path = require('path');
 const nodemailer = require('nodemailer');
 
 let cached = null;
@@ -52,4 +53,13 @@ const envelope = () => ({
   ...(process.env.EMAIL_REPLY_TO ? { replyTo: process.env.EMAIL_REPLY_TO } : {}),
 });
 
-module.exports = { getTransport, fromHeader, senderAddress, envelope };
+/** The CTU seal travels inside each email as an inline image (Content-ID). */
+const LOGO_CID = 'ctu-logo@timetable';
+const LOGO_PATH = path.join(__dirname, '..', 'assets', 'email', 'ctu-logo.png');
+
+/** Inline attachments for the images an email's HTML references. */
+const inlineAssets = (html) => (String(html || '').includes(`cid:${LOGO_CID}`)
+  ? { attachments: [{ filename: 'ctu-logo.png', path: LOGO_PATH, cid: LOGO_CID, contentDisposition: 'inline' }] }
+  : {});
+
+module.exports = { getTransport, fromHeader, senderAddress, envelope, inlineAssets, LOGO_CID };

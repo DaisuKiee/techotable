@@ -1,3 +1,4 @@
+const { randomInt } = require('crypto'); // join codes act as access keys: use a CSPRNG
 const mongoose = require('mongoose');
 
 const { programFieldValidator } = require('../utils/programValidator');
@@ -94,7 +95,7 @@ SectionSchema.methods.generateEnrollmentCode = function() {
   const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   let code = '';
   for (let i = 0; i < 8; i++) {
-    code += characters.charAt(Math.floor(Math.random() * characters.length));
+    code += characters.charAt(randomInt(characters.length));
   }
   return code;
 };

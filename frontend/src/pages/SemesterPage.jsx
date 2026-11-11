@@ -6,6 +6,7 @@ import {
   Calendar, AlertTriangle, Info, ChevronDown, ChevronUp, Users, BookOpen, RefreshCw, History,
 } from 'lucide-react';
 import Layout from '../components/Layout';
+import { Bone, SkeletonRegion } from '../components/ui/Skeleton';
 import BaseModal from '../components/BaseModal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import StatCard from '../components/StatCard';
@@ -57,7 +58,6 @@ const typicalDates = (academicYear) => {
   };
 };
 
-const Bone = ({ className = '' }) => <span className={`block rounded bg-gray-200 dark:bg-gray-700 ${className}`} />;
 
 /* ---------------- School year form ---------------- */
 
@@ -291,7 +291,7 @@ const ArchiveTab = ({ program }) => {
   }, [selected, program]);
 
   if (error) return <p className="rounded-xl border border-red-200 bg-red-50 p-6 text-center text-sm text-red-800 dark:border-red-800 dark:bg-red-900/20 dark:text-red-200">{error}</p>;
-  if (!termsList) return <div className="space-y-3">{[0, 1, 2].map((i) => <Bone key={i} className="h-16 w-full rounded-xl" />)}</div>;
+  if (!termsList) return <SkeletonRegion label="Loading terms" className="space-y-3">{[0, 1, 2].map((i) => <Bone key={i} className="h-16 w-full rounded-xl" />)}</SkeletonRegion>;
   if (!termsList.length) {
     return (
       <div className="rounded-xl border-2 border-dashed border-gray-300 bg-white py-14 text-center dark:border-gray-600 dark:bg-gray-800">
@@ -318,7 +318,7 @@ const ArchiveTab = ({ program }) => {
       </div>
 
       {!sections ? (
-        <div className="space-y-3">{[0, 1, 2].map((i) => <Bone key={i} className="h-16 w-full rounded-xl" />)}</div>
+        <SkeletonRegion label="Loading terms" className="space-y-3">{[0, 1, 2].map((i) => <Bone key={i} className="h-16 w-full rounded-xl" />)}</SkeletonRegion>
       ) : sections.length === 0 ? (
         <p className="py-8 text-center text-sm text-gray-500 dark:text-gray-400">No sections were archived for this term.</p>
       ) : (
@@ -520,9 +520,34 @@ const SemesterPage = () => {
             <button type="button" onClick={load} className="mt-3 inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm text-white"><RefreshCw className="h-4 w-4" /> Try again</button>
           </div>
         ) : !list ? (
-          <div className="space-y-4"><Bone className="h-40 w-full rounded-2xl" /><Bone className="h-20 w-full rounded-xl" /><Bone className="h-20 w-full rounded-xl" /></div>
+          <SkeletonRegion label="Loading the current term" className="space-y-6">
+            <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-6">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <span className="flex h-4 items-center"><Bone className="h-2.5 w-24" /></span>
+                  <span className="mt-1 flex h-7 items-center"><Bone className="h-5 w-56" /></span>
+                  <span className="flex h-5 items-center"><Bone className="h-3 w-64 max-w-full" /></span>
+                </div>
+                <div className="flex flex-col items-end">
+                  <span className="flex h-9 items-center"><Bone className="h-7 w-12" /></span>
+                  <span className="flex h-4 items-center"><Bone className="h-2.5 w-14" /></span>
+                </div>
+              </div>
+              <div className="mt-4">
+                <Bone className="h-2.5 rounded-full" />
+                <span className="mt-1.5 flex h-4 items-center"><Bone className="h-2.5 w-44" /></span>
+              </div>
+              <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+                <StatCard loading icon={Layers} label="Sections" tone="indigo" />
+                <StatCard loading icon={Calendar} label="Schedules" tone="blue" />
+                <StatCard loading icon={Archive} label="Archived" tone="gray" />
+                <StatCard loading icon={Clock} label="Next term" tone="violet" />
+              </div>
+            </section>
+            <div className="space-y-3">{[0, 1].map((i) => <Bone key={i} className="h-20 w-full rounded-xl" />)}</div>
+          </SkeletonRegion>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-6 sk-enter">
             {/* Current term */}
             {current ? (
               <section className="rounded-2xl border border-emerald-200 bg-white p-5 shadow-sm dark:border-emerald-800/60 dark:bg-gray-800 sm:p-6">

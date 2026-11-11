@@ -226,6 +226,9 @@ export const facultyAPI = {
 export const subjectAPI = {
   getAll: (params) => api.get('/subjects', { params }),
   getById: (id) => api.get(`/subjects/${id}`),
+  // Teachers from other departments approved for this subject only
+  addGuestFaculty: (id, facultyId) => api.post(`/subjects/${id}/guest-faculty`, { facultyId }),
+  removeGuestFaculty: (id, facultyId) => api.delete(`/subjects/${id}/guest-faculty/${facultyId}`),
   create: (data) => api.post('/subjects', data),
   update: (id, data) => api.put(`/subjects/${id}`, data),
   delete: (id) => api.delete(`/subjects/${id}`),
@@ -313,6 +316,14 @@ export const scheduleAPI = {
   generate: (data) => api.post('/schedules/generate', data, { timeout: solverTimeout(data) }),
   preview: (data) => api.post('/schedules/preview', data, { timeout: solverTimeout(data) }),
   savePreview: (data) => api.post('/schedules/save-preview', data),
+  // Schedule builder assistant: solver suggestions for what's left, and AI Q&A
+  builderSuggest: (data) => api.post('/schedules/builder-suggest', data, { timeout: 90000 }),
+  builderAssistant: (data) => api.post('/schedules/builder-assistant', data, { timeout: 60000 }),
+  // B-LO's memory: saved conversation per section + notes it keeps about you
+  getBuilderMemory: (key) => api.get('/schedules/builder-assistant/memory', { params: { key } }),
+  clearBuilderConversation: (key) => api.delete('/schedules/builder-assistant/memory/conversation', { params: { key } }),
+  deleteBuilderNote: (noteId) => api.delete(`/schedules/builder-assistant/memory/notes/${noteId}`),
+  clearBuilderNotes: () => api.delete('/schedules/builder-assistant/memory/notes'),
   checkORToolsStatus: () => api.get('/schedules/ortools-status'),
   getConflicts: (summary = false) => api.get(`/schedules/conflicts${summary ? '?summary=true' : ''}`)
 };

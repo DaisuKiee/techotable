@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Bone, SkeletonRegion } from '../components/ui/Skeleton';
 import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout';
 import {
@@ -358,11 +359,11 @@ const AIInsightsPage = () => {
           </div>
 
           {loading ? (
-            <div className="space-y-3">
+            <SkeletonRegion label="Loading insights" className="space-y-3">
               {[1, 2, 3].map(i => (
-                <div key={i} className="h-24 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+                <Bone key={i} className="h-24 rounded-lg" />
               ))}
-            </div>
+            </SkeletonRegion>
           ) : insights.scheduleOptimization.length > 0 ? (
             <div className="space-y-3">
               {insights.scheduleOptimization.map((insight, index) => (
@@ -407,11 +408,11 @@ const AIInsightsPage = () => {
           </div>
 
           {loading ? (
-            <div className="space-y-3">
+            <SkeletonRegion label="Loading insights" className="space-y-3">
               {[1, 2].map(i => (
-                <div key={i} className="h-24 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+                <Bone key={i} className="h-24 rounded-lg" />
               ))}
-            </div>
+            </SkeletonRegion>
           ) : (
             <div className="space-y-4">
               {insights.resourceUtilization.map((insight, index) => (
@@ -447,11 +448,11 @@ const AIInsightsPage = () => {
         </div>
 
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <SkeletonRegion label="Loading insights" className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {[1, 2].map(i => (
-              <div key={i} className="h-32 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+              <Bone key={i} className="h-32 rounded-lg" />
             ))}
-          </div>
+          </SkeletonRegion>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {insights.predictions.map((prediction, index) => (
@@ -492,11 +493,11 @@ const AIInsightsPage = () => {
         </div>
 
         {loading ? (
-          <div className="space-y-3">
+          <SkeletonRegion label="Loading insights" className="space-y-3">
             {[1, 2, 3, 4].map(i => (
-              <div key={i} className="h-20 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+              <Bone key={i} className="h-20 rounded-lg" />
             ))}
-          </div>
+          </SkeletonRegion>
         ) : (
           <div className="space-y-3">
             {insights.recommendations.map((rec, index) => (

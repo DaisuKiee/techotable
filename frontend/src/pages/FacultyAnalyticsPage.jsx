@@ -5,6 +5,7 @@ import {
   ChevronDown, ChevronUp, Hourglass, Briefcase, Search, ArrowUpRight, Info,
 } from 'lucide-react';
 import Layout from '../components/Layout';
+import { Bone, SkeletonRegion } from '../components/ui/Skeleton';
 import { facultyAPI, scheduleAPI, getErrorMessage } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
@@ -310,8 +311,6 @@ const DayColumns = ({ rows }) => {
   );
 };
 
-/** Static skeleton block (no pulse). */
-const Bone = ({ className = '', style }) => <span style={style} className={`block rounded bg-gray-100 dark:bg-gray-700/70 ${className}`} />;
 
 const Chip = ({ on, onClick, children }) => (
   <button
@@ -590,7 +589,7 @@ const FacultyAnalyticsPage = () => {
               </div>
 
               {loading ? (
-                <div className="grid gap-4 lg:grid-cols-3" role="status" aria-label="Loading analytics">
+                <SkeletonRegion label="Loading analytics" className="grid gap-4 lg:grid-cols-3">
                   <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800 lg:col-span-2">
                     <Bone className="mb-2 h-4 w-48" /><Bone className="mb-6 h-3 w-72" />
                     {Array.from({ length: 10 }).map((_, i) => (
@@ -610,7 +609,7 @@ const FacultyAnalyticsPage = () => {
                       {[0, 1, 2].map((i) => <Bone key={i} className="mb-3 h-4 w-full" />)}
                     </div>
                   </div>
-                </div>
+                </SkeletonRegion>
               ) : stats.total === 0 ? (
                 <div className="rounded-2xl border border-dashed border-gray-300 py-16 text-center dark:border-gray-700">
                   <Users className="mx-auto mb-3 h-10 w-10 text-gray-300 dark:text-gray-600" />
@@ -618,7 +617,7 @@ const FacultyAnalyticsPage = () => {
                   <Link to="/faculty" className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white">Go to Faculty Management <ArrowUpRight className="h-4 w-4" /></Link>
                 </div>
               ) : (
-                <div className={`space-y-4 transition-opacity ${refreshing ? 'opacity-70' : ''}`}>
+                <div className={`space-y-4 sk-enter transition-opacity ${refreshing ? 'opacity-70' : ''}`}>
                   <div className="grid gap-4 lg:grid-cols-3">
                     {/* Workload per faculty */}
                     <Card

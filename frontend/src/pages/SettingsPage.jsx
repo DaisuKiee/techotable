@@ -6,10 +6,10 @@ import Layout from '../components/Layout';
 import { authAPI, getErrorMessage } from '../services/api';
 import toast from 'react-hot-toast';
 import {
-  Settings, Lock, Bell, Palette, Shield, Key, Mail, CheckCircle, AlertCircle, Info,
+  Settings, Bell, Palette, Shield, Key, Mail, CheckCircle, AlertCircle, Info,
   Moon, Sun, Monitor, Eye, EyeOff, Check, Loader2, Phone, Calendar, BookOpen,
   Megaphone, AlertTriangle, Newspaper, UserCircle, Clock, BadgeCheck, X,
-  Smartphone, LogOut, ShieldCheck, ShieldAlert, History, RefreshCw, AlarmClock,
+  Smartphone, LogOut, ShieldCheck, ShieldAlert, History, RefreshCw, AlarmClock, ChevronRight,
 } from 'lucide-react';
 import ConfirmDialog from '../components/ConfirmDialog';
 import ClassReminderPrompt from '../components/ClassReminderPrompt';
@@ -33,9 +33,9 @@ const TAB_KEY = 'settingsActiveTab';
 
 const readTab = () => {
   try {
-    return localStorage.getItem(TAB_KEY) || 'security';
+    return localStorage.getItem(TAB_KEY) || 'account';
   } catch {
-    return 'security';
+    return 'account';
   }
 };
 
@@ -65,6 +65,15 @@ const timeAgo = (value) => {
 };
 
 const isPhone = (device = '') => /Android|iOS/.test(device);
+
+const NETWORK_LABEL = { internet: 'Internet', 'local network': 'Local network', 'this computer': 'This computer' };
+
+/** "IP 122.54.97.10 · Internet": the device's address and where it connected from. */
+const ipText = (ip, network) => {
+  if (!ip) return 'IP not recorded';
+  const shown = /^127\./.test(ip) ? 'this computer (localhost)' : ip;
+  return `IP ${shown}${network && !/^127\./.test(ip) ? ` · ${NETWORK_LABEL[network] || network}` : ''}`;
+};
 
 /** What each failed sign-in reason means, in plain words. */
 const LOGIN_REASONS = {
@@ -373,13 +382,32 @@ const SettingsPage = () => {
     }
   };
 
-  const tabs = [
-    { id: 'security', label: 'Security', hint: 'Password and account', icon: Lock },
-    { id: 'notifications', label: 'Notifications', hint: 'What you’re told about', icon: Bell },
-    { id: 'appearance', label: 'Appearance', hint: 'Light or dark', icon: Palette },
-    { id: 'privacy', label: 'Privacy', hint: 'Who sees your contact info', icon: Shield },
+  // Settings grouped by category, so no single page grows into a long scroll
+  const groups = [
+    {
+      label: 'Account',
+      items: [
+        { id: 'account', label: 'Overview', icon: UserCircle },
+        { id: 'password', label: 'Password', icon: Key },
+        { id: 'devices', label: 'Devices', icon: Monitor, count: sessions?.length || null },
+        { id: 'activity', label: 'Sign-in activity', icon: History, count: failedToday || null, alert: failedToday > 0 },
+      ],
+    },
+    {
+      label: 'Preferences',
+      items: [
+        { id: 'notifications', label: 'Notifications', icon: Bell },
+        { id: 'appearance', label: 'Appearance', icon: Palette },
+      ],
+    },
+    {
+      label: 'Privacy',
+      items: [{ id: 'privacy', label: 'Contact info', icon: Shield }],
+    },
   ];
-  const tab = tabs.some((t) => t.id === activeTab) ? activeTab : 'security';
+  const tabs = groups.flatMap((g) => g.items);
+  // 'security' was the old all-in-one tab; land on the overview instead
+  const tab = tabs.some((t) => t.id === activeTab) ? activeTab : 'account';
 
   // Only the notices this role actually gets
   const appNotifications = [
@@ -465,36 +493,63 @@ const SettingsPage = () => {
               </div>
             </Link>
 
-            {/* Tabs: horizontal scroll on mobile, vertical on desktop */}
+            {/* Categories: one select on phones, grouped list on larger screens */}
+            <label className="block lg:hidden">
+              <span className="sr-only">Settings section</span>
+              <select
+                value={tab}
+                onChange={(e) => setActiveTab(e.target.value)}
+                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-dark-border-subtle dark:bg-dark-card dark:text-dark-text-primary"
+              >
+                {groups.map((g) => (
+                  <optgroup key={g.label} label={g.label}>
+                    {g.items.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+                  </optgroup>
+                ))}
+              </select>
+            </label>
             <nav
-              className="flex gap-1 overflow-x-auto rounded-2xl border border-gray-100 bg-white p-2 shadow-sm dark:border-dark-border-subtle dark:bg-dark-card lg:flex-col"
+              className="hidden rounded-2xl border border-gray-100 bg-white p-2 shadow-sm dark:border-dark-border-subtle dark:bg-dark-card lg:block"
               role="tablist"
               aria-label="Settings sections"
+              aria-orientation="vertical"
             >
-              {tabs.map(({ id, label, hint, icon: Icon }) => {
-                const active = tab === id;
-                return (
-                  <button
-                    key={id}
-                    id={`tab-${id}`}
-                    role="tab"
-                    aria-selected={active}
-                    aria-controls={`panel-${id}`}
-                    onClick={() => setActiveTab(id)}
-                    className={`flex items-center gap-3 whitespace-nowrap rounded-xl px-4 py-2.5 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 lg:w-full ${
-                      active
-                        ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25'
-                        : 'text-gray-700 hover:bg-gray-100 dark:text-dark-text-secondary dark:hover:bg-dark-hover'
-                    }`}
-                  >
-                    <Icon className="h-5 w-5 shrink-0" />
-                    <span className="min-w-0">
-                      <span className="block font-medium">{label}</span>
-                      <span className={`hidden text-xs lg:block ${active ? 'text-blue-100' : 'text-gray-500 dark:text-dark-text-muted'}`}>{hint}</span>
-                    </span>
-                  </button>
-                );
-              })}
+              {groups.map((g, gi) => (
+                <div key={g.label} className={gi ? 'mt-2 border-t border-gray-100 pt-2 dark:border-dark-border-subtle' : ''}>
+                  <p className="px-3 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-dark-text-muted">{g.label}</p>
+                  {g.items.map(({ id, label, icon: Icon, count, alert }) => {
+                    const active = tab === id;
+                    return (
+                      <button
+                        key={id}
+                        id={`tab-${id}`}
+                        role="tab"
+                        aria-selected={active}
+                        aria-controls={`panel-${id}`}
+                        onClick={() => setActiveTab(id)}
+                        className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+                          active
+                            ? 'bg-blue-600 font-semibold text-white shadow-sm'
+                            : 'text-gray-700 hover:bg-gray-100 dark:text-dark-text-secondary dark:hover:bg-dark-hover'
+                        }`}
+                      >
+                        <Icon className="h-4 w-4 shrink-0" />
+                        <span className="flex-1">{label}</span>
+                        {count ? (
+                          <span className={`rounded-full px-1.5 text-[11px] font-semibold ${
+                            active ? 'bg-white/25 text-white'
+                              : alert ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300'
+                                : 'bg-gray-100 text-gray-600 dark:bg-dark-elevated dark:text-dark-text-secondary'
+                          }`}
+                          >
+                            {count}
+                          </span>
+                        ) : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              ))}
             </nav>
 
             {/* Account status */}
@@ -526,14 +581,59 @@ const SettingsPage = () => {
           <main className="lg:col-span-3">
             <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm dark:border-dark-border-subtle dark:bg-dark-card sm:p-8">
 
-              {/* Security */}
-              {tab === 'security' && (
-                <div role="tabpanel" id="panel-security" aria-labelledby="tab-security">
-                  <SectionHeader title="Security" subtitle="Change your password and check your account details." />
+              {/* Account overview */}
+              {tab === 'account' && (
+                <div role="tabpanel" id="panel-account" aria-labelledby="tab-account">
+                  <SectionHeader title="Account" subtitle="Who you are signed in as, and the state of your account." />
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="rounded-xl border border-gray-100 bg-gray-50/70 p-5 dark:border-dark-border-subtle dark:bg-dark-elevated/60">
+                      <SubHeading icon={UserCircle}>Details</SubHeading>
+                      <dl className="space-y-3">
+                        {accountDetails.map(({ icon: Icon, label, value }) => (
+                          <div key={label} className="flex items-start gap-3">
+                            <Icon className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
+                            <div className="min-w-0">
+                              <dt className="text-xs text-gray-500 dark:text-dark-text-muted">{label}</dt>
+                              <dd className="break-words text-sm font-medium text-gray-900 dark:text-dark-text-primary">{value || '—'}</dd>
+                            </div>
+                          </div>
+                        ))}
+                      </dl>
+                      <p className="mt-4 flex gap-2 rounded-lg bg-blue-50 p-3 text-xs text-blue-800 dark:bg-blue-900/20 dark:text-blue-300">
+                        <Info className="h-4 w-4 shrink-0" />
+                        After 5 wrong passwords, sign-in is locked for 15 minutes and you’re notified.
+                      </p>
+                    </div>
+                    <div className="space-y-3">
+                      {[
+                        { id: 'password', icon: Key, title: 'Password', text: 'Change the password you sign in with.' },
+                        { id: 'devices', icon: Monitor, title: 'Devices', text: sessions ? `${sessions.length} device${sessions.length === 1 ? '' : 's'} signed in.` : 'Devices signed in to your account.' },
+                        { id: 'activity', icon: History, title: 'Sign-in activity', text: failedToday ? `${failedToday} failed sign-in${failedToday === 1 ? '' : 's'} in the last 24 hours.` : 'Recent attempts to sign in.' },
+                      ].map(({ id, icon: Icon, title, text }) => (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => setActiveTab(id)}
+                          className="flex w-full items-center gap-3 rounded-xl border border-gray-100 p-4 text-left transition hover:border-blue-200 hover:bg-blue-50/40 dark:border-dark-border-subtle dark:hover:border-blue-800 dark:hover:bg-blue-900/10"
+                        >
+                          <span className="rounded-lg bg-blue-50 p-2 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300"><Icon className="h-5 w-5" /></span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block font-medium text-gray-900 dark:text-dark-text-primary">{title}</span>
+                            <span className={`block text-sm ${id === 'activity' && failedToday ? 'text-orange-700 dark:text-orange-300' : 'text-gray-500 dark:text-dark-text-muted'}`}>{text}</span>
+                          </span>
+                          <ChevronRight className="h-4 w-4 text-gray-400" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
 
-                  <div className="grid grid-cols-1 gap-8 xl:grid-cols-5">
-                    <div className="xl:col-span-3">
-                      <SubHeading icon={Key}>Change password</SubHeading>
+              {/* Password */}
+              {tab === 'password' && (
+                <div role="tabpanel" id="panel-password" aria-labelledby="tab-password">
+                  <SectionHeader title="Password" subtitle="Use at least 8 characters. Other devices stay signed in until you sign them out." />
+                  <div className="max-w-xl">
                       <form onSubmit={handlePasswordChange} className="space-y-4" noValidate>
                         <PasswordField
                           id="currentPassword"
@@ -601,34 +701,19 @@ const SettingsPage = () => {
                           </Link>
                         </div>
                       </form>
-                    </div>
-
-                    {/* Account details */}
-                    <div className="self-start rounded-xl border border-gray-100 bg-gray-50/70 p-4 dark:border-dark-border-subtle dark:bg-dark-elevated/60 xl:col-span-2">
-                      <SubHeading icon={UserCircle}>Your account</SubHeading>
-                      <dl className="space-y-3">
-                        {accountDetails.map(({ icon: Icon, label, value }) => (
-                          <div key={label} className="flex items-start gap-3">
-                            <Icon className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
-                            <div className="min-w-0">
-                              <dt className="text-xs text-gray-500 dark:text-dark-text-muted">{label}</dt>
-                              <dd className="break-words text-sm font-medium text-gray-900 dark:text-dark-text-primary">{value || '—'}</dd>
-                            </div>
-                          </div>
-                        ))}
-                      </dl>
-                      <p className="mt-4 flex gap-2 rounded-lg bg-blue-50 p-3 text-xs text-blue-800 dark:bg-blue-900/20 dark:text-blue-300">
-                        <Info className="h-4 w-4 shrink-0" />
-                        After 5 wrong passwords, sign-in is locked for 15 minutes and you’re notified.
-                      </p>
-                    </div>
                   </div>
+                </div>
+              )}
 
-                  {/* Signed-in devices */}
-                  <div className="mt-10 border-t border-gray-100 pt-8 dark:border-dark-border-subtle">
-                    <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-                      <SubHeading icon={Monitor} hint="Devices signed in to your account right now.">Where you’re signed in</SubHeading>
-                      {sessions && sessions.filter((x) => !x.current).length > 0 && (
+              {/* Devices */}
+              {tab === 'devices' && (
+                <div role="tabpanel" id="panel-devices" aria-labelledby="tab-devices">
+                  <SectionHeader
+                    title="Devices"
+                    subtitle="Devices signed in to your account right now. Sign out any you don’t recognise."
+                    right={(
+                      <>
+                        {sessions && sessions.filter((x) => !x.current).length > 0 && (
                         <button
                           type="button"
                           onClick={() => setConfirmOthers(true)}
@@ -639,7 +724,9 @@ const SettingsPage = () => {
                           Sign out all other devices
                         </button>
                       )}
-                    </div>
+                      </>
+                    )}
+                  />
                     {!sessionsTracked && (
                       <p className="mb-3 rounded-lg bg-orange-50 p-3 text-xs text-orange-800 dark:bg-orange-900/20 dark:text-orange-300">
                         This browser signed in before device tracking started, so it isn’t listed. Sign out and back in to see it here.
@@ -666,7 +753,8 @@ const SettingsPage = () => {
                                   )}
                                 </p>
                                 <p className="text-xs text-gray-500 dark:text-dark-text-muted">
-                                  {sess.ip || 'Unknown network'} · {sess.current ? 'Active now' : `Last active ${timeAgo(sess.lastSeenAt)}`} · Signed in {formatDate(sess.createdAt)}
+                                  <span className="font-medium text-gray-700 dark:text-dark-text-secondary" title="The device's IP address">{ipText(sess.ip, sess.network)}</span>
+                                  {' · '}{sess.current ? 'Active now' : `Last active ${timeAgo(sess.lastSeenAt)}`} · Signed in {formatDate(sess.createdAt)}
                                 </p>
                               </div>
                               {!sess.current && (
@@ -685,16 +773,20 @@ const SettingsPage = () => {
                         })}
                       </ul>
                     )}
-                  </div>
+                  
+                </div>
+              )}
 
-                  {/* Sign-in history */}
-                  <div className="mt-10 border-t border-gray-100 pt-8 dark:border-dark-border-subtle">
-                    <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-                      <SubHeading icon={History} hint="The last 15 attempts to sign in to your account.">Recent sign-in activity</SubHeading>
-                      <button type="button" onClick={loadSecurity} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 dark:text-dark-text-secondary dark:hover:bg-dark-hover">
+              {/* Sign-in activity */}
+              {tab === 'activity' && (
+                <div role="tabpanel" id="panel-activity" aria-labelledby="tab-activity">
+                  <SectionHeader
+                    title="Sign-in activity"
+                    subtitle="The last 15 attempts to sign in to your account."
+                    right={<button type="button" onClick={loadSecurity} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 dark:text-dark-text-secondary dark:hover:bg-dark-hover">
                         <RefreshCw className="h-4 w-4" /> Refresh
-                      </button>
-                    </div>
+                      </button>}
+                  />
                     {failedToday > 0 && (
                       <div className="mb-3 flex gap-3 rounded-xl border border-orange-200 bg-orange-50 p-3 text-sm text-orange-900 dark:border-orange-800/60 dark:bg-orange-900/20 dark:text-orange-200">
                         <ShieldAlert className="h-5 w-5 shrink-0" />
@@ -719,7 +811,7 @@ const SettingsPage = () => {
                               <p className={`text-sm font-medium ${ev.success ? 'text-gray-900 dark:text-dark-text-primary' : 'text-red-700 dark:text-red-300'}`}>
                                 {LOGIN_REASONS[ev.reason] || (ev.success ? 'Signed in' : 'Failed sign-in')}
                               </p>
-                              <p className="truncate text-xs text-gray-500 dark:text-dark-text-muted">{ev.device} · {ev.ip || 'unknown network'}</p>
+                              <p className="truncate text-xs text-gray-500 dark:text-dark-text-muted">{ev.device} · {ipText(ev.ip, ev.network)}</p>
                             </div>
                             <time className="shrink-0 text-xs text-gray-500 dark:text-dark-text-muted" dateTime={ev.createdAt} title={formatDate(ev.createdAt, true)}>
                               {timeAgo(ev.createdAt)}
@@ -728,7 +820,7 @@ const SettingsPage = () => {
                         ))}
                       </ul>
                     )}
-                  </div>
+
                 </div>
               )}
 

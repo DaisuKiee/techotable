@@ -470,7 +470,7 @@ const generateChatResponseStream = async (userMessage, context = {}, conversatio
           temperature: options.temperature ?? 0.7,
           topK: 40,
           topP: 0.95,
-          maxOutputTokens: 2048,
+          maxOutputTokens: options.maxOutputTokens ?? 2048,
         },
       });
 
@@ -513,6 +513,18 @@ const generateChatResponseStream = async (userMessage, context = {}, conversatio
       }
 
       console.log(`✓ Stream success with API key ${index + 1} - Total ${chunkIndex} chunks, ${fullText.length} chars`);
+
+      // Ran out of room mid-answer: say so instead of ending on half a word
+      let truncated = false;
+      try {
+        const finish = (await result.response)?.candidates?.[0]?.finishReason;
+        truncated = finish === 'MAX_TOKENS';
+      } catch { /* finish reason unavailable */ }
+      if (truncated && onChunk) {
+        const note = '\n\n_(Answer cut short. Ask me to continue.)_';
+        fullText += note;
+        onChunk(note);
+      }
 
       return {
         success: true,
@@ -576,7 +588,7 @@ const generateChatResponse = async (userMessage, context = {}, conversationHisto
           temperature: options.temperature ?? 0.7,
           topK: 40,
           topP: 0.95,
-          maxOutputTokens: 1024,
+          maxOutputTokens: options.maxOutputTokens ?? 1024,
           responseMimeType: 'text/plain', // Force plain text/markdown output
         },
       });

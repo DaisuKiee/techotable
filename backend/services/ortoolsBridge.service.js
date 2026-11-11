@@ -125,6 +125,24 @@ async function loadInputs({ academicYear, semester, program, yearLevel, section,
       `No active subjects found for ${program} year ${yearLevel} semester ${semester}.`
     );
   }
+  // Teachers from other departments approved for specific subjects. They join
+  // the run, but only as candidates for the subjects they were approved for.
+  const inProgram = new Set(facultyDocs.map(f => String(f._id)));
+  const guestOnly = new Map(); // facultyId -> Set(subjectId)
+  for (const subj of subjects) {
+    for (const g of subj.guestFaculty || []) {
+      const id = String(g.faculty);
+      if (inProgram.has(id)) continue;
+      if (!guestOnly.has(id)) guestOnly.set(id, new Set());
+      guestOnly.get(id).add(String(subj._id));
+    }
+  }
+  if (guestOnly.size) {
+    const guests = await Faculty.find({ _id: { $in: [...guestOnly.keys()] }, isActive: true })
+      .populate('user', 'firstName lastName').lean();
+    facultyDocs.push(...guests);
+  }
+
   if (facultyDocs.length === 0) {
     throw new Error(`No active faculty are assigned to ${program}.`);
   }
@@ -145,7 +163,7 @@ async function loadInputs({ academicYear, semester, program, yearLevel, section,
   // section could pile classes onto the same teacher past their limit.
   const loads = await getFacultyLoads({ academicYear, semester });
 
-  return { subjects, facultyDocs, rooms, sections, existing, loads };
+  return { subjects, facultyDocs, rooms, sections, existing, loads, guestOnly };
 }
 
 /**
@@ -153,8 +171,8 @@ async function loadInputs({ academicYear, semester, program, yearLevel, section,
  */
 function preparePythonInput(data) {
   const {
-    subjects, facultyDocs, rooms, sections, existing, loads,
-    section, timeLimit, shift, academicYear, semester, program, yearLevel, weights,
+    subjects, facultyDocs, rooms, sections, existing, loads, guestOnly,
+    section, timeLimit, shift, academicYear, semester, program, yearLevel, weights, thorough,
   } = data;
 
   const preparedSubjects = subjects.map(subj => ({
@@ -191,6 +209,8 @@ function preparePythonInput(data) {
         day: u.day, start: u.startTime, end: u.endTime,
       })),
       experience,
+      // Borrowed from another department: only for these subjects
+      ...(guestOnly?.has(String(fac._id)) ? { only_subjects: [...guestOnly.get(String(fac._id))] } : {}),
     };
   });
 
@@ -269,6 +289,7 @@ function preparePythonInput(data) {
       max_block_hours: 3,
       workers: 8,
       ...(weights ? { weights } : {}),
+      ...(thorough ? { thorough: true } : {}),
     },
     parameters: {
       academic_year: academicYear,
@@ -523,6 +544,207 @@ function findConflicts(input, rawSchedules) {
 }
 
 /**
+ * What the plan traded away, in plain words. Any weighting buys some things
+ * by giving up others (favour experience and one teacher carries more; favour
+ * balance and a less experienced teacher gets a subject), so the preview says
+ * what this one gave up instead of presenting the score as the whole story.
+ */
+function summariseTradeoffs(input, rawSchedules) {
+  const list = Array.isArray(rawSchedules) ? rawSchedules : [];
+  if (!list.length) return null;
+  const toMin = (t) => {
+    const [h, m] = String(t || '0:0').split(':').map(Number);
+    return (h || 0) * 60 + (m || 0);
+  };
+  const required = (subj) => (subj.required_qualifications || []).map(q => String(q).toLowerCase());
+  const qualified = (f, subj) => {
+    const req = required(subj);
+    const specs = (f?.specializations || []).map(x => String(x).toLowerCase());
+    return req.length > 0 && req.some(r => specs.some(x => r.includes(x) || x.includes(r)));
+  };
+
+  let noExperience = 0;
+  let notQualified = 0;
+  let early = 0;
+  const load = new Map();
+  const byDay = new Map(); // section|day -> [[start,end]]
+  for (const s of list) {
+    const f = s.faculty;
+    const exp = parseInt((f?.experience || {})[String(s.subject?._id)], 10) || 0;
+    if (f && exp === 0) noExperience += 1;
+    if (f && required(s.subject).length && !qualified(f, s.subject)) notQualified += 1;
+    if (f?._id) load.set(String(f._id), { name: f.name, units: (load.get(String(f._id))?.units || 0) + (parseInt(s.subject?.units, 10) || 3), max: parseInt(f.max_teaching_load, 10) || 24, current: parseInt(f.current_load, 10) || 0 });
+    for (const t of s.time_slots || []) {
+      if (toMin(t.start_time) < 8 * 60) early += 1;
+      const key = `${s.section_code || s.section}|${t.day}`;
+      if (!byDay.has(key)) byDay.set(key, []);
+      byDay.get(key).push([toMin(t.start_time), toMin(t.end_time)]);
+    }
+  }
+
+  // Idle time between a section's classes on the same day (lunch excluded)
+  const lunch = (input.time_slots || []).filter(x => x.is_break).map(x => [toMin(x.start), toMin(x.end)]);
+  let idleMinutes = 0;
+  let longestGap = 0;
+  for (const spans of byDay.values()) {
+    spans.sort((a, b) => a[0] - b[0]);
+    for (let i = 1; i < spans.length; i++) {
+      let gap = spans[i][0] - spans[i - 1][1];
+      for (const [ls, le] of lunch) {
+        if (ls >= spans[i - 1][1] && le <= spans[i][0]) gap -= le - ls;
+      }
+      if (gap > 0) { idleMinutes += gap; longestGap = Math.max(longestGap, gap); }
+    }
+  }
+
+  const busiest = [...load.values()].sort((a, b) => (b.units + b.current) - (a.units + a.current))[0];
+  const nearCap = [...load.values()].filter(t => t.units + t.current >= t.max - 2).length;
+  const hrs = (m) => `${Math.round((m / 60) * 10) / 10} h`;
+
+  const notes = [];
+  if (notQualified) notes.push(`${notQualified} class${notQualified === 1 ? ' goes' : 'es go'} to a teacher outside the subject's required specialization.`);
+  if (noExperience) notes.push(`${noExperience} class${noExperience === 1 ? ' has' : 'es have'} a teacher with no record of teaching that subject.`);
+  if (nearCap) notes.push(`${nearCap} teacher${nearCap === 1 ? ' is' : 's are'} within 2 units of their load limit.`);
+  if (early) notes.push(`${early} meeting${early === 1 ? ' starts' : 's start'} before 8:00 AM.`);
+  if (longestGap >= 120) notes.push(`Students wait up to ${hrs(longestGap)} between classes on some days.`);
+  if (!notes.length) notes.push('Nothing notable was given up: every class has a qualified, experienced teacher, no early starts and no long waits.');
+
+  return {
+    notes,
+    facts: {
+      classes: list.length,
+      notQualified,
+      noExperience,
+      earlyStarts: early,
+      idleHours: Math.round((idleMinutes / 60) * 10) / 10,
+      longestGapHours: Math.round((longestGap / 60) * 10) / 10,
+      busiest: busiest ? { name: busiest.name, units: busiest.units + busiest.current, max: busiest.max } : null,
+    },
+  };
+}
+
+/**
+ * Close calls: classes where another teacher was about as good a fit as the
+ * one the solver picked (or a better fit it passed over to balance load or
+ * fit the timetable). Rather than hide that choice, the preview hands it to
+ * the person generating, who knows things the model doesn't.
+ *
+ * Works on either engine's output. An alternative is only offered if swapping
+ * it in alone keeps the timetable valid: the teacher is free at every one of
+ * the class's meetings (generated, saved and declared-unavailable times) and
+ * has load to spare. `spareUnits` lets the UI keep several swaps valid too.
+ */
+const CLOSE_MARGIN = 50; // objective points: 5 experience points at default weights
+
+function findCloseCalls(input, rawSchedules) {
+  if (!Array.isArray(rawSchedules) || !rawSchedules.length) return [];
+  const toMin = (t) => {
+    const [h, m] = String(t || '0:0').split(':').map(Number);
+    return (h || 0) * 60 + (m || 0);
+  };
+  const overlaps = (a, b) => a.day === b.day && a.start < b.end && b.start < a.end;
+  const weights = { experience: 10, qualified: 300, ...(input.options?.weights || {}) };
+  const unitsOf = (s) => parseInt(s.subject?.units, 10) || 3;
+
+  const fit = (f, subject) => {
+    const exp = parseInt((f.experience || {})[String(subject._id)], 10) || 0;
+    const required = (subject.required_qualifications || []).map(q => String(q).toLowerCase());
+    const specs = (f.specializations || []).map(s => String(s).toLowerCase());
+    const qualified = required.length > 0 && required.some(r => specs.some(s => r.includes(s) || s.includes(r)));
+    return { exp, qualified, score: exp * weights.experience + (qualified ? weights.qualified : 0) };
+  };
+
+  // Each teacher's busy time and units under the generated plan
+  const busy = new Map();
+  const units = new Map();
+  const addBusy = (id, slot) => {
+    if (!id) return;
+    if (!busy.has(id)) busy.set(id, []);
+    busy.get(id).push(slot);
+  };
+  rawSchedules.forEach((s, index) => {
+    const id = s.faculty?._id ? String(s.faculty._id) : null;
+    if (!id) return;
+    units.set(id, (units.get(id) || 0) + unitsOf(s));
+    for (const t of s.time_slots || []) addBusy(id, { day: t.day, start: toMin(t.start_time), end: toMin(t.end_time), index });
+  });
+  for (const row of input.existing || []) {
+    if (row.faculty_id) addBusy(String(row.faculty_id), { day: row.day, start: toMin(row.start_time), end: toMin(row.end_time), index: -1 });
+  }
+  for (const f of input.faculty || []) {
+    for (const w of f.unavailable || []) addBusy(String(f._id), { day: w.day, start: toMin(w.start), end: toMin(w.end), index: -1 });
+  }
+  const spare = (f) => (parseInt(f.max_teaching_load, 10) || 24)
+    - (parseInt(f.current_load, 10) || 0) - (units.get(String(f._id)) || 0);
+
+  const calls = [];
+  rawSchedules.forEach((s, index) => {
+    if (!s.faculty?._id || !s.subject) return;
+    const chosenId = String(s.faculty._id);
+    const chosenFit = fit(s.faculty, s.subject);
+    const meetings = (s.time_slots || []).map(t => ({ day: t.day, start: toMin(t.start_time), end: toMin(t.end_time) }));
+
+    const alternatives = (input.faculty || [])
+      .filter(f => String(f._id) !== chosenId)
+      .map(f => ({ f, ...fit(f, s.subject) }))
+      .filter(a => a.score >= chosenFit.score - CLOSE_MARGIN && a.score > 0)
+      .filter(a => spare(a.f) >= unitsOf(s))
+      .filter(a => !meetings.some(m => (busy.get(String(a.f._id)) || []).some(b => overlaps(m, b))))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3)
+      .map(a => ({
+        facultyId: String(a.f._id),
+        name: a.f.name,
+        experience: a.exp,
+        qualified: a.qualified,
+        spareUnits: spare(a.f),
+        why: a.score > chosenFit.score + CLOSE_MARGIN
+          ? 'Stronger fit on paper; the solver chose the other teacher to keep loads balanced or the timetable workable.'
+          : 'About as good a fit; the model has no strong reason to prefer either.',
+      }));
+
+    if (alternatives.length) {
+      calls.push({
+        index,
+        subjectCode: s.subject.subject_code,
+        subjectName: s.subject.subject_name,
+        sectionCode: s.section_code || s.section,
+        units: unitsOf(s),
+        chosen: { facultyId: chosenId, name: s.faculty.name, experience: chosenFit.exp, qualified: chosenFit.qualified },
+        alternatives,
+      });
+    }
+  });
+  return calls;
+}
+
+/**
+ * Warm start for CP-SAT: the built-in solver's quick plan (usually well under
+ * a second, capped at a small slice of the budget) goes in as solver hints, so
+ * OR-Tools spends its time limit improving a timetable rather than finding a
+ * first one. Any failure just means no hint.
+ */
+async function withWarmStart(pythonInput, timeLimit) {
+  try {
+    const budget = Math.max(1, Math.min(3, Math.round((Number(timeLimit) || 60) / 10)));
+    const quick = await solveInWorker({
+      ...pythonInput, time_limit: budget, options: { ...(pythonInput.options || {}), thorough: false },
+    });
+    if (!quick?.success || !quick.schedules?.length) return pythonInput;
+    const hint = quick.schedules.map(s => ({
+      subject_id: s.subject?._id,
+      section_code: s.section_code || s.section,
+      faculty_id: s.faculty?._id,
+      room_id: s.room?._id,
+      slots: (s.time_slots || []).map(t => ({ day: t.day, start: t.start_time, hours: t.hours })),
+    }));
+    return { ...pythonInput, options: { ...(pythonInput.options || {}), hint } };
+  } catch (err) {
+    return pythonInput;
+  }
+}
+
+/**
  * Run an engine on prepared input.
  *
  * engine 'auto' (the default) tries OR-Tools and, when it cannot run on this
@@ -536,7 +758,8 @@ async function solveWithEngine(pythonInput, engine, timeLimit) {
     return { result: await solveInWorker(pythonInput), engine: 'builtin' };
   }
   try {
-    return { result: await callPythonOptimizer(pythonInput, timeLimit + 15), engine: 'ortools' };
+    const hinted = await withWarmStart(pythonInput, timeLimit);
+    return { result: await callPythonOptimizer(hinted, timeLimit + 15), engine: 'ortools' };
   } catch (err) {
     if (!err.unavailable) throw err;
     console.warn('OR-Tools unavailable, using the built-in solver:', err.message.slice(0, 200));
@@ -557,12 +780,26 @@ async function solveWithEngine(pythonInput, engine, timeLimit) {
 async function runSolver(params) {
   const {
     academicYear, semester, program, yearLevel,
-    section, timeLimit = 60, shift = 'Day', weights, engine = 'auto',
+    section, timeLimit = 60, shift = 'Day', weights, engine = 'auto', thorough = false,
+    // Unsaved builder cards, same shape as Schedule rows: treated as fixed, so
+    // suggestions fit around them and don't repeat their subjects
+    extraExisting = [],
   } = params;
 
   const inputs = await loadInputs({
     academicYear, semester, program, yearLevel, section, shift,
   });
+  if (extraExisting.length) {
+    inputs.existing = [...(inputs.existing || []), ...extraExisting];
+    // Their units count against each teacher's cap like saved classes do
+    const units = new Map(inputs.subjects.map(sub => [String(sub._id), sub.units || 3]));
+    for (const row of extraExisting) {
+      if (!row.faculty || !inputs.loads?.set) continue;
+      const id = String(row.faculty);
+      const cur = inputs.loads.get(id) || { units: 0 };
+      inputs.loads.set(id, { ...cur, units: (cur.units || 0) + (units.get(String(row.subject)) || 3) });
+    }
+  }
 
   const pythonInput = preparePythonInput({
     ...inputs,
@@ -574,6 +811,7 @@ async function runSolver(params) {
     program,
     yearLevel,
     weights,
+    thorough,
   });
 
   const solved = await solveWithEngine(pythonInput, engine, timeLimit);
@@ -737,6 +975,10 @@ async function previewWithORTools(params) {
         // Re-derived from the output by findConflicts, not assumed from the
         // engine's status.
         conflicts,
+        // Classes where another teacher was about as good: the person decides
+        closeCalls: conflicts.length ? [] : findCloseCalls(pythonInput, result.schedules),
+        // What this weighting gave up, so the score isn't the whole story
+        tradeoffs: summariseTradeoffs(pythonInput, result.schedules),
         statistics: {
           ...buildStatistics(result, inputs, pythonInput, schedules),
           failedSubjects: failed.length,
@@ -827,4 +1069,6 @@ module.exports = {
   transformOptimizedSchedule,
   experienceScore,
   findConflicts,
+  findCloseCalls,
+  summariseTradeoffs,
 };

@@ -16,6 +16,7 @@ import { usePrograms } from '../hooks/usePrograms';
 import StatCard from '../components/StatCard';
 import { useAuth } from '../context/AuthContext';
 import CurrentTermBar from '../components/CurrentTermBar';
+import { Bone, SkeletonRegion } from '../components/ui/Skeleton';
 
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
 
@@ -125,23 +126,43 @@ const ShiftBadge = ({ shift, solid = false }) => {
   );
 };
 
+/** Loading: cards laid out like the section card (code, enrollment code, capacity, details, actions). */
 const GridSkeleton = () => (
-  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" aria-label="Loading sections">
+  <SkeletonRegion label="Loading sections" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
     {Array.from({ length: 6 }).map((_, i) => (
-      <div key={i} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 space-y-4">
-        <div className="flex justify-between">
-          <div className="space-y-2">
-            <div className="h-5 w-32 rounded bg-gray-200 dark:bg-gray-700" />
-            <div className="h-3 w-24 rounded bg-gray-100 dark:bg-gray-700/60" />
+      <div key={i} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 flex flex-col">
+        <div className="flex items-start justify-between gap-3 mb-4">
+          <div className="flex-1 min-w-0">
+            <div className="flex h-7 items-center gap-2 mb-1"><Bone className="h-5 w-5" /><Bone className="h-5 w-28" /></div>
+            <span className="flex h-5 items-center"><Bone className="h-3 w-28" /></span>
+            <div className="mt-2 flex items-center gap-2">
+              <Bone className="h-[58px] w-36 rounded-lg" />
+              <div className="flex flex-col gap-1"><Bone className="h-8 w-8 rounded-lg" /><Bone className="h-8 w-8 rounded-lg" /></div>
+            </div>
           </div>
-          <div className="h-7 w-16 rounded-full bg-gray-200 dark:bg-gray-700" />
+          <Bone className="h-7 w-16 rounded-full" />
         </div>
-        <div className="h-2.5 rounded-full bg-gray-200 dark:bg-gray-700" />
-        <div className="h-10 rounded bg-gray-100 dark:bg-gray-700/60" />
-        <div className="h-10 rounded bg-gray-200 dark:bg-gray-700" />
+        <div className="mb-4">
+          <div className="mb-1.5 flex h-5 items-center justify-between"><Bone className="h-3 w-28" /><Bone className="h-3 w-12" /></div>
+          <Bone className="h-2.5 rounded-full" />
+        </div>
+        <div className="space-y-2.5 mb-4 flex-1">
+          {[0, 1, 2].map((r) => (
+            <div key={r} className="flex items-center gap-2">
+              <Bone className="h-6 w-6 flex-shrink-0 rounded-full" />
+              <div className="flex-1 min-w-0">
+                <span className="flex h-4 items-center"><Bone className="h-2.5 w-16" /></span>
+                <span className="flex h-5 items-center"><Bone className="h-3" style={{ width: `${55 - r * 10}%` }} /></span>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="flex gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
+          <Bone className="h-10 flex-1 rounded-lg" /><Bone className="h-10 flex-1 rounded-lg" /><Bone className="h-10 w-11 rounded-lg" />
+        </div>
       </div>
     ))}
-  </div>
+  </SkeletonRegion>
 );
 
 /* ─── Students slide-over ────────────────────────────────────────────────── */
@@ -305,17 +326,17 @@ const SectionStudentsPanel = ({ section, onClose, onEdit, onCopyCode }) => {
         {/* Student list */}
         <div className="flex-1 overflow-y-auto p-3">
           {loading ? (
-            <div className="space-y-2" aria-label="Loading students">
+            <SkeletonRegion label="Loading students" className="space-y-2">
               {Array.from({ length: 7 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-3 p-3">
-                  <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700" />
-                  <div className="flex-1 space-y-2">
-                    <div className="h-3.5 w-1/2 rounded bg-gray-200 dark:bg-gray-700" />
-                    <div className="h-3 w-1/3 rounded bg-gray-100 dark:bg-gray-700/60" />
+                  <Bone className="w-10 h-10 flex-shrink-0 rounded-full" />
+                  <div className="flex-1 min-w-0">
+                    <span className="flex h-5 items-center"><Bone className="h-3.5" style={{ width: `${60 - (i % 3) * 10}%` }} /></span>
+                    <span className="flex h-4 items-center"><Bone className="h-2.5 w-24" /></span>
                   </div>
                 </div>
               ))}
-            </div>
+            </SkeletonRegion>
           ) : error ? (
             <div className="text-center py-12 px-4">
               <AlertTriangle className="w-10 h-10 text-red-500 mx-auto mb-3" />
@@ -742,15 +763,15 @@ const SectionPage = () => {
 
         {/* Statistics Cards. Day and Night double as quick shift filters. */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4 mb-6">
-          <StatCard icon={BookOpen} label="Total" value={stats.total} hint="Sections" tone="indigo" onClick={clearFilters} title="Show all sections" />
+          <StatCard loading={loading} icon={BookOpen} label="Total" value={stats.total} hint="Sections" tone="indigo" onClick={clearFilters} title="Show all sections" />
 
-          <StatCard icon={Sun} label="Day" value={stats.day} hint="Day shift · click to filter" tone="yellow" active={filterShift === 'Day'} onClick={() => toggleShift('Day')} title="Filter Day shift" />
+          <StatCard loading={loading} icon={Sun} label="Day" value={stats.day} hint="Day shift · click to filter" tone="yellow" active={filterShift === 'Day'} onClick={() => toggleShift('Day')} title="Filter Day shift" />
 
-          <StatCard icon={Moon} label="Night" value={stats.night} hint="Night shift · click to filter" tone="blue" active={filterShift === 'Night'} onClick={() => toggleShift('Night')} title="Filter Night shift" />
+          <StatCard loading={loading} icon={Moon} label="Night" value={stats.night} hint="Night shift · click to filter" tone="blue" active={filterShift === 'Night'} onClick={() => toggleShift('Night')} title="Filter Night shift" />
 
-          <StatCard icon={Users} label="Students" value={stats.totalStudents} hint="Total Enrolled" tone="blue" />
+          <StatCard loading={loading} icon={Users} label="Students" value={stats.totalStudents} hint="Total Enrolled" tone="blue" />
 
-          <StatCard icon={TrendingUp} label="Capacity" value={<>{stats.averageCapacity}%</>} hint="Avg. Filled" tone="blue" className="col-span-2 md:col-span-1" />
+          <StatCard loading={loading} icon={TrendingUp} label="Capacity" value={<>{stats.averageCapacity}%</>} hint="Avg. Filled" tone="blue" className="col-span-2 md:col-span-1" />
         </div>
 
         {/* Search and Filters */}
@@ -924,7 +945,7 @@ const SectionPage = () => {
             )}
           </div>
         ) : viewMode === 'grid' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sk-stagger">
             {filteredSections.map((section) => {
               const pct = fillPct(section);
               const adviserName = adviserNameOf(section);

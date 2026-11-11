@@ -184,6 +184,8 @@ const onReady = async () => {
   // the previous term). Checks shortly after start-up, then every 30 min.
   require('./services/academicTerm.service').startTermWatcher();
   require('./services/weeklyDigest.service').startDigestWatcher();
+  // Faculty: today's classes in the morning, and a heads-up before each class
+  require('./services/classReminder.service').startReminderWatcher();
 };
 
 const listen = (attempt = 1) => {

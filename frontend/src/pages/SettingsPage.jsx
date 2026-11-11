@@ -9,9 +9,10 @@ import {
   Settings, Lock, Bell, Palette, Shield, Key, Mail, CheckCircle, AlertCircle, Info,
   Moon, Sun, Monitor, Eye, EyeOff, Check, Loader2, Phone, Calendar, BookOpen,
   Megaphone, AlertTriangle, Newspaper, UserCircle, Clock, BadgeCheck, X,
-  Smartphone, LogOut, ShieldCheck, ShieldAlert, History, RefreshCw,
+  Smartphone, LogOut, ShieldCheck, ShieldAlert, History, RefreshCw, AlarmClock,
 } from 'lucide-react';
 import ConfirmDialog from '../components/ConfirmDialog';
+import ClassReminderPrompt from '../components/ClassReminderPrompt';
 
 /* ---------- Reusable UI pieces ---------- */
 
@@ -211,6 +212,7 @@ const DEFAULT_NOTIFICATIONS = {
   systemAlerts: true,
   classPosts: true,
   weeklyDigest: false,
+  classReminders: true,
 };
 
 const DEFAULT_PRIVACY = { showEmail: false, showPhone: false };
@@ -389,6 +391,11 @@ const SettingsPage = () => {
     {
       key: 'facultyAssignments', icon: BookOpen, title: 'Teaching assignments',
       description: 'When a class is assigned to you, or moved to another teacher.',
+      show: isFaculty,
+    },
+    {
+      key: 'classReminders', icon: AlarmClock, title: 'Class reminders',
+      description: 'Your classes for the day each morning, and a heads-up 15 minutes before each class starts.',
       show: isFaculty,
     },
     {
@@ -754,6 +761,11 @@ const SettingsPage = () => {
                           </div>
                         ) : (
                           <p className="text-sm text-gray-500">There are no optional notifications for your role.</p>
+                        )}
+                        {isFaculty && (
+                          <div className="mt-3">
+                            <ClassReminderPrompt variant="row" />
+                          </div>
                         )}
                         <p className="mt-3 text-xs text-gray-500 dark:text-dark-text-muted">
                           Important account messages, like your account being approved, are always sent.

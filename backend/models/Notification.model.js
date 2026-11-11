@@ -49,6 +49,11 @@ const NotificationSchema = new mongoose.Schema({
     // Short "before -> after" lines shown under the message
     changes: [String]
   },
+  // Set on notices that must go out once only (class reminders), e.g.
+  // "class:<scheduleId>:2026-11-10:08:00"
+  dedupeKey: {
+    type: String
+  },
   // Who caused it (shown as "by Maria Santos"), when known
   actorName: {
     type: String
@@ -67,6 +72,7 @@ const NotificationSchema = new mongoose.Schema({
 
 // Index for efficient queries
 NotificationSchema.index({ recipient: 1, isRead: 1, createdAt: -1 });
+NotificationSchema.index({ recipient: 1, dedupeKey: 1 }, { sparse: true });
 NotificationSchema.index({ createdAt: 1 }, { expireAfterSeconds: 2592000 }); // Auto-delete after 30 days
 
 module.exports = mongoose.model('Notification', NotificationSchema);

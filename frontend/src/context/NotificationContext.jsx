@@ -106,9 +106,14 @@ export const NotificationProvider = ({ children }) => {
       />
     ), { duration: 6000, position: 'top-right' });
 
-    if (typeof document !== 'undefined' && document.hidden && 'Notification' in window && Notification.permission === 'granted') {
+    // Class reminders always pop up on the desktop: the teacher may be in
+    // another window even while this tab counts as visible
+    const isReminder = ['class_reminder', 'today_classes'].includes(n.metadata?.kind);
+    if (typeof document !== 'undefined' && (document.hidden || isReminder) && 'Notification' in window && Notification.permission === 'granted') {
       try {
-        const desktop = new Notification(n.title, { body: n.message, tag: n._id, icon: '/favicon.png' });
+        const desktop = new Notification(n.title, {
+          body: n.message, tag: n._id, icon: '/favicon.png', requireInteraction: n.metadata?.kind === 'class_reminder',
+        });
         desktop.onclick = () => { window.focus(); open(n); desktop.close(); };
       } catch (_) { /* some browsers only allow this from a service worker */ }
     }

@@ -5,34 +5,12 @@
  * to students and faculty members
  */
 
-const nodemailer = require('nodemailer');
 const Student = require('../models/Student.model');
 const Faculty = require('../models/Faculty.model');
 const Schedule = require('../models/Schedule.model');
 
 // Create reusable transporter
-let transporter = null;
-
-const createTransporter = () => {
-  if (transporter) return transporter;
-
-  const consoleMode = process.env.EMAIL_CONSOLE_MODE === 'true';
-
-  if (consoleMode) {
-    console.log('📧 Email Console Mode: Emails will be logged to console');
-    return null;
-  }
-
-  transporter = nodemailer.createTransport({
-    service: process.env.EMAIL_SERVICE || 'gmail',
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASSWORD
-    }
-  });
-
-  return transporter;
-};
+const { getTransport, envelope } = require('./mailer');
 
 /**
  * Whether this address wants the email: its owner can turn email off
@@ -51,7 +29,11 @@ const wantsEmail = async (to, preference) => {
  * Send email notification
  * @param {object} [options]  { preference } - the Settings switch that covers it
  */
-const sendEmail = async (to, subject, html, { preference } = {}) => {
+const sendEmail = async (to, subject, html, { preference, text } = {}) => {
+  // Also accepts sendEmail(to, renderEmail(...), null, options)
+  if (subject && typeof subject === 'object') {
+    ({ subject, html, text } = { ...subject, text: text || subject.text });
+  }
   try {
     if (!(await wantsEmail(to, preference))) {
       return { success: true, skipped: 'recipient turned these emails off' };
@@ -63,22 +45,20 @@ const sendEmail = async (to, subject, html, { preference } = {}) => {
       console.log('\n📧 ===== EMAIL NOTIFICATION =====');
       console.log(`To: ${to}`);
       console.log(`Subject: ${subject}`);
-      console.log('HTML Content:');
-      console.log(html);
+      console.log(text || html);
       console.log('================================\n');
       return { success: true, mode: 'console' };
     }
 
-    const transporter = createTransporter();
-    
     const mailOptions = {
-      from: `CTU Daanbantayan Schedule System <${process.env.EMAIL_USER}>`,
+      ...envelope(),
       to,
       subject,
-      html
+      html,
+      ...(text ? { text } : {}),
     };
 
-    const info = await transporter.sendMail(mailOptions);
+    const info = await getTransport().sendMail(mailOptions);
     console.log(`✅ Email sent to ${to}: ${info.messageId}`);
     
     return { success: true, messageId: info.messageId };
@@ -88,306 +68,207 @@ const sendEmail = async (to, subject, html, { preference } = {}) => {
   }
 };
 
-/**
- * Generate HTML template for schedule notification
- */
-const generateScheduleEmailHTML = (type, scheduleData, recipientName) => {
-  const { subject, section, faculty, timeSlots, room, academicYear, semester } = scheduleData;
-  
-  const actionText = type === 'published' 
-    ? 'has been published' 
-    : 'has been updated';
-  
-  const actionColor = type === 'published' 
-    ? '#10b981' 
-    : '#f59e0b';
+const T = require('./emailTemplates');
+const { loadRoomsByRawValues, labelFor, looksLikeObjectId } = require('../utils/roomLabel');
 
-  const timeSlotsHTML = timeSlots && timeSlots.length > 0
-    ? timeSlots.map(ts => `
-        <tr>
-          <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">
-            <strong>${ts.day}</strong>
-          </td>
-          <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">
-            ${ts.startTime} - ${ts.endTime}
-          </td>
-        </tr>
-      `).join('')
-    : '<tr><td colspan="2" style="padding: 8px; text-align: center;">No time slots specified</td></tr>';
+/** Same link format as the in-app notifications: /classes/cc317-bsit-3a-d */
+const classPath = (subjectCode, sectionCode) => `/classes/${[subjectCode || 'class', sectionCode || '']
+  .filter(Boolean).join('-').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}`;
 
-  return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Schedule ${type === 'published' ? 'Published' : 'Updated'}</title>
-    </head>
-    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-      <!-- Header -->
-      <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-        <h1 style="color: white; margin: 0; font-size: 28px;">📅 Schedule ${type === 'published' ? 'Published' : 'Update'}</h1>
-      </div>
+const personName = (u) => (u ? `${u.firstName || ''} ${u.lastName || ''}`.trim() : '') || null;
+const firstName = (name) => String(name || '').trim().split(/\s+/)[0] || 'there';
+const SPACER = '<div style="height:18px;line-height:18px;">&nbsp;</div>';
 
-      <!-- Content -->
-      <div style="background: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px;">
-        <p style="font-size: 16px; margin-bottom: 20px;">Hello <strong>${recipientName}</strong>,</p>
-        
-        <div style="background: ${actionColor}15; border-left: 4px solid ${actionColor}; padding: 15px; margin: 20px 0; border-radius: 5px;">
-          <p style="margin: 0; color: ${actionColor}; font-weight: bold;">
-            📢 A schedule ${actionText}
-          </p>
-        </div>
-
-        <!-- Schedule Details -->
-        <div style="background: #f9fafb; padding: 20px; border-radius: 8px; margin: 20px 0;">
-          <h2 style="color: #667eea; margin-top: 0; font-size: 20px;">Schedule Details</h2>
-          
-          <table style="width: 100%; margin-top: 15px;">
-            <tr>
-              <td style="padding: 8px 0; color: #6b7280; width: 40%;"><strong>Subject:</strong></td>
-              <td style="padding: 8px 0;">
-                <strong style="color: #111827;">${subject?.subjectCode || 'N/A'}</strong><br/>
-                <span style="color: #6b7280; font-size: 14px;">${subject?.subjectName || ''}</span>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 0; color: #6b7280;"><strong>Section:</strong></td>
-              <td style="padding: 8px 0; color: #111827;">${section?.sectionCode || 'N/A'}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 0; color: #6b7280;"><strong>Faculty:</strong></td>
-              <td style="padding: 8px 0; color: #111827;">${faculty?.user?.firstName || ''} ${faculty?.user?.lastName || 'N/A'}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 0; color: #6b7280;"><strong>Room:</strong></td>
-              <td style="padding: 8px 0; color: #111827;">${room?.roomNumber || 'N/A'} ${room?.building ? `(${room.building})` : ''}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 0; color: #6b7280;"><strong>Academic Year:</strong></td>
-              <td style="padding: 8px 0; color: #111827;">${academicYear || 'N/A'}, Semester ${semester || 'N/A'}</td>
-            </tr>
-          </table>
-
-          <!-- Time Slots -->
-          <h3 style="color: #667eea; margin-top: 20px; margin-bottom: 10px; font-size: 18px;">📅 Schedule Time</h3>
-          <table style="width: 100%; border-collapse: collapse;">
-            <thead>
-              <tr style="background: #f3f4f6;">
-                <th style="padding: 10px; text-align: left; color: #374151; border-bottom: 2px solid #e5e7eb;">Day</th>
-                <th style="padding: 10px; text-align: left; color: #374151; border-bottom: 2px solid #e5e7eb;">Time</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${timeSlotsHTML}
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Call to Action -->
-        <div style="text-align: center; margin: 30px 0;">
-          <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/schedules" 
-             style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 14px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
-            View Full Schedule
-          </a>
-        </div>
-
-        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
-
-        <p style="font-size: 14px; color: #6b7280; margin-bottom: 10px;">
-          Please check your schedule regularly for any updates.
-        </p>
-
-        <p style="font-size: 14px; color: #6b7280;">
-          Best regards,<br/>
-          <strong>CTU Daanbantayan Scheduling System</strong>
-        </p>
-      </div>
-
-      <!-- Footer -->
-      <div style="text-align: center; margin-top: 20px; padding: 20px; color: #9ca3af; font-size: 12px;">
-        <p>This is an automated notification. Please do not reply to this email.</p>
-        <p>© ${new Date().getFullYear()} CTU Daanbantayan. All rights reserved.</p>
-      </div>
-    </body>
-    </html>
-  `;
+/** Schedule with subject, teacher and a readable room label. */
+const loadScheduleForEmail = async (scheduleId) => {
+  const schedule = await Schedule.findById(scheduleId)
+    .populate('subject', 'subjectCode subjectName')
+    .populate({ path: 'faculty', populate: { path: 'user', select: 'firstName lastName email' } })
+    .lean();
+  if (!schedule) return null;
+  const raw = schedule.room ? String(schedule.room) : null;
+  if (raw && looksLikeObjectId(raw)) {
+    const rooms = await loadRoomsByRawValues([raw]);
+    schedule.roomLabel = labelFor(rooms.get(raw)) || null;
+  } else {
+    schedule.roomLabel = raw;
+  }
+  return schedule;
 };
 
 /**
- * Generate HTML template for announcement notification
+ * Schedule published / updated.
+ * @param {'published'|'updated'} type
+ * @param {'student'|'faculty'} audience
+ * @returns {{ subject, html, text }}
  */
-const generateAnnouncementEmailHTML = (announcementData, classData, recipientName) => {
-  const { title, content, postedBy } = announcementData;
-  const { subjectCode, subjectName, sectionCode } = classData;
-  const facultyName = `${postedBy?.firstName || ''} ${postedBy?.lastName || 'Faculty'}`;
+const scheduleEmail = (type, schedule, recipientName, audience = 'student') => {
+  const published = type === 'published';
+  const code = schedule.subject?.subjectCode || 'Your class';
+  const name = schedule.subject?.subjectName || '';
+  const section = schedule.sectionCode || '';
+  const teacher = personName(schedule.faculty?.user);
+  const term = T.termLabel(schedule.academicYear, schedule.semester);
+  const slots = T.sortSlots(schedule.timeSlots || []);
+  const tone = published ? 'success' : 'warning';
+  const forFaculty = audience === 'faculty';
 
-  return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>New Announcement</title>
-    </head>
-    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-      <!-- Header -->
-      <div style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-        <h1 style="color: white; margin: 0; font-size: 28px;">📢 New Announcement</h1>
-      </div>
+  const lead = forFaculty
+    ? (published
+      ? `Your teaching schedule for <strong>${T.esc(code)}</strong>${section ? ` with <strong>${T.esc(section)}</strong>` : ''} is now published. Your students can see it too.`
+      : `Something changed in your teaching schedule for <strong>${T.esc(code)}</strong>. Please check the times and room below.`)
+    : (published
+      ? `Your class schedule for <strong>${T.esc(code)}</strong> is now published. Here’s when and where you’ll meet.`
+      : `Your schedule for <strong>${T.esc(code)}</strong> changed. Please check the times and room below.`);
 
-      <!-- Content -->
-      <div style="background: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px;">
-        <p style="font-size: 16px; margin-bottom: 20px;">Hello <strong>${recipientName}</strong>,</p>
-        
-        <div style="background: #3b82f615; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0; border-radius: 5px;">
-          <p style="margin: 0; color: #3b82f6; font-weight: bold;">
-            📣 New announcement in ${subjectCode}
-          </p>
-        </div>
+  const body = [
+    T.paragraph(lead),
+    T.sectionTitle('When you meet'),
+    T.meetings(slots, tone),
+    T.sectionTitle('Class details'),
+    T.details([
+      ['Subject', name ? `${code} – ${name}` : code],
+      ['Section', section],
+      forFaculty ? null : ['Teacher', teacher],
+      ['Room', schedule.roomLabel],
+      ['Term', term],
+    ].filter(Boolean)),
+    published ? '' : `${SPACER}${T.callout('Double-check before your next class', 'The time or room may differ from what you saved or printed earlier.', 'warning')}`,
+  ].join('');
 
-        <!-- Class Info -->
-        <div style="background: #f9fafb; padding: 15px; border-radius: 8px; margin: 20px 0;">
-          <table style="width: 100%;">
-            <tr>
-              <td style="padding: 4px 0; color: #6b7280; width: 30%;"><strong>Class:</strong></td>
-              <td style="padding: 4px 0; color: #111827;">
-                <strong>${subjectCode}</strong> - ${subjectName}
-              </td>
-            </tr>
-            <tr>
-              <td style="padding: 4px 0; color: #6b7280;"><strong>Section:</strong></td>
-              <td style="padding: 4px 0; color: #111827;">${sectionCode}</td>
-            </tr>
-            <tr>
-              <td style="padding: 4px 0; color: #6b7280;"><strong>Posted by:</strong></td>
-              <td style="padding: 4px 0; color: #111827;">${facultyName}</td>
-            </tr>
-          </table>
-        </div>
+  const textBody = [
+    forFaculty
+      ? (published ? `Your teaching schedule for ${code}${section ? ` (${section})` : ''} is now published.` : `Your teaching schedule for ${code} changed.`)
+      : (published ? `Your class schedule for ${code} is now published.` : `Your schedule for ${code} changed.`),
+    '',
+    'When you meet:',
+    ...(slots.length ? slots.map((sl) => `  ${sl.day}  ${T.fmtTime(sl.startTime)} – ${T.fmtTime(sl.endTime)}`) : ['  No meeting times set yet.']),
+    '',
+    `Subject: ${name ? `${code} – ${name}` : code}`,
+    section ? `Section: ${section}` : null,
+    !forFaculty && teacher ? `Teacher: ${teacher}` : null,
+    schedule.roomLabel ? `Room: ${schedule.roomLabel}` : null,
+    term ? `Term: ${term}` : null,
+  ].filter((l) => l !== null).join('\n');
 
-        <!-- Announcement Content -->
-        <div style="background: #ffffff; border: 2px solid #3b82f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
-          <h2 style="color: #1e40af; margin-top: 0; font-size: 20px; margin-bottom: 15px;">${title}</h2>
-          <div style="color: #374151; font-size: 15px; line-height: 1.8; white-space: pre-wrap;">${content}</div>
-        </div>
-
-        <!-- Call to Action -->
-        <div style="text-align: center; margin: 30px 0;">
-          <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/class-spaces" 
-             style="display: inline-block; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; padding: 14px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
-            View in Class Space
-          </a>
-        </div>
-
-        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
-
-        <p style="font-size: 14px; color: #6b7280;">
-          Best regards,<br/>
-          <strong>CTU Daanbantayan Scheduling System</strong>
-        </p>
-      </div>
-
-      <!-- Footer -->
-      <div style="text-align: center; margin-top: 20px; padding: 20px; color: #9ca3af; font-size: 12px;">
-        <p>This is an automated notification. Please do not reply to this email.</p>
-        <p>© ${new Date().getFullYear()} CTU Daanbantayan. All rights reserved.</p>
-      </div>
-    </body>
-    </html>
-  `;
+  return T.renderEmail({
+    subject: `${published ? 'Schedule published' : 'Schedule changed'}: ${code}${section ? ` · ${section}` : ''}`,
+    preheader: slots.length
+      ? `${slots.map((sl) => `${sl.day.slice(0, 3)} ${T.fmtTime(sl.startTime)}`).join(', ')}${schedule.roomLabel ? ` · ${schedule.roomLabel}` : ''}`
+      : `${code} schedule ${published ? 'published' : 'updated'}`,
+    tone,
+    eyebrow: published ? 'Schedule published' : 'Schedule changed',
+    title: name ? `${code} · ${name}` : code,
+    greeting: `Hi ${firstName(recipientName)},`,
+    body,
+    textBody,
+    cta: { label: published ? 'Open my class' : 'See the new schedule', url: T.url(classPath(code, section)) },
+    reason: forFaculty
+      ? 'You’re getting this because “Teaching assignments” is on in your notification settings.'
+      : 'You’re getting this because “Schedule changes” is on in your notification settings.',
+    manageLink: true,
+  });
 };
 
-/**
- * Generate HTML template for material notification
- */
-const generateMaterialEmailHTML = (materialData, classData, recipientName) => {
-  const { title, description, fileName, uploadedBy } = materialData;
+/** New announcement in a class. */
+const announcementEmail = (announcement, classData, recipientName) => {
   const { subjectCode, subjectName, sectionCode } = classData;
-  const facultyName = `${uploadedBy?.firstName || ''} ${uploadedBy?.lastName || 'Faculty'}`;
+  const author = personName(announcement.postedBy) || 'Your teacher';
+  const title = announcement.title || `New announcement in ${subjectCode}`;
+  const content = String(announcement.content || '');
+  const excerpt = content.replace(/\s+/g, ' ').trim();
 
-  return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>New Material Uploaded</title>
-    </head>
-    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-      <!-- Header -->
-      <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-        <h1 style="color: white; margin: 0; font-size: 28px;">📎 New Material Uploaded</h1>
-      </div>
+  const body = [
+    T.paragraph(`<strong>${T.esc(author)}</strong> posted in <strong>${T.esc(subjectCode)}</strong>${sectionCode ? ` · ${T.esc(sectionCode)}` : ''}.`),
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tr>
+        <td bgcolor="#f9fafb" style="background:#f9fafb;border:1px solid #e5e7eb;border-left:4px solid #2563eb;border-radius:10px;padding:18px 20px;font-family:${T.FONT};">
+          <p style="margin:0;font-size:15px;line-height:1.65;color:#374151;">${T.paragraphs(content) || '<em>No message.</em>'}</p>
+        </td>
+      </tr>
+    </table>`,
+    T.sectionTitle('Class'),
+    T.details([
+      ['Subject', subjectName ? `${subjectCode} – ${subjectName}` : subjectCode],
+      ['Section', sectionCode],
+      ['Posted by', author],
+    ]),
+  ].join('');
 
-      <!-- Content -->
-      <div style="background: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px;">
-        <p style="font-size: 16px; margin-bottom: 20px;">Hello <strong>${recipientName}</strong>,</p>
-        
-        <div style="background: #10b98115; border-left: 4px solid #10b981; padding: 15px; margin: 20px 0; border-radius: 5px;">
-          <p style="margin: 0; color: #10b981; font-weight: bold;">
-            📚 New material uploaded in ${subjectCode}
-          </p>
-        </div>
+  return T.renderEmail({
+    subject: `${subjectCode}: ${title}`,
+    preheader: `${author}: ${excerpt.slice(0, 110)}${excerpt.length > 110 ? '…' : ''}`,
+    tone: 'info',
+    eyebrow: `New announcement · ${subjectCode}`,
+    title,
+    greeting: `Hi ${firstName(recipientName)},`,
+    body,
+    textBody: [`${author} posted in ${subjectCode}${sectionCode ? ` (${sectionCode})` : ''}:`, '', content.trim()].join('\n'),
+    cta: { label: 'Open the class', url: T.url(classPath(subjectCode, sectionCode)) },
+    reason: 'You’re getting this because “Announcements & materials” is on in your notification settings.',
+    manageLink: true,
+  });
+};
 
-        <!-- Class Info -->
-        <div style="background: #f9fafb; padding: 15px; border-radius: 8px; margin: 20px 0;">
-          <table style="width: 100%;">
-            <tr>
-              <td style="padding: 4px 0; color: #6b7280; width: 30%;"><strong>Class:</strong></td>
-              <td style="padding: 4px 0; color: #111827;">
-                <strong>${subjectCode}</strong> - ${subjectName}
-              </td>
-            </tr>
-            <tr>
-              <td style="padding: 4px 0; color: #6b7280;"><strong>Section:</strong></td>
-              <td style="padding: 4px 0; color: #111827;">${sectionCode}</td>
-            </tr>
-            <tr>
-              <td style="padding: 4px 0; color: #6b7280;"><strong>Uploaded by:</strong></td>
-              <td style="padding: 4px 0; color: #111827;">${facultyName}</td>
-            </tr>
-          </table>
-        </div>
+const FILE_KINDS = [
+  ['PDF', /\.pdf$/i], ['DOC', /\.(docx?|odt|rtf|txt)$/i], ['PPT', /\.(pptx?|odp|key)$/i],
+  ['XLS', /\.(xlsx?|csv|ods)$/i], ['IMG', /\.(png|jpe?g|gif|webp|svg|bmp)$/i],
+  ['ZIP', /\.(zip|rar|7z|tar|gz)$/i], ['VID', /\.(mp4|mov|avi|mkv|webm)$/i],
+];
+const fileKindOf = (name) => (FILE_KINDS.find(([, re]) => re.test(name || '')) || ['FILE'])[0];
+const fmtSize = (bytes) => {
+  if (!bytes) return '';
+  return bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+};
 
-        <!-- Material Details -->
-        <div style="background: #ffffff; border: 2px solid #10b981; padding: 20px; border-radius: 8px; margin: 20px 0;">
-          <div style="display: flex; align-items: center; margin-bottom: 15px;">
-            <div style="width: 48px; height: 48px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-right: 15px;">
-              <span style="color: white; font-size: 24px;">📄</span>
-            </div>
-            <div>
-              <h2 style="color: #047857; margin: 0; font-size: 18px;">${title}</h2>
-              <p style="color: #6b7280; margin: 5px 0 0 0; font-size: 13px;">${fileName || 'File'}</p>
-            </div>
-          </div>
-          ${description ? `<p style="color: #374151; font-size: 14px; margin-top: 15px;">${description}</p>` : ''}
-        </div>
+/** New material in a class. */
+const materialEmail = (material, classData, recipientName) => {
+  const { subjectCode, subjectName, sectionCode } = classData;
+  const author = personName(material.uploadedBy) || 'Your teacher';
+  const kind = fileKindOf(material.fileName || material.fileUrl);
+  const size = fmtSize(material.fileSize);
+  const title = material.title || material.fileName || 'New material';
 
-        <!-- Call to Action -->
-        <div style="text-align: center; margin: 30px 0;">
-          <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/class-spaces" 
-             style="display: inline-block; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 14px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
-            Download Material
-          </a>
-        </div>
+  const body = [
+    T.paragraph(`<strong>${T.esc(author)}</strong> shared a file in <strong>${T.esc(subjectCode)}</strong>${sectionCode ? ` · ${T.esc(sectionCode)}` : ''}.`),
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+           style="border:1px solid #e5e7eb;border-radius:10px;border-collapse:separate;">
+      <tr>
+        <td width="64" style="padding:16px 0 16px 16px;vertical-align:top;">
+          <div style="width:48px;height:56px;line-height:56px;border-radius:8px;background:#475569;color:#ffffff;text-align:center;font-family:${T.FONT};font-size:12px;font-weight:800;letter-spacing:.04em;">${T.esc(kind)}</div>
+        </td>
+        <td style="padding:16px;vertical-align:top;font-family:${T.FONT};">
+          <p style="margin:0;font-size:16px;font-weight:700;color:#111827;">${T.esc(title)}</p>
+          <p style="margin:4px 0 0;font-size:13px;color:#6b7280;word-break:break-all;">${T.esc(material.fileName || '')}${size ? ` · ${T.esc(size)}` : ''}</p>
+          ${material.description ? `<p style="margin:10px 0 0;font-size:14px;line-height:1.6;color:#374151;">${T.paragraphs(material.description)}</p>` : ''}
+        </td>
+      </tr>
+    </table>`,
+    T.sectionTitle('Class'),
+    T.details([
+      ['Subject', subjectName ? `${subjectCode} – ${subjectName}` : subjectCode],
+      ['Section', sectionCode],
+      ['Shared by', author],
+    ]),
+  ].join('');
 
-        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
-
-        <p style="font-size: 14px; color: #6b7280;">
-          Best regards,<br/>
-          <strong>CTU Daanbantayan Scheduling System</strong>
-        </p>
-      </div>
-
-      <!-- Footer -->
-      <div style="text-align: center; margin-top: 20px; padding: 20px; color: #9ca3af; font-size: 12px;">
-        <p>This is an automated notification. Please do not reply to this email.</p>
-        <p>© ${new Date().getFullYear()} CTU Daanbantayan. All rights reserved.</p>
-      </div>
-    </body>
-    </html>
-  `;
+  return T.renderEmail({
+    subject: `${subjectCode}: new material – ${title}`,
+    preheader: `${author} shared ${material.fileName || 'a file'}${size ? ` (${size})` : ''}`,
+    tone: 'info',
+    eyebrow: `New material · ${subjectCode}`,
+    title,
+    greeting: `Hi ${firstName(recipientName)},`,
+    body,
+    textBody: [
+      `${author} shared a file in ${subjectCode}${sectionCode ? ` (${sectionCode})` : ''}:`,
+      `${title}${material.fileName ? ` – ${material.fileName}` : ''}${size ? ` (${size})` : ''}`,
+      material.description ? `\n${material.description}` : null,
+    ].filter(Boolean).join('\n'),
+    cta: { label: 'Open the class to download', url: T.url(classPath(subjectCode, sectionCode)) },
+    reason: 'You’re getting this because “Announcements & materials” is on in your notification settings.',
+    manageLink: true,
+  });
 };
 
 /**
@@ -421,16 +302,7 @@ const getStudentsForSection = async (sectionCode, program, yearLevel, semester, 
  */
 const notifyStudents = async (scheduleId, type = 'published') => {
   try {
-    const schedule = await Schedule.findById(scheduleId)
-      .populate('subject', 'subjectCode subjectName')
-      .populate('section', 'sectionCode')
-      .populate('faculty')
-      .populate({
-        path: 'faculty',
-        populate: { path: 'user', select: 'firstName lastName' }
-      })
-      .populate('room', 'roomNumber building')
-      .lean();
+    const schedule = await loadScheduleForEmail(scheduleId);
 
     if (!schedule) {
       throw new Error('Schedule not found');
@@ -438,7 +310,7 @@ const notifyStudents = async (scheduleId, type = 'published') => {
 
     // Get students for this section
     const students = await getStudentsForSection(
-      schedule.section?.sectionCode,
+      schedule.sectionCode,
       schedule.program,
       schedule.yearLevel,
       schedule.semester,
@@ -453,15 +325,12 @@ const notifyStudents = async (scheduleId, type = 'published') => {
     console.log(`📧 Sending notifications to ${students.length} students...`);
 
     const results = await Promise.allSettled(
-      students.map(student => {
-        const studentName = `${student.user.firstName} ${student.user.lastName}`;
-        const html = generateScheduleEmailHTML(type, schedule, studentName);
-        const subject = type === 'published' 
-          ? `📅 New Schedule Published - ${schedule.subject?.subjectCode || 'Schedule'}`
-          : `🔄 Schedule Updated - ${schedule.subject?.subjectCode || 'Schedule'}`;
-        
-        return sendEmail(student.user.email, subject, html, { preference: 'scheduleUpdates' });
-      })
+      students.map((student) => sendEmail(
+        student.user.email,
+        scheduleEmail(type, schedule, personName(student.user), 'student'),
+        null,
+        { preference: 'scheduleUpdates' }
+      ))
     );
 
     const sent = results.filter(r => r.status === 'fulfilled' && r.value.success).length;
@@ -477,38 +346,28 @@ const notifyStudents = async (scheduleId, type = 'published') => {
 };
 
 /**
- * Notify faculty about schedule changes
+ * Notify the teacher about schedule changes
  */
 const notifyFaculty = async (scheduleId, type = 'published') => {
   try {
-    const schedule = await Schedule.findById(scheduleId)
-      .populate('subject', 'subjectCode subjectName')
-      .populate('section', 'sectionCode')
-      .populate('faculty')
-      .populate({
-        path: 'faculty',
-        populate: { path: 'user', select: 'firstName lastName email' }
-      })
-      .populate('room', 'roomNumber building')
-      .lean();
+    const schedule = await loadScheduleForEmail(scheduleId);
 
     if (!schedule || !schedule.faculty || !schedule.faculty.user || !schedule.faculty.user.email) {
       console.log('⚠️  No faculty email found for this schedule');
       return { sent: 0, failed: 0 };
     }
 
-    const facultyName = `${schedule.faculty.user.firstName} ${schedule.faculty.user.lastName}`;
-    const html = generateScheduleEmailHTML(type, schedule, facultyName);
-    const subject = type === 'published' 
-      ? `📅 New Schedule Published - ${schedule.subject?.subjectCode || 'Schedule'}`
-      : `🔄 Your Schedule Has Been Updated - ${schedule.subject?.subjectCode || 'Schedule'}`;
-
     console.log(`📧 Sending notification to faculty: ${schedule.faculty.user.email}`);
 
-    const result = await sendEmail(schedule.faculty.user.email, subject, html, { preference: 'facultyAssignments' });
+    const result = await sendEmail(
+      schedule.faculty.user.email,
+      scheduleEmail(type, schedule, personName(schedule.faculty.user), 'faculty'),
+      null,
+      { preference: 'facultyAssignments' }
+    );
 
-    return { 
-      sent: result.success ? 1 : 0, 
+    return {
+      sent: result.success ? 1 : 0,
       failed: result.success ? 0 : 1,
       total: 1
     };
@@ -627,6 +486,8 @@ const notifyAnnouncement = async (classSpaceId, announcementId) => {
     
     const classSpace = await ClassSpace.findById(classSpaceId)
       .populate('subject', 'subjectCode subjectName')
+      .populate('announcements.postedBy', 'firstName lastName')
+      .populate('materials.uploadedBy', 'firstName lastName')
       .lean();
 
     if (!classSpace) {
@@ -658,13 +519,12 @@ const notifyAnnouncement = async (classSpaceId, announcementId) => {
     };
 
     const results = await Promise.allSettled(
-      students.map(student => {
-        const studentName = `${student.user.firstName} ${student.user.lastName}`;
-        const html = generateAnnouncementEmailHTML(announcement, classData, studentName);
-        const subject = `📢 New Announcement in ${classData.subjectCode}`;
-        
-        return sendEmail(student.user.email, subject, html, { preference: 'classPosts' });
-      })
+      students.map((student) => sendEmail(
+        student.user.email,
+        announcementEmail(announcement, classData, personName(student.user)),
+        null,
+        { preference: 'classPosts' }
+      ))
     );
 
     const sent = results.filter(r => r.status === 'fulfilled' && r.value.success).length;
@@ -688,6 +548,8 @@ const notifyMaterial = async (classSpaceId, materialId) => {
     
     const classSpace = await ClassSpace.findById(classSpaceId)
       .populate('subject', 'subjectCode subjectName')
+      .populate('announcements.postedBy', 'firstName lastName')
+      .populate('materials.uploadedBy', 'firstName lastName')
       .lean();
 
     if (!classSpace) {
@@ -719,13 +581,12 @@ const notifyMaterial = async (classSpaceId, materialId) => {
     };
 
     const results = await Promise.allSettled(
-      students.map(student => {
-        const studentName = `${student.user.firstName} ${student.user.lastName}`;
-        const html = generateMaterialEmailHTML(material, classData, studentName);
-        const subject = `📎 New Material in ${classData.subjectCode}`;
-        
-        return sendEmail(student.user.email, subject, html, { preference: 'classPosts' });
-      })
+      students.map((student) => sendEmail(
+        student.user.email,
+        materialEmail(material, classData, personName(student.user)),
+        null,
+        { preference: 'classPosts' }
+      ))
     );
 
     const sent = results.filter(r => r.status === 'fulfilled' && r.value.success).length;
@@ -746,5 +607,9 @@ module.exports = {
   notifyFaculty,
   notifyScheduleChange,
   notifyAnnouncement,
-  notifyMaterial
+  notifyMaterial,
+  // For previews and tests
+  scheduleEmail,
+  announcementEmail,
+  materialEmail,
 };

@@ -391,7 +391,7 @@ exports.updateSettings = async (req, res) => {
     const SETTINGS_FIELDS = {
       notifications: {
         emailNotifications: 'boolean', scheduleUpdates: 'boolean', facultyAssignments: 'boolean',
-        systemAlerts: 'boolean', classPosts: 'boolean', weeklyDigest: 'boolean',
+        systemAlerts: 'boolean', classPosts: 'boolean', weeklyDigest: 'boolean', classReminders: 'boolean',
       },
       appearance: { theme: ['light', 'dark', 'system'], language: ['en', 'fil', 'ceb'], timezone: 'string' },
       privacy: { showEmail: 'boolean', showPhone: 'boolean' },
@@ -445,7 +445,8 @@ exports.getSettings = async (req, res) => {
         scheduleUpdates: true,
         facultyAssignments: true,
         systemAlerts: true,
-        weeklyDigest: false
+        weeklyDigest: false,
+        classReminders: true
       },
       appearance: {
         theme: 'light',

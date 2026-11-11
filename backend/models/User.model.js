@@ -187,6 +187,8 @@ const UserSchema = new mongoose.Schema({
       systemAlerts: { type: Boolean, default: true },
       classPosts: { type: Boolean, default: true },
       weeklyDigest: { type: Boolean, default: false },
+      // Faculty: today's classes each morning + a heads-up before each class
+      classReminders: { type: Boolean, default: true },
       lastDigestAt: { type: Date, default: null }
     },
     appearance: {

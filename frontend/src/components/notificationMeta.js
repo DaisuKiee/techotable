@@ -1,12 +1,14 @@
 import {
   CalendarClock, CalendarPlus, CalendarX2, CalendarCheck2, UserCog, Megaphone, FileText,
-  GraduationCap, ShieldCheck, UserPlus, Bell, ArrowRightLeft,
+  GraduationCap, ShieldCheck, UserPlus, Bell, ArrowRightLeft, AlarmClock, CalendarDays,
 } from 'lucide-react';
 
 // Icon + colour for a notification, from its type and what happened (metadata.kind)
 export const notificationLook = (n) => {
   const kind = n?.metadata?.kind;
   if (n?.type === 'schedule') {
+    if (kind === 'class_reminder') return { Icon: AlarmClock, tone: 'bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-300' };
+    if (kind === 'today_classes') return { Icon: CalendarDays, tone: 'bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-300' };
     if (kind === 'created' || kind === 'generated') return { Icon: CalendarPlus, tone: 'bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-300' };
     if (kind === 'removed') return { Icon: CalendarX2, tone: 'bg-red-100 text-red-600 dark:bg-red-900/50 dark:text-red-300' };
     if (kind === 'published') return { Icon: CalendarCheck2, tone: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/50 dark:text-emerald-300' };

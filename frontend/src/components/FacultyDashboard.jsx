@@ -11,6 +11,7 @@ import AnimatedClock from './AnimatedClock';
 import dashboardBg from '../assets/images/backgrounds/bg.jpg';
 import { useLiveRefresh } from '../context/NotificationContext';
 import { profileCompleteness } from '../utils/profileCompleteness';
+import ClassReminderPrompt from './ClassReminderPrompt';
 
 const PROFILE_SNOOZE_KEY = 'facultyDashboard.profileSnoozedUntil';
 
@@ -352,6 +353,9 @@ const FacultyDashboard = ({ user }) => {
   return (
     <div className={`space-y-5 transition-opacity ${refreshing ? 'opacity-80' : ''}`}>
       {header}
+
+      {/* Ask for desktop notifications before the first class reminder is due */}
+      {classes.length > 0 && <ClassReminderPrompt />}
 
       <ProfilePrompt user={user} faculty={faculty} />
 

@@ -454,7 +454,7 @@ const LandingPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-950 to-gray-950 text-white overflow-hidden">
+    <div className="reveal-zoom min-h-screen bg-gradient-to-br from-blue-900 via-blue-950 to-gray-950 text-white overflow-hidden">
       {/* Navigation overlay: the same walk, compressed into the 0.8s before
           the route changes */}
       {navigating && <CampusWalkLoader duration={0.8} compact />}

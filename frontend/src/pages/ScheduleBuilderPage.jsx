@@ -4,7 +4,7 @@ import { ArrowLeft, School } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Layout from '../components/Layout';
 import ScheduleBuilder from '../components/ScheduleBuilder';
-import { Bone, SkeletonRegion } from '../components/ui/Skeleton';
+import CampusWalkLoader from '../components/CampusWalkLoader';
 import { sectionAPI, subjectAPI, facultyAPI, roomAPI, getErrorMessage } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
@@ -95,6 +95,16 @@ const ScheduleBuilderPage = () => {
   const loading = sections === null;
   const ready = !!(selectedSection && filters);
 
+  // Opening the builder plays the same campus walk as the landing page, but
+  // only inside the workspace — the sidebar, header and page bar stay usable.
+  // It is held for the length of the walk so a fast load doesn't flash it.
+  const [walkDone, setWalkDone] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setWalkDone(true), 1400);
+    return () => clearTimeout(timer);
+  }, []);
+  const preloading = loading || !walkDone;
+
   return (
     <Layout>
       <div className="mx-auto flex h-[calc(100dvh-7.5rem)] min-h-[640px] max-w-[1800px] flex-col gap-3 lg:h-[calc(100dvh-6.25rem)]">
@@ -133,13 +143,11 @@ const ScheduleBuilderPage = () => {
           </div>
         </div>
 
-        {/* Workspace */}
-        <div className="min-h-0 flex-1">
-          {loading && sectionId ? (
-            <SkeletonRegion label="Loading the builder" className="flex h-full gap-3">
-              <Bone className="h-full w-64 rounded-2xl" />
-              <Bone className="h-full flex-1 rounded-2xl" />
-            </SkeletonRegion>
+        {/* Workspace. Once the walk is over the builder zooms gently in, so
+            the hand-off from preloader to workspace is one movement. */}
+        <div className={`min-h-0 flex-1 ${preloading ? '' : 'reveal-zoom'}`}>
+          {preloading ? (
+            <CampusWalkLoader inline compact duration={1.3} />
           ) : ready ? (
             <ScheduleBuilder
               key={selectedSection._id}

@@ -22,9 +22,19 @@ const CampusWalkLoader = ({
   caption = 'Heading to campus…',
   compact = false,         // no title/caption, smaller scene
   fading = false,          // fade the whole screen out (end of preload)
+  // Fill the parent instead of the whole screen, for loading one area of a
+  // page (the schedule builder's workspace) while the rest stays usable
+  inline = false,
 }) => (
   <div
-    className={`fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-gradient-to-br from-blue-900 via-blue-950 to-gray-950 px-4 transition-opacity duration-300 ${
+    className={`${
+      inline
+        // Inside the app, so it follows the theme: a daylight panel in light
+        // mode, the night scene in dark mode. The full-screen version always
+        // stays night, since the landing page it covers is dark either way.
+        ? 'relative h-full w-full rounded-2xl border border-gray-200 bg-gradient-to-br from-sky-50 via-white to-slate-100 dark:border-gray-700 dark:from-blue-900 dark:via-blue-950 dark:to-gray-950'
+        : 'fixed inset-0 z-50 bg-gradient-to-br from-blue-900 via-blue-950 to-gray-950'
+    } flex items-center justify-center overflow-hidden px-4 transition-opacity duration-300 ${
       fading ? 'opacity-0' : 'opacity-100'
     }`}
     style={{ '--cw-d': `${duration}s` }}
@@ -95,8 +105,11 @@ const CampusWalkLoader = ({
       }
     `}</style>
 
-    {/* Night sky */}
-    <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+    {/* Night sky: stars only make sense against the dark scene */}
+    <div
+      className={`pointer-events-none absolute inset-0 ${inline ? 'hidden dark:block' : ''}`}
+      aria-hidden="true"
+    >
       {[
         [8, 14, 0], [18, 32, 0.6], [30, 9, 1.2], [44, 22, 0.3], [62, 12, 1.6],
         [74, 28, 0.9], [86, 16, 0.2], [92, 36, 1.3], [12, 48, 1.8], [80, 52, 0.5],
@@ -138,7 +151,10 @@ const CampusWalkLoader = ({
         aria-hidden="true"
       >
         {/* Drifting cloud */}
-        <g className="cw-cloud" fill="#ffffff" opacity=".08">
+        <g
+          className={`cw-cloud ${inline ? 'text-slate-300 opacity-80 dark:text-white dark:opacity-10' : 'text-white opacity-10'}`}
+          fill="currentColor"
+        >
           <ellipse cx="120" cy="22" rx="26" ry="7" />
           <ellipse cx="136" cy="17" rx="14" ry="7" />
         </g>
@@ -167,24 +183,46 @@ const CampusWalkLoader = ({
           </g>
         ))}
 
-        {/* CTU gate */}
+        {/* CTU Daanbantayan building: two storeys, flat roof and a covered
+            second-floor walkway, like the campus itself. It used to be a
+            columned hall under a triangular pediment, which read as a
+            generic ivy-league temple rather than this school. */}
         <g>
           {/* Light spilling out of the doorway once the student is near */}
-          <path className="cw-beam" d="M277 101 L266 112 H310 L299 101 Z" fill="#facc15" />
-          <rect x="250" y="62" width="76" height="39" rx="2" fill="#1e3a8a" stroke="#3b82f6" strokeWidth="1.2" />
-          <path d="M244 63 L288 40 L332 63 Z" fill="#1e40af" stroke="#60a5fa" strokeWidth="1.2" strokeLinejoin="round" />
-          {/* CTU seal on the gable */}
-          <circle cx="288" cy="54" r="6.2" fill="#ffffff" stroke="#facc15" strokeWidth=".8" />
-          <image href={ctuLogo} x="282.6" y="48.6" width="10.8" height="10.8" preserveAspectRatio="xMidYMid meet" />
-          {[256, 270, 306, 320].map((x) => (
-            <rect key={x} x={x - 2} y="65" width="4" height="36" fill="#93c5fd" opacity=".35" />
+          <path className="cw-beam" d="M280 101 L269 112 H307 L296 101 Z" fill="#facc15" />
+
+          {/* Flat roof slab, overhanging a little */}
+          <rect x="242" y="52" width="92" height="5" rx="1" fill="#1e40af" stroke="#60a5fa" strokeWidth="1" />
+          {/* Two-storey block */}
+          <rect x="246" y="57" width="84" height="44" fill="#1e3a8a" stroke="#3b82f6" strokeWidth="1.2" />
+          {/* Signage band under the roof line */}
+          <rect x="260" y="58.6" width="56" height="3.6" rx="1" fill="#facc15" opacity=".7" />
+
+          {/* Walkway rail between the floors */}
+          <rect x="246" y="77" width="84" height="2.4" fill="#1e40af" />
+          <rect x="246" y="79.4" width="84" height="0.9" fill="#60a5fa" opacity=".45" />
+
+          {/* Classroom windows, upper and lower floor */}
+          {[252, 263, 311, 322].map((x) => (
+            <rect key={`u${x}`} x={x} y="65.5" width="7" height="9" rx="1" fill="#93c5fd" opacity=".4" />
           ))}
-          {/* Doorway: dark until the student arrives, then warm light */}
-          <path d="M277 101 V79 a11 11 0 0 1 22 0 V101 Z" fill="#0f172a" />
-          <path className="cw-door" d="M277 101 V79 a11 11 0 0 1 22 0 V101 Z" fill="#fde68a" />
-          {/* Flag on the roof */}
-          <rect x="287.4" y="30" width="1.2" height="12" fill="#cbd5e1" />
-          <path d="M288.6 30.5 h9 l-2.5 3 l2.5 3 h-9 Z" fill="#facc15" />
+          {[252, 263, 311, 322].map((x) => (
+            <rect key={`l${x}`} x={x} y="84" width="7" height="10" rx="1" fill="#93c5fd" opacity=".32" />
+          ))}
+
+          {/* CTU seal on the facade, above the entrance */}
+          <circle cx="288" cy="69" r="6.4" fill="#ffffff" stroke="#facc15" strokeWidth=".8" />
+          <image href={ctuLogo} x="282.6" y="63.6" width="10.8" height="10.8" preserveAspectRatio="xMidYMid meet" />
+
+          {/* Entrance canopy, doorway (dark until the student arrives) and steps */}
+          <rect x="273" y="81" width="30" height="2.4" rx="1" fill="#1e40af" stroke="#60a5fa" strokeWidth=".6" />
+          <rect x="280" y="84" width="16" height="17" rx="1" fill="#0f172a" />
+          <rect className="cw-door" x="280" y="84" width="16" height="17" rx="1" fill="#fde68a" />
+          <rect x="276" y="99.4" width="24" height="1.8" rx=".6" fill="#475569" />
+
+          {/* Flagpole on the roof */}
+          <rect x="287.4" y="38" width="1.2" height="14" fill="#cbd5e1" />
+          <path d="M288.6 38.5 h9 l-2.5 3 l2.5 3 h-9 Z" fill="#facc15" />
         </g>
 
         {/* The student: a chubby kid in the school polo, waddling to class.
@@ -260,8 +298,8 @@ const CampusWalkLoader = ({
       </svg>
 
       {/* Progress along the path, in step with the walk */}
-      <div className={`mt-4 h-1 w-full overflow-hidden rounded-full bg-white/10 ${compact ? 'max-w-[200px]' : 'max-w-[260px]'}`}>
-        <div className="cw-progress h-full rounded-full bg-gradient-to-r from-blue-500 via-yellow-400 to-white" />
+      <div className={`mt-4 h-1 w-full overflow-hidden rounded-full ${inline ? 'bg-slate-900/10 dark:bg-white/10' : 'bg-white/10'} ${compact ? 'max-w-[200px]' : 'max-w-[260px]'}`}>
+        <div className={`cw-progress h-full rounded-full bg-gradient-to-r from-blue-500 via-yellow-400 ${inline ? 'to-blue-600 dark:to-white' : 'to-white'}`} />
       </div>
 
       {!compact && caption && (

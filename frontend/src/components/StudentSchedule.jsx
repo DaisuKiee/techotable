@@ -3,11 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { classSpaceAPI } from '../services/api';
 import toast from 'react-hot-toast';
 import {
-  Calendar, Clock, MapPin, User, Users, BookOpen, UserPlus, List, Grid3x3,
+  Calendar, Clock, MapPin, User, BookOpen, UserPlus, List, Grid3x3,
   AlertTriangle, RefreshCw, Search, X, ExternalLink
 } from 'lucide-react';
 import { ModalShell } from './modal/ModalShell';
-import { Bone, SkeletonRegion, TodayStripSkeleton, ScheduleToolbarSkeleton, WeekGridSkeleton } from './ui/Skeleton';
+import { exportSectionProgram } from '../utils/officialProgramExport';
+import { exportSectionProgramExcel } from '../utils/officialProgramExcel';
+import { ExportMenu } from './ui/ExportMenu';
+import { SkeletonRegion, TodayStripSkeleton, ScheduleToolbarSkeleton, WeekGridSkeleton } from './ui/Skeleton';
 
 // Import background images (same as ClassSpacePage)
 import bg1 from '../assets/images/class-spaces-bg/GOOGLE-BLUES.jpe';
@@ -132,31 +135,13 @@ const layoutDay = (list) => {
 
 /* ─── Small presentational pieces ───────────────────────────────────────── */
 
-/** Loading: the real stat tiles, toolbar and week grid, with shimmer in place of data. */
+/** Loading: the real toolbar and week grid, with shimmer in place of data. */
 const Skeleton = () => (
   <SkeletonRegion label="Loading your schedule" className="space-y-4">
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-      <StatTile icon={BookOpen} label="Classes" tone="bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300" value={<Bone as="span" className="inline-block h-5 w-10 align-middle" />} />
-      <StatTile icon={Calendar} label="Class days" tone="bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300" value={<Bone as="span" className="inline-block h-5 w-10 align-middle" />} />
-      <StatTile icon={Clock} label="In class per week" tone="bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-300" value={<Bone as="span" className="inline-block h-5 w-10 align-middle" />} />
-      <StatTile icon={Users} label="Instructors" tone="bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-300" value={<Bone as="span" className="inline-block h-5 w-10 align-middle" />} />
-    </div>
     <TodayStripSkeleton />
     <ScheduleToolbarSkeleton />
     <WeekGridSkeleton rowH={72} timeCol={64} />
   </SkeletonRegion>
-);
-
-const StatTile = ({ icon: Icon, label, value, tone }) => (
-  <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 flex items-center gap-3">
-    <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${tone}`}>
-      <Icon className="w-5 h-5" />
-    </div>
-    <div className="min-w-0">
-      <p className="text-xl font-bold text-gray-900 dark:text-white leading-tight">{value}</p>
-      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{label}</p>
-    </div>
-  </div>
 );
 
 const MeetingModal = ({ meeting, conflictsWith, onClose, onOpenClass }) => {
@@ -392,17 +377,6 @@ const StudentSchedule = () => {
     [visibleMeetings, dayForAgenda]
   );
 
-  const stats = useMemo(() => {
-    const weeklyHours = meetings.filter(isValid).reduce((sum, m) => sum + (m.end - m.start), 0);
-    const teachers = new Set(meetings.map((m) => m.teacher).filter(Boolean));
-    return {
-      classes: classes.length,
-      days: activeDays.length,
-      weeklyHours,
-      teachers: teachers.size,
-    };
-  }, [meetings, classes, activeDays]);
-
   // "Today" panel: what is on now / next, or the next day with classes
   const todayInfo = useMemo(() => {
     const today = meetings
@@ -503,6 +477,31 @@ const StudentSchedule = () => {
 
   const noMatches = !!query.trim() && visibleMeetings.length === 0;
 
+  /**
+   * The form is built from Schedule-shaped rows, but a student's classes come
+   * through as class spaces, so the timetable fields are lifted out of
+   * `cs.schedule` before exporting.
+   */
+  const myProgramRows = () => (
+    classes
+      .filter((cs) => (cs.schedule?.timeSlots || []).length > 0)
+      .map((cs) => ({
+        _id: cs._id,
+        program: cs.program || profile?.program,
+        yearLevel: cs.yearLevel || profile?.yearLevel,
+        section: cs.section,
+        sectionCode: cs.sectionCode || profile?.sectionCode,
+        shift: cs.shift || profile?.shift || 'Day',
+        semester: cs.semester || profile?.semester,
+        academicYear: cs.academicYear || profile?.academicYear,
+        subject: cs.subject,
+        faculty: cs.faculty,
+        roomLabel: cs.schedule?.roomLabel || '',
+        timeSlots: cs.schedule?.timeSlots || [],
+        enrolledStudents: cs.enrolledStudents,
+      }))
+  );
+
   return (
     <div className="space-y-4 sk-enter">
       {/* Conflict Warning Banner */}
@@ -522,34 +521,6 @@ const StudentSchedule = () => {
           </div>
         </div>
       )}
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatTile
-          icon={BookOpen}
-          label={stats.classes === 1 ? 'Class' : 'Classes'}
-          value={stats.classes}
-          tone="bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300"
-        />
-        <StatTile
-          icon={Calendar}
-          label="Class days"
-          value={stats.days}
-          tone="bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300"
-        />
-        <StatTile
-          icon={Clock}
-          label="In class per week"
-          value={stats.weeklyHours ? fmtDuration(stats.weeklyHours) : '—'}
-          tone="bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-300"
-        />
-        <StatTile
-          icon={Users}
-          label={stats.teachers === 1 ? 'Instructor' : 'Instructors'}
-          value={stats.teachers}
-          tone="bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-300"
-        />
-      </div>
 
       {/* Today / up next */}
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
@@ -642,6 +613,10 @@ const StudentSchedule = () => {
                 </button>
               ))}
             </div>
+            <ExportMenu
+              onPrint={() => exportSectionProgram(myProgramRows(), {})}
+              onExcel={() => exportSectionProgramExcel(myProgramRows(), {})}
+            />
             <button
               onClick={load}
               title="Refresh"

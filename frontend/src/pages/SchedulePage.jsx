@@ -7,7 +7,7 @@ import useCachedData from '../hooks/useCachedData';
 import toast from 'react-hot-toast';
 import {
   Calendar as CalendarIcon, Plus, Download, Search, X,
-  Wand2, AlertTriangle, CheckCircle, FileText, Grid,
+  Wand2, AlertTriangle, CheckCircle, FileText, FileSpreadsheet, Grid,
   Clock, BookOpen, School, MapPin,
   Edit2, Trash2, RefreshCw, Printer, RotateCcw,
   ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight
@@ -17,6 +17,8 @@ import GenerateScheduleModal from '../components/GenerateScheduleModal';
 import ConflictWarning from '../components/ConflictWarning';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { exportToCSV, exportToOfficialPDF, exportToPrintableHTML, exportWeeklyTimetable } from '../utils/scheduleExport';
+import { exportFacultyProgram, exportSectionProgram } from '../utils/officialProgramExport';
+import { exportFacultyProgramExcel, exportSectionProgramExcel } from '../utils/officialProgramExcel';
 import { useAuth } from '../context/AuthContext';
 import StudentSchedule from '../components/StudentSchedule';
 import FacultySchedule from '../components/FacultySchedule';
@@ -787,6 +789,13 @@ const SchedulePage = () => {
     }
   };
 
+  // Faculty keyed by id, so the CTU form can fill in each teacher's degrees,
+  // special training and designation rather than leaving them blank.
+  const facultyById = useMemo(
+    () => Object.fromEntries((faculty || []).map((f) => [String(f._id), f])),
+    [faculty]
+  );
+
   // Exports the ticked rows if there are any, otherwise everything in view
   // (so search / status filters are respected).
   const exportRows = useMemo(() => {
@@ -816,6 +825,22 @@ const SchedulePage = () => {
         case 'official':
           exportToOfficialPDF(exportRows, filters);
           toast.success('Opening official schedule format');
+          break;
+        case 'program-section':
+          exportSectionProgram(exportRows, filters);
+          toast.success('Opening Program by Section');
+          break;
+        case 'program-teacher':
+          // Faculty records carry the degrees and designation the form prints
+          exportFacultyProgram(exportRows, filters, facultyById);
+          toast.success('Opening Program by Teacher');
+          break;
+        case 'program-section-xlsx':
+          // The same form as a workbook the registrar can edit
+          exportSectionProgramExcel(exportRows, filters);
+          break;
+        case 'program-teacher-xlsx':
+          exportFacultyProgramExcel(exportRows, filters, facultyById);
           break;
         case 'pdf':
           exportToPrintableHTML(exportRows, filters);
@@ -943,6 +968,10 @@ const SchedulePage = () => {
                         : `${exportRows.length} schedule(s) in view`}
                     </div>
                     {[
+                      { key: 'program-section', label: 'Program by Section (CTU form)', Icon: FileText },
+                      { key: 'program-teacher', label: 'Program by Teacher (CTU form)', Icon: FileText },
+                      { key: 'program-section-xlsx', label: 'Program by Section (Excel)', Icon: FileSpreadsheet },
+                      { key: 'program-teacher-xlsx', label: 'Program by Teacher (Excel)', Icon: FileSpreadsheet },
                       { key: 'official', label: 'Official Schedule (PDF)', Icon: FileText },
                       { key: 'csv', label: 'Export to CSV', Icon: FileText },
                       { key: 'timetable', label: 'Weekly Timetable', Icon: Grid },

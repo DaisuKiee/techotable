@@ -13,6 +13,12 @@ import ctuBg2 from '../assets/images/backgrounds/662332107_1498119255017069_2427
 import ctuBg3 from '../assets/images/backgrounds/680448563_4304916549747910_4856050542134784312_n.jpg';
 import ctuBg4 from '../assets/images/backgrounds/682398065_803515886114740_8967130645743866506_n.jpg';
 import ctuBg5 from '../assets/images/backgrounds/685213306_1328240422552832_8939830790887051502_n.jpg';
+import teamBenjie from '../assets/images/team/web/Benjie-Sumile.jpg';
+import teamJovannie from '../assets/images/team/web/Jovannie-Congson.jpg';
+import teamLourence from '../assets/images/team/web/Lourence-Zambas.jpg';
+import teamMarco from '../assets/images/team/web/Marco-Montellano.jpg';
+import teamVence from '../assets/images/team/web/Vence-Peter-Doble.jpg';
+import teamVincent from '../assets/images/team/web/Vincent-Bernabe-Romeo.jpg';
 
 /*
  * Landing content. Everything below describes a feature that exists in the
@@ -229,6 +235,233 @@ const SampleWeek = () => {
   );
 };
 
+/*
+ * ─────────────────────────── The team ───────────────────────────
+ *
+ * PLACEHOLDER ROSTER — replace name / role / links with the real capstone
+ * team, and drop a photo in `photo` (import it up top) to show a portrait
+ * instead of the initials. Order is display order. Add or remove members
+ * freely; the grid centres whatever count you give it.
+ *
+ * `ring` is the avatar's halo gradient — vary it per member so the row reads
+ * as individuals rather than a repeated stamp.
+ */
+/*
+ * The real capstone team. Order here is display order — rearrange freely.
+ * `role` is a placeholder until the real titles are set (e.g. Project
+ * Manager, Lead Developer, UI/UX, Backend, QA, Documentation); `tint` is
+ * only the fallback behind a missing photo, which none of these need.
+ */
+const TEAM = [
+  { name: 'Benjie Sumile', role: 'Capstone Team', photo: teamBenjie, tint: 'from-sky-500 to-blue-800' },
+  { name: 'Jovannie Congson', role: 'Capstone Team', photo: teamJovannie, tint: 'from-blue-600 to-indigo-900' },
+  { name: 'Lourence Zambas', role: 'Capstone Team', photo: teamLourence, tint: 'from-amber-400 to-yellow-700' },
+  { name: 'Marco Montellano', role: 'Project & Documentation Manager', photo: teamMarco, tint: 'from-indigo-500 to-blue-900' },
+  { name: 'Vence Peter Doble', role: 'Capstone Team', photo: teamVence, tint: 'from-sky-600 to-blue-900' },
+  { name: 'Vincent Bernabe Romeo', role: 'Lead Developer', photo: teamVincent, tint: 'from-blue-500 to-indigo-800' },
+];
+
+const initialsOf = (name) =>
+  name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+
+/**
+ * Where a card sits in the 3-D ring, from its distance to the focused one.
+ * The focused card is forward and in full colour; neighbours fall back,
+ * shrink and desaturate; anything past the second ring fades out. Mirrors the
+ * coverflow geometry of the pasted template, driven by CSS transforms rather
+ * than a JS animation library, so it adds no dependency and respects
+ * reduced-motion for free (the transition is simply disabled).
+ */
+const cardLayout = (offset, mobile) => {
+  const g1 = mobile ? 135 : 210;
+  const g2 = mobile ? 230 : 380;
+  const base = { x: 0, z: 0, scale: 1, opacity: 1, gray: 100, blur: 0 };
+  const map = {
+    0: { x: 0, z: 0, scale: 1.08, opacity: 1, gray: 0, blur: 0 },
+    1: { x: g1, z: -110, scale: 0.9, opacity: 0.92, gray: 100, blur: 0 },
+    '-1': { x: -g1, z: -110, scale: 0.9, opacity: 0.92, gray: 100, blur: 0 },
+    2: { x: g2, z: -320, scale: 0.78, opacity: 0.55, gray: 100, blur: 1.5 },
+    '-2': { x: -g2, z: -320, scale: 0.78, opacity: 0.55, gray: 100, blur: 1.5 },
+  };
+  const far = { x: offset > 0 ? 520 : -520, z: -440, scale: 0.5, opacity: 0, gray: 100, blur: 2 };
+  return { ...base, ...(map[offset] || far) };
+};
+
+/*
+ * The people behind the system — a 3-D coverflow of the team.
+ *
+ * The focused member is forward and in colour with their name and role read
+ * out below; the rest fan back in greyscale. Advance with the arrows, the
+ * dots, a click on any card, the arrow keys, or a swipe. A giant ghost word
+ * sits behind for depth, the way the reference template does, recoloured into
+ * the page's own blue-and-gold rather than its stark black-and-white.
+ */
+const TeamSection = () => {
+  const [active, setActive] = useState(0);
+  const [mobile, setMobile] = useState(false);
+  const [paused, setPaused] = useState(false);
+  const touchX = useRef(null);
+  const n = TEAM.length;
+  const reduce = prefersReducedMotion();
+
+  useEffect(() => {
+    const check = () => setMobile(window.innerWidth <= 768);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+
+  const go = (next) => setActive(((next % n) + n) % n);
+  const member = TEAM[active];
+
+  /*
+   * Auto-advance. The carousel turns on its own so nobody has to click to
+   * meet the team. It pauses while hovered or focused — so a member stays put
+   * long enough to read — and whenever the tab is hidden. Keyed on `active`
+   * too, so a manual swipe or dot still gets a full dwell before the next
+   * turn. Reduced-motion holds it still; the dots and swipe remain.
+   */
+  useEffect(() => {
+    if (reduce || paused || n < 2) return undefined;
+    const id = setTimeout(() => setActive((a) => (a + 1) % n), 3000);
+    return () => clearTimeout(id);
+  }, [active, paused, reduce, n]);
+
+  useEffect(() => {
+    const onVisibility = () => setPaused(document.hidden);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, []);
+
+  // Shortest signed distance from a card to the focused one, around the ring.
+  const offsetFor = (i) => {
+    const half = Math.floor(n / 2);
+    let o = i - active;
+    if (o > half) o -= n;
+    if (o < -half) o += n;
+    return o;
+  };
+
+  const onKeyDown = (e) => {
+    if (e.key === 'ArrowLeft') { e.preventDefault(); go(active - 1); }
+    if (e.key === 'ArrowRight') { e.preventDefault(); go(active + 1); }
+  };
+  const onTouchStart = (e) => { touchX.current = e.changedTouches[0].screenX; };
+  const onTouchEnd = (e) => {
+    if (touchX.current === null) return;
+    const dx = e.changedTouches[0].screenX - touchX.current;
+    if (dx < -45) go(active + 1);
+    else if (dx > 45) go(active - 1);
+    touchX.current = null;
+  };
+
+  return (
+    <section id="team" className="relative scroll-mt-20 overflow-hidden bg-gradient-to-b from-gray-950 via-blue-950/70 to-gray-950 py-20 sm:py-28">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+        <SectionHeading
+          eyebrow="The people behind it"
+          title="Built by students, for the campus"
+          subtitle="A capstone team at CTU Daanbantayan — the people who turned a semester of scheduling headaches into one system."
+        />
+
+        <Reveal as="div" className="mt-10 sm:mt-14">
+          {/* The autoplay holds while the pointer or keyboard is on the
+              carousel, so whoever you're looking at stays put to be read. */}
+          <div
+            className="relative select-none"
+            onMouseEnter={() => setPaused(true)}
+            onMouseLeave={() => setPaused(false)}
+            onFocusCapture={() => setPaused(true)}
+            onBlurCapture={() => setPaused(false)}
+          >
+          {/* Ghost word behind the ring, for depth. */}
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute left-1/2 top-1/2 -z-0 -translate-x-1/2 -translate-y-[58%] whitespace-nowrap text-[7rem] leading-none text-transparent sm:text-[12rem] lg:text-[15rem]"
+            style={{ fontFamily: "'Bebas Neue', sans-serif", WebkitTextStroke: '2px rgba(96,165,250,0.11)' }}
+          >
+            THE TEAM
+          </span>
+
+          <div
+            tabIndex={0}
+            onKeyDown={onKeyDown}
+            onTouchStart={onTouchStart}
+            onTouchEnd={onTouchEnd}
+            role="group"
+            aria-roledescription="carousel"
+            className="relative mx-auto h-[360px] w-full [perspective:1200px] focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400/50 sm:h-[440px]"
+            aria-label={`Project team. Showing ${member.name}, ${member.role}. Use the arrow keys to browse.`}
+          >
+            <div className="relative h-full w-full [transform-style:preserve-3d]">
+              {TEAM.map((m, i) => {
+                const o = offsetFor(i);
+                const L = cardLayout(o, mobile);
+                const focused = o === 0;
+                return (
+                  <button
+                    key={m.name}
+                    type="button"
+                    onClick={() => go(i)}
+                    aria-label={focused ? `${m.name}, ${m.role}` : `Show ${m.name}`}
+                    aria-hidden={L.opacity === 0}
+                    tabIndex={L.opacity === 0 ? -1 : 0}
+                    className={`absolute left-1/2 top-1/2 h-[320px] w-[230px] overflow-hidden rounded-2xl border text-left shadow-2xl shadow-black/60 transition-[transform,opacity,filter] duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none sm:h-[380px] sm:w-[270px] ${
+                      focused ? 'border-yellow-400/60' : 'border-white/10'
+                    }`}
+                    style={{
+                      transform: `translate(-50%,-50%) translate3d(${L.x}px,0,${L.z}px) scale(${L.scale})`,
+                      opacity: L.opacity,
+                      filter: `grayscale(${L.gray}%) blur(${reduce ? 0 : L.blur}px)`,
+                      zIndex: 20 - Math.abs(o),
+                      pointerEvents: L.opacity === 0 ? 'none' : 'auto',
+                    }}
+                  >
+                    {m.photo ? (
+                      <img src={m.photo} alt={m.name} draggable="false" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className={`flex h-full w-full items-center justify-center bg-gradient-to-br ${m.tint}`}>
+                        <span style={{ fontFamily: "'Bebas Neue', sans-serif" }} className="text-7xl tracking-wide text-white/90">{initialsOf(m.name)}</span>
+                      </div>
+                    )}
+                    {/* Legibility scrim + the focused card's accent edge-light */}
+                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+                    {focused && <div className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-inset ring-yellow-300/30" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Who's in front — name and role, crossfading on change. */}
+          <div key={active} className="mt-6 text-center motion-safe:animate-[memberIn_0.5s_ease] sm:mt-8">
+            <h3 style={{ fontFamily: "'Bebas Neue', sans-serif" }} className="text-4xl tracking-wide text-white sm:text-5xl">{member.name}</h3>
+            <p className="mt-1 text-xs font-semibold uppercase tracking-[0.2em] text-yellow-300/90">{member.role}</p>
+          </div>
+
+          {/* Progress dots. The carousel advances on its own; these show
+              where it is, and still let you jump to someone directly. */}
+          <div className="mt-7 flex items-center justify-center gap-2.5">
+            {TEAM.map((m, i) => (
+              <button
+                key={m.name}
+                type="button"
+                onClick={() => go(i)}
+                aria-label={`Show ${m.name}`}
+                aria-current={i === active}
+                className={`h-2 rounded-full transition-all duration-300 ${
+                  i === active ? 'w-6 bg-yellow-400' : 'w-2 bg-white/25 hover:bg-yellow-400/60'
+                }`}
+              />
+            ))}
+          </div>
+          </div>
+        </Reveal>
+      </div>
+    </section>
+  );
+};
+
 const LandingPage = () => {
   const navigate = useNavigate();
   const navRef = useRef(null);
@@ -411,6 +644,15 @@ const LandingPage = () => {
     }
   };
 
+  /** Glide back up to the hero — the brand/logo acts as "home". */
+  const scrollToTop = () => {
+    if (lenisRef.current) {
+      lenisRef.current.scrollTo(0, { duration: 1.4 });
+    } else {
+      window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+    }
+  };
+
   // Auto-rotate slideshow
   useEffect(() => {
     const interval = setInterval(() => {
@@ -472,6 +714,23 @@ const LandingPage = () => {
            page still scrolls by wheel, trackpad, touch and keyboard. */
         html, body { scrollbar-width: none; -ms-overflow-style: none; }
         html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
+
+        /* Team carousel: the focused member's name/role rising in on change. */
+        @keyframes memberIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Hero headline: each line rises out from behind its own clip once
+           the preloader clears. One orchestrated page-load moment. */
+        .hero-line { display: block; overflow: hidden; }
+        .hero-line > span {
+          display: block;
+          transform: translateY(110%);
+          opacity: 0;
+          transition: transform 0.9s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.9s ease;
+        }
+        .hero-in .hero-line > span { transform: translateY(0); opacity: 1; }
+        @media (prefers-reduced-motion: reduce) {
+          .hero-line > span { transition: none; transform: none; opacity: 1; }
+        }
       `}</style>
 
       {/* Scroll progress. Scaled per frame from the scroll handler, so it
@@ -498,10 +757,16 @@ const LandingPage = () => {
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16 sm:h-20">
-            <div className="flex items-center gap-2 sm:gap-3 group cursor-pointer">
+            {/* Acts as "home": clicking the brand glides back up to the hero. */}
+            <button
+              type="button"
+              onClick={scrollToTop}
+              aria-label="Back to top"
+              className="group flex items-center gap-2 rounded-xl text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400/60 sm:gap-3"
+            >
               <div className="relative">
                 <div className="absolute inset-0 bg-yellow-400 rounded-full blur-xl opacity-50 group-hover:opacity-75 transition-opacity"></div>
-                <img src={ctuLogo} alt="CTU Logo" className="w-10 h-10 sm:w-12 sm:h-12 object-contain relative z-10" />
+                <img src={ctuLogo} alt="CTU Logo" className="w-10 h-10 sm:w-12 sm:h-12 object-contain relative z-10 transition-transform duration-300 group-hover:scale-105" />
               </div>
               <div>
                 <h1 className="text-base sm:text-xl font-bold bg-gradient-to-r from-blue-400 to-yellow-400 bg-clip-text text-transparent">
@@ -510,6 +775,22 @@ const LandingPage = () => {
                 {/* Dropped on phones to leave room for both buttons */}
                 <p className="hidden text-[10px] text-gray-300 min-[400px]:block sm:text-xs">Smart Timetabling</p>
               </div>
+            </button>
+
+            {/* In-page nav, desktop only: the page is long enough that
+                jumping beats scrolling. Each link glides via Lenis. */}
+            <div className="hidden items-center gap-7 text-sm font-medium text-gray-200 lg:flex">
+              {[['how-it-works', 'How it works'], ['engine', 'Engine'], ['team', 'Team']].map(([id, label]) => (
+                <a
+                  key={id}
+                  href={`#${id}`}
+                  onClick={(e) => scrollToSection(e, id)}
+                  className="group/nav relative transition-colors hover:text-yellow-300"
+                >
+                  {label}
+                  <span className="absolute -bottom-1 left-0 h-0.5 w-0 bg-yellow-400 transition-all duration-300 group-hover/nav:w-full" />
+                </a>
+              ))}
             </div>
 
             <div className="flex items-center gap-2 sm:gap-3">
@@ -603,14 +884,18 @@ const LandingPage = () => {
           heroVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
         }`}>
           <div className="max-w-4xl mx-auto">
-            {/* Main Headline */}
-            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-black mb-4 sm:mb-6 leading-tight px-2">
-              <span className="bg-gradient-to-r from-white via-blue-100 to-white bg-clip-text text-transparent drop-shadow-2xl">
-                The Future of
+            {/* Main Headline. Each line is clipped and rises into view when
+                the hero mounts — the gold line a beat behind the white one. */}
+            <h1 className={`text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-black mb-4 sm:mb-6 leading-tight px-2 ${heroVisible ? 'hero-in' : ''}`}>
+              <span className="hero-line">
+                <span className="bg-gradient-to-r from-white via-blue-100 to-white bg-clip-text pb-1 text-transparent drop-shadow-2xl">
+                  The Future of
+                </span>
               </span>
-              <br />
-              <span className="bg-gradient-to-r from-blue-400 via-yellow-400 to-blue-400 bg-clip-text text-transparent drop-shadow-2xl">
-                Academic Scheduling
+              <span className="hero-line">
+                <span className="bg-gradient-to-r from-blue-400 via-yellow-400 to-blue-400 bg-clip-text pb-1 text-transparent drop-shadow-2xl" style={{ transitionDelay: '0.12s' }}>
+                  Academic Scheduling
+                </span>
               </span>
             </h1>
             
@@ -653,7 +938,7 @@ const LandingPage = () => {
       </section>
 
       {/* ── How it works: the real core loop ── */}
-      <section id="how-it-works" className="relative bg-gray-950 py-20 sm:py-28">
+      <section id="how-it-works" className="relative scroll-mt-20 bg-gray-950 py-20 sm:py-28">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <SectionHeading
             eyebrow="How it works"
@@ -685,7 +970,7 @@ const LandingPage = () => {
       </section>
 
       {/* ── Product shot: what a generated week looks like ── */}
-      <section className="bg-gradient-to-b from-gray-950 to-blue-950 pb-20 sm:pb-28">
+      <section id="engine" className="scroll-mt-20 bg-gradient-to-b from-gray-950 to-blue-950 pb-20 sm:pb-28">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
           <div className="grid items-center gap-10 lg:grid-cols-2">
             <div>
@@ -788,6 +1073,9 @@ const LandingPage = () => {
         </div>
       </section>
 
+      {/* ── The team ── */}
+      <TeamSection />
+
       {/* ── Closing CTA + footer ── */}
       <section className="bg-gray-950 px-4 py-20 text-center">
         <Reveal from="scale">
@@ -821,7 +1109,7 @@ const LandingPage = () => {
           <img src={ctuLogo} alt="" className="h-6 w-6 object-contain" />
           <span className="font-semibold text-gray-300">CTU Daanbantayan · College of Technology Education</span>
         </div>
-        © {new Date().getFullYear()} Cebu Technological University – Daanbantayan Campus
+        © {new Date().getFullYear()} Capstone Group 1. 
       </footer>
       </div>{/* /motion-blur target */}
     </div>

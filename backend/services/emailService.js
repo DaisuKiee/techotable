@@ -7,7 +7,15 @@ const crypto = require('crypto');
 const T = require('./emailTemplates');
 const { getTransport, envelope, inlineAssets } = require('./mailer');
 
-const consoleMode = () => process.env.NODE_ENV === 'development' && process.env.EMAIL_CONSOLE_MODE === 'true';
+/**
+ * Print the message instead of sending it.
+ *
+ * Tests are included unconditionally: a test run that reaches a real SMTP
+ * server mails real people, and a verification or two-factor code is exactly
+ * the sort of thing that must never escape a test.
+ */
+const consoleMode = () => process.env.NODE_ENV === 'test'
+  || (process.env.NODE_ENV === 'development' && process.env.EMAIL_CONSOLE_MODE === 'true');
 
 /** Development: print the link instead of sending. */
 const printLink = (heading, email, firstName, link, note) => {
@@ -128,6 +136,98 @@ const welcomeEmail = (firstName) => {
 
 /* ---------------- Senders ---------------- */
 
+/**
+ * A sign-in code. Deliberately plain: no button and no link, because the
+ * whole point of this message is that there is nothing in it to click. A
+ * phishing mail that imitates it has to ask the reader to type the code
+ * somewhere, which is a much harder sell than "click here".
+ */
+const twoFactorCodeEmail = (firstName, code, { minutes = 10, ip } = {}) => T.renderEmail({
+  subject: `${code} is your sign-in code - CTU Daanbantayan`,
+  preheader: `Your code is ${code}. It expires in ${minutes} minutes.`,
+  tone: 'info',
+  eyebrow: 'Sign-in verification',
+  title: 'Your sign-in code',
+  greeting: `Hi ${firstName || 'there'},`,
+  body: [
+    T.paragraph('Someone is signing in to your timetable account. Enter this code to finish:'),
+    `<div style="margin:18px 0;text-align:center;font-family:${T.FONT};font-size:34px;letter-spacing:10px;font-weight:700;color:#111827;">${T.esc(code)}</div>`,
+    T.callout(
+      `This code expires in ${minutes} minutes`,
+      `If you did not try to sign in${ip ? ` (the attempt came from ${T.esc(ip)})` : ''}, someone else has your password. Change it as soon as you can - do not share this code with anyone, including anyone claiming to be CTU staff.`,
+      'warning',
+    ),
+  ].join(''),
+  textBody: [
+    'Someone is signing in to your timetable account.',
+    '',
+    `Your code is: ${code}`,
+    `It expires in ${minutes} minutes.`,
+    '',
+    'If you did not try to sign in, someone else has your password - change it as soon as you can.',
+    'Never share this code with anyone, including anyone claiming to be CTU staff.',
+  ].join('\n'),
+  showLink: false,
+});
+
+/**
+ * The countdown, in the one place everyone actually looks. Unlike the code
+ * email this one does carry a link, because the whole point is to get the
+ * person to the setup screen.
+ */
+const twoFactorReminderEmail = (firstName, daysLeft) => {
+  const urgent = daysLeft <= 1;
+  const deadline = daysLeft <= 0
+    ? 'Two-step verification is now required on your account'
+    : `You have ${daysLeft} day${daysLeft === 1 ? '' : 's'} left`;
+  return T.renderEmail({
+    subject: daysLeft <= 0
+      ? 'Action needed: set up two-step verification - CTU Daanbantayan'
+      : `${deadline} to set up two-step verification - CTU Daanbantayan`,
+    preheader: `${deadline}. It takes about a minute.`,
+    tone: urgent ? 'warning' : 'info',
+    eyebrow: 'Account security',
+    title: 'Set up two-step verification',
+    greeting: `Hi ${firstName || 'there'},`,
+    body: [
+      T.paragraph('Your timetable account holds real schedules and student records, so a password on its own is no longer enough. Adding a second step takes about a minute and you will only be asked for it when you sign in on a new device.'),
+      T.callout(deadline, daysLeft <= 0
+        ? 'You will be asked to set this up the next time you sign in.'
+        : 'After that you will need to set it up before you can carry on using the system.',
+        urgent ? 'warning' : 'info'),
+      T.paragraph('You can use your fingerprint or face, an authenticator app, or a code sent to this address - whichever suits you.'),
+    ].join(''),
+    textBody: [
+      'Your timetable account needs a second sign-in step.',
+      '',
+      deadline + '.',
+      '',
+      'You can use your fingerprint or face, an authenticator app, or a code sent to this address.',
+      'Open Settings then Two-step verification to set it up.',
+    ].join('\n'),
+    cta: { label: 'Set it up now', url: T.url('/settings?tab=twofactor') },
+    showLink: true,
+  });
+};
+
+const sendTwoFactorSetupReminder = async (email, firstName, daysLeft) => {
+  if (consoleMode()) {
+    console.log(`  2FA REMINDER to ${email}: ${daysLeft} day(s) left (console mode, not sent)`);
+    return { success: true, messageId: 'console-dev-mode' };
+  }
+  return send(email, twoFactorReminderEmail(firstName, daysLeft), 'Two-factor reminder');
+};
+
+const sendTwoFactorCodeEmail = async (email, code, firstName, options = {}) => {
+  if (consoleMode()) {
+    console.log(`
+  2FA CODE for ${email}: ${code}  (console mode, not sent)
+`);
+    return { success: true, messageId: 'console-dev-mode' };
+  }
+  return send(email, twoFactorCodeEmail(firstName, code, options), 'Two-factor code');
+};
+
 const sendVerificationEmail = async (email, token, firstName) => {
   const link = T.url(`/verify-email/${token}`);
   if (consoleMode()) return printLink('📧 EMAIL VERIFICATION LINK (Development Mode)', email, firstName, link, 'Verification link (expires in 24 hours):');
@@ -150,6 +250,10 @@ const sendWelcomeEmail = async (email, firstName) => {
 
 module.exports = {
   generateVerificationToken,
+  sendTwoFactorCodeEmail,
+  twoFactorCodeEmail,
+  sendTwoFactorSetupReminder,
+  twoFactorReminderEmail,
   sendVerificationEmail,
   sendPasswordResetEmail,
   sendWelcomeEmail,

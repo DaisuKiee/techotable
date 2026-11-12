@@ -1,6 +1,8 @@
 const User = require('../models/User.model');
 const { sendError } = require('../middleware/error.middleware');
 const { managerProgram, programUserIds, deny } = require('../utils/programScope');
+const { publicUser } = require('../utils/publicUser');
+const { searchClause, escapeRegex } = require('../utils/safeQuery');
 
 // @desc    Get all users
 // @route   GET /api/users
@@ -20,13 +22,8 @@ exports.getAllUsers = async (req, res) => {
       query.isActive = isActive === 'true';
     }
 
-    if (search) {
-      query.$or = [
-        { firstName: { $regex: search, $options: 'i' } },
-        { lastName: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } }
-      ];
-    }
+    const searchFor = searchClause(search, ['firstName', 'lastName', 'email']);
+    if (searchFor) Object.assign(query, searchFor);
 
     // Program managers only see people in their own program
     const program = managerProgram(req);
@@ -104,8 +101,7 @@ exports.updateUser = async (req, res) => {
 
     await user.save();
 
-    const updatedUser = user.toObject();
-    delete updatedUser.password;
+    const updatedUser = publicUser(user);
 
     res.status(200).json({
       success: true,
@@ -221,8 +217,7 @@ exports.uploadAvatar = async (req, res) => {
 
     await user.save();
 
-    const updatedUser = user.toObject();
-    delete updatedUser.password;
+    const updatedUser = publicUser(user);
 
     res.status(200).json({
       success: true,
@@ -271,8 +266,7 @@ exports.deleteAvatar = async (req, res) => {
     user.profilePicture = null;
     await user.save();
 
-    const updatedUser = user.toObject();
-    delete updatedUser.password;
+    const updatedUser = publicUser(user);
 
     res.status(200).json({
       success: true,

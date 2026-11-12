@@ -157,6 +157,24 @@ const UserSchema = new mongoose.Schema({
   // Login tokens issued before this are refused: set when the password
   // changes, and by "sign out of all other devices"
   tokensValidAfter: { type: Date, default: null },
+  /**
+   * Two-factor state. Only this flag lives on the user, so the login path can
+   * decide in the query it already runs; the secrets are in the TwoFactor and
+   * Passkey collections, which are never populated onto a user record.
+   */
+  twoFactorEnabled: { type: Boolean, default: false },
+  twoFactorEnrolledAt: { type: Date, default: null },
+  // When enrolment became compulsory for this account, so the grace period
+  // runs from the person's first sign-in after the policy changed rather
+  // than from a single deployment date for everyone at once.
+  twoFactorRequiredSince: { type: Date, default: null },
+  /**
+   * How far through the reminder sequence this account has been told
+   * (0 none, 1 first notice, 2 three days left, 3 one day left, 4 overdue).
+   * Stored so a restart or a second server instance cannot send the same
+   * warning twice.
+   */
+  twoFactorReminderStage: { type: Number, default: 0 },
   // Email verification fields
   isEmailVerified: {
     type: Boolean,

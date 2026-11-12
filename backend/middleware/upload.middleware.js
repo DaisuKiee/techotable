@@ -54,7 +54,16 @@ const documentFilter = (req, file, cb) => {
 /** Class materials: documents and images, written to disk. */
 const uploadMaterial = multer({
   storage: diskStorage,
-  limits: { fileSize: MAX_FILE_SIZE },
+  limits: {
+    fileSize: MAX_FILE_SIZE,
+    // One file per request, and a cap on the non-file fields that come with
+    // it. Without these a single request can open thousands of parts and
+    // keep the parser busy long after the size limit would have stopped a
+    // large upload.
+    files: 1,
+    fields: 20,
+    parts: 25,
+  },
   fileFilter: documentFilter,
 });
 

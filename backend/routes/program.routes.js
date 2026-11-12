@@ -7,11 +7,13 @@ const {
   updateProgram,
   deleteProgram
 } = require('../controllers/program.controller');
-const { protect, authorize } = require('../middleware/auth.middleware');
+const { protect, authorize, optionalAuth } = require('../middleware/auth.middleware');
 
-// Public routes
-router.get('/', getAllPrograms);
-router.get('/:id', getProgramById);
+// The sign-up form needs the programme list before anyone has an account,
+// so this one stays reachable - but an anonymous caller gets only the active
+// programmes' code and name (see the controller), not the full records.
+router.get('/', optionalAuth, getAllPrograms);
+router.get('/:id', protect, getProgramById);
 
 // Protected routes (Admin only)
 router.post('/', protect, authorize('admin'), createProgram);

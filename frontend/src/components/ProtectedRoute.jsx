@@ -1,6 +1,7 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import TwoFactorGate from './auth/TwoFactorGate';
 
 const ProtectedRoute = ({ children, allowedRoles = [] }) => {
   const { isAuthenticated, user, loading } = useAuth();
@@ -38,7 +39,9 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
     );
   }
 
-  return children;
+  // Once the grace period is over, enrolling a second factor comes before
+  // anything else in the app
+  return <TwoFactorGate>{children}</TwoFactorGate>;
 };
 
 export default ProtectedRoute;

@@ -48,8 +48,8 @@ router.get('/stats', protect, authorize('admin', 'scheduling_officer', 'program_
 /**
  * @route   GET /api/ai/help
  * @desc    Get quick help and FAQ
- * @access  Public
+ * @access  Private
  */
-router.get('/help', getQuickHelp);
+router.get('/help', protect, getQuickHelp);
 
 module.exports = router;

@@ -78,6 +78,27 @@ exports.protect = async (req, res, next) => {
   }
 };
 
+/**
+ * Attach req.user when a valid token is present, but never reject.
+ *
+ * For the handful of endpoints a signed-out visitor legitimately needs (the
+ * programme list on the sign-up form), so they can answer with less detail to
+ * anonymous callers instead of being thrown open entirely.
+ */
+exports.optionalAuth = async (req, res, next) => {
+  const header = req.headers.authorization || '';
+  if (!header.startsWith('Bearer ')) return next();
+  try {
+    const decoded = jwt.verify(header.split(' ')[1], process.env.JWT_SECRET);
+    if (decoded.purpose || !decoded.id) return next();
+    const user = await User.findById(decoded.id).select('-password');
+    if (user && user.isActive) req.user = user;
+  } catch (_) {
+    // An invalid token is treated as no token here, not as an error
+  }
+  return next();
+};
+
 // Grant access to specific roles
 exports.authorize = (...roles) => {
   return (req, res, next) => {

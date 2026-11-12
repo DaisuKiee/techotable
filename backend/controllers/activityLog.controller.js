@@ -1,5 +1,6 @@
 const { sendError } = require('../middleware/error.middleware');
 const { managerProgram, programUserIds } = require('../utils/programScope');
+const { clampLimit, clampSkip } = require('../utils/safeQuery');
 const { 
   getActivityLogs, 
   getActivityStats, 
@@ -34,8 +35,9 @@ exports.getAllLogs = async (req, res) => {
       status,
       startDate,
       endDate,
-      limit: parseInt(limit),
-      skip: parseInt(skip)
+      // Clamped: an unbounded ?limit= reads the whole collection into memory
+      limit: clampLimit(limit, { fallback: 50, max: 200 }),
+      skip: clampSkip(skip)
     });
 
     res.status(200).json({

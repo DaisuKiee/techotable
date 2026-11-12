@@ -6,6 +6,7 @@ const { getDefaultTerm, calendarTerm, termLabel } = require('../services/academi
 const { looksLikeObjectId } = require('../utils/roomLabel');
 const { managerProgram } = require('../utils/programScope');
 const { assignMissingHomeRooms, sectionsUsingRoom } = require('../services/homeRoom.service');
+const { searchClause } = require('../utils/safeQuery');
 
 /** Move the sections whose home room was `room` to another free room. */
 async function rehomeSections(room) {
@@ -326,12 +327,9 @@ exports.getAllRooms = async (req, res) => {
       if (maxCapacity) query.capacity.$lte = parseInt(maxCapacity, 10);
     }
     if (search) {
-      const safe = String(search).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      query.$or = [
-        { roomCode: { $regex: safe, $options: 'i' } },
-        { roomName: { $regex: safe, $options: 'i' } },
-        { building: { $regex: safe, $options: 'i' } },
-      ];
+      // Was escaped inline here; the shared helper also caps the term length,
+      // so a megabyte-long "search" cannot make the query expensive
+      Object.assign(query, searchClause(search, ['roomCode', 'roomName', 'building']) || {});
     }
 
     const rooms = sortRooms(await Room.find(query).lean());

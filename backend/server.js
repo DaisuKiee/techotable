@@ -7,6 +7,9 @@ const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 const { requestId, notFound, errorHandler } = require('./middleware/error.middleware');
+const {
+  sanitizeRequest, noDuplicateParams, securityHeaders, aiLimiter, uploadLimiter,
+} = require('./middleware/security.middleware');
 
 // Refuse to run without a signing secret: every login token depends on it
 if (!process.env.JWT_SECRET) {
@@ -19,6 +22,9 @@ if (process.env.JWT_SECRET.length < 32) {
 
 const app = express();
 
+// Don't advertise the framework: it tells an attacker which exploits to try
+app.disable('x-powered-by');
+
 // Trust proxy - Required for Render deployment
 // This allows Express to trust the X-Forwarded-* headers from the proxy
 app.set('trust proxy', 1);
@@ -26,7 +32,25 @@ app.set('trust proxy', 1);
 app.use(requestId);
 
 // Security middleware
-app.use(helmet());
+app.use(helmet({
+  // Browsers that have seen this header refuse to talk to the API over plain
+  // HTTP for a year, which closes the downgrade window on public Wi-Fi.
+  hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
+  // The API serves JSON and uploaded images; nothing here should ever be
+  // framed, embedded as a script, or treated as a document by a browser.
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'none'"],
+      imgSrc: ["'self'", 'data:'],
+      frameAncestors: ["'none'"],
+      baseUri: ["'none'"],
+      formAction: ["'none'"],
+    },
+  },
+  crossOriginResourcePolicy: { policy: 'cross-origin' }, // avatars load from the SPA
+  referrerPolicy: { policy: 'no-referrer' },
+}));
+app.use(securityHeaders);
 
 // CORS configuration
 app.use(cors({
@@ -76,7 +100,12 @@ app.use('/api/', limiter);
 
 // Body parser middleware
 app.use(express.json({ limit: '2mb' }));
-app.use(express.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended: true, limit: '2mb', parameterLimit: 200 }));
+
+// Strip Mongo operators and collapse repeated query parameters before any
+// handler sees the request
+app.use(sanitizeRequest);
+app.use(noDuplicateParams);
 
 // Serve static files from uploads folder with CORS headers.
 // UPLOAD_ROOT is absolute, so this resolves the same way regardless of the
@@ -125,9 +154,9 @@ app.use('/api/sections', require('./routes/section.routes'));
 app.use('/api/programs', require('./routes/program.routes'));
 app.use('/api/activity-logs', require('./routes/activityLog.routes'));
 app.use('/api/notifications', require('./routes/notification.routes'));
-app.use('/api/ai', require('./routes/ai.routes'));
-app.use('/api/ai', require('./routes/aiChat.routes'));
-app.use('/api/import', require('./routes/import.routes'));
+app.use('/api/ai', aiLimiter, require('./routes/ai.routes'));
+app.use('/api/ai', aiLimiter, require('./routes/aiChat.routes'));
+app.use('/api/import', uploadLimiter, require('./routes/import.routes'));
 app.use('/api/terms', require('./routes/term.routes'));
 app.use('/api/faculty-invites', require('./routes/facultyInvite.routes'));
 
@@ -194,6 +223,8 @@ const onReady = async () => {
   require('./services/weeklyDigest.service').startDigestWatcher();
   // Faculty: today's classes in the morning, and a heads-up before each class
   require('./services/classReminder.service').startReminderWatcher();
+  // Nobody opens Settings unprompted, so the two-factor deadline comes to them
+  require('./services/twoFactorReminder.service').startTwoFactorReminderWatcher();
 };
 
 const listen = (attempt = 1) => {

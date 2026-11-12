@@ -123,4 +123,15 @@ async function migrateToProgramManagers() {
 
 // Run migration
 console.log('🚀 Starting Migration: Scheduling Officers → Program Managers\n');
-migrateToProgramManagers();
+/**
+ * Run deliberately, never on import.
+ *
+ * This file used to call itself at the bottom, so anything that merely
+ * required it - a test sweep, an editor's auto-import, a careless
+ * `require` in another module - connected to whatever MONGODB_URI happened
+ * to be set and wrote to that database. Guarding on require.main means it
+ * only runs when it is the file node was asked to execute.
+ */
+if (require.main === module) {
+  migrateToProgramManagers();
+}

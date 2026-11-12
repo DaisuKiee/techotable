@@ -164,7 +164,33 @@ export const authAPI = {
   forgotPassword: (data) => api.post('/auth/forgot-password', data),
   resetPassword: (token, data) => api.post(`/auth/reset-password/${token}`, data),
   checkFacultyInvite: (token) => api.get(`/auth/faculty-invite/${encodeURIComponent(token)}`),
-  acceptTerms: (version) => api.post('/auth/accept-terms', { version })
+  acceptTerms: (version) => api.post('/auth/accept-terms', { version }),
+
+  // ---- two-factor: finishing a sign-in -------------------------------
+  // These carry a short-lived challenge token instead of a session, so they
+  // deliberately do not use the Authorization header.
+  twoFactorVerify: (payload) => api.post('/auth/2fa/verify', payload),
+  twoFactorSendCode: (challengeToken) => api.post('/auth/2fa/send-code', { challengeToken }),
+  twoFactorPasskeyOptions: (challengeToken) => api.post('/auth/2fa/passkey/options', { challengeToken }),
+  twoFactorPasskeyVerify: (payload) => api.post('/auth/2fa/passkey/verify', payload),
+
+  // ---- signing in with a passkey and no password ----------------------
+  passkeyLoginOptions: () => api.post('/auth/passkey/options'),
+  passkeyLogin: (payload) => api.post('/auth/passkey/login', payload),
+
+  // ---- managing your own factors --------------------------------------
+  twoFactorStatus: () => api.get('/auth/2fa'),
+  totpSetup: () => api.post('/auth/2fa/totp/setup'),
+  totpEnable: (code) => api.post('/auth/2fa/totp/enable', { code }),
+  totpDisable: (password) => api.delete('/auth/2fa/totp', { data: { password } }),
+  emailFactorEnable: () => api.post('/auth/2fa/email/enable'),
+  emailFactorDisable: () => api.post('/auth/2fa/email/disable'),
+  regenerateRecoveryCodes: (password) => api.post('/auth/2fa/recovery', { password }),
+  listPasskeys: () => api.get('/auth/2fa/passkeys'),
+  passkeyRegisterOptions: () => api.post('/auth/2fa/passkeys/options'),
+  passkeyRegister: (payload) => api.post('/auth/2fa/passkeys', payload),
+  renamePasskey: (id, name) => api.patch(`/auth/2fa/passkeys/${id}`, { name }),
+  deletePasskey: (id, password) => api.delete(`/auth/2fa/passkeys/${id}`, { data: { password } })
 };
 
 // ============== USER ENDPOINTS ==============

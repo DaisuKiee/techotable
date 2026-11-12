@@ -10,9 +10,11 @@ import {
   Moon, Sun, Monitor, Eye, EyeOff, Check, Loader2, Phone, Calendar, BookOpen,
   Megaphone, AlertTriangle, Newspaper, UserCircle, Clock, BadgeCheck, X,
   Smartphone, LogOut, ShieldCheck, ShieldAlert, History, RefreshCw, AlarmClock, ChevronRight,
+  Fingerprint,
 } from 'lucide-react';
 import ConfirmDialog from '../components/ConfirmDialog';
 import ClassReminderPrompt from '../components/ClassReminderPrompt';
+import TwoFactorSettings from '../components/settings/TwoFactorSettings';
 
 /* ---------- Reusable UI pieces ---------- */
 
@@ -31,7 +33,20 @@ const ROLE_LABELS = {
 
 const TAB_KEY = 'settingsActiveTab';
 
+/**
+ * Which tab to open on.
+ *
+ * `?tab=` wins over the remembered one, so a link from the two-step banner,
+ * a reminder notification or a reminder e-mail lands on the thing it is
+ * asking the person to do rather than on whatever they looked at last.
+ */
 const readTab = () => {
+  try {
+    const asked = new URLSearchParams(window.location.search).get('tab');
+    if (asked) return asked;
+  } catch {
+    /* no query string available; fall through to the remembered tab */
+  }
   try {
     return localStorage.getItem(TAB_KEY) || 'account';
   } catch {
@@ -389,6 +404,7 @@ const SettingsPage = () => {
       items: [
         { id: 'account', label: 'Overview', icon: UserCircle },
         { id: 'password', label: 'Password', icon: Key },
+        { id: 'twofactor', label: 'Two-step verification', icon: Fingerprint },
         { id: 'devices', label: 'Devices', icon: Monitor, count: sessions?.length || null },
         { id: 'activity', label: 'Sign-in activity', icon: History, count: failedToday || null, alert: failedToday > 0 },
       ],
@@ -607,6 +623,7 @@ const SettingsPage = () => {
                     <div className="space-y-3">
                       {[
                         { id: 'password', icon: Key, title: 'Password', text: 'Change the password you sign in with.' },
+                        { id: 'twofactor', icon: Fingerprint, title: 'Two-step verification', text: 'Fingerprint, an authenticator app or emailed codes.' },
                         { id: 'devices', icon: Monitor, title: 'Devices', text: sessions ? `${sessions.length} device${sessions.length === 1 ? '' : 's'} signed in.` : 'Devices signed in to your account.' },
                         { id: 'activity', icon: History, title: 'Sign-in activity', text: failedToday ? `${failedToday} failed sign-in${failedToday === 1 ? '' : 's'} in the last 24 hours.` : 'Recent attempts to sign in.' },
                       ].map(({ id, icon: Icon, title, text }) => (
@@ -706,6 +723,8 @@ const SettingsPage = () => {
               )}
 
               {/* Devices */}
+              {tab === 'twofactor' && <TwoFactorSettings />}
+
               {tab === 'devices' && (
                 <div role="tabpanel" id="panel-devices" aria-labelledby="tab-devices">
                   <SectionHeader

@@ -14,6 +14,7 @@ import ctuLogo from '../assets/images/logos/ctulogo.png';
 import AnimatedUserCheck from './AnimatedUserCheck';
 import AIChatBubble from './AIChatBubble';
 import NotificationBell from './NotificationBell';
+import TwoFactorBanner from './auth/TwoFactorBanner';
 
 /** Nav categories the user has collapsed. Remembered between visits. */
 const COLLAPSED_GROUPS_KEY = 'layout.collapsedNavGroups';
@@ -920,6 +921,9 @@ const AppShell = ({ children }) => {
 
         {/* Page Content */}
         <div className="p-4 lg:p-8 pt-20 lg:pt-4">
+          {/* Sits above every page, so the two-step deadline cannot be missed
+              by someone who simply never opens Settings */}
+          <TwoFactorBanner />
           {children}
         </div>
       </main>

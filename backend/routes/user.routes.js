@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
+const fs = require('fs');
 const path = require('path');
 const {
   getAllUsers,
@@ -14,9 +15,16 @@ const {
 const { protect, authorize } = require('../middleware/auth.middleware');
 
 // Configure multer for avatar uploads
+const { UPLOAD_ROOT } = require('../middleware/upload.middleware');
+const AVATAR_DIR = path.join(UPLOAD_ROOT, 'avatars');
+// Absolute, and created up front: the old relative 'uploads/avatars/' resolved
+// against whatever directory the server was started from, so avatars landed
+// outside the folder the static handler serves.
+if (!fs.existsSync(AVATAR_DIR)) fs.mkdirSync(AVATAR_DIR, { recursive: true });
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'uploads/avatars/');
+    cb(null, AVATAR_DIR);
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -26,7 +34,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB limit
+  limits: { fileSize: 2 * 1024 * 1024, files: 1, fields: 10, parts: 12 },
   fileFilter: (req, file, cb) => {
     const allowedTypes = /jpeg|jpg|png|gif/;
     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());

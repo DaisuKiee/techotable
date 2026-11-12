@@ -7,6 +7,28 @@ const { notifyFacultySignup } = require('../services/inAppNotification.service')
 const { TERMS_VERSION } = require('../config/terms');
 const Session = require('../models/Session.model');
 const LoginEvent = require('../models/LoginEvent.model');
+const crypto = require('crypto');
+const { publicUser } = require('../utils/publicUser');
+const { checkPassword } = require('../utils/passwordPolicy');
+const twoFactorService = require('../services/twoFactor.service');
+const loginGuard = require('../middleware/loginGuard');
+const bcrypt = require('bcryptjs');
+
+/**
+ * A real bcrypt hash at the same cost factor the User model uses (10), of a
+ * value nobody can log in with. Compared against when an address has no
+ * account, purely so an unknown e-mail takes as long to reject as a known
+ * one. Generated once at startup rather than hard-coded, so it stays in step
+ * if the cost factor ever changes.
+ */
+const DUMMY_HASH = bcrypt.hashSync('no-account-placeholder', 10);
+
+/**
+ * Verification and reset links are bearer secrets: whoever holds one can
+ * take the account. Only the SHA-256 digest is stored, so a database dump -
+ * or any endpoint that accidentally returns the field - is useless.
+ */
+const hashToken = (token) => crypto.createHash('sha256').update(String(token)).digest('hex');
 const {
   issueSession, reissueToken, revokeOtherSessions, recordLogin,
   lockMinutesLeft, registerFailure, clearFailures, LOCK_MINUTES,
@@ -57,8 +79,7 @@ exports.register = async (req, res) => {
     const token = await issueSession(user, req);
 
     // Remove password from response
-    const userResponse = user.toObject();
-    delete userResponse.password;
+    const userResponse = publicUser(user, { self: true });
 
     res.status(201).json({
       success: true,
@@ -118,6 +139,16 @@ exports.login = async (req, res) => {
     const attempt = { user, email: String(email).toLowerCase() };
 
     if (!user) {
+      /**
+       * Spend the same time as a real password check before answering.
+       *
+       * Without this, a wrong address comes back in a millisecond while a
+       * right one takes as long as bcrypt does - so timing alone tells an
+       * attacker which e-mails have accounts here, which is the first step
+       * of every targeted attempt.
+       */
+      await bcrypt.compare(String(password || ''), DUMMY_HASH);
+      loginGuard.recordFailure(req, email, { known: false });
       await recordLogin(req, { ...attempt, success: false, reason: 'no_account' });
       return res.status(401).json({
         success: false,
@@ -140,6 +171,7 @@ exports.login = async (req, res) => {
     // verified" before it told anyone which emails have accounts
     const isPasswordMatch = await user.comparePassword(password);
     if (!isPasswordMatch) {
+      loginGuard.recordFailure(req, email);
       const justLocked = await registerFailure(user);
       await recordLogin(req, { ...attempt, success: false, reason: 'bad_password' });
       return res.status(justLocked ? 429 : 401).json({
@@ -169,8 +201,32 @@ exports.login = async (req, res) => {
       });
     }
 
-    // Update last login
+    // The password was right, so the lockout counter resets either way
+    loginGuard.recordSuccess(req);
     clearFailures(user);
+    await user.save();
+
+    /**
+     * A second factor is enrolled: stop here. No session token is issued -
+     * the caller gets a challenge token that is only good for /2fa/verify,
+     * for five minutes, and that `protect` refuses outright because it
+     * carries a `purpose`.
+     */
+    if (user.twoFactorEnabled) {
+      await recordLogin(req, { ...attempt, success: false, reason: 'password_ok_2fa_pending' });
+      const { signChallenge, maskEmail } = require('./twoFactor.controller');
+      return res.status(200).json({
+        success: true,
+        twoFactorRequired: true,
+        message: 'Enter your verification code to finish signing in.',
+        data: {
+          challengeToken: signChallenge(user._id),
+          methods: await twoFactorService.methodsFor(user._id),
+          emailHint: maskEmail(user.email),
+        },
+      });
+    }
+
     user.lastLogin = new Date();
     await user.save();
     await recordLogin(req, { ...attempt, success: true });
@@ -179,15 +235,16 @@ exports.login = async (req, res) => {
     const token = await issueSession(user, req);
 
     // Remove password from response
-    const userResponse = user.toObject();
-    delete userResponse.password;
+    const userResponse = publicUser(user, { self: true });
 
     res.status(200).json({
       success: true,
       message: 'Login successful',
       data: {
         user: userResponse,
-        token
+        token,
+        // Tells the app whether to push them into setting up a second factor
+        twoFactor: await twoFactorService.enrolmentStatus(user),
       }
     });
 
@@ -250,8 +307,13 @@ exports.getMe = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      // termsCurrentVersion tells the app whether to show the agreement
-      data: { ...user.toObject(), termsCurrentVersion: TERMS_VERSION }
+      // termsCurrentVersion tells the app whether to show the agreement;
+      // twoFactor tells it whether to insist on enrolment before going further
+      data: {
+        ...publicUser(user, { self: true }),
+        termsCurrentVersion: TERMS_VERSION,
+        twoFactor: await twoFactorService.enrolmentStatus(user),
+      }
     });
 
   } catch (error) {
@@ -299,8 +361,7 @@ exports.updateProfile = async (req, res) => {
 
     await user.save();
 
-    const updatedUser = user.toObject();
-    delete updatedUser.password;
+    const updatedUser = publicUser(user, { self: true });
 
     res.status(200).json({
       success: true,
@@ -327,11 +388,9 @@ exports.changePassword = async (req, res) => {
       });
     }
 
-    if (newPassword.length < 6) {
-      return res.status(400).json({
-        success: false,
-        message: 'New password must be at least 6 characters'
-      });
+    const weak = checkPassword(newPassword, req.user || {});
+    if (weak) {
+      return res.status(400).json({ success: false, code: 'WEAK_PASSWORD', message: weak });
     }
 
     const user = await User.findById(req.user._id).select('+password');
@@ -434,8 +493,7 @@ exports.updateSettings = async (req, res) => {
     user.markModified('settings');
     await user.save();
 
-    const updatedUser = user.toObject();
-    delete updatedUser.password;
+    const updatedUser = publicUser(user, { self: true });
 
     res.status(200).json({
       success: true,
@@ -512,6 +570,11 @@ exports.signup = async (req, res) => {
       program
     } = req.body;
 
+    const weakSignup = checkPassword(password, { email, firstName, lastName, studentId });
+    if (weakSignup) {
+      return res.status(400).json({ success: false, code: 'WEAK_PASSWORD', message: weakSignup });
+    }
+
     // Check if user already exists
     const existingUser = await User.findOne({ email: email.toLowerCase() });
     if (existingUser) {
@@ -547,7 +610,7 @@ exports.signup = async (req, res) => {
       studentId,
       program,
       isEmailVerified: false,
-      emailVerificationToken: verificationToken,
+      emailVerificationToken: hashToken(verificationToken),
       emailVerificationExpires: tokenExpiry
     });
 
@@ -602,7 +665,7 @@ exports.verifyEmail = async (req, res) => {
 
     // Find user with valid token
     const user = await User.findOne({
-      emailVerificationToken: token,
+      emailVerificationToken: hashToken(token),
       emailVerificationExpires: { $gt: Date.now() }
     });
 
@@ -673,7 +736,7 @@ exports.resendVerification = async (req, res) => {
     const verificationToken = generateVerificationToken();
     const tokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-    user.emailVerificationToken = verificationToken;
+    user.emailVerificationToken = hashToken(verificationToken);
     user.emailVerificationExpires = tokenExpiry;
     await user.save();
 
@@ -718,7 +781,6 @@ exports.forgotPassword = async (req, res) => {
     // But only send email if user exists
     if (user) {
       // Generate reset token
-      const crypto = require('crypto');
       const resetToken = crypto.randomBytes(32).toString('hex');
 
       // Hash token before saving
@@ -777,15 +839,12 @@ exports.resetPassword = async (req, res) => {
       });
     }
 
-    if (password.length < 6) {
-      return res.status(400).json({
-        success: false,
-        message: 'Password must be at least 6 characters'
-      });
+    const weakReset = checkPassword(password, req.body || {});
+    if (weakReset) {
+      return res.status(400).json({ success: false, code: 'WEAK_PASSWORD', message: weakReset });
     }
 
     // Hash the token from URL to compare with database
-    const crypto = require('crypto');
     const hashedToken = crypto
       .createHash('sha256')
       .update(token)

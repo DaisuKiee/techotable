@@ -5,6 +5,8 @@ import { Mail, Lock, Wand2, ShieldCheck, FolderOpen } from 'lucide-react';
 import { AuthLayout, AuthField, PasswordField, FormAlert, SubmitButton } from '../components/auth/AuthLayout';
 import CampusWalkLoader from '../components/CampusWalkLoader';
 import { safeNext, pendingJoinPath } from '../utils/pendingJoin';
+import TwoFactorPrompt from '../components/auth/TwoFactorPrompt';
+import PasskeySignInButton from '../components/auth/PasskeySignInButton';
 
 // What the system actually does, shown beside the form
 const FEATURES = [
@@ -16,7 +18,7 @@ const FEATURES = [
 const LoginPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, isAuthenticated } = useAuth();
+  const { login, completeLogin, isAuthenticated } = useAuth();
   const [formData, setFormData] = useState({
     email: location.state?.email || '',
     password: ''
@@ -25,6 +27,8 @@ const LoginPage = () => {
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState(location.state?.message || '');
   const [loginSuccess, setLoginSuccess] = useState(false);
+  // Set once the password is accepted but a second factor is still needed
+  const [challenge, setChallenge] = useState(null);
   // Set by the API client when a saved session stops working
   const [notice, setNotice] = useState(() => {
     try {
@@ -73,6 +77,12 @@ const LoginPage = () => {
 
     const result = await login(formData.email.trim(), formData.password);
 
+    if (result.twoFactorRequired) {
+      setLoading(false);
+      setChallenge(result.challenge);
+      return;
+    }
+
     if (result.success) {
       setLoginSuccess(true);
       // Let the walk-in finish before the dashboard replaces it
@@ -83,6 +93,12 @@ const LoginPage = () => {
       setError(result.message || 'Login failed. Check your email and password.');
       passwordRef.current?.select();
     }
+  };
+
+  const finishSignIn = (payload) => {
+    completeLogin(payload);
+    setLoginSuccess(true);
+    setTimeout(() => navigate(afterLogin()), 1300);
   };
 
   if (loginSuccess) {
@@ -113,6 +129,16 @@ const LoginPage = () => {
         </p>
       </div>
 
+      {challenge ? (
+        <div className="auth-rise" style={{ animationDelay: '.1s' }}>
+          <TwoFactorPrompt
+            challenge={challenge}
+            onVerified={finishSignIn}
+            onCancel={() => { setChallenge(null); setFormData((f) => ({ ...f, password: '' })); }}
+          />
+        </div>
+      ) : (
+      <>
       {successMessage && (
         <FormAlert tone="success" onDismiss={() => setSuccessMessage('')}>{successMessage}</FormAlert>
       )}
@@ -156,6 +182,10 @@ const LoginPage = () => {
         <SubmitButton loading={loading} loadingText="Signing in…">Log in</SubmitButton>
       </form>
 
+      <div className="auth-rise mt-5" style={{ animationDelay: '.12s' }}>
+        <PasskeySignInButton onSignedIn={finishSignIn} onError={setError} />
+      </div>
+
       {/* No public faculty sign-up: faculty join through an invite link from
           the scheduling office */}
       <div className="auth-rise mt-8 border-t border-gray-200 pt-6 text-sm dark:border-dark-border-subtle" style={{ animationDelay: '.15s' }}>
@@ -164,6 +194,8 @@ const LoginPage = () => {
           <Link to="/signup" className="font-semibold text-blue-700 hover:underline dark:text-dark-blue-info">Create an account</Link>
         </p>
       </div>
+      </>
+      )}
     </AuthLayout>
   );
 };

@@ -1,6 +1,7 @@
 const Subject = require('../models/Subject.model');
 const { validationResult } = require('express-validator');
 const { sendError, sendValidationErrors } = require('../middleware/error.middleware');
+const { searchClause, escapeRegex } = require('../utils/safeQuery');
 
 // @desc    Get all subjects
 // @route   GET /api/subjects
@@ -34,12 +35,8 @@ exports.getAllSubjects = async (req, res) => {
       query.isActive = isActive === 'true';
     }
 
-    if (search) {
-      query.$or = [
-        { subjectCode: { $regex: search, $options: 'i' } },
-        { subjectName: { $regex: search, $options: 'i' } }
-      ];
-    }
+    const searchFor = searchClause(search, ['subjectCode', 'subjectName']);
+    if (searchFor) Object.assign(query, searchFor);
 
     const subjects = await Subject.find(query)
       .populate('prerequisites', 'subjectCode subjectName')

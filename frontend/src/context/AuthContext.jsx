@@ -39,19 +39,38 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  /**
+   * Store a completed sign-in. Shared by the password path, the second-factor
+   * path and passwordless passkeys, so a session is always established the
+   * same way.
+   */
+  const establishSession = (authToken, authUser) => {
+    localStorage.setItem('token', authToken);
+    localStorage.setItem('user', JSON.stringify(authUser));
+    setToken(authToken);
+    setUser(authUser);
+  };
+
+  /**
+   * The password step.
+   *
+   * When the account has a second factor the server answers with
+   * `twoFactorRequired` and a short-lived challenge instead of a session, and
+   * the caller shows the verification step. No token exists yet at that
+   * point, which is the whole point of the design: a stolen password on its
+   * own buys nothing.
+   */
   const login = async (email, password) => {
     try {
       const response = await authAPI.login({ email, password });
-      const { token, user } = response.data.data; // Fixed: response.data.data instead of response.data
-      
-      // Save to localStorage
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(user));
-      
-      setToken(token);
-      setUser(user);
-      
-      toast.success(`Welcome back, ${user.firstName}!`);
+
+      if (response.data.twoFactorRequired) {
+        return { success: false, twoFactorRequired: true, challenge: response.data.data };
+      }
+
+      const { token: authToken, user: authUser } = response.data.data;
+      establishSession(authToken, authUser);
+      toast.success(`Welcome back, ${authUser.firstName}!`);
       return { success: true };
     } catch (error) {
       console.error('Login error:', error);
@@ -59,6 +78,19 @@ export const AuthProvider = ({ children }) => {
       toast.error(message);
       return { success: false, message };
     }
+  };
+
+  /** The second factor checked out, or a passkey signed in on its own. */
+  const completeLogin = ({ token: authToken, user: authUser, recoveryCodesLeft }) => {
+    establishSession(authToken, authUser);
+    toast.success(`Welcome back, ${authUser.firstName}!`);
+    if (typeof recoveryCodesLeft === 'number' && recoveryCodesLeft <= 2) {
+      toast(
+        `Only ${recoveryCodesLeft} recovery code${recoveryCodesLeft === 1 ? '' : 's'} left. Generate a new set in Settings.`,
+        { icon: '⚠️', duration: 8000 },
+      );
+    }
+    return { success: true };
   };
 
   const register = async (userData) => {
@@ -123,6 +155,7 @@ export const AuthProvider = ({ children }) => {
     token,
     loading,
     login,
+    completeLogin,
     register,
     logout,
     updateUserProfile,

@@ -14,7 +14,11 @@ exports.getAllPrograms = async (req, res) => {
       query.isActive = isActive === 'true';
     }
 
-    const programs = await Program.find(query).sort({ code: 1 });
+    // Signed out: only what the sign-up dropdown needs
+    if (!req.user) query.isActive = true;
+    const programs = await Program.find(query)
+      .select(req.user ? '' : 'code name')
+      .sort({ code: 1 });
 
     res.status(200).json({
       success: true,

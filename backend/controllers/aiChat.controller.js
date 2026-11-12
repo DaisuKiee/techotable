@@ -17,6 +17,7 @@ const {
 const { getFacultyLoads, EMPTY_LOAD } = require('../utils/facultyLoad');
 const { sendError } = require('../middleware/error.middleware');
 const helpAssistant = require('../services/helpAssistant.service');
+const { searchClause, escapeRegex } = require('../utils/safeQuery');
 
 // Only staff get the data-driven assistant. Students and faculty get the
 // help-desk mode, which never receives database records.
@@ -251,7 +252,7 @@ exports.recommendFacultyForSubject = async (req, res) => {
     } else if (subjectCode) {
       subject = await Subject.findOne({ subjectCode });
     } else {
-      subject = await Subject.findOne({ subjectName: new RegExp(subjectName, 'i') });
+      subject = await Subject.findOne({ subjectName: new RegExp(`^${escapeRegex(subjectName)}$`, 'i') });
     }
 
     if (!subject) {

@@ -77,6 +77,9 @@ class BuiltinSolver {
     const options = data.options || {};
     this.maxBlock = Math.max(1, parseInt(options.max_block_hours ?? 3, 10));
     this.maxRoomCandidates = Math.max(1, parseInt(options.max_room_candidates ?? 6, 10));
+    // Hours a teacher gets between one class and the next on the same day.
+    // 0 turns the rule off. Mirrored in python/ortools_scheduler.py.
+    this.minPrepGap = Math.max(0, Math.min(4, parseInt(options.min_prep_gap ?? 1, 10) || 0));
     this.weights = { ...DEFAULT_WEIGHTS, ...(options.weights || {}) };
     // Thorough: after the restarts stop helping, keep improving the best
     // timetable until the time limit instead of stopping early
@@ -263,6 +266,21 @@ class BuiltinSolver {
       for (let p = pos; p < pos + len && p < this.horizon; p++) arr[p] = 1;
     };
 
+    /**
+     * Saved classes a teacher is already giving, kept apart from `fixed`.
+     *
+     * `fixed` mixes saved classes with declared unavailability, and the prep
+     * gap must only look at teaching: being busy elsewhere is not another
+     * class to prepare for, and treating it as one would make unavailability
+     * doubly restrictive.
+     */
+    this.teaching = new Map();
+    const markTeaching = (key, pos, len) => {
+      if (!this.teaching.has(key)) this.teaching.set(key, new Uint8Array(this.horizon));
+      const arr = this.teaching.get(key);
+      for (let p = pos; p < pos + len && p < this.horizon; p++) arr[p] = 1;
+    };
+
     const facIndex = new Map(this.faculty.map((f, i) => [String(f._id), i]));
     const roomIndex = new Map(this.rooms.map((r, i) => [String(r._id), i]));
     const slotIndex = new Map(this.slots.map((s, i) => [s.start, i]));
@@ -274,7 +292,10 @@ class BuiltinSolver {
       let len = Math.max(1, Math.round((hhmm(row.end_time || row.start_time) - hhmm(row.start_time)) / 60));
       len = Math.min(len, this.spd - s);
       const pos = d * this.spd + s;
-      if (row.faculty_id && facIndex.has(String(row.faculty_id))) mark(`f${facIndex.get(String(row.faculty_id))}`, pos, len);
+      if (row.faculty_id && facIndex.has(String(row.faculty_id))) {
+        mark(`f${facIndex.get(String(row.faculty_id))}`, pos, len);
+        markTeaching(`f${facIndex.get(String(row.faculty_id))}`, pos, len);
+      }
       if (row.room_id && roomIndex.has(String(row.room_id))) mark(`r${roomIndex.get(String(row.room_id))}`, pos, len);
       if (row.section_code) mark(`s${row.section_code}`, pos, len);
     }
@@ -460,6 +481,39 @@ class BuiltinSolver {
    * allowConflicts=true : may overlap other generated classes - they are the
    *   ones that get evicted - but never saved classes or unavailability.
    */
+  /**
+   * The teacher's preparation gap, for one candidate placement.
+   *
+   * Scans the `minPrepGap` hours either side of the block, stopping at the
+   * edges of that day - positions run continuously across days, so without
+   * the clamp a class finishing at 17:00 would be judged too close to the
+   * teacher's 07:00 class the next morning.
+   *
+   * Returns { blocked, hits }: `blocked` when a saved class sits in the gap
+   * (immovable, so this position simply will not do), `hits` listing
+   * generated classes that could be evicted to make room - the same two
+   * outcomes the overlap check already uses.
+   */
+  prepGapCheck(fTeach, fOwner, pos, len, c) {
+    if (this.minPrepGap <= 0) return { blocked: false, hits: [] };
+
+    const dayStart = Math.floor(pos / this.spd) * this.spd;
+    const dayEnd = dayStart + this.spd;
+    const from = Math.max(dayStart, pos - this.minPrepGap);
+    const to = Math.min(dayEnd, pos + len + this.minPrepGap);
+    const hits = [];
+
+    for (let p = from; p < to; p++) {
+      if (p >= pos && p < pos + len) continue;   // the block itself
+      if (fTeach && fTeach[p]) return { blocked: true, hits: [] };
+      const owner = fOwner[p];
+      // Another block of this same class is the same subject carrying on,
+      // not a different one to prepare for
+      if (owner >= 0 && owner !== c) hits.push(owner);
+    }
+    return { blocked: false, hits };
+  }
+
   bestOption(c, { allowConflicts, noise = 0, rand, ejected }) {
     const klass = this.classes[c];
     const busiest = Math.max(0, ...this.load);
@@ -474,6 +528,7 @@ class BuiltinSolver {
     for (const f of klass.facultyCandidates) {
       if (this.load[f] + klass.units > this.loadCap[f]) continue;
       const fFixed = this.fixed.get(`f${f}`);
+      const fTeach = this.teaching.get(`f${f}`);
       const fOwner = this.ownerArr(`f${f}`);
       const balancePen = Math.max(0, this.load[f] + klass.units - busiest) * this.weights.balance;
       const teacher = (klass.teacherScore.get(f) || 0) - balancePen;
@@ -510,6 +565,12 @@ class BuiltinSolver {
               }
             }
             if (blocked) continue;
+
+            // The teacher needs time between this and their next class
+            const gap = this.prepGapCheck(fTeach, fOwner, pos, len, c);
+            if (gap.blocked) continue;
+            hits.push(...gap.hits);
+
             if (hits.length && !allowConflicts) continue;
 
             const unique = new Set(hits);

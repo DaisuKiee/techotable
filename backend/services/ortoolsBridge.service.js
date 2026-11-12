@@ -28,6 +28,13 @@ const { summarizeSubjectExperience } = require('../utils/teachingExperience');
 const { solveInWorker } = require('./builtinSolver.service');
 const { getFacultyLoads } = require('../utils/facultyLoad');
 
+/**
+ * Hours a teacher gets between one class and the next on the same day.
+ * One hour by campus policy; 0 switches the rule off for a run that
+ * cannot otherwise be scheduled.
+ */
+const DEFAULT_PREP_GAP = 1;
+
 const PYTHON_SCRIPT = path.join(__dirname, '../python/ortools_scheduler.py');
 
 /**
@@ -173,6 +180,7 @@ function preparePythonInput(data) {
   const {
     subjects, facultyDocs, rooms, sections, existing, loads, guestOnly,
     section, timeLimit, shift, academicYear, semester, program, yearLevel, weights, thorough,
+    minPrepGap,
   } = data;
 
   const preparedSubjects = subjects.map(subj => ({
@@ -288,6 +296,9 @@ function preparePythonInput(data) {
     options: {
       max_block_hours: 3,
       workers: 8,
+      // Hours a teacher gets between classes. Sent explicitly rather than
+      // left to each engine's default, so both are told the same number.
+      min_prep_gap: Number.isFinite(Number(minPrepGap)) ? Number(minPrepGap) : 1,
       ...(weights ? { weights } : {}),
       ...(thorough ? { thorough: true } : {}),
     },
@@ -549,7 +560,7 @@ function findConflicts(input, rawSchedules) {
  * balance and a less experienced teacher gets a subject), so the preview says
  * what this one gave up instead of presenting the score as the whole story.
  */
-function summariseTradeoffs(input, rawSchedules) {
+function summariseTradeoffs(input, rawSchedules, { relaxedPrepGap = false, requestedPrepGap = 0 } = {}) {
   const list = Array.isArray(rawSchedules) ? rawSchedules : [];
   if (!list.length) return null;
   const toMin = (t) => {
@@ -607,6 +618,20 @@ function summariseTradeoffs(input, rawSchedules) {
   if (nearCap) notes.push(`${nearCap} teacher${nearCap === 1 ? ' is' : 's are'} within 2 units of their load limit.`);
   if (early) notes.push(`${early} meeting${early === 1 ? ' starts' : 's start'} before 8:00 AM.`);
   if (longestGap >= 120) notes.push(`Students wait up to ${hrs(longestGap)} between classes on some days.`);
+  /**
+   * Dropping the preparation gap is the biggest thing the solver can give up,
+   * so it is said first and plainly - the timetable is valid, but it no
+   * longer honours campus policy and somebody has to decide whether that is
+   * acceptable.
+   */
+  if (relaxedPrepGap) {
+    notes.unshift(
+      `No timetable existed that gave every teacher ${requestedPrepGap} hour`
+      + `${requestedPrepGap === 1 ? '' : 's'} between classes, so that rule was dropped for this plan. `
+      + 'Some teachers go straight from one class into the next.'
+    );
+  }
+
   if (!notes.length) notes.push('Nothing notable was given up: every class has a qualified, experienced teacher, no early starts and no long waits.');
 
   return {
@@ -643,6 +668,19 @@ function findCloseCalls(input, rawSchedules) {
     return (h || 0) * 60 + (m || 0);
   };
   const overlaps = (a, b) => a.day === b.day && a.start < b.end && b.start < a.end;
+
+  /**
+   * Swapping a teacher must respect the preparation gap, not just avoid a
+   * straight clash - otherwise the panel would offer a teacher who ends up
+   * running from one class into the next, which the solver itself refuses.
+   *
+   * Only teaching counts, matching both engines: being unavailable is not
+   * another class to prepare for.
+   */
+  const prepGap = Math.max(0, parseInt(input.options?.min_prep_gap ?? 1, 10) || 0) * 60;
+  const tooClose = (a, b) => prepGap > 0 && b.teaching && a.day === b.day
+    && a.start < b.end + prepGap && b.start < a.end + prepGap;
+
   const weights = { experience: 10, qualified: 300, ...(input.options?.weights || {}) };
   const unitsOf = (s) => parseInt(s.subject?.units, 10) || 3;
 
@@ -666,13 +704,13 @@ function findCloseCalls(input, rawSchedules) {
     const id = s.faculty?._id ? String(s.faculty._id) : null;
     if (!id) return;
     units.set(id, (units.get(id) || 0) + unitsOf(s));
-    for (const t of s.time_slots || []) addBusy(id, { day: t.day, start: toMin(t.start_time), end: toMin(t.end_time), index });
+    for (const t of s.time_slots || []) addBusy(id, { day: t.day, start: toMin(t.start_time), end: toMin(t.end_time), index, teaching: true });
   });
   for (const row of input.existing || []) {
-    if (row.faculty_id) addBusy(String(row.faculty_id), { day: row.day, start: toMin(row.start_time), end: toMin(row.end_time), index: -1 });
+    if (row.faculty_id) addBusy(String(row.faculty_id), { day: row.day, start: toMin(row.start_time), end: toMin(row.end_time), index: -1, teaching: true });
   }
   for (const f of input.faculty || []) {
-    for (const w of f.unavailable || []) addBusy(String(f._id), { day: w.day, start: toMin(w.start), end: toMin(w.end), index: -1 });
+    for (const w of f.unavailable || []) addBusy(String(f._id), { day: w.day, start: toMin(w.start), end: toMin(w.end), index: -1, teaching: false });
   }
   const spare = (f) => (parseInt(f.max_teaching_load, 10) || 24)
     - (parseInt(f.current_load, 10) || 0) - (units.get(String(f._id)) || 0);
@@ -689,7 +727,8 @@ function findCloseCalls(input, rawSchedules) {
       .map(f => ({ f, ...fit(f, s.subject) }))
       .filter(a => a.score >= chosenFit.score - CLOSE_MARGIN && a.score > 0)
       .filter(a => spare(a.f) >= unitsOf(s))
-      .filter(a => !meetings.some(m => (busy.get(String(a.f._id)) || []).some(b => overlaps(m, b))))
+      .filter(a => !meetings.some(m => (busy.get(String(a.f._id)) || [])
+        .some(b => overlaps(m, b) || tooClose(m, b))))
       .sort((a, b) => b.score - a.score)
       .slice(0, 3)
       .map(a => ({
@@ -800,6 +839,8 @@ async function runSolver(params) {
   const {
     academicYear, semester, program, yearLevel,
     section, timeLimit = 60, shift = 'Day', weights, engine = 'auto', thorough = false,
+    // Hours a teacher gets between one class and the next on the same day
+    minPrepGap = DEFAULT_PREP_GAP,
     // Unsaved builder cards, same shape as Schedule rows: treated as fixed, so
     // suggestions fit around them and don't repeat their subjects
     extraExisting = [],
@@ -831,19 +872,48 @@ async function runSolver(params) {
     yearLevel,
     weights,
     thorough,
+    minPrepGap,
   });
 
-  const solved = await solveWithEngine(pythonInput, engine, timeLimit);
+  let solved = await solveWithEngine(pythonInput, engine, timeLimit);
+  let activeInput = pythonInput;
+  let relaxedPrepGap = false;
+
+  /**
+   * The preparation gap is the one rule here that can make an otherwise
+   * reasonable request impossible - a teacher with a full day simply may not
+   * fit an hour between every class. Refusing outright would leave the user
+   * with no timetable and no idea which rule to relax, so the gap is dropped
+   * and the result says so. A preflight check was the alternative, but any
+   * cheap test for this is either wrong or refuses runs that would have
+   * worked.
+   */
+  if (!solved.result.success && Number(pythonInput.options?.min_prep_gap) > 0) {
+    const relaxed = {
+      ...pythonInput,
+      options: { ...pythonInput.options, min_prep_gap: 0 },
+    };
+    const retry = await solveWithEngine(relaxed, engine, timeLimit);
+    if (retry.result.success) {
+      solved = retry;
+      activeInput = relaxed;
+      relaxedPrepGap = true;
+    }
+  }
+
   const { result } = solved;
   const schedules = transformOptimizedSchedule(result, {
     academicYear, semester, program, yearLevel, shift,
   });
-  const conflicts = result.success ? findConflicts(pythonInput, result.schedules) : [];
+  const conflicts = result.success ? findConflicts(activeInput, result.schedules) : [];
 
   return {
-    result, schedules, inputs, pythonInput, conflicts,
+    result, schedules, inputs, conflicts,
+    pythonInput: activeInput,
     engine: solved.engine,
     fellBack: !!solved.fellBack,
+    relaxedPrepGap,
+    requestedPrepGap: Number(pythonInput.options?.min_prep_gap) || 0,
   };
 }
 
@@ -934,7 +1004,10 @@ async function generateWithORTools(params) {
  */
 async function previewWithORTools(params) {
   try {
-    const { result, schedules, inputs, pythonInput, conflicts, engine, fellBack } = await runSolver(params);
+    const {
+      result, schedules, inputs, pythonInput, conflicts, engine, fellBack,
+      relaxedPrepGap, requestedPrepGap,
+    } = await runSolver(params);
     const method = ENGINE_LABELS[engine];
 
     if (!result.success) {
@@ -997,7 +1070,7 @@ async function previewWithORTools(params) {
         // Classes where another teacher was about as good: the person decides
         closeCalls: conflicts.length ? [] : findCloseCalls(pythonInput, result.schedules),
         // What this weighting gave up, so the score isn't the whole story
-        tradeoffs: summariseTradeoffs(pythonInput, result.schedules),
+        tradeoffs: summariseTradeoffs(pythonInput, result.schedules, { relaxedPrepGap, requestedPrepGap }),
         statistics: {
           ...buildStatistics(result, inputs, pythonInput, schedules),
           failedSubjects: failed.length,

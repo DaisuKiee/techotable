@@ -94,6 +94,9 @@ class TimetableOptimizer:
         options = data.get('options') or {}
         self.max_block = max(1, int(options.get('max_block_hours', 3)))
         self.max_room_candidates = max(1, int(options.get('max_room_candidates', 6)))
+        # Hours a teacher gets between one class and the next on the same day.
+        # 0 turns the rule off. Mirrored in builtinSolver.service.js.
+        self.min_prep_gap = max(0, min(4, int(options.get('min_prep_gap', 1) or 0)))
         self.weights = {**DEFAULT_WEIGHTS, **(options.get('weights') or {})}
 
         self.slots_per_day = len(self.slots)
@@ -356,6 +359,7 @@ class TimetableOptimizer:
         a class on top of one that was already published.
         """
         by_faculty = defaultdict(list)
+        by_faculty_prep = defaultdict(list)
         by_room = defaultdict(list)
         by_section = defaultdict(list)
 
@@ -380,15 +384,23 @@ class TimetableOptimizer:
 
             if row.get('faculty_id'):
                 by_faculty[str(row['faculty_id'])].append(iv)
+                # The same saved class, padded by the prep gap and clamped to
+                # its own day, so a generated class cannot butt up against one
+                # that is already on the timetable.
+                if self.min_prep_gap > 0:
+                    day_end = (d + 1) * self.slots_per_day
+                    padded = min(pos + length + self.min_prep_gap, day_end)
+                    by_faculty_prep[str(row['faculty_id'])].append(
+                        self.model.NewFixedSizeIntervalVar(pos, padded - pos, f'busyprep{n}'))
             if row.get('room_id'):
                 by_room[str(row['room_id'])].append(iv)
             if row.get('section_code'):
                 by_section[str(row['section_code'])].append(iv)
 
-        return by_faculty, by_room, by_section
+        return by_faculty, by_faculty_prep, by_room, by_section
 
     def add_constraints(self):
-        busy_fac, busy_room, busy_section = self._fixed_intervals_from_existing()
+        busy_fac, busy_fac_prep, busy_room, busy_section = self._fixed_intervals_from_existing()
 
         # Prefer FIRST-YEAR NSTP subjects to be scheduled on Saturday from 08:00 to 11:00
         # Make this a SOFT constraint (preference) instead of HARD constraint (requirement)
@@ -468,9 +480,44 @@ class TimetableOptimizer:
         for key, intervals in by_section.items():
             self.model.AddNoOverlap(intervals + busy_section.get(str(key), []))
 
+        # Preparation gap: every block, padded by min_prep_gap hours.
+        #
+        # Expressed by lengthening the interval the TEACHER occupies rather
+        # than by comparing pairs of blocks: AddNoOverlap on padded intervals
+        # says exactly "no two of this teacher's classes within the gap", and
+        # costs one constraint per teacher instead of one per pair.
+        #
+        # The padding is clamped to the end of the block's own day. Without
+        # that clamp a class finishing at 17:00 would reach into the next
+        # day's first slots and wrongly block that teacher's 07:00 class -
+        # positions run continuously across days (day * slots_per_day + slot).
+        prep_sizes = {}
+        if self.min_prep_gap > 0:
+            for c_idx, klass in enumerate(self.classes):
+                for b_idx in range(len(klass['blocks'])):
+                    blk = self.blocks[(c_idx, b_idx)]
+                    limit = self.horizon + self.min_prep_gap
+
+                    day_end = self.model.NewIntVar(0, self.horizon, f'dayend_c{c_idx}_b{b_idx}')
+                    self.model.Add(day_end == (blk['day'] + 1) * self.slots_per_day)
+
+                    padded = self.model.NewIntVar(0, limit, f'padded_c{c_idx}_b{b_idx}')
+                    self.model.Add(padded == blk['end'] + self.min_prep_gap)
+
+                    prep_end = self.model.NewIntVar(0, limit, f'prepend_c{c_idx}_b{b_idx}')
+                    self.model.AddMinEquality(prep_end, [padded, day_end])
+
+                    prep_size = self.model.NewIntVar(
+                        1, self.slots_per_day + self.min_prep_gap, f'prepsize_c{c_idx}_b{b_idx}')
+                    self.model.Add(prep_size == prep_end - blk['start'])
+                    prep_sizes[(c_idx, b_idx)] = (prep_size, prep_end)
+
         # A teacher cannot be in two places at once
         for f_idx, f in enumerate(self.faculty):
             intervals = list(busy_fac.get(str(f.get('_id')), []))
+            # Teaching only, padded: unavailability is deliberately left out,
+            # because being busy elsewhere is not another class to prepare for.
+            teaching = list(busy_fac_prep.get(str(f.get('_id')), []))
 
             for c_idx, klass in enumerate(self.classes):
                 if f_idx not in klass['faculty_candidates']:
@@ -481,6 +528,11 @@ class TimetableOptimizer:
                     intervals.append(self.model.NewOptionalIntervalVar(
                         blk['start'], blk['length'], blk['end'], presence,
                         f'fiv_c{c_idx}_b{b_idx}_f{f_idx}'))
+                    if self.min_prep_gap > 0:
+                        prep_size, prep_end = prep_sizes[(c_idx, b_idx)]
+                        teaching.append(self.model.NewOptionalIntervalVar(
+                            blk['start'], prep_size, prep_end, presence,
+                            f'prep_c{c_idx}_b{b_idx}_f{f_idx}'))
 
             # Declared unavailability becomes an immovable busy interval
             for n, window in enumerate(f.get('unavailable') or []):
@@ -490,6 +542,8 @@ class TimetableOptimizer:
 
             if len(intervals) > 1:
                 self.model.AddNoOverlap(intervals)
+            if self.min_prep_gap > 0 and len(teaching) > 1:
+                self.model.AddNoOverlap(teaching)
 
         # A room cannot host two classes at once
         for r_idx, room in enumerate(self.rooms):

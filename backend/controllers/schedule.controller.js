@@ -19,6 +19,7 @@ const {
 const { notifyScheduleChange } = require('../services/emailNotification.service');
 const { homeRoomResolver } = require('../services/homeRoom.service');
 const { setClassSpacesPublished } = require('../services/classSpace.service');
+const { searchClause, escapeRegex } = require('../utils/safeQuery');
 
 /**
  * Draft vs published.
@@ -149,12 +150,9 @@ exports.getAllSchedules = async (req, res) => {
       if (section) query.section = section;
       if (shift) query.shift = shift;
 
-      if (search) {
-        query.$or = [
-          { sectionCode: { $regex: search, $options: 'i' } },
-          { section: { $regex: search, $options: 'i' } }
-        ];
-      }
+      // Escaped: a raw term lets a caller run their own regex on the server
+      const searchFor = searchClause(search, ['sectionCode', 'section']);
+      if (searchFor) Object.assign(query, searchFor);
     }
 
     const schedules = await Schedule.find(query)
@@ -1120,6 +1118,20 @@ const resolveSolverWeights = (priority) =>
   SOLVER_PRIORITIES[priority] || undefined;
 
 /**
+ * Hours a teacher gets between one class and the next on the same day.
+ *
+ * Campus policy is at least one hour. Clamped to 0-4 and defaulted here so a
+ * malformed value from the client cannot quietly change what the solver is
+ * asked to guarantee; 0 means a run that is otherwise impossible can go ahead
+ * without the rule.
+ */
+const resolvePrepGap = (value) => {
+  const hours = parseInt(value, 10);
+  if (!Number.isFinite(hours)) return 1;
+  return Math.max(0, Math.min(4, hours));
+};
+
+/**
  * Which engine a request runs on.
  *
  * 'ortools' means "OR-Tools, falling back to the built-in solver if it cannot
@@ -1145,7 +1157,8 @@ exports.generateSchedule = async (req, res) => {
       shift = 'Day',      // 'Day' or 'Night'
       timeLimit = 60,     // seconds for OR-Tools
       priority = 'balanced',  // which objective preset the solver should favour
-      thoroughness = 'quick'  // built-in solver: 'thorough' uses the whole time limit
+      thoroughness = 'quick', // built-in solver: 'thorough' uses the whole time limit
+      prepGap                 // hours a teacher gets between classes (default 1)
     } = req.body;
 
     if (!academicYear || !semester || !program || !yearLevel || !section) {
@@ -1170,7 +1183,8 @@ exports.generateSchedule = async (req, res) => {
       timeLimit,
       weights: resolveSolverWeights(priority),
       engine: resolveEngine(method),
-      thorough: thoroughness === 'thorough'
+      thorough: thoroughness === 'thorough',
+      minPrepGap: resolvePrepGap(prepGap)
     });
 
     if (result.success && result.schedules) {
@@ -1240,7 +1254,8 @@ exports.previewSchedule = async (req, res) => {
       shift = 'Day',
       timeLimit = 60,
       priority = 'balanced',
-      thoroughness = 'quick'
+      thoroughness = 'quick',
+      prepGap
     } = req.body;
 
     if (!academicYear || !semester || !program || !yearLevel || !section) {
@@ -1264,7 +1279,8 @@ exports.previewSchedule = async (req, res) => {
       timeLimit,
       weights: resolveSolverWeights(priority),
       engine: resolveEngine(method),
-      thorough: thoroughness === 'thorough'
+      thorough: thoroughness === 'thorough',
+      minPrepGap: resolvePrepGap(prepGap)
     });
 
     const preview = {
@@ -1702,7 +1718,7 @@ exports.builderSuggest = async (req, res) => {
   try {
     const {
       academicYear, semester, program, yearLevel, section, sectionCode,
-      shift = 'Day', pending = [], priority = 'balanced',
+      shift = 'Day', pending = [], priority = 'balanced', prepGap,
     } = req.body;
     if (!academicYear || !semester || !program || !yearLevel || !section) {
       return res.status(400).json({ success: false, message: 'Choose a section first.' });
@@ -1717,6 +1733,9 @@ exports.builderSuggest = async (req, res) => {
       timeLimit: 10,
       weights: resolveSolverWeights(priority),
       engine: 'auto',
+      // The builder's suggestions must obey the same rule the generator does,
+      // or it would propose a slot the generator would refuse
+      minPrepGap: resolvePrepGap(prepGap),
       extraExisting: pendingToRows(pending, sectionCode),
     });
 

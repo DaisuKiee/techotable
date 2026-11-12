@@ -409,7 +409,9 @@ const GenerateScheduleModal = ({ onClose }) => {
     // 'quick': the built-in solver stops once it stops improving (seconds).
     // 'thorough': it keeps improving until the time limit - on real sections
     // this reached the same score as OR-Tools.
-    thoroughness: 'quick'
+    thoroughness: 'quick',
+    // Hours a teacher gets between one class and the next on the same day
+    prepGap: 1
   });
 
   // Check OR-Tools availability on mount
@@ -510,7 +512,8 @@ const GenerateScheduleModal = ({ onClose }) => {
         method: formData.method,
         timeLimit: parseInt(formData.timeLimit),
         priority: formData.priority,
-        thoroughness: formData.thoroughness
+        thoroughness: formData.thoroughness,
+        prepGap: formData.prepGap
       };
 
       console.log('Sending preview request:', generateData);
@@ -829,6 +832,49 @@ const GenerateScheduleModal = ({ onClose }) => {
                         </span>
                       </button>
                     ))}
+                  </div>
+
+                  <div className="mt-5">
+                    <label className="block text-sm font-semibold text-gray-900 mb-1">
+                      Preparation time between a teacher's classes
+                    </label>
+                    <p className="text-xs text-gray-500 mb-3">
+                      A teacher will not be given two classes closer together than this on the
+                      same day. If no timetable exists that can honour it, the solver says so
+                      and builds one without it rather than failing.
+                    </p>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {[
+                        { value: 0, label: 'None', hint: 'Classes may run back to back' },
+                        { value: 1, label: '1 hour', hint: 'Campus policy' },
+                        { value: 2, label: '2 hours', hint: 'More breathing room' },
+                        { value: 3, label: '3 hours', hint: 'Hard to satisfy' }
+                      ].map(({ value, label, hint }) => (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => setFormData(prev => ({ ...prev, prepGap: value }))}
+                          disabled={generating}
+                          aria-pressed={formData.prepGap === value}
+                          className={`rounded-lg border p-3 text-left transition-colors disabled:opacity-50 ${
+                            formData.prepGap === value
+                              ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-500'
+                              : 'border-gray-300 hover:border-blue-300 hover:bg-gray-50'
+                          }`}
+                        >
+                          <span className={`block text-sm font-semibold ${
+                            formData.prepGap === value ? 'text-blue-900' : 'text-gray-900'
+                          }`}>
+                            {label}
+                          </span>
+                          <span className={`block text-xs mt-0.5 ${
+                            formData.prepGap === value ? 'text-blue-700' : 'text-gray-500'
+                          }`}>
+                            {hint}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
@@ -1374,6 +1420,12 @@ const GenerateScheduleModal = ({ onClose }) => {
                   <li>• A section is never in two classes at the same time</li>
                   <li>• Teaching load stays within each faculty member's remaining cap</li>
                   <li>• Declared unavailable hours and existing classes are worked around</li>
+                  {formData.prepGap > 0 && (
+                    <li>
+                      • Every teacher gets at least {formData.prepGap} hour
+                      {formData.prepGap === 1 ? '' : 's'} between one class and the next
+                    </li>
+                  )}
                   <li>• Labs only go in lab rooms, and rooms must fit the section</li>
                   <li>• A section with a home room has all its non-lab classes there</li>
                 </ul>

@@ -18,6 +18,10 @@ const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'
 // Room types a lab-only subject may use (matches the solver's LAB_ROOM_TYPES)
 const LAB_ROOM_TYPES = new Set(['Laboratory', 'Computer Lab', 'Workshop']);
 
+// Minutes a teacher needs between two classes on the same day. Matches the
+// solver's default; the server enforces the same gap on save.
+const PREP_GAP_MINUTES = 60;
+
 /**
  * The room a class dropped for a section should start in.
  *
@@ -453,6 +457,16 @@ const ScheduleBuilder = ({
     return toMin(aStart) < toMin(bEnd) && toMin(bStart) < toMin(aEnd);
   };
 
+  /** Minutes between two same-day slots: 0 back-to-back, -1 if overlapping. */
+  const gapMinutes = (aStart, aEnd, bStart, bEnd) => {
+    const toMin = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+    const aS = toMin(aStart); const aE = toMin(aEnd);
+    const bS = toMin(bStart); const bE = toMin(bEnd);
+    if (aS >= bE) return aS - bE;
+    if (bS >= aE) return bS - aE;
+    return -1;
+  };
+
   /** Fetch (or refresh) a faculty's full schedule so drag-hover can warn about
    *  a real conflict elsewhere without a round-trip per hovered cell. */
   const loadFacultySchedule = useCallback(async (facultyId) => {
@@ -491,12 +505,26 @@ const ScheduleBuilder = ({
     return f.user ? `${f.user.firstName} ${f.user.lastName}` : f.employeeId;
   }, [faculty]);
 
-  /** First booking for `facultyId` that overlaps this slot from OUTSIDE this
-   *  section's own grid (e.g. another section or program). */
+  /**
+   * A booking for `facultyId` that clashes with this slot from OUTSIDE this
+   * section's own grid (another section or program). Reports two kinds:
+   * `overlap` (teaching two classes at once) and `gap` (too little time to
+   * prepare between classes — PREP_GAP_MINUTES, matching the solver).
+   */
   const findFacultyConflict = useCallback((facultyId, day, startTime, endTime) => {
     const entries = facultySchedules[facultyId];
     if (!entries) return null;
-    return entries.find(e => e.day === day && timesOverlap(startTime, endTime, e.startTime, e.endTime)) || null;
+    const sameDay = entries.filter(e => e.day === day);
+    const overlap = sameDay.find(e => timesOverlap(startTime, endTime, e.startTime, e.endTime));
+    if (overlap) return { ...overlap, kind: 'overlap' };
+    if (PREP_GAP_MINUTES > 0) {
+      const tooClose = sameDay.find(e => {
+        const g = gapMinutes(startTime, endTime, e.startTime, e.endTime);
+        return g >= 0 && g < PREP_GAP_MINUTES;
+      });
+      if (tooClose) return { ...tooClose, kind: 'gap' };
+    }
+    return null;
   }, [facultySchedules]);
 
   /** Re-pull every faculty schedule we've cached so the conflict preview stays
@@ -815,11 +843,15 @@ const ScheduleBuilder = ({
       ? findFacultyConflict(assignedFacultyId, day, startTime, endTime)
       : null;
     if (facultyHit) {
+      const who = facultyName(assignedFacultyId) || 'This instructor';
+      const where = `${facultyHit.subjectCode || 'a class'} (${facultyHit.sectionCode || '—'}) on ${day} ${facultyHit.startTime}–${facultyHit.endTime}`;
       const proceed = await confirm({
-        title: 'Instructor already busy',
-        message: `${facultyName(assignedFacultyId) || 'This instructor'} already teaches ${facultyHit.subjectCode || 'a class'} `
-          + `(${facultyHit.sectionCode || '—'}) on ${day} ${facultyHit.startTime}–${facultyHit.endTime}. `
-          + 'Schedule them here anyway? Only do this for a combined class.',
+        title: facultyHit.kind === 'gap' ? 'Not enough time to prepare' : 'Instructor already busy',
+        message: facultyHit.kind === 'gap'
+          ? `${who} teaches ${where}. Teachers need an hour between classes, so this slot is too close. `
+            + 'Schedule them here anyway?'
+          : `${who} already teaches ${where}. `
+            + 'Schedule them here anyway? Only do this for a combined class.',
         confirmText: 'Schedule anyway',
         cancelText: 'Pick another slot',
       });
@@ -1837,7 +1869,7 @@ const ScheduleBuilder = ({
                                 blocked
                                   ? hover.reason
                                   : clashing
-                                  ? `Instructor already has ${hover.conflict.with.subjectCode || 'a class'} (${hover.conflict.with.sectionCode || '—'}) on ${hover.day} ${hover.conflict.with.startTime}-${hover.conflict.with.endTime}`
+                                  ? `${hover.conflict.with.kind === 'gap' ? 'Too close to' : 'Instructor already has'} ${hover.conflict.with.subjectCode || 'a class'} (${hover.conflict.with.sectionCode || '—'}) on ${hover.day} ${hover.conflict.with.startTime}-${hover.conflict.with.endTime}${hover.conflict.with.kind === 'gap' ? ' — teachers need an hour between classes' : ''}`
                                   : ''
                               }
                             >
@@ -2018,7 +2050,7 @@ const ScheduleBuilder = ({
                               {isEmpty && clashing && (
                                 <div className="flex-1 min-h-0 border-2 border-orange-500 bg-orange-100 dark:bg-orange-900/40 rounded-lg flex flex-col items-center justify-center px-1 text-center">
                                   <span className="text-[9px] text-orange-800 dark:text-orange-200 font-bold leading-tight">
-                                    ⚠ Instructor busy
+                                    {hover.conflict.with.kind === 'gap' ? '⚠ Needs prep time' : '⚠ Instructor busy'}
                                   </span>
                                   <span className="text-[8px] text-orange-700 dark:text-orange-300 leading-tight">
                                     {hover.conflict.with.subjectCode} · {hover.conflict.with.sectionCode}

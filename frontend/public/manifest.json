@@ -1,6 +1,9 @@
 {
   "short_name": "CoTE Timetable",
   "name": "CTU Daanbantayan - CoTE Timetabling System",
+  "description": "Clash-free class schedules for the College of Technology Education at CTU Daanbantayan, built by a constraint solver and fine-tuned by drag and drop.",
+  "lang": "en",
+  "categories": ["education", "productivity"],
   "icons": [
     {
       "src": "favicon.png",
@@ -11,6 +14,7 @@
   ],
   "start_url": ".",
   "display": "standalone",
+  "orientation": "any",
   "theme_color": "#0369a1",
-  "background_color": "#ffffff"
+  "background_color": "#0b1220"
 }

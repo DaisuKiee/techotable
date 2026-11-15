@@ -516,6 +516,7 @@ exports.deleteSchedule = async (req, res) => {
 };
 
 // Helper function to check schedule conflicts
+// Exported for tests (tests/schedulePrepGap.test.js); callers use it directly.
 async function checkScheduleConflicts({
   subject,
   faculty,
@@ -605,6 +606,35 @@ async function checkScheduleConflicts({
       for (const existingSlot of existingSchedule.timeSlots || []) {
         if (newSlot.day !== existingSlot.day) continue;
 
+        const existingFacultyId = existingSchedule.faculty?._id || existingSchedule.faculty;
+        const sameFaculty = faculty && existingFacultyId
+          && String(existingFacultyId) === String(faculty);
+
+        // Faculty preparation gap: a teacher needs time between two classes on
+        // the same day, so back-to-back placement is refused even though the
+        // slots do not overlap. (A true overlap is reported below instead.)
+        // NSTP is exempt — it is one combined class taught across sections.
+        if (sameFaculty && FACULTY_PREP_GAP_MINUTES > 0) {
+          const gap = gapBetween(newSlot, existingSlot);
+          const bothNSTP = mentionsNSTP({ subject })
+            && mentionsNSTP(existingSchedule);
+          if (gap >= 0 && gap < FACULTY_PREP_GAP_MINUTES && !bothNSTP) {
+            const who = existingSchedule.faculty?.user
+              ? `${existingSchedule.faculty.user.firstName} ${existingSchedule.faculty.user.lastName}`
+              : 'This instructor';
+            const hours = FACULTY_PREP_GAP_MINUTES % 60 === 0
+              ? `${FACULTY_PREP_GAP_MINUTES / 60} hour${FACULTY_PREP_GAP_MINUTES === 60 ? '' : 's'}`
+              : `${FACULTY_PREP_GAP_MINUTES} minutes`;
+            add({
+              type: 'faculty-gap',
+              message: `${who} has a class at ${existingSlot.startTime}–${existingSlot.endTime}. Teachers need ${hours} to prepare between classes, so this slot is too close.`,
+              day: newSlot.day,
+              time: `${existingSlot.startTime} - ${existingSlot.endTime}`,
+              conflictingSchedule: existingSchedule.sectionCode,
+            });
+          }
+        }
+
         const hasTimeOverlap = checkTimeOverlap(
           newSlot.startTime,
           newSlot.endTime,
@@ -618,11 +648,9 @@ async function checkScheduleConflicts({
           ? `${existingSchedule.sectionCode} (${existingSchedule.subject.subjectCode})`
           : existingSchedule.sectionCode;
 
-        // Faculty double-booking.
-        // `faculty` may be null if the referenced Faculty document was deleted,
-        // so read the id defensively rather than through `.faculty._id`.
-        const existingFacultyId = existingSchedule.faculty?._id || existingSchedule.faculty;
-        if (faculty && existingFacultyId && existingFacultyId.toString() === faculty.toString()) {
+        // Faculty double-booking (overlap). `existingFacultyId` / `sameFaculty`
+        // were resolved above for the preparation-gap check.
+        if (sameFaculty) {
           // EXCEPTION: NSTP is a combined class where one instructor teaches multiple sections simultaneously
           const isNewNSTP = (subject?.subjectCode || '').toUpperCase().includes('NSTP') ||
                            (subject?.subjectName || '').toUpperCase().includes('NSTP');
@@ -689,6 +717,31 @@ function checkTimeOverlap(start1, end1, start2, end2) {
 
   return (s1 < e2 && e1 > s2);
 }
+
+/**
+ * Minutes between two slots on the same day: 0 when they sit back to back,
+ * a positive number for the clear gap, and -1 when they actually overlap
+ * (that case is reported as a straight double-booking instead).
+ */
+function gapBetween(a, b) {
+  const aS = timeToMinutes(a.startTime);
+  const aE = timeToMinutes(a.endTime);
+  const bS = timeToMinutes(b.startTime);
+  const bE = timeToMinutes(b.endTime);
+  if (aS >= bE) return aS - bE;
+  if (bS >= aE) return bS - aE;
+  return -1;
+}
+
+/**
+ * How long a teacher must have between two classes on the same day. The solver
+ * enforces the same gap when generating; this covers classes placed by hand.
+ * Tunable per deployment, one hour by campus policy.
+ */
+const FACULTY_PREP_GAP_MINUTES = Math.max(0, parseInt(process.env.FACULTY_PREP_GAP_MINUTES, 10) || 60);
+
+const mentionsNSTP = (s) =>
+  /NSTP/i.test(`${s?.subject?.subjectCode || ''} ${s?.subject?.subjectName || ''}`);
 
 // Helper function to convert time string to minutes
 function timeToMinutes(timeStr) {
@@ -1549,13 +1602,29 @@ exports.bulkCreateSchedules = async (req, res) => {
         const B = offerings[b].row;
         if (A.academicYear !== B.academicYear || String(A.semester) !== String(B.semester)) continue;
 
+        const sameFacultyBatch = String(A.faculty) === String(B.faculty);
         for (const sa of A.timeSlots) {
           for (const sb of B.timeSlots) {
             if (sa.day !== sb.day) continue;
+
+            // Preparation gap between two of this batch's own classes for the
+            // same teacher, before either is saved. Checked first because it
+            // applies when the slots do NOT overlap.
+            if (sameFacultyBatch && FACULTY_PREP_GAP_MINUTES > 0) {
+              const gap = gapBetween(sa, sb);
+              if (gap >= 0 && gap < FACULTY_PREP_GAP_MINUTES) {
+                errors.push({
+                  index: offerings[b].index,
+                  subject: offerings[b].label,
+                  error: `Too close to ${offerings[a].label} on ${sa.day} — the instructor needs an hour to prepare between classes`
+                });
+              }
+            }
+
             if (!checkTimeOverlap(sa.startTime, sa.endTime, sb.startTime, sb.endTime)) continue;
 
             const where = `${sa.day} ${sa.startTime}`;
-            if (String(A.faculty) === String(B.faculty)) {
+            if (sameFacultyBatch) {
               errors.push({
                 index: offerings[b].index,
                 subject: offerings[b].label,
@@ -1961,3 +2030,6 @@ exports.deleteBuilderNotes = async (req, res) => {
     sendError(res, error, 'Could not update B-LO\'s memory');
   }
 };
+
+// Test-only surface for the preparation-gap guard.
+exports.__test__ = { checkScheduleConflicts, gapBetween, FACULTY_PREP_GAP_MINUTES };

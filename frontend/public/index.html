@@ -2,20 +2,170 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <!--
+      Canonical production URL. Everything absolute below (Open Graph, Twitter,
+      JSON-LD, sitemap) points here, so if the live domain ever changes, update
+      this base in index.html, sitemap.xml, robots.txt and llms.txt together.
+    -->
+    <link rel="canonical" href="https://technotabler.cebutech.digital/" />
+
+    <!-- Primary SEO -->
+    <title>CTU Daanbantayan Smart Timetabling System | CoTE Class Scheduling</title>
+    <meta
+      name="description"
+      content="Smart Timetabling System for CTU Daanbantayan's College of Technology Education. Clash-free class schedules built by a constraint solver, with a drag-and-drop builder, class spaces, Excel import and multilingual support."
+    />
+    <meta
+      name="keywords"
+      content="CTU Daanbantayan, Cebu Technological University, timetabling system, class scheduling, faculty scheduling, automated timetable, constraint solver, OR-Tools, College of Technology Education, CoTE, university scheduling software"
+    />
+    <meta name="author" content="CTU Daanbantayan – College of Technology Education" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
+    <meta name="theme-color" content="#0369a1" />
+    <meta name="application-name" content="CoTE Timetabling System" />
+
+    <!-- Open Graph (Facebook, Messenger, LinkedIn, and most AI link previews) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="CTU Daanbantayan Smart Timetabling System" />
+    <meta property="og:title" content="CTU Daanbantayan Smart Timetabling System" />
+    <meta
+      property="og:description"
+      content="Clash-free class schedules for the College of Technology Education, built by a constraint solver and fine-tuned by drag and drop."
+    />
+    <meta property="og:url" content="https://technotabler.cebutech.digital/" />
+    <meta property="og:image" content="https://technotabler.cebutech.digital/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="CTU Daanbantayan Smart Timetabling System" />
+    <meta property="og:locale" content="en_PH" />
+
+    <!-- Twitter / X card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="CTU Daanbantayan Smart Timetabling System" />
+    <meta
+      name="twitter:description"
+      content="Clash-free class schedules for CoTE, built by a constraint solver and fine-tuned by drag and drop."
+    />
+    <meta name="twitter:image" content="https://technotabler.cebutech.digital/og-image.png" />
+
+    <!-- Icons / PWA -->
     <link rel="icon" href="%PUBLIC_URL%/favicon.png" />
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/favicon.png" />
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#0369a1" />
+
     <!-- Bebas Neue: display face for the landing page's team carousel -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet" />
-    <meta
-      name="description"
-      content="AI-Integrated Faculty Timetabling System for CoTE"
-    />
-    <title>CoTE Timetabling System | CTU Daanbantayan</title>
+
+    <!--
+      Structured data. This is the part answer engines (Google's rich results,
+      voice assistants) and generative engines (AI Overviews, ChatGPT search,
+      Perplexity) actually parse to understand and cite the system, so it is
+      inlined in the static HTML rather than injected by React — crawlers that
+      don't run JavaScript still get it.
+    -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "WebApplication",
+          "@id": "https://technotabler.cebutech.digital/#app",
+          "name": "CTU Daanbantayan Smart Timetabling System",
+          "alternateName": "CoTE Timetabling System",
+          "url": "https://technotabler.cebutech.digital/",
+          "description": "A web application that builds clash-free class timetables for the College of Technology Education at Cebu Technological University – Daanbantayan Campus, using a constraint solver (Google OR-Tools CP-SAT) with a drag-and-drop builder.",
+          "applicationCategory": "EducationalApplication",
+          "operatingSystem": "Web browser",
+          "browserRequirements": "Requires JavaScript. Works in modern browsers.",
+          "inLanguage": ["en", "fil", "ceb"],
+          "offers": { "@type": "Offer", "price": "0", "priceCurrency": "PHP" },
+          "featureList": [
+            "Constraint-solver schedule generation (OR-Tools CP-SAT)",
+            "Drag-and-drop weekly schedule builder",
+            "Automatic conflict checks for teachers, rooms and sections",
+            "Teacher preparation gap between classes",
+            "Class spaces for announcements and materials",
+            "Excel import and PDF/Excel export",
+            "Two-step verification and passkeys",
+            "English, Filipino and Cebuano interface"
+          ],
+          "publisher": { "@id": "https://technotabler.cebutech.digital/#org" }
+        },
+        {
+          "@type": "EducationalOrganization",
+          "@id": "https://technotabler.cebutech.digital/#org",
+          "name": "Cebu Technological University – Daanbantayan Campus",
+          "department": { "@type": "CollegeOrUniversity", "name": "College of Technology Education (CoTE)" },
+          "url": "https://technotabler.cebutech.digital/",
+          "address": {
+            "@type": "PostalAddress",
+            "addressLocality": "Daanbantayan",
+            "addressRegion": "Cebu",
+            "addressCountry": "PH"
+          }
+        },
+        {
+          "@type": "FAQPage",
+          "@id": "https://technotabler.cebutech.digital/#faq",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "What is the CTU Daanbantayan Smart Timetabling System?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "It is a web application that builds clash-free class timetables for the College of Technology Education at Cebu Technological University – Daanbantayan Campus. A constraint solver places every class for a section at once and the result can be fine-tuned by drag and drop."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "How does the system generate class schedules?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "A constraint solver (Google OR-Tools CP-SAT) places every class for a section in one pass, avoiding double-booked teachers, rooms and sections, then optimises for a chosen priority such as teaching experience or even workload."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Who can use the timetabling system?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Administrators, scheduling officers, program managers, faculty and students. Each role sees its own view: staff generate and publish timetables, while faculty and students follow their own schedule and class spaces."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Does it prevent scheduling conflicts?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes. Teacher, room and section clashes are rejected whether a class was generated by the solver or placed by hand, and every teacher keeps a one-hour preparation gap between their classes."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Which programs does it support?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "BS Information Technology, BS Hospitality Management, BIT Electronics Technology, BIT Computer Technology, BIT Automotive Technology, BS Fisheries and BS Industrial Engineering."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Is the system secure?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes. Accounts support two-step verification and passkeys (fingerprint or face), and schedules can only be changed by authorised staff."
+              }
+            }
+          ]
+        }
+      ]
+    }
+    </script>
+
     <!--
       Apply the saved theme before the app loads. Without this the page paints
       light first and flips to dark once React starts. Mirrors ThemeContext,
@@ -33,7 +183,31 @@
     </script>
   </head>
   <body>
-    <noscript>You need to enable JavaScript to run this application.</noscript>
+    <!--
+      Fallback for crawlers and readers that don't run JavaScript. The real app
+      is a React SPA; this gives search and AI engines indexable text and the
+      key facts about the system even before any script runs.
+    -->
+    <noscript>
+      <main style="max-width: 720px; margin: 40px auto; padding: 0 20px; font-family: system-ui, sans-serif; line-height: 1.6;">
+        <h1>CTU Daanbantayan Smart Timetabling System</h1>
+        <p>
+          A clash-free class scheduling system for the College of Technology
+          Education (CoTE) at Cebu Technological University – Daanbantayan Campus.
+          Timetables are built by a constraint solver and fine-tuned by drag and
+          drop, so no teacher, room or section is ever double-booked.
+        </p>
+        <h2>What it does</h2>
+        <ul>
+          <li>Generates a whole section's weekly timetable in one pass.</li>
+          <li>Checks every schedule for teacher, room and section clashes.</li>
+          <li>Keeps a preparation gap between a teacher's classes.</li>
+          <li>Gives each published class a space for announcements and materials.</li>
+          <li>Imports and exports schedules (Excel and PDF).</li>
+        </ul>
+        <p>This application needs JavaScript enabled. Please turn it on to continue.</p>
+      </main>
+    </noscript>
     <div id="root"></div>
   </body>
 </html>

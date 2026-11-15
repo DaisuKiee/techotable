@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import ctuLogo from '../assets/images/logos/ctulogo.png';
 import CampusWalkLoader from '../components/CampusWalkLoader';
+import ShowreelIntro from '../components/ShowreelIntro';
 import ctuBg1 from '../assets/images/backgrounds/ctu-bg.jpg';
 import ctuBg2 from '../assets/images/backgrounds/662332107_1498119255017069_2427715418324433071_n.jpg';
 import ctuBg3 from '../assets/images/backgrounds/680448563_4304916549747910_4856050542134784312_n.jpg';
@@ -469,7 +470,6 @@ const LandingPage = () => {
   const currentSlide = slide.current;
   const fadingSlide = slide.fading;
   const [loading, setLoading] = useState(true);
-  const [fadeOut, setFadeOut] = useState(false);
   const [heroVisible, setHeroVisible] = useState(false);
   const [navigating, setNavigating] = useState(false);
 
@@ -486,23 +486,12 @@ const LandingPage = () => {
 
 
 
-  // Preloader effect with fade transition
-  useEffect(() => {
-    const fadeTimer = setTimeout(() => {
-      setFadeOut(true); // Start fade out animation
-    }, 1800); // Start fading at 1.8 seconds
-
-    const hideTimer = setTimeout(() => {
-      setLoading(false); // Remove preloader
-      // Trigger hero animation after preloader
-      setTimeout(() => setHeroVisible(true), 50);
-    }, 2200); // Complete removal at 2.2 seconds
-
-    return () => {
-      clearTimeout(fadeTimer);
-      clearTimeout(hideTimer);
-    };
-  }, []);
+  // The motion-graphics intro drives its own timing and calls onDone when it
+  // finishes or is skipped; the hero then rises in behind it.
+  const endIntro = () => {
+    setLoading(false);
+    setTimeout(() => setHeroVisible(true), 50);
+  };
 
   /*
    * Inertia scrolling (Lenis). Wheel and trackpad input is eased into a smooth
@@ -692,7 +681,7 @@ const LandingPage = () => {
   // Show preloader. The walk is timed to finish just as the fade-out starts
   // at 1.8s, so the student steps through the gate as the page appears.
   if (loading) {
-    return <CampusWalkLoader duration={1.9} fading={fadeOut} />;
+    return <ShowreelIntro duration={3.2} onDone={endIntro} />;
   }
 
   return (

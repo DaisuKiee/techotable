@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { aiChatAPI, subjectAPI, getErrorMessage } from '../services/api';
 import toast from 'react-hot-toast';
 import { User, AlertCircle, Sparkles, Star, Loader, Info, Search, Check, ArrowLeftRight, X } from 'lucide-react';
+import { useConfirm } from '../context/ConfirmContext';
 
 /* ───────────────────────── shared presentational bits ─────────────────────────
  * Tip and Section live here rather than in EditScheduleModal because the picker
@@ -94,8 +95,10 @@ const FacultyPicker = ({
   // Other departments: who has taught this subject, and who is approved for it
   const [subjectProgram, setSubjectProgram] = useState('');
   const [otherScores, setOtherScores] = useState({});
+  const [otherRows, setOtherRows] = useState([]);
   const [approvedIds, setApprovedIds] = useState(() => new Set());
   const [approving, setApproving] = useState(null);
+  const confirm = useConfirm();
 
   // Fetch experience ranking for this subject
   useEffect(() => {
@@ -136,6 +139,23 @@ const FacultyPicker = ({
           };
         });
         setOtherScores(others);
+        // Keep the outsiders' records — they are not in the program-scoped
+        // `faculty` prop, so the picker needs them to show and select them.
+        setOtherRows((data?.otherDepartments || []).map((rec) => {
+          const parts = String(rec.name || '').trim().split(/\s+/);
+          const lastName = parts.length > 1 ? parts.pop() : '';
+          return {
+            _id: rec.facultyId,
+            employeeId: rec.employeeId,
+            department: rec.department || '',
+            isActive: true,
+            programs: rec.department ? [rec.department] : [],
+            user: { firstName: parts.join(' ') || rec.name || '', lastName },
+            currentTeachingHours: Number(rec.teachingHours) || 0,
+            maxTeachingHours: Number(rec.maxHours) || 36,
+            __external: true,
+          };
+        }));
         setApprovedIds(new Set((data?.guestFacultyIds || []).map(String)));
       } catch (error) {
         console.error('Faculty recommendation failed:', error);
@@ -157,6 +177,44 @@ const FacultyPicker = ({
     || (f.teachingHistory || []).some((h) => h.program === subjectProgram);
   const departmentOf = (f) => otherScores[String(f._id)]?.department || f.department || (f.programs || [])[0] || 'another department';
 
+  // Teaching load, for the capsule and the over-limit confirmation.
+  const loadOf = (f) => {
+    const max = Number(f.maxTeachingHours) || 36;
+    const cur = Math.max(0, Number(f.currentTeachingHours) || 0);
+    return { cur, max, ratio: max ? cur / max : 0, over: cur >= max };
+  };
+
+  /** A small capsule showing hours assigned vs. the limit. */
+  const LoadCapsule = ({ f }) => {
+    const { cur, max, ratio, over } = loadOf(f);
+    const tone = over
+      ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+      : ratio >= 0.85
+        ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+        : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300';
+    return (
+      <Tip text={over ? `At the ${max}-hour limit (${cur} assigned)` : `${cur} of ${max} teaching hours assigned`} className="flex-shrink-0">
+        <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${tone}`}>
+          {cur}/{max}h{over ? ' · full' : ''}
+        </span>
+      </Tip>
+    );
+  };
+
+  // Choosing a teacher who is already at their limit asks for confirmation first.
+  const handlePick = async (fac) => {
+    if (String(fac._id) !== String(selectedFacultyId) && loadOf(fac).over) {
+      const { cur, max } = loadOf(fac);
+      const ok = await confirm({
+        title: 'Faculty at workload limit',
+        message: `${fac.user?.firstName || 'This teacher'} ${fac.user?.lastName || ''} already has ${cur}/${max} teaching hours this term — at or over the limit. Assign this class anyway?`,
+        confirmText: 'Assign anyway',
+      });
+      if (!ok) return;
+    }
+    onSelect(fac._id, fac);
+  };
+
   /** Approve (or withdraw) a teacher from another department for this subject only. */
   const toggleApproval = async (fac) => {
     const id = String(fac._id);
@@ -175,10 +233,17 @@ const FacultyPicker = ({
     }
   };
 
+  // In-program faculty plus the ranked outsiders, so approved borrows and
+  // other-department candidates can be shown and selected here.
+  const pool = useMemo(() => {
+    const seen = new Set((faculty || []).map((f) => String(f._id)));
+    return [...(faculty || []), ...otherRows.filter((r) => !seen.has(String(r._id)))];
+  }, [faculty, otherRows]);
+
   // Ranked + filtered faculty
   const sortedFaculty = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return [...(faculty || [])]
+    return [...pool]
       .filter((f) => f.isActive && f.user)
       // This department, plus teachers borrowed (approved) for this subject
       .filter((f) => inDepartment(f) || approvedIds.has(String(f._id)))
@@ -188,23 +253,25 @@ const FacultyPicker = ({
         return hay.includes(q);
       })
       .sort((a, b) => {
-        const A = facultyScores[String(a._id)];
-        const B = facultyScores[String(b._id)];
-        if (A && B) return A.rank - B.rank;
-        if (A) return -1;
-        if (B) return 1;
+        // Rank purely by match %, whichever program the teacher is from, so a
+        // borrowed teacher with a higher percentage can sit at the top.
+        const pa = (facultyScores[String(a._id)] ?? otherScores[String(a._id)])?.percentage;
+        const pb = (facultyScores[String(b._id)] ?? otherScores[String(b._id)])?.percentage;
+        if (pa != null && pb != null && pa !== pb) return pb - pa; // higher % first
+        if (pa != null && pb == null) return -1;
+        if (pb != null && pa == null) return 1;
         return `${a.user.lastName || ''} ${a.user.firstName || ''}`.localeCompare(
           `${b.user.lastName || ''} ${b.user.firstName || ''}`
         );
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [faculty, facultyScores, query, subjectProgram, approvedIds]);
+  }, [pool, facultyScores, otherScores, query, subjectProgram, approvedIds]);
 
-  // Other departments: those who have taught this subject, or anyone matching a search
+  // Other departments: everyone capable outside this program (ranked), or anyone matching a search
   const otherFaculty = useMemo(() => {
     if (!subjectProgram) return [];
     const q = query.trim().toLowerCase();
-    return (faculty || [])
+    return pool
       .filter((f) => f.isActive && f.user && !inDepartment(f) && !approvedIds.has(String(f._id)))
       .filter((f) => (q
         ? `${f.user.firstName} ${f.user.lastName} ${f.employeeId || ''}`.toLowerCase().includes(q)
@@ -212,7 +279,7 @@ const FacultyPicker = ({
       .sort((a, b) => (otherScores[String(a._id)]?.rank || 99) - (otherScores[String(b._id)]?.rank || 99))
       .slice(0, 20);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [faculty, otherScores, query, subjectProgram, approvedIds]);
+  }, [pool, otherScores, query, subjectProgram, approvedIds]);
 
   return (
     <Section
@@ -267,7 +334,7 @@ const FacultyPicker = ({
             <li key={fac._id} role="option" aria-selected={selected}>
               <button
                 type="button"
-                onClick={() => onSelect(fac._id)}
+                onClick={() => handlePick(fac)}
                 className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
                   selected
                     ? 'border-blue-500 bg-blue-50 dark:border-blue-400 dark:bg-blue-900/20'
@@ -297,6 +364,7 @@ const FacultyPicker = ({
                         </span>
                       </Tip>
                     )}
+                    <LoadCapsule f={fac} />
                   </span>
                   <span className="block truncate text-xs text-gray-500 dark:text-gray-400">
                     {fac.employeeId ? `${fac.employeeId} · ` : ''}
@@ -329,11 +397,11 @@ const FacultyPicker = ({
             <ArrowLeftRight className="h-3.5 w-3.5 text-blue-600" /> From other departments
           </p>
           <p className="mb-2 text-[11px] text-gray-500 dark:text-gray-400">
-            Teachers outside {subjectProgram} who have taught {subjectCode || 'this subject'}. Approve one to let the generator
-            and B-LO use them for {subjectCode || 'this subject'} only; their own department&apos;s load still counts.
+            Capable teachers outside {subjectProgram}, ranked by fit for {subjectCode || 'this subject'}. Approve one to let the
+            generator and B-LO use them for {subjectCode || 'this subject'} only; their own department&apos;s load still counts.
           </p>
           {otherFaculty.length === 0 ? (
-            <p className="text-[11px] text-gray-500 dark:text-gray-400">No one else outside {subjectProgram} has taught it. Search by name to find someone.</p>
+            <p className="text-[11px] text-gray-500 dark:text-gray-400">No one outside {subjectProgram} is available. Search by name to find someone.</p>
           ) : (
             <ul className="max-h-56 space-y-1.5 overflow-y-auto pr-1">
               {otherFaculty.map((fac) => {
@@ -342,17 +410,25 @@ const FacultyPicker = ({
                 const selected = id === String(selectedFacultyId);
                 return (
                   <li key={id} className={`flex items-center gap-2 rounded-xl border px-3 py-2 ${selected ? 'border-blue-500 bg-blue-50 dark:border-blue-400 dark:bg-blue-900/20' : 'border-gray-200 dark:border-gray-700'}`}>
-                    <button type="button" onClick={() => onSelect(fac._id)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+                    <button type="button" onClick={() => handlePick(fac)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
                       <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gray-200 text-[11px] font-semibold text-gray-700 dark:bg-gray-700 dark:text-gray-200">
                         {selected ? <Check className="h-4 w-4" /> : initials(fac.user)}
                       </span>
                       <span className="min-w-0">
-                        <span className="block truncate text-sm font-medium text-gray-900 dark:text-white">{fac.user.firstName} {fac.user.lastName}</span>
+                        <span className="flex items-center gap-1.5">
+                          <span className="truncate text-sm font-medium text-gray-900 dark:text-white">{fac.user.firstName} {fac.user.lastName}</span>
+                          <LoadCapsule f={fac} />
+                        </span>
                         <span className="block truncate text-[11px] text-gray-500 dark:text-gray-400">
                           {departmentOf(fac)} · {sc?.timesTaught ? `taught it ${sc.timesTaught}×${sc.lastTaught ? `, last ${sc.lastTaught}` : ''}` : 'no history with this subject'}
                         </span>
                       </span>
                     </button>
+                    {sc && (
+                      <Tip text={sc.reason || `${sc.percentage}% match`} align="end" className="flex-shrink-0">
+                        <span className={`rounded-md px-2 py-1 text-xs font-semibold ${matchTone(sc.percentage).bg} ${matchTone(sc.percentage).text}`}>{sc.percentage}%</span>
+                      </Tip>
+                    )}
                     <button
                       type="button"
                       onClick={() => toggleApproval(fac)}
@@ -369,7 +445,7 @@ const FacultyPicker = ({
           )}
           {[...approvedIds].length > 0 && (
             <ul className="mt-2 space-y-1">
-              {(faculty || []).filter((f) => approvedIds.has(String(f._id)) && !inDepartment(f) && f.user).map((fac) => (
+              {pool.filter((f) => approvedIds.has(String(f._id)) && !inDepartment(f) && f.user).map((fac) => (
                 <li key={fac._id} className="flex items-center gap-2 rounded-lg bg-blue-50 px-2.5 py-1.5 text-[11px] text-blue-800 dark:bg-blue-900/20 dark:text-blue-200">
                   <Check className="h-3 w-3 flex-shrink-0" />
                   <span className="min-w-0 flex-1 truncate">{fac.user.firstName} {fac.user.lastName} ({departmentOf(fac)}) is approved for {subjectCode || 'this subject'}</span>

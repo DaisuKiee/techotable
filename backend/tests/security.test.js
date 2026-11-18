@@ -128,14 +128,15 @@ describe('user serialisation', () => {
 });
 
 describe('two-factor enrolment policy', () => {
-  it('requires a second factor but grants a grace period first', async () => {
+  it('recommends a second factor but never forces it or runs a countdown', async () => {
     const user = await makeUser();
     const status = await twoFactor.enrolmentStatus(user);
 
-    expect(status.required).toBe(true);
+    expect(status.required).toBe(true);        // shown a reminder
     expect(status.enrolled).toBe(false);
-    expect(status.mustEnrolNow).toBe(false);
-    expect(status.graceDaysLeft).toBe(7);
+    expect(status.mustEnrolNow).toBe(false);   // never locked out
+    expect(status.graceDaysLeft).toBeNull();   // no deadline
+    expect(status.graceEndsAt).toBeNull();
   });
 });
 
@@ -385,33 +386,25 @@ describe('brute-force guard', () => {
   });
 });
 
-describe('two-factor deadline reminders', () => {
+describe('two-factor setup reminder', () => {
   const Notification = require('../models/Notification.model');
-  const { stageFor, daysLeftFor, sendReminders } = require('../services/twoFactorReminder.service');
-  const DAY = 24 * 60 * 60 * 1000;
-  const daysAgo = (n) => new Date(Date.now() - n * DAY);
+  const { sendReminders } = require('../services/twoFactorReminder.service');
 
-  it('warns at the right points in the grace period', () => {
-    expect(stageFor(daysAgo(0), 7)).toBe(1);   // first notice
-    expect(stageFor(daysAgo(4), 7)).toBe(2);   // three days left
-    expect(stageFor(daysAgo(6), 7)).toBe(3);   // last day
-    expect(stageFor(daysAgo(8), 7)).toBe(4);   // overdue
-    expect(daysLeftFor(daysAgo(4), 7)).toBe(3);
-  });
-
-  it('tells the person, rather than leaving the deadline in a settings page', async () => {
-    const user = await makeUser({ twoFactorRequiredSince: daysAgo(4) });
+  it('reminds an account that has not set up a second factor, once', async () => {
+    const user = await makeUser();
 
     await sendReminders();
 
     const notices = await Notification.find({ recipient: user._id });
     expect(notices).toHaveLength(1);
-    expect(notices[0].title).toMatch(/three days left/i);
+    expect(notices[0].title).toMatch(/two-step verification/i);
     expect(notices[0].link).toBe('/settings?tab=twofactor');
+    // A reminder, not a deadline: no countdown wording.
+    expect(`${notices[0].title} ${notices[0].message}`).not.toMatch(/day|left|deadline|locked|required/i);
   });
 
-  it('never sends the same warning twice', async () => {
-    const user = await makeUser({ twoFactorRequiredSince: daysAgo(4) });
+  it('does not remind the same account twice', async () => {
+    const user = await makeUser();
 
     await sendReminders();
     await sendReminders();
@@ -420,22 +413,8 @@ describe('two-factor deadline reminders', () => {
     expect(await Notification.countDocuments({ recipient: user._id })).toBe(1);
   });
 
-  it('escalates as the deadline gets closer', async () => {
-    const user = await makeUser({ twoFactorRequiredSince: daysAgo(4) });
-    await sendReminders();
-
-    // The clock moves on: now it is the last day
-    await User.updateOne({ _id: user._id }, { twoFactorRequiredSince: daysAgo(6) });
-    await sendReminders();
-
-    const titles = (await Notification.find({ recipient: user._id }).sort({ createdAt: 1 }))
-      .map((n) => n.title);
-    expect(titles).toHaveLength(2);
-    expect(titles[1]).toMatch(/last day/i);
-  });
-
   it('says nothing to someone who has already enrolled', async () => {
-    const user = await makeUser({ twoFactorRequiredSince: daysAgo(6), twoFactorEnabled: true });
+    const user = await makeUser({ twoFactorEnabled: true });
     await sendReminders();
     expect(await Notification.countDocuments({ recipient: user._id })).toBe(0);
   });

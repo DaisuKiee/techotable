@@ -28,19 +28,14 @@ const RECOVERY_CODE_COUNT = 10;
 /* ------------------------------------------------------------------ policy */
 
 /**
- * Everyone has to enrol. `TWOFA_REQUIRED_ROLES` can narrow that per
- * deployment, and `TWOFA_GRACE_DAYS` gives each account a window to set it up
- * rather than locking out the whole campus the moment this ships.
+ * Two-step verification is recommended for everyone. `TWOFA_REQUIRED_ROLES`
+ * can narrow which roles are nudged per deployment. It is never forced: an
+ * account that skips it is reminded, not locked out.
  */
 const requiredRoles = () => {
   const configured = String(process.env.TWOFA_REQUIRED_ROLES || '').trim();
   if (!configured) return null; // null means "every role"
   return new Set(configured.split(',').map((r) => r.trim()).filter(Boolean));
-};
-
-const GRACE_DAYS = () => {
-  const raw = Number(process.env.TWOFA_GRACE_DAYS);
-  return Number.isFinite(raw) && raw >= 0 ? raw : 7;
 };
 
 const isRequiredFor = (user) => {
@@ -52,35 +47,16 @@ const isRequiredFor = (user) => {
 /**
  * What the app should do about this account right now.
  *
- *   enrolled  - has at least one working second factor
- *   required  - policy says they need one
- *   graceEndsAt / mustEnrolNow - how long they can keep postponing it
+ *   enrolled - has at least one working second factor
+ *   required - policy recommends one (so we show a reminder)
+ *
+ * It is never enforced: `mustEnrolNow` stays false and there is no countdown,
+ * so an account that hasn't set up a second factor is reminded, not blocked.
  */
 const enrolmentStatus = async (user) => {
   const required = isRequiredFor(user);
   const enrolled = !!user.twoFactorEnabled;
-
-  if (!required || enrolled) {
-    return { required, enrolled, mustEnrolNow: false, graceEndsAt: null, graceDaysLeft: null };
-  }
-
-  // The clock starts the first time we tell them, not at deploy time
-  let since = user.twoFactorRequiredSince;
-  if (!since) {
-    since = new Date();
-    await User.updateOne({ _id: user._id }, { twoFactorRequiredSince: since });
-    user.twoFactorRequiredSince = since;
-  }
-
-  const graceEndsAt = new Date(new Date(since).getTime() + GRACE_DAYS() * 24 * 60 * 60 * 1000);
-  const msLeft = graceEndsAt.getTime() - Date.now();
-  return {
-    required: true,
-    enrolled: false,
-    mustEnrolNow: msLeft <= 0,
-    graceEndsAt,
-    graceDaysLeft: Math.max(0, Math.ceil(msLeft / (24 * 60 * 60 * 1000))),
-  };
+  return { required, enrolled, mustEnrolNow: false, graceEndsAt: null, graceDaysLeft: null };
 };
 
 /* --------------------------------------------------------------- enrolment */

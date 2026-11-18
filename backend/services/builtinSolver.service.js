@@ -90,6 +90,9 @@ class BuiltinSolver {
     this.breakSlots = new Set(
       this.slots.map((s, i) => (s.is_break || s.isLunch ? i : -1)).filter(i => i >= 0)
     );
+    // Absolute positions (day * spd + slot) no class may use on this shift — the
+    // night grid blocks weekday mornings and Saturday evenings. Mirrors Python.
+    this.forbiddenPositions = new Set(data.forbidden_positions || []);
     this.slot7am = this.slots.findIndex(s => s.start === '07:00');
 
     this.nstpTarget = null;
@@ -178,10 +181,13 @@ class BuiltinSolver {
     if (this.startsCache.has(length)) return this.startsCache.get(length);
     const allowed = [];
     for (let d = 0; d < this.days.length; d++) {
+      const base = d * this.spd;
       for (let s = 0; s <= this.spd - length; s++) {
         let ok = true;
-        for (let i = s; i < s + length; i++) if (this.breakSlots.has(i)) { ok = false; break; }
-        if (ok) allowed.push(d * this.spd + s);
+        for (let i = s; i < s + length; i++) {
+          if (this.breakSlots.has(i) || this.forbiddenPositions.has(base + i)) { ok = false; break; }
+        }
+        if (ok) allowed.push(base + s);
       }
     }
     this.startsCache.set(length, allowed);

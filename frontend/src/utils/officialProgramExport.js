@@ -57,8 +57,12 @@ export const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Sa
 /** 7:00 AM to 5:00 PM, as on the form. */
 export const HOURS = [7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
 
-/** 4:00 PM to 10:00 PM — the CTU night-shift grid (matches the solver's night window). */
-export const NIGHT_HOURS = [16, 17, 18, 19, 20, 21];
+/**
+ * Night shift spans 7 AM to 10 PM: the evening program runs Mon–Fri 4–10 PM,
+ * but Saturday is a full day (7 AM–7 PM) with NSTP in the morning, so the grid
+ * covers the whole range and the unused cells per day are simply left blank.
+ */
+export const NIGHT_HOURS = [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21];
 
 /** The form's time grid follows the shift: day 7 AM–5 PM, night 4 PM–10 PM. */
 export const hoursForShift = (shift) => (/night/i.test(String(shift || '')) ? NIGHT_HOURS : HOURS);

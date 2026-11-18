@@ -108,6 +108,9 @@ class TimetableOptimizer:
             i for i, s in enumerate(self.slots)
             if s.get('is_break') or s.get('isLunch')
         }
+        # Absolute positions (day * slots_per_day + slot) no class may use on
+        # this shift — the night grid blocks weekday mornings and Saturday nights.
+        self.forbidden_positions = set(data.get('forbidden_positions') or [])
 
         self.classes = []        # [{subject, section, blocks:[hours], needs_lab}]
         self.blocks = {}         # (c, b) -> {start, end, interval, day, length}
@@ -226,11 +229,15 @@ class TimetableOptimizer:
         """Positions where a block of `length` hours fits inside one day."""
         allowed = []
         for day_idx in range(len(self.days)):
+            base = day_idx * self.slots_per_day
             for slot_idx in range(self.slots_per_day - length + 1):
                 window = range(slot_idx, slot_idx + length)
                 if any(i in self.break_slots for i in window):
                     continue
-                allowed.append(day_idx * self.slots_per_day + slot_idx)
+                # Night grid: weekday mornings and Saturday evenings are blocked.
+                if any((base + i) in self.forbidden_positions for i in window):
+                    continue
+                allowed.append(base + slot_idx)
         return allowed
 
     def _candidate_faculty(self, subject):

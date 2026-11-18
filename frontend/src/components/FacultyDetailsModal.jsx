@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { facultyAPI } from '../services/api';
 import { ModalShell, ModalFooter, ModalButton } from './modal/ModalShell';
+import WeekScheduleGrid from './schedule/WeekScheduleGrid';
 import SummaryCard from './StatCard';
 import {
   summarizeAllSubjects,
@@ -18,7 +19,7 @@ const TABS = [
   { id: 'overview', label: 'Overview', icon: User },
   { id: 'education', label: 'Education', icon: GraduationCap },
   { id: 'expertise', label: 'Teaching', icon: BookOpen },
-  { id: 'classes', label: 'Classes & availability', icon: CalendarClock },
+  { id: 'classes', label: 'Schedule', icon: CalendarClock },
 ];
 
 const DAY_ORDER = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -288,6 +289,20 @@ const FacultyDetailsModal = ({ faculty: listFaculty, onClose, onEdit }) => {
     DAY_ORDER.indexOf(a.day) - DAY_ORDER.indexOf(b.day) || String(a.startTime).localeCompare(String(b.startTime)));
   const preferred = sortSlots(faculty.preferredTimeSlots);
   const unavailable = sortSlots(faculty.unavailableTimeSlots);
+
+  // The week, laid out for the schedule grid: each class as a block showing its
+  // subject code, with the section and room beneath; unavailable times hatched.
+  const weekClasses = classes.map((c) => ({
+    _id: c._id,
+    timeSlots: c.timeSlots,
+    main: c.subject?.subjectCode || 'Class',
+    sub: [c.sectionCode, c.room?.roomCode].filter(Boolean).join(' · '),
+  }));
+  // Term label for the schedule heading, e.g. "1st Semester · AY 2026-2027".
+  const termClass = classes.find((c) => c.academicYear);
+  const scheduleTerm = termClass
+    ? `${termClass.semester === 2 ? '2nd' : '1st'} Semester · AY ${termClass.academicYear}`
+    : '';
   const tabCount = { classes: classes.length, expertise: subjectExperience.length };
 
   const visibleSubjects = showAll ? filteredSubjects : filteredSubjects.slice(0, INITIAL_VISIBLE);
@@ -295,66 +310,66 @@ const FacultyDetailsModal = ({ faculty: listFaculty, onClose, onEdit }) => {
   /* ----- Render ----- */
   return (
     // Read-only, so no "discard changes?" (its search box is just a filter)
-    <ModalShell onClose={onClose} size="xl" labelledBy="faculty-modal-title" guardDirty={false} focusFirstField={false}>
+    <ModalShell onClose={onClose} size="xl" variant="drawer" labelledBy="faculty-modal-title" guardDirty={false} focusFirstField={false} panelClassName="bg-gray-50 dark:bg-gray-900">
         {/* Header */}
-        <div className="relative flex-shrink-0 bg-gradient-to-r from-blue-600 to-blue-700 px-5 py-5 sm:rounded-t-2xl sm:px-6">
-          <button
-            type="button"
-            onClick={onClose}
-            className="absolute right-3 top-3 rounded-lg p-2 text-white/90 transition-colors hover:bg-white/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
-            aria-label="Close"
-          >
-            <X className="h-5 w-5" />
-          </button>
-
-          <div className="flex items-center gap-4 pr-10">
+        <div className="flex-shrink-0 border-b border-gray-200 bg-white px-5 py-4 dark:border-gray-700 dark:bg-gray-800 sm:px-6">
+          <div className="flex items-start gap-3">
             <div className="relative flex-shrink-0">
               {imgSrc && !imgFailed ? (
                 <img
                   src={imgSrc}
                   alt=""
-                  className="h-16 w-16 rounded-full object-cover ring-2 ring-white/40"
+                  className="h-12 w-12 rounded-full object-cover ring-2 ring-gray-200 dark:ring-gray-700"
                   onError={() => setImgFailed(true)}
                 />
               ) : (
-                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/20 text-xl font-bold text-white ring-2 ring-white/40">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 text-base font-bold text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
                   {initials}
                 </div>
               )}
               <span
-                className={`absolute bottom-0 right-0 h-4 w-4 rounded-full border-2 border-blue-600 ${faculty.isActive ? 'bg-emerald-400' : 'bg-gray-400'}`}
+                className={`absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-white dark:border-gray-800 ${faculty.isActive ? 'bg-emerald-500' : 'bg-gray-400'}`}
                 title={faculty.isActive ? 'Active' : 'Inactive'}
               />
             </div>
 
             <div className="min-w-0 flex-1">
-              <h2 id="faculty-modal-title" className="truncate text-xl font-bold text-white sm:text-2xl">
-                {fullName}
-              </h2>
-              <p className="truncate text-sm text-blue-100">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 id="faculty-modal-title" className="text-xl font-bold text-gray-900 dark:text-white">
+                  {fullName}
+                </h2>
+                {detailState === 'loading' && <Loader2 className="h-4 w-4 animate-spin text-gray-400 dark:text-gray-500" aria-label="Loading full profile" />}
+              </div>
+              <p className="mt-0.5 truncate text-sm text-gray-600 dark:text-gray-400">
                 {faculty.position || 'Instructor'}
-                {faculty.employeeId && <span className="opacity-80"> · {faculty.employeeId}</span>}
-                {faculty.department && <span className="opacity-80"> · {faculty.department}</span>}
+                {faculty.employeeId && <span> · {faculty.employeeId}</span>}
+                {faculty.department && <span> · {faculty.department}</span>}
               </p>
               <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ${faculty.isActive ? 'bg-emerald-400/20 text-emerald-50 ring-emerald-300/50' : 'bg-white/15 text-white ring-white/30'}`}>
+                <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${faculty.isActive ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'}`}>
                   {faculty.isActive ? 'Active' : 'Inactive'}
                 </span>
-                <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold text-white ring-1 ring-white/30">
+                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-700 dark:bg-gray-700 dark:text-gray-200">
                   {faculty.employmentType || 'Regular'}
                 </span>
                 {faculty.administrativeDesignation && (
-                  <span className="rounded-full bg-orange-300 px-2.5 py-0.5 text-xs font-semibold text-orange-950">
+                  <span className="rounded-full bg-orange-100 px-2 py-0.5 text-xs font-semibold text-orange-800 dark:bg-orange-900/40 dark:text-orange-300">
                     {faculty.administrativeDesignation}
                   </span>
                 )}
                 {programs.map((p) => (
-                  <span key={p} className="rounded-full bg-white/10 px-2.5 py-0.5 text-xs font-semibold text-blue-50 ring-1 ring-white/25">{p}</span>
+                  <span key={p} className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">{p}</span>
                 ))}
-                {detailState === 'loading' && <Loader2 className="h-4 w-4 animate-spin text-white/70" aria-label="Loading full profile" />}
               </div>
             </div>
+
+            <button type="button" onClick={onClose} className="rounded-full p-1.5 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700" title="Close"><X className="h-5 w-5" /></button>
           </div>
+          {onEdit && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button type="button" onClick={onEdit} className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-700"><Edit2 className="h-4 w-4" /> Edit profile</button>
+            </div>
+          )}
         </div>
 
         {/* Tabs */}
@@ -643,7 +658,11 @@ const FacultyDetailsModal = ({ faculty: listFaculty, onClose, onEdit }) => {
                 <div className="text-center py-12 text-gray-500 dark:text-gray-400">
                   <GraduationCap className="w-10 h-10 mx-auto mb-3 opacity-50" />
                   <p className="text-sm font-medium">No educational records yet.</p>
-                  <p className="text-xs mt-1">Use “Edit Profile” to add degrees and qualifications.</p>
+                  <p className="text-xs mt-1">
+                    {onEdit
+                      ? 'Use “Edit profile” to add degrees and qualifications.'
+                      : 'The administrator maintains degrees and qualifications.'}
+                  </p>
                 </div>
               )}
             </>
@@ -885,6 +904,33 @@ const FacultyDetailsModal = ({ faculty: listFaculty, onClose, onEdit }) => {
           {activeTab === 'classes' && (
             <>
               <Section
+                icon={Clock}
+                title="Week at a glance"
+                right={scheduleTerm && (
+                  <span className="text-xs text-gray-500 dark:text-gray-400">{scheduleTerm}</span>
+                )}
+              >
+                {detailState === 'loading' ? (
+                  <div className="flex h-64 items-center justify-center rounded-lg border border-gray-200 bg-white text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-800"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading the week…</div>
+                ) : classes.length === 0 ? (
+                  <p className="text-sm text-gray-500 dark:text-gray-400">No classes assigned this semester — the week is open.</p>
+                ) : (
+                  <>
+                    <WeekScheduleGrid classes={weekClasses} blocked={unavailable} />
+                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+                      <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm border border-blue-300 bg-blue-50" /> Class</span>
+                      {unavailable.length > 0 && (
+                        <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm border border-orange-300 bg-orange-100" /> Unavailable</span>
+                      )}
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="rounded-full bg-blue-100 px-1.5 font-semibold text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">{faculty.currentTeachingHours || 0} hrs/week</span>
+                      </span>
+                    </div>
+                  </>
+                )}
+              </Section>
+
+              <Section
                 icon={CalendarClock}
                 title="Current classes"
                 right={classes.length > 0 && (
@@ -968,7 +1014,6 @@ const FacultyDetailsModal = ({ faculty: listFaculty, onClose, onEdit }) => {
 
         <ModalFooter>
           <ModalButton variant="secondary" onClick={onClose}>Close</ModalButton>
-          {onEdit && <ModalButton icon={Edit2} onClick={onEdit}>Edit profile</ModalButton>}
         </ModalFooter>
     </ModalShell>
   );

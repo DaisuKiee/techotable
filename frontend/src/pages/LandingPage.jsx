@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Lenis from 'lenis';
 import {
   ArrowRight, CheckCircle2, Wand2, Move, Users, BookOpen, FileSpreadsheet,
@@ -254,8 +254,8 @@ const SampleWeek = () => {
  * only the fallback behind a missing photo, which none of these need.
  */
 const TEAM = [
-  { name: 'Benjie Sumile', role: 'Capstone Team', photo: teamBenjie, tint: 'from-sky-500 to-blue-800' },
-  { name: 'Jovannie Congson', role: 'Capstone Team', photo: teamJovannie, tint: 'from-blue-600 to-indigo-900' },
+  { name: 'Benjie Sumile', role: 'Database Administrator', photo: teamBenjie, tint: 'from-sky-500 to-blue-800' },
+  { name: 'Jovannie Congson', role: 'AI/Algorithms Developer', photo: teamJovannie, tint: 'from-blue-600 to-indigo-900' },
   { name: 'Lourence Zambas', role: 'Capstone Team', photo: teamLourence, tint: 'from-amber-400 to-yellow-700' },
   { name: 'Marco Montellano', role: 'Project & Documentation Manager', photo: teamMarco, tint: 'from-indigo-500 to-blue-900' },
   { name: 'Vence Peter Doble', role: 'Capstone Team', photo: teamVence, tint: 'from-sky-600 to-blue-900' },
@@ -780,6 +780,17 @@ const LandingPage = () => {
                   <span className="absolute -bottom-1 left-0 h-0.5 w-0 bg-yellow-400 transition-all duration-300 group-hover/nav:w-full" />
                 </a>
               ))}
+              {/* Routes, not anchors: these two leave the landing page. */}
+              {[['/docs', 'Docs'], ['/updates', 'Updates']].map(([to, label]) => (
+                <Link
+                  key={to}
+                  to={to}
+                  className="group/nav relative transition-colors hover:text-yellow-300"
+                >
+                  {label}
+                  <span className="absolute -bottom-1 left-0 h-0.5 w-0 bg-yellow-400 transition-all duration-300 group-hover/nav:w-full" />
+                </Link>
+              ))}
             </div>
 
             <div className="flex items-center gap-2 sm:gap-3">
@@ -1098,7 +1109,14 @@ const LandingPage = () => {
           <img src={ctuLogo} alt="" className="h-6 w-6 object-contain" />
           <span className="font-semibold text-gray-300">CTU Daanbantayan · College of Technology Education</span>
         </div>
-        © {new Date().getFullYear()} Capstone Group 1. 
+        {/* Also how these pages are reached on a phone, where the nav links
+            above are hidden. */}
+        <div className="mb-3 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-gray-400">
+          <Link to="/docs" className="hover:text-yellow-300">Documentation</Link>
+          <Link to="/updates" className="hover:text-yellow-300">Updates</Link>
+          <Link to="/terms" className="hover:text-yellow-300">Terms &amp; Privacy</Link>
+        </div>
+        © {new Date().getFullYear()} Capstone Group 1.
       </footer>
       </div>{/* /motion-blur target */}
     </div>

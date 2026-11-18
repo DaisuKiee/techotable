@@ -175,6 +175,38 @@ exports.getAllFaculty = async (req, res) => {
     if (minLoad !== undefined) facultyWithWorkload = facultyWithWorkload.filter((f) => f.currentTeachingHours >= Number(minLoad));
     if (maxLoad !== undefined) facultyWithWorkload = facultyWithWorkload.filter((f) => f.currentTeachingHours <= Number(maxLoad));
 
+    // Cross-referenced faculty: borrowed from another program and actually
+    // teaching a PUBLISHED class in this one. They are not native to this
+    // program, so they surface here flagged "crossReferenced" once their
+    // borrowed assignment is published (not before).
+    if (program && isActive !== 'false') {
+      const Schedule = require('../models/Schedule.model');
+      const borrowedIds = (await Schedule.distinct('faculty', { program, status: 'published', isActive: true })).map(String);
+      const borrowedSet = new Set(borrowedIds);
+      const listed = new Set(facultyWithWorkload.map((f) => String(f._id)));
+
+      // Already listed, but only here by borrowing (not a home program) → flag it.
+      for (const f of facultyWithWorkload) {
+        if (borrowedSet.has(String(f._id)) && !(f.programs || []).includes(program)) f.crossReferenced = true;
+      }
+
+      // Borrowed teachers not otherwise in the list → add them, flagged.
+      const missingIds = borrowedIds.filter((id) => !listed.has(id));
+      if (missingIds.length) {
+        let extra = await Faculty.find({ _id: { $in: missingIds }, isActive: true })
+          .populate('user', 'firstName lastName middleName email profilePicture isPending');
+        extra = extra.filter((f) => f.user && !(f.programs || []).includes(program));
+        if (search) {
+          const sl = search.toLowerCase();
+          extra = extra.filter((f) => `${f.user?.firstName || ''} ${f.user?.lastName || ''}`.toLowerCase().includes(sl)
+            || String(f.employeeId || '').toLowerCase().includes(sl));
+        }
+        const extraWithLoads = await withLoads(extra);
+        extraWithLoads.forEach((f) => { f.crossReferenced = true; });
+        facultyWithWorkload = [...facultyWithWorkload, ...extraWithLoads];
+      }
+    }
+
     res.status(200).json({
       success: true,
       count: facultyWithWorkload.length,

@@ -303,20 +303,31 @@ exports.recommendFacultyForSubject = async (req, res) => {
       const outsiders = await Faculty.find({ isActive: true, _id: { $nin: inProgramIds } })
         .populate('user', 'firstName lastName email')
         .lean();
-      otherDepartments = rankFacultyForSubject(outsiders, subject, { onlyWithCapacity: false })
-        .filter(r => r.experience.timesTaught > 0 || approved.has(String(r.faculty._id)))
-        .slice(0, 8);
+      // Show capable teachers from other programs so the officer can choose
+      // freely, ranked by fit — not only those who already taught it. Approved
+      // borrows are always included (the picker renders them from here).
+      const rankedOut = rankFacultyForSubject(outsiders, subject, { onlyWithCapacity: false });
+      otherDepartments = [
+        ...rankedOut.filter(r => approved.has(String(r.faculty._id))),
+        ...rankedOut.filter(r => !approved.has(String(r.faculty._id))).slice(0, 20),
+      ];
     }
+    // Real teaching load for the borrowable outsiders, for the workload capsule.
+    const outLoads = otherDepartments.length
+      ? await getFacultyLoads({ facultyIds: otherDepartments.map((r) => r.faculty._id) })
+      : new Map();
     const toRow = (r, idx) => ({
       rank: idx + 1,
       facultyId: r.faculty._id,
       employeeId: r.faculty.employeeId,
       name: `${r.faculty.user?.firstName || ''} ${r.faculty.user?.lastName || ''}`.trim(),
-      department: r.faculty.department || (r.faculty.programs || [])[0] || '',
+      department: (r.faculty.programs || [])[0] || r.faculty.department || '',
       approved: approved.has(String(r.faculty._id)),
       score: r.score,
       reason: r.reason,
       hasCapacity: r.hasCapacity,
+      teachingHours: (outLoads.get(String(r.faculty._id)) || EMPTY_LOAD).hours,
+      maxHours: r.faculty.maxTeachingHours || 36,
       availableLoad: r.availableLoad,
       timesTaught: r.experience.timesTaught,
       lastTaughtAcademicYear: r.experience.lastTaughtAcademicYear,

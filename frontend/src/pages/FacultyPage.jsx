@@ -358,47 +358,6 @@ const LoadBar = ({ load, height = 'h-2.5' }) => (
   </div>
 );
 
-/** One-glance split of the whole faculty by workload status. */
-const LoadDistribution = ({ stats }) => {
-  if (stats.total === 0) return null;
-  const normal = stats.total - stats.warning - stats.overloaded;
-  const segments = [
-    { key: 'normal', count: normal, bar: LOAD_STATUS.normal.bar, label: 'Normal' },
-    { key: 'warning', count: stats.warning, bar: LOAD_STATUS.warning.bar, label: 'Near limit' },
-    { key: 'overload', count: stats.overloaded, bar: LOAD_STATUS.overload.bar, label: 'Overload' },
-  ];
-  return (
-    <div className="mb-6 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
-      <div className="flex items-center justify-between mb-2">
-        <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">Workload distribution</p>
-        <p className="text-xs text-gray-500 dark:text-gray-400">
-          {Math.round((normal / stats.total) * 100)}% within standard load
-        </p>
-      </div>
-      <div className="flex h-3 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700">
-        {segments.map((s) =>
-          s.count > 0 ? (
-            <div
-              key={s.key}
-              className={`${s.bar} transition-all duration-500`}
-              style={{ width: `${(s.count / stats.total) * 100}%` }}
-              title={`${s.label}: ${s.count}`}
-            />
-          ) : null
-        )}
-      </div>
-      <div className="flex flex-wrap gap-x-5 gap-y-1 mt-2 text-xs text-gray-600 dark:text-gray-400">
-        {segments.map((s) => (
-          <span key={s.key} className="flex items-center gap-1.5">
-            <span className={`w-2.5 h-2.5 rounded-sm ${s.bar}`} />
-            {s.label}: <strong className="text-gray-800 dark:text-gray-200">{s.count}</strong>
-          </span>
-        ))}
-      </div>
-    </div>
-  );
-};
-
 /** Loading: cards laid out like FacultyCard (banner, avatar, name lines, programs, load bar, actions). */
 const ListSkeleton = () => (
   <SkeletonRegion label="Loading faculty" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -451,7 +410,7 @@ const stop = (fn) => (e) => {
   fn();
 };
 
-const ActionButtons = ({ member, canManage, onView, onEdit, onDelete, onReactivate, variant }) => {
+const ActionButtons = ({ member, canManage, canEdit, onView, onEdit, onDelete, onReactivate, variant }) => {
   const inactive = member.isActive === false;
   const full = variant === 'full';
   const base = full
@@ -479,15 +438,17 @@ const ActionButtons = ({ member, canManage, onView, onEdit, onDelete, onReactiva
       </button>
       {canManage && (
         <>
-          <button
-            onClick={stop(() => onEdit(member))}
-            className={`${base} ${editTone}`}
-            title="Edit"
-            aria-label="Edit"
-          >
-            <Edit2 className="w-4 h-4" />
-            {full && 'Edit'}
-          </button>
+          {canEdit && (
+            <button
+              onClick={stop(() => onEdit(member))}
+              className={`${base} ${editTone}`}
+              title="Edit"
+              aria-label="Edit"
+            >
+              <Edit2 className="w-4 h-4" />
+              {full && 'Edit'}
+            </button>
+          )}
           {inactive ? (
             <button
               onClick={stop(() => onReactivate(member))}
@@ -517,7 +478,7 @@ const ActionButtons = ({ member, canManage, onView, onEdit, onDelete, onReactiva
 
 /* ─── Grid card ──────────────────────────────────────────────────────────── */
 
-const FacultyCard = ({ member, canManage, onView, onEdit, onDelete, onReactivate }) => {
+const FacultyCard = ({ member, canManage, canEdit, onView, onEdit, onDelete, onReactivate }) => {
   const { user } = member;
   const load = getLoad(member);
   const programs = getPrograms(member);
@@ -615,6 +576,14 @@ const FacultyCard = ({ member, canManage, onView, onEdit, onDelete, onReactivate
               )}
               {member.department && (
                 <span className={`px-2 py-0.5 text-xs font-semibold rounded ${TONE_GRAY}`}>{member.department}</span>
+              )}
+              {member.crossReferenced && (
+                <span
+                  className="px-2 py-0.5 text-xs font-semibold rounded bg-violet-100 text-violet-800 ring-1 ring-violet-300 dark:bg-violet-900/40 dark:text-violet-300 dark:ring-violet-700"
+                  title="Borrowed from another program to teach a published class here"
+                >
+                  Cross Referenced
+                </span>
               )}
             </div>
           </div>
@@ -736,6 +705,7 @@ const FacultyCard = ({ member, canManage, onView, onEdit, onDelete, onReactivate
           <ActionButtons
             member={member}
             canManage={canManage}
+            canEdit={canEdit}
             onView={onView}
             onEdit={onEdit}
             onDelete={onDelete}
@@ -750,7 +720,7 @@ const FacultyCard = ({ member, canManage, onView, onEdit, onDelete, onReactivate
 
 /* ─── Table row ──────────────────────────────────────────────────────────── */
 
-const FacultyRow = ({ member, canManage, onView, onEdit, onDelete, onReactivate }) => {
+const FacultyRow = ({ member, canManage, canEdit, onView, onEdit, onDelete, onReactivate }) => {
   const { user } = member;
   const load = getLoad(member);
   const programs = getPrograms(member);
@@ -826,6 +796,7 @@ const FacultyRow = ({ member, canManage, onView, onEdit, onDelete, onReactivate 
           <ActionButtons
             member={member}
             canManage={canManage}
+            canEdit={canEdit}
             onView={onView}
             onEdit={onEdit}
             onDelete={onDelete}
@@ -856,6 +827,12 @@ const FacultyPage = () => {
 
   // Program managers are locked to their own program
   const isProgramManager = user?.role === 'program_manager';
+  // Scheduling staff don't own faculty records - educational background and
+  // subject expertise are the administrator's to maintain - so neither program
+  // managers nor the scheduling office can add or edit a faculty member. They
+  // still invite teachers, who fill in their own profile on signing up.
+  const canEditFaculty = user?.role === 'admin';
+  const canAddFaculty = user?.role === 'admin';
   // Program managers invite their own program's teachers; the scheduling
   // office and admins can invite to any program (enforced by the API too)
   const canInvite = ['admin', 'scheduling_officer', 'program_manager'].includes(user?.role);
@@ -1200,13 +1177,15 @@ const FacultyPage = () => {
                   <span className="hidden sm:inline">Invite Links</span>
                 </button>
               )}
-              <button
-                onClick={handleCreate}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-md hover:shadow-lg text-sm"
-              >
-                <Plus className="w-5 h-5" />
-                <span className="hidden sm:inline">Add Faculty</span>
-              </button>
+              {canAddFaculty && (
+                <button
+                  onClick={handleCreate}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-md hover:shadow-lg text-sm"
+                >
+                  <Plus className="w-5 h-5" />
+                  <span className="hidden sm:inline">Add Faculty</span>
+                </button>
+              )}
             </div>
           </div>
           <p className="text-gray-600 dark:text-gray-400 text-sm md:text-base">
@@ -1272,12 +1251,11 @@ const FacultyPage = () => {
           />
         </div>
 
-        <LoadDistribution stats={stats} />
 
         {/* Search and filters */}
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 mb-4 shadow-sm">
-          <div className="flex flex-col lg:flex-row gap-4">
-            <div className="relative flex-1">
+          <div className="flex flex-col lg:flex-row lg:flex-wrap gap-4">
+            <div className="relative flex-1 min-w-[16rem]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5 pointer-events-none" />
               <input
                 ref={searchRef}
@@ -1457,11 +1435,13 @@ const FacultyPage = () => {
               {faculty.length === 0
                 ? filterStatus === 'inactive'
                   ? 'Deactivated faculty appear here, where you can reactivate them.'
-                  : 'Get started by adding your first faculty member'
+                  : canAddFaculty
+                    ? 'Get started by adding your first faculty member'
+                    : 'Send an invite link — teachers appear here once they sign up.'
                 : 'Try adjusting your search or filter criteria'}
             </p>
             {faculty.length === 0 ? (filterStatus === 'inactive' ? null : (
-              canManage && (
+              canAddFaculty && (
                 <button
                   onClick={handleCreate}
                   className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors inline-flex items-center gap-2"
@@ -1486,6 +1466,7 @@ const FacultyPage = () => {
                 key={member._id}
                 member={member}
                 canManage={canManage}
+                canEdit={canEditFaculty}
                 onView={handleView}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
@@ -1537,6 +1518,7 @@ const FacultyPage = () => {
                       key={member._id}
                       member={member}
                       canManage={canManage}
+                      canEdit={canEditFaculty}
                       onView={handleView}
                       onEdit={handleEdit}
                       onDelete={handleDelete}
@@ -1575,10 +1557,10 @@ const FacultyPage = () => {
             setShowDetailsModal(false);
             setSelectedFaculty(null);
           }}
-          onEdit={() => {
+          onEdit={canEditFaculty ? () => {
             setShowDetailsModal(false);
             handleEdit(selectedFaculty);
-          }}
+          } : undefined}
         />
       )}
 

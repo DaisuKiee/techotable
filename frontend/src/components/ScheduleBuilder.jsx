@@ -219,6 +219,9 @@ const ScheduleBuilder = ({
   // faculty's existing schedule so drag-hover can warn about a real conflict
   // without a round-trip on every hovered cell.
   const [subjectFaculty, setSubjectFaculty] = useState({});
+  // Names of borrowed teachers from other programs (not in this program's
+  // `faculty` list), so their subject card shows the name, not just "Assigned".
+  const [borrowedNames, setBorrowedNames] = useState({});
   const [facultySchedules, setFacultySchedules] = useState({});
   // Subject whose faculty picker is open, or null.
   const [pickerSubject, setPickerSubject] = useState(null);
@@ -232,13 +235,21 @@ const ScheduleBuilder = ({
    */
   const dragHours = !drag ? 0 : drag.kind === 'subject' ? selectedHours : drag.hours;
 
+  // The night program runs Mon–Fri 4–10 PM but Saturday is a full day (7 AM–7 PM),
+  // so night sections use the whole 7 AM–10 PM range and gate cells per day
+  // (`nightCellBlocked`). Day stays 7 AM–4 PM.
   const TIME_SLOTS = useMemo(() => (
-    filters.shift === 'Night'
-      ? ALL_TIME_SLOTS.filter(s => parseInt(s.time) >= 16)
-      : filters.shift === 'Day'
+    filters.shift === 'Day'
       ? ALL_TIME_SLOTS.filter(s => parseInt(s.time) <= 15)
       : ALL_TIME_SLOTS
   ), [filters.shift]);
+
+  /** A night cell the shift doesn't use: weekdays before 4 PM, Saturday from 7 PM. */
+  const nightCellBlocked = useCallback((day, timeStr) => {
+    if (filters.shift !== 'Night') return false;
+    const h = parseInt(timeStr, 10);
+    return day === 'Saturday' ? !(h >= 7 && h < 19) : !(h >= 16 && h < 22);
+  }, [filters.shift]);
 
   /**
    * Occupancy map: `${day}-${HH:MM}` -> { schedule, pending, isStart }
@@ -364,6 +375,9 @@ const ScheduleBuilder = ({
       if (t.isLunch) return { ok: false, reason: 'Cannot schedule through lunch break' };
 
       const hhmm = t.time.split('-')[0];
+      if (nightCellBlocked(day, hhmm)) {
+        return { ok: false, reason: day === 'Saturday' ? 'Night Saturday runs 7 AM–7 PM' : 'Night classes run 4–10 PM on weekdays' };
+      }
       const blocking = entriesAt(day, hhmm).filter(entry => !isIgnored(entry));
 
       if (blocking.length > 0) {
@@ -381,7 +395,7 @@ const ScheduleBuilder = ({
     }
 
     return { ok: true, startTime, endTime };
-  }, [TIME_SLOTS, entriesAt]);
+  }, [TIME_SLOTS, entriesAt, nightCellBlocked]);
 
   /** Move an already-placed pending card to a new day/slot. */
   const movePending = useCallback((tempId, day, slotIndex) => {
@@ -492,8 +506,13 @@ const ScheduleBuilder = ({
   }, [filters.academicYear, filters.semester, selectedSection?.semester]);
 
   /** Assign (or clear) the faculty for a subject card in the sidebar. */
-  const assignSubjectFaculty = (subjectId, facultyId) => {
+  const assignSubjectFaculty = (subjectId, facultyId, fac) => {
     setSubjectFaculty(prev => ({ ...prev, [subjectId]: facultyId || null }));
+    // Remember the name of a borrowed teacher who isn't in this program's list.
+    if (facultyId && fac?.user && !faculty.find(x => String(x._id) === String(facultyId))) {
+      const name = `${fac.user.firstName || ''} ${fac.user.lastName || ''}`.trim();
+      if (name) setBorrowedNames(prev => ({ ...prev, [String(facultyId)]: name }));
+    }
     if (facultyId && !facultySchedules[facultyId]) loadFacultySchedule(facultyId);
   };
 
@@ -501,9 +520,9 @@ const ScheduleBuilder = ({
   const facultyName = useCallback((facultyId) => {
     if (!facultyId) return '';
     const f = faculty.find(x => String(x._id) === String(facultyId));
-    if (!f) return 'Assigned';
-    return f.user ? `${f.user.firstName} ${f.user.lastName}` : f.employeeId;
-  }, [faculty]);
+    if (f) return f.user ? `${f.user.firstName} ${f.user.lastName}` : f.employeeId;
+    return borrowedNames[String(facultyId)] || 'Assigned';
+  }, [faculty, borrowedNames]);
 
   /**
    * A booking for `facultyId` that clashes with this slot from OUTSIDE this
@@ -539,6 +558,15 @@ const ScheduleBuilder = ({
   // ── Load data ──────────────────────────────────────────────────────────────
   // Also re-runs when the section changes, since the grid is scoped to it.
   useEffect(() => { loadData(); }, [filters, selectedSection?.sectionCode]);
+
+  // The page supplies subjects/faculty/rooms and loads them asynchronously.
+  // loadData copies them, but it doesn't re-run when those props arrive AFTER a
+  // section is picked (they aren't in its deps), so the panel sat on
+  // "No subjects found" until a manual refresh. Keep the local copies in step
+  // with the props so the list fills as soon as the page has the data.
+  useEffect(() => { if (propSubjects) setSubjects(propSubjects); }, [propSubjects]);
+  useEffect(() => { if (propFaculty) setFaculty(propFaculty); }, [propFaculty]);
+  useEffect(() => { if (propRooms) setRooms(propRooms); }, [propRooms]);
 
   // ── Keyboard shortcuts ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -1134,8 +1162,11 @@ const ScheduleBuilder = ({
     [pendingSchedules]
   );
   const filteredSubjects = useMemo(() => {
-    let filtered = subjects;
-    
+    // Read the page's live subjects prop directly: the local `subjects` copy
+    // can lag one render behind an async load, which left the panel empty
+    // until a manual refresh. Falls back to the local list in standalone use.
+    let filtered = propSubjects || subjects;
+
     // Filter by section's program and year level if a section is selected
     if (selectedSection) {
       filtered = filtered.filter(s => {
@@ -1162,7 +1193,7 @@ const ScheduleBuilder = ({
     }
     
     return filtered;
-  }, [subjects, subjectSearch, selectedSection, filters.program, filters.yearLevel]);
+  }, [propSubjects, subjects, subjectSearch, selectedSection, filters.program, filters.yearLevel]);
 
   /** How many hours of each subject are already placed (saved + pending). */
   const scheduledHoursBySubject = useMemo(() => {
@@ -1811,6 +1842,8 @@ const ScheduleBuilder = ({
                           const isHovered = !!hover?.cells.includes(cellKey);
                           const isDragging = !!drag;
                           const isEmpty = existingSchedules.length === 0 && pendingHere.length === 0;
+                          // Night grid: weekday mornings and Saturday evenings aren't used.
+                          const cellBlocked = nightCellBlocked(day, slot.time.split('-')[0]);
 
                           // Three mutually exclusive hover outcomes, all read
                           // off the same resolveRange the drop itself runs:
@@ -1852,7 +1885,9 @@ const ScheduleBuilder = ({
                               }}
                               onDrop={e => handleDrop(e, day, slotIndex)}
                               className={`px-1.5 py-1.5 border-b border-r border-gray-100 dark:border-gray-700 last:border-r-0 align-top transition-colors ${
-                                blocked
+                                cellBlocked && isEmpty
+                                  ? 'bg-gray-100/70 dark:bg-gray-900/40 cursor-not-allowed'
+                                  : blocked
                                   ? 'bg-red-50 dark:bg-red-900/20 ring-2 ring-inset ring-red-400 cursor-not-allowed'
                                   : clashing
                                   // Allowed here, but the instructor already has
@@ -1980,11 +2015,9 @@ const ScheduleBuilder = ({
                                     </div>
                                     <p className={`${color.ink} text-[9px] leading-tight truncate opacity-80`}>
                                       {ps.faculty
-                                        ? (typeof ps.faculty === 'object'
-                                            ? `${ps.faculty?.user?.firstName} ${ps.faculty?.user?.lastName}`
-                                            : faculty.find(f => f._id === ps.faculty)?.user
-                                              ? `${faculty.find(f => f._id === ps.faculty).user.firstName} ${faculty.find(f => f._id === ps.faculty).user.lastName}`
-                                              : 'Assigned')
+                                        ? (typeof ps.faculty === 'object' && ps.faculty?.user?.firstName
+                                            ? `${ps.faculty.user.firstName} ${ps.faculty.user.lastName}`
+                                            : facultyName(typeof ps.faculty === 'object' ? ps.faculty?._id : ps.faculty))
                                         : <span className="italic">Needs faculty</span>}
                                     </p>
                                     <p className={`${color.ink} text-[9px] leading-tight truncate opacity-60`}>
@@ -2204,7 +2237,7 @@ const ScheduleBuilder = ({
                 <FacultyPicker
                   faculty={faculty}
                   selectedFacultyId={chosen}
-                  onSelect={(id) => assignSubjectFaculty(pickerSubject._id, id)}
+                  onSelect={(id, fac) => assignSubjectFaculty(pickerSubject._id, id, fac)}
                   subjectId={pickerSubject._id}
                   subjectCode={code}
                   subjectName={pickerSubject.subjectName}

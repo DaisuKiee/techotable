@@ -66,16 +66,41 @@ function generateDayTimeSlots() {
   ];
 }
 
-/** Night-shift grid: 16:00-22:00. */
+/**
+ * Night-shift grid. The evening program runs Mon–Fri 4–10 PM, but Saturday is a
+ * full day (7 AM–7 PM) — matching the CTU evening "Program by Section" form. The
+ * grid spans 07:00–22:00; `nightForbiddenPositions` blocks the parts each day
+ * doesn't use (weekday mornings/afternoons, and Saturday evening), so classes
+ * only land in the real windows and NSTP can sit in Saturday morning.
+ */
 function generateNightTimeSlots() {
-  return [
-    { start: '16:00', end: '17:00' },
-    { start: '17:00', end: '18:00' },
-    { start: '18:00', end: '19:00' },
-    { start: '19:00', end: '20:00' },
-    { start: '20:00', end: '21:00' },
-    { start: '21:00', end: '22:00' },
-  ];
+  const slots = [];
+  for (let h = 7; h < 22; h++) {
+    const pad = (n) => String(n).padStart(2, '0');
+    const slot = { start: `${pad(h)}:00`, end: `${pad(h + 1)}:00` };
+    if (h === 12) slot.is_break = true; // lunch, as on the day grid
+    slots.push(slot);
+  }
+  return slots; // 15 one-hour slots, 07:00–22:00
+}
+
+/**
+ * Positions (dayIndex * slotsPerDay + slotIndex) a NIGHT section may NOT use:
+ * before 16:00 on weekdays, and from 19:00 on Saturday. Sunday is never used.
+ */
+function nightForbiddenPositions(days, slots) {
+  const spd = slots.length;
+  const startMin = (s) => { const [h, m] = String(s.start).split(':').map(Number); return h * 60 + (m || 0); };
+  const forbidden = [];
+  days.forEach((day, d) => {
+    const saturday = day === 'Saturday';
+    slots.forEach((s, i) => {
+      const m = startMin(s);
+      const ok = saturday ? (m >= 7 * 60 && m < 19 * 60) : (m >= 16 * 60 && m < 22 * 60);
+      if (!ok) forbidden.push(d * spd + i);
+    });
+  });
+  return forbidden;
 }
 
 /**
@@ -253,7 +278,9 @@ function preparePythonInput(data) {
         max_students: 40,
       }];
 
+  const SOLVER_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const timeSlots = shift === 'Night' ? generateNightTimeSlots() : generateDayTimeSlots();
+  const forbiddenPositions = shift === 'Night' ? nightForbiddenPositions(SOLVER_DAYS, timeSlots) : [];
   const slotStarts = new Set(timeSlots.map(s => s.start));
   const sectionCodes = new Set(preparedSections.map(s => s.code));
 
@@ -291,8 +318,10 @@ function preparePythonInput(data) {
     time_limit: timeLimit,
     shift,
     // Sunday was previously included, so the solver could place classes on it
-    days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+    days: SOLVER_DAYS,
     time_slots: timeSlots,
+    // Positions blocked for this shift (night: weekday mornings, Saturday evening).
+    forbidden_positions: forbiddenPositions,
     options: {
       max_block_hours: 3,
       workers: 8,

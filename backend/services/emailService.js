@@ -171,51 +171,37 @@ const twoFactorCodeEmail = (firstName, code, { minutes = 10, ip } = {}) => T.ren
 });
 
 /**
- * The countdown, in the one place everyone actually looks. Unlike the code
- * email this one does carry a link, because the whole point is to get the
- * person to the setup screen.
+ * A gentle, one-time nudge to turn on two-step verification. It carries a link,
+ * because the whole point is to get the person to the setup screen. There is no
+ * deadline — it is recommended, not required.
  */
-const twoFactorReminderEmail = (firstName, daysLeft) => {
-  const urgent = daysLeft <= 1;
-  const deadline = daysLeft <= 0
-    ? 'Two-step verification is now required on your account'
-    : `You have ${daysLeft} day${daysLeft === 1 ? '' : 's'} left`;
-  return T.renderEmail({
-    subject: daysLeft <= 0
-      ? 'Action needed: set up two-step verification - CTU Daanbantayan'
-      : `${deadline} to set up two-step verification - CTU Daanbantayan`,
-    preheader: `${deadline}. It takes about a minute.`,
-    tone: urgent ? 'warning' : 'info',
-    eyebrow: 'Account security',
-    title: 'Set up two-step verification',
-    greeting: `Hi ${firstName || 'there'},`,
-    body: [
-      T.paragraph('Your timetable account holds real schedules and student records, so a password on its own is no longer enough. Adding a second step takes about a minute and you will only be asked for it when you sign in on a new device.'),
-      T.callout(deadline, daysLeft <= 0
-        ? 'You will be asked to set this up the next time you sign in.'
-        : 'After that you will need to set it up before you can carry on using the system.',
-        urgent ? 'warning' : 'info'),
-      T.paragraph('You can use your fingerprint or face, an authenticator app, or a code sent to this address - whichever suits you.'),
-    ].join(''),
-    textBody: [
-      'Your timetable account needs a second sign-in step.',
-      '',
-      deadline + '.',
-      '',
-      'You can use your fingerprint or face, an authenticator app, or a code sent to this address.',
-      'Open Settings then Two-step verification to set it up.',
-    ].join('\n'),
-    cta: { label: 'Set it up now', url: T.url('/settings?tab=twofactor') },
-    showLink: true,
-  });
-};
+const twoFactorReminderEmail = (firstName) => T.renderEmail({
+  subject: 'Secure your account with two-step verification - CTU Daanbantayan',
+  preheader: 'Add a second sign-in step. It takes about a minute.',
+  tone: 'info',
+  eyebrow: 'Account security',
+  title: 'Secure your account with two-step verification',
+  greeting: `Hi ${firstName || 'there'},`,
+  body: [
+    T.paragraph('Your timetable account holds real schedules and student records, so adding a second sign-in step keeps it safer. It takes about a minute, and you are only asked for it when you sign in on a new device.'),
+    T.paragraph('You can use your fingerprint or face, an authenticator app, or a code sent to this address — whichever suits you. You can set it up any time; there is no deadline.'),
+  ].join(''),
+  textBody: [
+    'Adding a second sign-in step keeps your timetable account safer.',
+    '',
+    'You can use your fingerprint or face, an authenticator app, or a code sent to this address.',
+    'Open Settings then Two-step verification to set it up whenever you like.',
+  ].join('\n'),
+  cta: { label: 'Set it up', url: T.url('/settings?tab=twofactor') },
+  showLink: true,
+});
 
-const sendTwoFactorSetupReminder = async (email, firstName, daysLeft) => {
+const sendTwoFactorSetupReminder = async (email, firstName) => {
   if (consoleMode()) {
-    console.log(`  2FA REMINDER to ${email}: ${daysLeft} day(s) left (console mode, not sent)`);
+    console.log(`  2FA REMINDER to ${email} (console mode, not sent)`);
     return { success: true, messageId: 'console-dev-mode' };
   }
-  return send(email, twoFactorReminderEmail(firstName, daysLeft), 'Two-factor reminder');
+  return send(email, twoFactorReminderEmail(firstName), 'Two-factor reminder');
 };
 
 const sendTwoFactorCodeEmail = async (email, code, firstName, options = {}) => {

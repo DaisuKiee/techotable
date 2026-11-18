@@ -277,7 +277,7 @@ export default function TwoFactorSettings() {
   }
   if (!status) return null;
 
-  const { methods, enrolled, required, graceDaysLeft, mustEnrolNow } = status;
+  const { methods, enrolled, required } = status;
 
   return (
     <div className="space-y-5">
@@ -285,32 +285,24 @@ export default function TwoFactorSettings() {
       <div className={`flex items-start gap-3 rounded-xl border p-4 ${
         enrolled
           ? 'border-green-300 bg-green-50 dark:border-green-700 dark:bg-green-900/20'
-          : mustEnrolNow
-          ? 'border-red-300 bg-red-50 dark:border-red-700 dark:bg-red-900/20'
           : 'border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-900/20'}`}
       >
         {enrolled
           ? <ShieldCheck className="mt-0.5 h-5 w-5 flex-shrink-0 text-green-600 dark:text-green-400" />
-          : <ShieldAlert className={`mt-0.5 h-5 w-5 flex-shrink-0 ${mustEnrolNow ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'}`} />}
+          : <ShieldAlert className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600 dark:text-amber-400" />}
         <div>
           <h3 className={`font-semibold ${
-            enrolled ? 'text-green-900 dark:text-green-200'
-              : mustEnrolNow ? 'text-red-900 dark:text-red-200'
-              : 'text-amber-900 dark:text-amber-200'}`}
+            enrolled ? 'text-green-900 dark:text-green-200' : 'text-amber-900 dark:text-amber-200'}`}
           >
             {enrolled ? 'Two-step verification is on' : 'Two-step verification is off'}
           </h3>
           <p className={`text-sm ${
-            enrolled ? 'text-green-800 dark:text-green-300'
-              : mustEnrolNow ? 'text-red-800 dark:text-red-300'
-              : 'text-amber-800 dark:text-amber-300'}`}
+            enrolled ? 'text-green-800 dark:text-green-300' : 'text-amber-800 dark:text-amber-300'}`}
           >
             {enrolled
               ? 'Someone who learns your password still cannot sign in as you.'
-              : required && mustEnrolNow
-              ? 'Your account now requires a second step. Set one up below to keep using the system.'
               : required
-              ? `Required for your account. You have ${graceDaysLeft} day${graceDaysLeft === 1 ? '' : 's'} to set it up.`
+              ? 'Recommended for your account. Add a second step below so a stolen password is not enough on its own — you can set it up any time.'
               : 'Add a second step so a stolen password is not enough on its own.'}
           </p>
         </div>

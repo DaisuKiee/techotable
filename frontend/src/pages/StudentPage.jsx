@@ -156,6 +156,9 @@ const StudentPage = () => {
   const { user } = useAuth();
   const { programCodes } = usePrograms();
   const isManager = user?.role === 'program_manager';
+  // Student records belong to the administrator. Scheduling staff read them
+  // and keep sections straight, but don't create students by hand.
+  const canAddStudent = user?.role === 'admin';
 
   const [filters, setFilters] = useState(() => ({ ...EMPTY_FILTERS, program: isManager ? user?.program || '' : '' }));
   const [searchInput, setSearchInput] = useState('');
@@ -339,9 +342,11 @@ const StudentPage = () => {
             <button type="button" onClick={exportCsv} className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700" title="Download the students shown as CSV (opens in Excel)">
               <Download className="h-4 w-4" /> Export
             </button>
-            <button type="button" onClick={() => setModal({ student: null })} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-500/30">
-              <Plus className="h-4 w-4" /> Add student
-            </button>
+            {canAddStudent && (
+              <button type="button" onClick={() => setModal({ student: null })} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-500/30">
+                <Plus className="h-4 w-4" /> Add student
+              </button>
+            )}
           </div>
         </div>
 
@@ -450,7 +455,11 @@ const StudentPage = () => {
               {hasFilters ? 'No students match' : 'No students yet'}
             </h3>
             <p className="mb-6 text-gray-600 dark:text-gray-400">
-              {hasFilters ? 'Try a different search or clear the filters.' : 'Add students one by one, or import a CSV of the whole class.'}
+              {hasFilters
+                ? 'Try a different search or clear the filters.'
+                : canAddStudent
+                  ? 'Add students one by one, or import a CSV of the whole class.'
+                  : 'Import a CSV of the whole class to get started.'}
             </p>
             {hasFilters ? (
               <button type="button" onClick={clearFilters} className="rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">
@@ -461,9 +470,11 @@ const StudentPage = () => {
                 <button type="button" onClick={() => setShowImport(true)} className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">
                   <Upload className="h-4 w-4" /> Import CSV
                 </button>
-                <button type="button" onClick={() => setModal({ student: null })} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
-                  <Plus className="h-4 w-4" /> Add student
-                </button>
+                {canAddStudent && (
+                  <button type="button" onClick={() => setModal({ student: null })} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
+                    <Plus className="h-4 w-4" /> Add student
+                  </button>
+                )}
               </div>
             )}
           </div>

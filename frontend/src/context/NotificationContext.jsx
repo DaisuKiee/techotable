@@ -57,7 +57,6 @@ export const NotificationProvider = ({ children }) => {
   const [status, setStatus] = useState('idle'); // idle | connecting | live | offline
   const listeners = useRef(new Set());
   const seen = useRef(new Set());
-  const baseTitle = useRef(typeof document !== 'undefined' ? document.title.replace(/^\(\d+\+?\) /, '') : '');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -259,10 +258,15 @@ export const NotificationProvider = ({ children }) => {
     };
   }, [isAuthenticated, user?._id, load, handleEvent]);
 
-  // Unread count in the tab title, e.g. "(3) CoTE Timetabling"
+  // Unread count in the tab title, e.g. "(3) CoTE Timetabling".
+  //
+  // The base is read from the title as it stands rather than captured once at
+  // mount: pages set their own titles, and this provider sits above the routes,
+  // so a remembered base would overwrite whatever the current page had just
+  // put there (React runs a child's effects before its parent's).
   useEffect(() => {
     if (typeof document === 'undefined') return;
-    const base = baseTitle.current || document.title.replace(/^\(\d+\+?\) /, '');
+    const base = document.title.replace(/^\(\d+\+?\) /, '');
     document.title = unread > 0 ? `(${unread > 99 ? '99+' : unread}) ${base}` : base;
   }, [unread]);
 

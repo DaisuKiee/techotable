@@ -9,8 +9,13 @@ import AnimatedUserCheck from './AnimatedUserCheck';
 const FacultyModal = ({ mode, faculty, onClose }) => {
   const { user } = useAuth();
   const isProgramManager = user?.role === 'program_manager';
+  // A faculty member's educational background and subject expertise are the
+  // administrator's to maintain, so scheduling staff (program managers and the
+  // scheduling office) only ever see them read-only.
+  const credentialsLocked = user?.role !== 'admin';
   
   const [loading, setLoading] = useState(false);
+  const [specError, setSpecError] = useState(false);
   const [users, setUsers] = useState([]);
   const [programs, setPrograms] = useState([]);
   const [formData, setFormData] = useState({
@@ -150,6 +155,7 @@ const FacultyModal = ({ mode, faculty, onClose }) => {
       ...formData,
       specializations: newSpecializations
     });
+    if (value.trim()) setSpecError(false);
   };
 
   const addSpecialization = () => {
@@ -169,6 +175,16 @@ const FacultyModal = ({ mode, faculty, onClose }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Subject expertise is required: at least one specialization. Scheduling
+    // officers can't edit the field, so they aren't held to it.
+    if (!credentialsLocked && !formData.specializations.some((s) => s.trim() !== '')) {
+      setSpecError(true);
+      toast.error('Subject expertise is required — add at least one specialization.');
+      document.getElementById('faculty-specializations')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    setSpecError(false);
     setLoading(true);
 
     try {
@@ -477,10 +493,13 @@ const FacultyModal = ({ mode, faculty, onClose }) => {
                   <h3 className="text-lg font-bold text-gray-900 dark:text-white">Academic Information</h3>
                 </div>
 
-                {/* Specializations */}
-                <div>
+                {/* Specializations (Subject Expertise) */}
+                <div id="faculty-specializations">
                   <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                    Specializations
+                    Subject Expertise {!credentialsLocked && <span className="text-red-500">*</span>}
+                    <span className="ml-1 font-normal text-xs text-gray-500 dark:text-gray-400">
+                      {credentialsLocked ? '— view only, managed by the administrator' : '— add at least one'}
+                    </span>
                   </label>
                   <div className="space-y-2">
                     {formData.specializations.map((spec, index) => (
@@ -489,10 +508,11 @@ const FacultyModal = ({ mode, faculty, onClose }) => {
                           type="text"
                           value={spec}
                           onChange={(e) => handleSpecializationChange(index, e.target.value)}
-                          placeholder="e.g., Web Development, Database Management"
-                          className="flex-1 px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white placeholder-gray-400 transition-all"
+                          disabled={credentialsLocked}
+                          placeholder="e.g., Food and Beverage Service, Culinary Arts"
+                          className={`flex-1 px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white placeholder-gray-400 transition-all disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 dark:disabled:bg-gray-800 dark:disabled:text-gray-400 ${specError && !spec.trim() ? 'border-red-400 dark:border-red-500' : 'border-gray-300 dark:border-gray-600'}`}
                         />
-                        {formData.specializations.length > 1 && (
+                        {!credentialsLocked && formData.specializations.length > 1 && (
                           <button
                             type="button"
                             onClick={() => removeSpecialization(index)}
@@ -505,15 +525,23 @@ const FacultyModal = ({ mode, faculty, onClose }) => {
                       </div>
                     ))}
                   </div>
-                  <button
-                    type="button"
-                    onClick={addSpecialization}
-                    className="mt-3 flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium transition-colors"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add Another Specialization
-                  </button>
-                  
+                  {!credentialsLocked && (
+                    <button
+                      type="button"
+                      onClick={addSpecialization}
+                      className="mt-3 flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium transition-colors"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add Another Specialization
+                    </button>
+                  )}
+
+                  {specError && (
+                    <p className="mt-2 text-sm font-medium text-red-600 dark:text-red-400">
+                      Subject expertise is required — add at least one specialization.
+                    </p>
+                  )}
+
                   {/* Specialization Chips Preview */}
                   {formData.specializations.filter(s => s.trim()).length > 0 && (
                     <div className="mt-3 p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600">
@@ -570,9 +598,12 @@ const FacultyModal = ({ mode, faculty, onClose }) => {
                 <div className="flex items-center gap-2 mb-4">
                   <Award className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                   <h3 className="text-lg font-bold text-gray-900 dark:text-white">Educational Background</h3>
-                  <span className="ml-auto text-xs text-blue-600 dark:text-blue-400 font-medium">Optional - Based on Faculty Profiles</span>
+                  <span className="ml-auto text-xs text-blue-600 dark:text-blue-400 font-medium">
+                    {credentialsLocked ? 'View only — managed by the administrator' : 'Optional - Based on Faculty Profiles'}
+                  </span>
                 </div>
 
+                <fieldset disabled={credentialsLocked} className="contents">
                 {/* Bachelor's Degree */}
                 <div className="bg-white dark:bg-gray-800 rounded-lg p-4 mb-4 border border-blue-200 dark:border-blue-700">
                   <h4 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
@@ -710,6 +741,7 @@ const FacultyModal = ({ mode, faculty, onClose }) => {
                     </div>
                   </div>
                 </div>
+                </fieldset>
 
                 {/* Additional Information */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

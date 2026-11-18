@@ -18,7 +18,9 @@ const NotificationBell = () => {
   const panelRef = useRef(null);
   const buttonRef = useRef(null);
 
-  // Escape closes; focus goes back to the bell
+  // Escape, or a click/tap anywhere outside the panel, closes it. The outside
+  // click is handled at the document level (not only via the backdrop) so it
+  // works regardless of where the click lands or how the page is stacked.
   useEffect(() => {
     if (!isOpen) return undefined;
     const onKey = (e) => {
@@ -27,8 +29,19 @@ const NotificationBell = () => {
         buttonRef.current?.focus();
       }
     };
+    const onPointerDown = (e) => {
+      // A press on the bell (which toggles) or inside the panel is not "outside".
+      if (buttonRef.current?.contains(e.target) || panelRef.current?.contains(e.target)) return;
+      setIsOpen(false);
+    };
     document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('touchstart', onPointerDown);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('touchstart', onPointerDown);
+    };
   }, [isOpen]);
 
   const visible = useMemo(() => items.filter((n) => matchesFilter(n, filter)), [items, filter]);
@@ -85,7 +98,10 @@ const NotificationBell = () => {
 
       {isOpen && (
         <>
-          <div className="fixed inset-0 z-[99998] bg-black/30 sm:z-40 sm:bg-transparent" onClick={() => setIsOpen(false)} aria-hidden="true" />
+          {/* Mobile: a tappable dim behind the sheet. Desktop: invisible and
+              click-through, so a click lands on the page AND the handler above
+              closes the panel (no dead first click). */}
+          <div className="fixed inset-0 z-[99998] bg-black/30 sm:z-40 sm:bg-transparent sm:pointer-events-none" onClick={() => setIsOpen(false)} aria-hidden="true" />
 
           <div
             ref={panelRef}

@@ -6,7 +6,7 @@ import { scheduleAPI, subjectAPI, sectionAPI, facultyAPI, roomAPI, getErrorMessa
 import useCachedData from '../hooks/useCachedData';
 import toast from 'react-hot-toast';
 import {
-  Calendar as CalendarIcon, Plus, Download, Search, X,
+  Calendar as CalendarIcon, Download, Search, X,
   Wand2, AlertTriangle, CheckCircle, FileText, FileSpreadsheet, Grid,
   Clock, BookOpen, School, MapPin,
   Edit2, Trash2, RefreshCw, Printer, RotateCcw,
@@ -200,7 +200,9 @@ const SchedulePage = () => {
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [showGenerateModal, setShowGenerateModal] = useState(false);
   const [selectedSchedule, setSelectedSchedule] = useState(null);
-  const [modalMode, setModalMode] = useState('create');
+  // Schedules are only ever opened for editing now - they are created by the
+  // generator or the builder, not by a form on this page.
+  const [modalMode, setModalMode] = useState('edit');
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showConflictWarning, setShowConflictWarning] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState({
@@ -585,12 +587,6 @@ const SchedulePage = () => {
     );
   };
 
-  const handleCreate = () => {
-    setSelectedSchedule(null);
-    setModalMode('create');
-    setShowScheduleModal(true);
-  };
-
   const handleGenerate = () => setShowGenerateModal(true);
 
   const handleEdit = (schedule) => {
@@ -898,11 +894,17 @@ const SchedulePage = () => {
   return (
     <Layout>
       <div className="p-4 md:p-6 max-w-7xl mx-auto">
-        {/* Page actions.
-            The app header already names this page, so the old <h1> plus its
-            subtitle only repeated it - and together with the stats strip they
-            pushed the table halfway down the viewport. What replaces them is a
-            single line that says what you are actually looking at. */}
+        {/* Header */}
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white md:text-3xl">Schedule Management</h1>
+          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400 md:text-base">
+            {filters.program ? `${filters.program} timetables` : 'Timetables'}, their drafts and what has been published
+          </p>
+        </div>
+
+        {/* Page actions. The count line says which term and program you are
+            looking at, so it sits with the buttons instead of repeating the
+            heading above. */}
         <div className="mb-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -928,23 +930,16 @@ const SchedulePage = () => {
               )}
             </p>
             <div className="flex gap-2">
+              {/* No "Add Schedule": a timetable is generated or built by hand
+                  in the builder, both of which check for clashes as you go. */}
               {canEditSchedules && (
-                <>
-                  <button
-                    onClick={handleCreate}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-md hover:shadow-lg text-sm"
-                  >
-                    <Plus className="w-5 h-5" />
-                    <span className="hidden sm:inline">Add Schedule</span>
-                  </button>
-                  <button
-                    onClick={handleGenerate}
-                    className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-md hover:shadow-lg text-sm"
-                  >
-                    <Wand2 className="w-5 h-5" />
-                    <span className="hidden sm:inline">Generate</span>
-                  </button>
-                </>
+                <button
+                  onClick={handleGenerate}
+                  className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-md hover:shadow-lg text-sm"
+                >
+                  <Wand2 className="w-5 h-5" />
+                  <span className="hidden sm:inline">Generate</span>
+                </button>
               )}
               <div className="relative" ref={exportMenuRef}>
                 <button
@@ -1328,7 +1323,7 @@ const SchedulePage = () => {
                 <p className="text-gray-600 dark:text-gray-400 mb-6">
                   {hasActiveFilters
                     ? 'Try adjusting your search or filter criteria'
-                    : 'Get started by creating your first schedule'}
+                    : 'Generate a timetable, or place classes yourself in the builder.'}
                 </p>
                 {hasActiveFilters ? (
                   <button
@@ -1340,11 +1335,11 @@ const SchedulePage = () => {
                 ) : (
                   canEditSchedules && (
                     <button
-                      onClick={handleCreate}
+                      onClick={handleGenerate}
                       className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors inline-flex items-center gap-2"
                     >
-                      <Plus className="w-5 h-5" />
-                      Add First Schedule
+                      <Wand2 className="w-5 h-5" />
+                      Generate schedules
                     </button>
                   )
                 )}

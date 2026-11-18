@@ -14,6 +14,8 @@ import './i18n'; // Initialize i18n
 
 // Pages
 import LandingPage from './pages/LandingPage';
+import DocsPage from './pages/DocsPage';
+import UpdatesPage from './pages/UpdatesPage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
@@ -88,6 +90,8 @@ function App() {
           <ErrorBoundary>
           <Routes>
             <Route path="/" element={<LandingPage />} />
+            <Route path="/docs" element={<DocsPage />} />
+            <Route path="/updates" element={<UpdatesPage />} />
             <Route path="/simple-test" element={<SimpleTestPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/terms" element={<TermsPage />} />

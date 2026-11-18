@@ -16,7 +16,10 @@ const {
   labelFor,
   looksLikeObjectId,
 } = require('../utils/roomLabel');
-const { notifyScheduleChange } = require('../services/emailNotification.service');
+const {
+  notifyScheduleChange,
+  notifyTimetableBatch: notifyTimetableBatchEmail,
+} = require('../services/emailNotification.service');
 const { homeRoomResolver } = require('../services/homeRoom.service');
 const { setClassSpacesPublished } = require('../services/classSpace.service');
 const { searchClause, escapeRegex } = require('../utils/safeQuery');
@@ -59,8 +62,13 @@ async function applyPublishState(schedules, published, actor) {
     notifyTimetableBatch(fresh, published ? 'published' : 'withdrawn');
   }
   if (published) {
-    // Email the teacher and students of each newly official class
-    Promise.allSettled(ids.map((id) => notifyScheduleChange(id, 'published')))
+    // Email the teacher and the section's students. A whole term is published
+    // in one click, so a batch becomes one digest per person rather than one
+    // message per class - fifty near-identical emails read as a fault.
+    const emailing = ids.length === 1
+      ? notifyScheduleChange(ids[0], 'published')
+      : notifyTimetableBatchEmail(ids, 'published');
+    Promise.resolve(emailing)
       .catch((err) => console.error('Publish emails failed:', err.message));
   }
   return fresh;

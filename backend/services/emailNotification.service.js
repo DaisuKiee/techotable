@@ -5,7 +5,6 @@
  * to students and faculty members
  */
 
-const Student = require('../models/Student.model');
 const Faculty = require('../models/Faculty.model');
 const Schedule = require('../models/Schedule.model');
 
@@ -71,6 +70,7 @@ const sendEmail = async (to, subject, html, { preference, text } = {}) => {
 
 const T = require('./emailTemplates');
 const { loadRoomsByRawValues, labelFor, looksLikeObjectId } = require('../utils/roomLabel');
+const { emailableStudentsFor } = require('../utils/scheduleAudience');
 
 /** Same link format as the in-app notifications: /classes/cc317-bsit-3a-d */
 const classPath = (subjectCode, sectionCode) => `/classes/${[subjectCode || 'class', sectionCode || '']
@@ -164,6 +164,77 @@ const scheduleEmail = (type, schedule, recipientName, audience = 'student') => {
     body,
     textBody,
     cta: { label: published ? 'Open my class' : 'See the new schedule', url: T.url(classPath(code, section)) },
+    reason: forFaculty
+      ? 'You’re getting this because “Teaching assignments” is on in your notification settings.'
+      : 'You’re getting this because “Schedule changes” is on in your notification settings.',
+    manageLink: true,
+  });
+};
+
+/** "Mon 8:00 AM – 10:00 AM, Wed 1:00 PM – 3:00 PM · COTE-01" */
+const whenAndWhere = (schedule) => {
+  const slots = T.sortSlots(schedule.timeSlots || []);
+  const when = slots.length
+    ? slots.map((s) => `${s.day.slice(0, 3)} ${T.fmtTime(s.startTime)} – ${T.fmtTime(s.endTime)}`).join(', ')
+    : 'No meeting times set yet';
+  return schedule.roomLabel ? `${when} · ${schedule.roomLabel}` : when;
+};
+
+/**
+ * A whole timetable published or changed at once.
+ *
+ * Publishing a term means publishing dozens of classes in one click. Sending
+ * the single-class email for each of them would land fifty near-identical
+ * messages in one inbox, which reads as a fault and gets the sender filtered,
+ * so a batch becomes one message listing the classes.
+ */
+const timetableDigestEmail = (kind, { sectionCode, classes, term }, recipientName, audience = 'student') => {
+  const published = kind === 'published';
+  const forFaculty = audience === 'faculty';
+  const tone = published ? 'success' : 'warning';
+  const count = classes.length;
+  const plural = count === 1 ? '' : 'es';
+
+  const lead = forFaculty
+    ? (published
+      ? `${count} class${plural} on your teaching load ${count === 1 ? 'is' : 'are'} now published. Your students can see ${count === 1 ? 'it' : 'them'} too.`
+      : `${count} class${plural} on your teaching load changed. Please check the times and rooms below.`)
+    : (published
+      ? `Your timetable${sectionCode ? ` for <strong>${T.esc(sectionCode)}</strong>` : ''} is published. Here are your ${count} class${plural}.`
+      : `Your timetable${sectionCode ? ` for <strong>${T.esc(sectionCode)}</strong>` : ''} changed. Here is where it stands now.`);
+
+  const rows = classes.map((s) => {
+    const code = s.subject?.subjectCode || 'Class';
+    const label = forFaculty && s.sectionCode ? `${code} · ${s.sectionCode}` : code;
+    return [label, whenAndWhere(s)];
+  });
+
+  const body = [
+    T.paragraph(lead),
+    T.sectionTitle(published ? 'Your classes' : 'Your classes now'),
+    T.details(rows),
+    published ? '' : `${SPACER}${T.callout('Double-check before your next class', 'The times or rooms may differ from what you saved or printed earlier.', 'warning')}`,
+  ].join('');
+
+  const textBody = [
+    forFaculty
+      ? `${count} class${plural} on your teaching load ${published ? `${count === 1 ? 'is' : 'are'} now published` : 'changed'}.`
+      : `Your timetable${sectionCode ? ` for ${sectionCode}` : ''} ${published ? 'is published' : 'changed'}.`,
+    '',
+    ...rows.map(([label, value]) => `  ${label}: ${value}`),
+    term ? `\nTerm: ${term}` : null,
+  ].filter((l) => l !== null).join('\n');
+
+  return T.renderEmail({
+    subject: `${published ? 'Timetable published' : 'Timetable updated'}${sectionCode && !forFaculty ? `: ${sectionCode}` : ''}`,
+    preheader: `${count} class${plural}${term ? ` · ${term}` : ''}`,
+    tone,
+    eyebrow: published ? 'Timetable published' : 'Timetable updated',
+    title: forFaculty ? 'Your teaching schedule' : `Your timetable${sectionCode ? ` · ${sectionCode}` : ''}`,
+    greeting: `Hi ${firstName(recipientName)},`,
+    body,
+    textBody,
+    cta: { label: 'Open my schedule', url: T.url('/schedules') },
     reason: forFaculty
       ? 'You’re getting this because “Teaching assignments” is on in your notification settings.'
       : 'You’re getting this because “Schedule changes” is on in your notification settings.',
@@ -275,23 +346,16 @@ const materialEmail = (material, classData, recipientName) => {
 /**
  * Get students for a specific section
  */
-const getStudentsForSection = async (sectionCode, program, yearLevel, semester, academicYear) => {
+/**
+ * The students a class concerns. See utils/scheduleAudience for why this is
+ * matched on the section and the class space alone.
+ */
+const getStudentsForSchedule = async (schedule) => {
   try {
-    const query = {
-      isActive: true,
-      sectionCode
-    };
-    
-    if (program) query.program = program;
-    if (yearLevel) query.yearLevel = yearLevel;
-    if (semester) query.semester = semester;
-    if (academicYear) query.academicYear = academicYear;
-
-    const students = await Student.find(query)
-      .populate('user', 'email firstName lastName')
-      .lean();
-
-    return students.filter(s => s.user && s.user.email);
+    return await emailableStudentsFor({
+      sectionCodes: schedule?.sectionCode ? [schedule.sectionCode] : [],
+      scheduleIds: schedule?._id ? [schedule._id] : [],
+    });
   } catch (error) {
     console.error('Error fetching students:', error);
     return [];
@@ -309,14 +373,7 @@ const notifyStudents = async (scheduleId, type = 'published') => {
       throw new Error('Schedule not found');
     }
 
-    // Get students for this section
-    const students = await getStudentsForSection(
-      schedule.sectionCode,
-      schedule.program,
-      schedule.yearLevel,
-      schedule.semester,
-      schedule.academicYear
-    );
+    const students = await getStudentsForSchedule(schedule);
 
     if (students.length === 0) {
       console.log('⚠️  No students found for this schedule');
@@ -417,6 +474,93 @@ const notifyScheduleChange = async (scheduleId, type = 'published') => {
   } catch (error) {
     console.error('Error in notifyScheduleChange:', error);
     throw error;
+  }
+};
+
+/**
+ * Many classes published or changed at once: one email per student and per
+ * teacher, listing their classes, instead of one per class.
+ *
+ * @param {Array} scheduleIds
+ * @param {'published'|'updated'} kind
+ */
+const notifyTimetableBatch = async (scheduleIds, kind = 'published') => {
+  const empty = { total: { sent: 0, failed: 0, recipients: 0 } };
+  try {
+    const ids = [...new Set((scheduleIds || []).filter(Boolean).map(String))];
+    if (!ids.length) return empty;
+
+    const schedules = await Schedule.find({ _id: { $in: ids } })
+      .populate('subject', 'subjectCode subjectName')
+      .populate({ path: 'faculty', populate: { path: 'user', select: 'firstName lastName email' } })
+      .lean();
+    if (!schedules.length) return empty;
+
+    // Resolve every room label in one query rather than one per class.
+    const raws = [...new Set(schedules.map((s) => (s.room ? String(s.room) : null)).filter(Boolean))];
+    const lookups = raws.filter(looksLikeObjectId);
+    const rooms = lookups.length ? await loadRoomsByRawValues(lookups) : new Map();
+    for (const s of schedules) {
+      const raw = s.room ? String(s.room) : null;
+      s.roomLabel = raw && looksLikeObjectId(raw) ? (labelFor(rooms.get(raw)) || null) : raw;
+    }
+
+    const term = T.termLabel(schedules[0].academicYear, schedules[0].semester);
+    let sent = 0;
+    let failed = 0;
+    let recipients = 0;
+
+    const tally = (results) => {
+      for (const r of results) {
+        if (r.status === 'fulfilled' && r.value?.success) sent += 1;
+        else failed += 1;
+      }
+    };
+
+    // Students: grouped by section, so each gets one list of their own classes.
+    const bySection = new Map();
+    for (const s of schedules) {
+      const key = s.sectionCode || '';
+      if (!bySection.has(key)) bySection.set(key, []);
+      bySection.get(key).push(s);
+    }
+    for (const [sectionCode, classes] of bySection) {
+      const students = await emailableStudentsFor({
+        sectionCodes: sectionCode ? [sectionCode] : [],
+        scheduleIds: classes.map((s) => s._id),
+      });
+      recipients += students.length;
+      tally(await Promise.allSettled(students.map((student) => sendEmail(
+        student.user.email,
+        timetableDigestEmail(kind, { sectionCode, classes, term }, personName(student.user), 'student'),
+        null,
+        { preference: 'scheduleUpdates' }
+      ))));
+    }
+
+    // Teachers: grouped by person, across whichever sections they teach.
+    const byTeacher = new Map();
+    for (const s of schedules) {
+      const email = s.faculty?.user?.email;
+      if (!email) continue;
+      if (!byTeacher.has(email)) byTeacher.set(email, { user: s.faculty.user, classes: [] });
+      byTeacher.get(email).classes.push(s);
+    }
+    for (const [email, { user, classes }] of byTeacher) {
+      recipients += 1;
+      tally(await Promise.allSettled([sendEmail(
+        email,
+        timetableDigestEmail(kind, { sectionCode: null, classes, term }, personName(user), 'faculty'),
+        null,
+        { preference: 'facultyAssignments' }
+      )]));
+    }
+
+    console.log(`📬 Timetable ${kind} digest: ${sent}/${recipients} sent${failed ? `, ${failed} failed` : ''}`);
+    return { total: { sent, failed, recipients } };
+  } catch (error) {
+    console.error(`Timetable ${kind} digest failed:`, error.message);
+    return empty;
   }
 };
 
@@ -607,10 +751,13 @@ module.exports = {
   notifyStudents,
   notifyFaculty,
   notifyScheduleChange,
+  notifyTimetableBatch,
   notifyAnnouncement,
   notifyMaterial,
   // For previews and tests
   scheduleEmail,
+  timetableDigestEmail,
   announcementEmail,
   materialEmail,
+  getStudentsForSchedule,
 };

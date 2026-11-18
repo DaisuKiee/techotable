@@ -14,6 +14,7 @@
 const Notification = require('../models/Notification.model');
 const realtime = require('./realtime.service');
 const { loadRoomsByRawValues, labelFor, looksLikeObjectId } = require('../utils/roomLabel');
+const { studentUserIdsFor } = require('../utils/scheduleAudience');
 
 const lazy = {
   get Schedule() { return require('../models/Schedule.model'); },
@@ -71,23 +72,7 @@ const createNotification = notify;
 /* ---------------- Who is affected ---------------- */
 
 /** User ids of a section's students, plus anyone enrolled in these class spaces. */
-const studentUsersFor = async ({ sectionCodes = [], scheduleIds = [] }) => {
-  const [students, spaces] = await Promise.all([
-    sectionCodes.length
-      ? lazy.Student.find({ sectionCode: { $in: sectionCodes } }).select('user').lean()
-      : [],
-    scheduleIds.length
-      ? lazy.ClassSpace.find({ schedule: { $in: scheduleIds } })
-        .select('enrolledStudents.student')
-        .populate({ path: 'enrolledStudents.student', select: 'user' })
-        .lean()
-      : [],
-  ]);
-  return uniqIds([
-    ...students.map((s) => s.user),
-    ...spaces.flatMap((cs) => (cs.enrolledStudents || []).map((e) => e.student?.user)),
-  ]);
-};
+const studentUsersFor = (where) => studentUserIdsFor(where);
 
 /** Faculty profile id(s) -> their user ids. */
 const facultyUsersFor = async (facultyIds) => {

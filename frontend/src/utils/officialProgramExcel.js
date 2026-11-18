@@ -3,7 +3,7 @@ import ctuLogo from '../assets/images/logos/ctulogo.png';
 import bagongPilipinas from '../assets/images/logos/Bagong_Pilipinas_Logo.svg.webp';
 import formFooter from '../assets/images/logos/footer.png';
 import {
-  DAYS, HOURS, buildGrid, uniqueSubjects, weeklyHours, facultyName,
+  DAYS, HOURS, hoursForShift, buildGrid, uniqueSubjects, weeklyHours, facultyName,
   subjectCode, subjectName, subjectUnits, sectionLabel, studentCount, termLine,
 } from './officialProgramExport';
 
@@ -182,7 +182,7 @@ const letterhead = (ws, marksIds, title, subtitle) => {
 };
 
 /** TIME column plus Monday..Sunday, one row an hour, multi-hour classes merged. */
-const writeGrid = (ws, schedules, secondLine) => {
+const writeGrid = (ws, schedules, secondLine, hours = HOURS) => {
   put(ws, GRID_HEAD, GRID_FIRST, 'TIME',
     { font: { size: 8 }, alignment: CENTER, border: BOX });
   DAYS.forEach((day, i) => put(ws, GRID_HEAD, GRID_FIRST + 1 + i, day,
@@ -190,7 +190,7 @@ const writeGrid = (ws, schedules, secondLine) => {
   ws.getRow(GRID_HEAD).height = 16;
 
   // Every cell gets its border first, so a merge never leaves a gap.
-  HOURS.forEach((hour, i) => {
+  hours.forEach((hour, i) => {
     const row = BODY_FIRST + i;
     ws.getRow(row).height = 34;
     put(ws, row, GRID_FIRST, hourLabel(hour), { font: { size: 7 }, alignment: CENTER, border: BOX });
@@ -199,8 +199,8 @@ const writeGrid = (ws, schedules, secondLine) => {
     }
   });
 
-  const { cells, covered } = buildGrid(schedules, secondLine);
-  HOURS.forEach((hour, i) => {
+  const { cells, covered } = buildGrid(schedules, secondLine, hours);
+  hours.forEach((hour, i) => {
     const row = BODY_FIRST + i;
     DAYS.forEach((day, d) => {
       if (covered.has(`${day}-${hour}`)) return;
@@ -380,7 +380,7 @@ export const exportFacultyProgramExcel = async (schedules, filters = {}, faculty
 
         letterhead(ws, marksIds, 'PROGRAM BY TEACHER',
           termLine(first.shift, first.semester, first.academicYear));
-        writeGrid(ws, list, sectionLabel);
+        writeGrid(ws, list, sectionLabel, hoursForShift(first.shift));
 
         let row = GRID_HEAD;
         field(ws, row, PANEL_FIRST, 'NAME:', 11, 14, facultyName(first));
@@ -460,7 +460,7 @@ export const exportSectionProgramExcel = async (schedules, filters = {}) => {
 
         letterhead(ws, marksIds, 'PROGRAM BY SECTION',
           termLine(first.shift, first.semester, first.academicYear));
-        writeGrid(ws, list, facultyName);
+        writeGrid(ws, list, facultyName, hoursForShift(first.shift));
 
         let row = GRID_HEAD;
         field(ws, row, PANEL_FIRST, 'SECTION:', 11, 14, section);

@@ -57,6 +57,12 @@ export const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Sa
 /** 7:00 AM to 5:00 PM, as on the form. */
 export const HOURS = [7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
 
+/** 4:00 PM to 10:00 PM — the CTU night-shift grid (matches the solver's night window). */
+export const NIGHT_HOURS = [16, 17, 18, 19, 20, 21];
+
+/** The form's time grid follows the shift: day 7 AM–5 PM, night 4 PM–10 PM. */
+export const hoursForShift = (shift) => (/night/i.test(String(shift || '')) ? NIGHT_HOURS : HOURS);
+
 const esc = (v) => String(v ?? '')
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
@@ -95,7 +101,7 @@ export const studentCount = (s) => (Array.isArray(s?.enrolledStudents) ? s.enrol
  * several hours is drawn once with a rowspan and the hours it covers are
  * marked so they aren't drawn again.
  */
-export const buildGrid = (schedules, secondLine) => {
+export const buildGrid = (schedules, secondLine, hours = HOURS) => {
   const cells = {};
   const covered = new Set();
 
@@ -107,10 +113,10 @@ export const buildGrid = (schedules, secondLine) => {
 
       const startHour = Math.floor(start / 60);
       const endHour = Math.ceil(end / 60);
-      const first = HOURS.indexOf(startHour);
+      const first = hours.indexOf(startHour);
       if (first === -1) return;
 
-      const span = Math.max(1, Math.min(endHour, HOURS[HOURS.length - 1] + 1) - startHour);
+      const span = Math.max(1, Math.min(endHour, hours[hours.length - 1] + 1) - startHour);
       cells[`${slot.day}-${startHour}`] = {
         code: subjectCode(s),
         line2: secondLine(s),
@@ -124,10 +130,10 @@ export const buildGrid = (schedules, secondLine) => {
   return { cells, covered };
 };
 
-const gridHtml = (schedules, secondLine) => {
-  const { cells, covered } = buildGrid(schedules, secondLine);
+const gridHtml = (schedules, secondLine, hours = HOURS) => {
+  const { cells, covered } = buildGrid(schedules, secondLine, hours);
 
-  const rows = HOURS.map((hour) => {
+  const rows = hours.map((hour) => {
     const tds = DAYS.map((day) => {
       if (covered.has(`${day}-${hour}`)) return '';           // spanned from above
       const cell = cells[`${day}-${hour}`];
@@ -356,7 +362,7 @@ export const exportFacultyProgram = async (schedules, filters = {}, facultyDetai
       return `<div class="sheet">
         ${letterhead('PROGRAM BY TEACHER', termLine(first.shift, first.semester, first.academicYear), logos)}
         <div class="body">
-          <div class="grid-wrap">${gridHtml(list, sectionLabel)}</div>
+          <div class="grid-wrap">${gridHtml(list, sectionLabel, hoursForShift(first.shift))}</div>
           <div class="panel">
             <div class="field"><span class="k">NAME:</span><span class="v">${esc(facultyName(first))}</span>
               <span class="k">Status:</span><span class="v">${esc(details.employmentType || '')}</span></div>
@@ -429,7 +435,7 @@ export const exportSectionProgram = async (schedules, filters = {}) => {
       return `<div class="sheet">
         ${letterhead('PROGRAM BY SECTION', termLine(first.shift, first.semester, first.academicYear), logos)}
         <div class="body">
-          <div class="grid-wrap">${gridHtml(list, facultyName)}</div>
+          <div class="grid-wrap">${gridHtml(list, facultyName, hoursForShift(first.shift))}</div>
           <div class="panel">
             <div class="field"><span class="k">SECTION:</span><span class="v">${esc(section)}</span>
               <span class="k">Shift:</span><span class="v">${esc(first.shift || 'Day')}</span></div>

@@ -1,6 +1,7 @@
 import toast from 'react-hot-toast';
 import ctuLogo from '../assets/images/logos/ctulogo.png';
 import bagongPilipinas from '../assets/images/logos/Bagong_Pilipinas_Logo.svg.webp';
+import formFooter from '../assets/images/logos/footer.png';
 
 /**
  * The campus's own "PROGRAM BY TEACHER" / "PROGRAM BY SECTION" form
@@ -37,12 +38,17 @@ const asDataUrl = async (src) => {
   }
 };
 
-/** Both letterhead marks: the CTU seal (left) and Bagong Pilipinas (right). */
+/**
+ * The marks on the form: the CTU seal (left) and Bagong Pilipinas (right) in the
+ * letterhead, and the uploaded footer banner printed at the foot of each sheet.
+ */
 let marks = null;
 export const loadMarks = async () => {
   if (marks) return marks;
-  const [seal, bagong] = await Promise.all([asDataUrl(ctuLogo), asDataUrl(bagongPilipinas)]);
-  marks = { seal, bagong };
+  const [seal, bagong, footer] = await Promise.all([
+    asDataUrl(ctuLogo), asDataUrl(bagongPilipinas), asDataUrl(formFooter),
+  ]);
+  marks = { seal, bagong, footer };
   return marks;
 };
 
@@ -210,6 +216,10 @@ const letterhead = (title, subtitle, logos = {}) => `
   <div class="doc-title">${esc(title)}</div>
   <div class="doc-sub">${esc(subtitle)}</div>`;
 
+/** The uploaded CTU footer banner, printed full-width at the foot of each sheet. */
+const formFooterHtml = (logos = {}) =>
+  logos.footer ? `<img class="form-footer" src="${logos.footer}" alt="" />` : '';
+
 const PAGE_CSS = `
   @page { size: A4 landscape; margin: 1cm; }
   * { box-sizing: border-box; }
@@ -226,6 +236,7 @@ const PAGE_CSS = `
   .rule { border: none; border-top: 1px solid #000; margin: 6px 0 8px; }
   .doc-title { text-align: center; font-weight: bold; font-size: 10pt; }
   .doc-sub { text-align: center; font-weight: bold; font-size: 8.5pt; margin-bottom: 8px; }
+  .form-footer { display: block; width: 100%; height: auto; margin-top: 10px; }
 
   .body { display: flex; gap: 10px; align-items: flex-start; }
   .grid-wrap { flex: 0 0 52%; }
@@ -377,6 +388,7 @@ export const exportFacultyProgram = async (schedules, filters = {}, facultyDetai
             ${signatories(filters)}
           </div>
         </div>
+        ${formFooterHtml(logos)}
       </div>`;
     }).join('');
 
@@ -448,6 +460,7 @@ export const exportSectionProgram = async (schedules, filters = {}) => {
             ${signatories(filters)}
           </div>
         </div>
+        ${formFooterHtml(logos)}
       </div>`;
     }).join('');
 

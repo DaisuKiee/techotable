@@ -71,4 +71,7 @@ module.exports = {
   UPLOAD_ROOT,
   MAX_FILE_SIZE,
   uploadMaterial,
+  // Exposed for unit testing (Appendix G).
+  DOCUMENT_EXTENSIONS,
+  documentFilter,
 };

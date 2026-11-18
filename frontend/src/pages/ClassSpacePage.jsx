@@ -176,6 +176,7 @@ const ClassSpacePage = () => {
 
   const lastLoadedClassId = useRef(null);
   const [canPostHere, setCanPostHere] = useState(false);
+  const [canManageHere, setCanManageHere] = useState(false);
   const [studentType, setStudentType] = useState(null);
   const [joinHint, setJoinHint] = useState(null);
 
@@ -247,6 +248,7 @@ const ClassSpacePage = () => {
       .then((response) => {
         setSelectedClass({ ...response.data.data, _isLoading: false });
         setCanPostHere(!!response.data.canPost);
+        setCanManageHere(!!response.data.canManage);
       })
       .catch((error) => {
         console.error('Failed to load class details:', error);
@@ -273,6 +275,7 @@ const ClassSpacePage = () => {
       const updated = response.data.data;
       setSelectedClass(updated);
       setCanPostHere(!!response.data.canPost);
+      setCanManageHere(!!response.data.canManage);
       setClassSpaces((prev) => prev.map((cs) => (cs._id === updated._id ? { ...cs, ...updated } : cs)));
     } catch (error) {
       console.error('Refresh class error:', error);
@@ -503,7 +506,8 @@ const ClassSpacePage = () => {
     const name = subjectNameOf(selectedClass);
     const teacher = facultyNameOf(selectedClass);
     const teacherUser = selectedClass.faculty?.user;
-    const canManage = canPostHere;
+    const canPost = canPostHere;       // author the board — the class's teacher only
+    const canManage = canManageHere;   // administer the class (enrollment code) — staff + teacher
     const slots = timeSlotsOf(selectedClass);
     const room = roomOf(selectedClass);
     const next = nextMeeting(slots);
@@ -547,7 +551,7 @@ const ClassSpacePage = () => {
                 <span title={new Date(a.createdAt).toLocaleString()}> · {timeAgo(a.createdAt)}</span>
                 {a.editedAt && <span> · edited</span>}
               </div>
-              {canManage && (
+              {canPost && (
                 <div className="-mr-1 -mt-1 flex flex-shrink-0">
                   <IconButton title="Edit post" onClick={() => { setEditingAnnouncement(a); setShowAnnouncementModal(true); }}><Edit2 className="h-4 w-4" /></IconButton>
                   <IconButton title="Delete post" danger onClick={() => handleDeleteAnnouncement(a)}><Trash2 className="h-4 w-4" /></IconButton>
@@ -580,7 +584,7 @@ const ClassSpacePage = () => {
         >
           <Download className="h-4 w-4" /><span className="hidden sm:inline">Download</span>
         </button>
-        {canManage && <IconButton title="Delete file" danger onClick={() => handleDeleteMaterial(m)}><Trash2 className="h-4 w-4" /></IconButton>}
+        {canPost && <IconButton title="Delete file" danger onClick={() => handleDeleteMaterial(m)}><Trash2 className="h-4 w-4" /></IconButton>}
       </div>
     );
 
@@ -674,7 +678,7 @@ const ClassSpacePage = () => {
               <main className="min-w-0 space-y-4">
                 {activeTab === 'board' && (
                   <>
-                    {canManage && (
+                    {canPost && (
                       <div className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800">
                         <Avatar name={`${user?.firstName || ''} ${user?.lastName || ''}`} picture={user?.profilePicture} size={36} hex={hex} />
                         <button
@@ -703,7 +707,7 @@ const ClassSpacePage = () => {
 
                         {boardDays.length === 0 && pinned.length === 0 ? (
                           <Empty icon={Megaphone} title="The board is empty">
-                            {canManage ? 'Post an update or share a file. Everyone in the class sees it here.' : 'Updates and files from your teacher will show up here.'}
+                            {canPost ? 'Post an update or share a file. Everyone in the class sees it here.' : 'Updates and files from your teacher will show up here.'}
                           </Empty>
                         ) : (
                           boardDays.map((day) => (
@@ -735,7 +739,7 @@ const ClassSpacePage = () => {
                   <>
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                       <SearchField value={fileQuery} onChange={setFileQuery} placeholder="Search files" className="flex-1" />
-                      {canManage && (
+                      {canPost && (
                         <button type="button" onClick={() => setShowMaterialModal(true)} className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-sm" style={{ background: hex }}>
                           <Plus className="h-4 w-4" /> Share file
                         </button>
@@ -757,7 +761,7 @@ const ClassSpacePage = () => {
                     )}
                     {isLoading ? <FileSkeleton /> : visibleFiles.length === 0 ? (
                       <Empty icon={FolderOpen} title={materials.length ? 'No files match' : 'No files yet'}>
-                        {materials.length ? 'Try another search or type.' : canManage ? 'Share slides, handouts and readings for the class.' : 'Files your teacher shares will appear here.'}
+                        {materials.length ? 'Try another search or type.' : canPost ? 'Share slides, handouts and readings for the class.' : 'Files your teacher shares will appear here.'}
                       </Empty>
                     ) : (
                       <div className="space-y-2 sk-stagger">{visibleFiles.map((m) => renderFile(m))}</div>

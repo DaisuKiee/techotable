@@ -73,31 +73,41 @@ const {
 } = require('../services/classSpace.service');
 
 /**
- * Can this user read/write in this class space?
- * Returns { canRead, canPost, reason }.
+ * Can this user read, administer, or post in this class space?
+ * Returns { canRead, canManage, canPost, reason }.
+ *
+ *  - canRead   : open the class and see its board, files and people.
+ *  - canManage : administer the class (regenerate the enrollment code,
+ *                toggle active state). Staff and the class's own teacher.
+ *  - canPost   : author the board — announcements and materials. This is the
+ *                teacher's space, so ONLY the faculty who teach the class may
+ *                post. Scheduling officers and program managers administer
+ *                schedules; they can view every class but do not post to it.
  */
 const resolveAccess = async (user, classSpace) => {
-  // Admins and scheduling officers see everything
+  // Admins and scheduling officers can view and administer every class, but
+  // the board belongs to the teacher — they don't author announcements/files.
   if (user.role === 'admin' || user.role === 'scheduling_officer') {
-    return { canRead: true, canPost: true };
+    return { canRead: true, canManage: true, canPost: false };
   }
 
-  // Program managers are limited to their own program
+  // Program managers: same, limited to their own program.
   if (user.role === 'program_manager') {
     const sameProgram = !classSpace.program || classSpace.program === user.program;
     return {
       canRead: sameProgram,
-      canPost: sameProgram,
+      canManage: sameProgram,
+      canPost: false,
       reason: sameProgram ? undefined : `This class belongs to ${classSpace.program}, not ${user.program}`,
     };
   }
 
   // Teachers and students don't see a class until its schedule is published
   if ((user.role === 'faculty' || user.role === 'student') && classSpace.isPublished === false) {
-    return { canRead: false, canPost: false, reason: 'This class hasn’t been published yet' };
+    return { canRead: false, canManage: false, canPost: false, reason: 'This class hasn’t been published yet' };
   }
 
-  // Faculty may post only in the classes they teach
+  // Faculty may manage and post only in the classes they teach
   if (user.role === 'faculty') {
     // user.facultyProfile might be populated (object with _id) or just an ObjectId
     const userFacultyId = user.facultyProfile?._id || user.facultyProfile;
@@ -111,6 +121,7 @@ const resolveAccess = async (user, classSpace) => {
 
     return {
       canRead: true,
+      canManage: !!owns,
       canPost: !!owns,
       reason: owns ? undefined : 'You can only post in classes you teach',
     };
@@ -122,12 +133,13 @@ const resolveAccess = async (user, classSpace) => {
     const enrolled = student && classSpace.hasStudent(student._id);
     return {
       canRead: !!enrolled,
+      canManage: false,
       canPost: false,
       reason: enrolled ? undefined : 'You are not enrolled in this class',
     };
   }
 
-  return { canRead: false, canPost: false, reason: 'Not authorized' };
+  return { canRead: false, canManage: false, canPost: false, reason: 'Not authorized' };
 };
 
 /* ------------------------------------------------------------------ *
@@ -386,7 +398,7 @@ exports.getClassSpaceById = async (req, res) => {
       }
     }
 
-    res.status(200).json({ success: true, canPost: access.canPost, data });
+    res.status(200).json({ success: true, canPost: access.canPost, canManage: access.canManage, data });
   } catch (error) {
     sendError(res, error, 'Error fetching class space');
   }
@@ -666,7 +678,7 @@ exports.regenerateClassCode = async (req, res) => {
     }
 
     const access = await resolveAccess(req.user, classSpace);
-    if (!access.canPost) {
+    if (!access.canManage) {
       return res.status(403).json({ success: false, message: access.reason || 'Not authorized' });
     }
 
@@ -704,7 +716,7 @@ exports.postAnnouncement = async (req, res) => {
 
     const access = await resolveAccess(req.user, classSpace);
     if (!access.canPost) {
-      return res.status(403).json({ success: false, message: access.reason || 'Not authorized' });
+      return res.status(403).json({ success: false, message: access.reason || 'Only the class’s teacher can post announcements and materials.' });
     }
 
     const { title, content, isPinned } = req.body;
@@ -843,7 +855,7 @@ exports.uploadMaterial = async (req, res) => {
     if (!access.canPost) {
       // Don't leave an orphan file behind on a rejected upload
       await fs.unlink(req.file.path).catch(() => {});
-      return res.status(403).json({ success: false, message: access.reason || 'Not authorized' });
+      return res.status(403).json({ success: false, message: access.reason || 'Only the class’s teacher can post announcements and materials.' });
     }
 
     const { title, description } = req.body;
@@ -989,7 +1001,7 @@ exports.updateClassSpace = async (req, res) => {
     }
 
     const access = await resolveAccess(req.user, classSpace);
-    if (!access.canPost) {
+    if (!access.canManage) {
       return res.status(403).json({ success: false, message: access.reason || 'Not authorized' });
     }
 

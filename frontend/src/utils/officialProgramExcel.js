@@ -1,6 +1,7 @@
 import toast from 'react-hot-toast';
 import ctuLogo from '../assets/images/logos/ctulogo.png';
 import bagongPilipinas from '../assets/images/logos/Bagong_Pilipinas_Logo.svg.webp';
+import formFooter from '../assets/images/logos/footer.png';
 import {
   DAYS, HOURS, buildGrid, uniqueSubjects, weeklyHours, facultyName,
   subjectCode, subjectName, subjectUnits, sectionLabel, studentCount, termLine,
@@ -36,15 +37,16 @@ const CENTER = { horizontal: 'center', vertical: 'middle', wrapText: true };
  * webp. Both marks are redrawn through a canvas so either source format ends
  * up as a png the workbook accepts.
  */
-const MARK_PX = 240; // printed at ~60px, so this stays sharp without bloating the file
+const MARK_PX = 240;   // the round letterhead seals, printed at ~60px
+const FOOTER_PX = 1200; // the wide footer banner, printed full-width across the page
 
-const asPngBase64 = (src) => new Promise((resolve) => {
+const asPngBase64 = (src, maxPx = MARK_PX) => new Promise((resolve) => {
   const img = new Image();
   img.onload = () => {
     try {
       const w = img.naturalWidth || img.width;
       const h = img.naturalHeight || img.height;
-      const scale = Math.min(1, MARK_PX / Math.max(w, h));
+      const scale = Math.min(1, maxPx / Math.max(w, h));
       const canvas = document.createElement('canvas');
       canvas.width = Math.round(w * scale);
       canvas.height = Math.round(h * scale);
@@ -61,8 +63,10 @@ const asPngBase64 = (src) => new Promise((resolve) => {
 let marks = null;
 const loadMarks = async () => {
   if (!marks) {
-    const [seal, bagong] = await Promise.all([asPngBase64(ctuLogo), asPngBase64(bagongPilipinas)]);
-    marks = { seal, bagong };
+    const [seal, bagong, footer] = await Promise.all([
+      asPngBase64(ctuLogo), asPngBase64(bagongPilipinas), asPngBase64(formFooter, FOOTER_PX),
+    ]);
+    marks = { seal, bagong, footer };
   }
   return marks;
 };
@@ -122,7 +126,26 @@ const mergeBox = (ws, r1, c1, r2, c2, border) => {
 const registerMarks = (wb, logos) => ({
   seal: logos.seal ? wb.addImage({ base64: logos.seal, extension: 'png' }) : null,
   bagong: logos.bagong ? wb.addImage({ base64: logos.bagong, extension: 'png' }) : null,
+  footer: logos.footer ? wb.addImage({ base64: logos.footer, extension: 'png' }) : null,
 });
+
+/** The bottom of the weekly grid, below which the footer banner is safe to sit. */
+const GRID_LAST = BODY_FIRST + HOURS.length - 1;
+
+/**
+ * Drop the uploaded footer banner full-width beneath the sheet, clear of both
+ * the grid and the signatory blocks. Pixel `ext` keeps the banner's own ratio
+ * (it is ~18:1) instead of stretching it to a cell range.
+ */
+const placeFooter = (ws, marksIds, sigStart) => {
+  if (!marksIds.footer) return;
+  const footerRow = Math.max(GRID_LAST, sigStart + 8) + 2;
+  ws.addImage(marksIds.footer, {
+    tl: { col: 0, row: footerRow - 1 },
+    ext: { width: 980, height: 54 },
+  });
+  atLeast(ws, footerRow, 18);
+};
 
 const letterhead = (ws, marksIds, title, subtitle) => {
   const lines = [
@@ -397,6 +420,7 @@ export const exportFacultyProgramExcel = async (schedules, filters = {}, faculty
         });
 
         signatories(ws, row + 2, filters);
+        placeFooter(ws, marksIds, row + 2);
       });
 
     await download(wb, 'Program by Teacher - CTU Daanbantayan.xlsx');
@@ -459,6 +483,7 @@ export const exportSectionProgramExcel = async (schedules, filters = {}) => {
         put(ws, row, 16, `Hours/Week: ${weeklyHours(list)}`, { font: { size: 8 } });
 
         signatories(ws, row + 3, filters);
+        placeFooter(ws, marksIds, row + 3);
       });
 
     await download(wb, 'Program by Section - CTU Daanbantayan.xlsx');

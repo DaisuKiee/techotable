@@ -399,5 +399,8 @@ module.exports = {
   recommendInstructorForSubject,
   analyzeWorkloadBalance,
   isAIAvailable,
-  getActiveProvider
+  getActiveProvider,
+  // Exposed for unit testing (Appendix G): the deterministic scoring function
+  // behind instructor recommendations, scored without calling the AI.
+  __test__: { calculateFacultyScore },
 };

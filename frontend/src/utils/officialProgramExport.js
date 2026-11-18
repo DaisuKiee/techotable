@@ -236,7 +236,7 @@ const PAGE_CSS = `
   .rule { border: none; border-top: 1px solid #000; margin: 6px 0 8px; }
   .doc-title { text-align: center; font-weight: bold; font-size: 10pt; }
   .doc-sub { text-align: center; font-weight: bold; font-size: 8.5pt; margin-bottom: 8px; }
-  .form-footer { display: block; width: 100%; height: auto; margin-top: 10px; }
+  .form-footer { display: block; width: 55%; height: auto; margin: 8px auto 0; }
 
   .body { display: flex; gap: 10px; align-items: flex-start; }
   .grid-wrap { flex: 0 0 52%; }

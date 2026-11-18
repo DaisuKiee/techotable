@@ -142,9 +142,9 @@ const placeFooter = (ws, marksIds, sigStart) => {
   const footerRow = Math.max(GRID_LAST, sigStart + 8) + 2;
   ws.addImage(marksIds.footer, {
     tl: { col: 0, row: footerRow - 1 },
-    ext: { width: 980, height: 54 },
+    ext: { width: 540, height: 30 },
   });
-  atLeast(ws, footerRow, 18);
+  atLeast(ws, footerRow, 14);
 };
 
 const letterhead = (ws, marksIds, title, subtitle) => {

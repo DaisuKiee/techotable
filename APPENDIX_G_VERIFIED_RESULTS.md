@@ -16,7 +16,7 @@ not be measured, the row says so instead of being filled in.
 | Dates run | Part 1: 19 November 2026. Part 2: 20 November 2026. |
 | Repository | `techotable`, branch `main` |
 | Git commit at start of audit | `13a83a929cc9088afeae9a2f41774998a755d72d` |
-| Git commit after this audit | see section 13 |
+| Git commit after this audit | `bd8f918b2a743d8a2746df45d0a71089c9b176ac` (branch `main`, pushed) |
 | Node.js | v21.7.3 |
 | Jest | 29.7.0 |
 | Python | 3.12.6 |
@@ -725,5 +725,6 @@ Raw machine-readable metrics: `APPENDIX_G_VERIFIED_RESULTS.json`, plus the
 per-step files `APPENDIX_G_BENCHMARK.json`, `APPENDIX_G_RAG_EVAL.json`,
 `APPENDIX_G_LOADTEST.json` and `APPENDIX_G_SYSTEM_TESTS.json`.
 
-**Git commit containing every fix and test described here:** see the hand-over
-note accompanying this document.
+**Git commit containing every fix and test described here:**
+`bd8f918b2a743d8a2746df45d0a71089c9b176ac` on `main`, pushed to
+`github.com/DaisuKiee/techotable`. The working tree was clean at that commit.

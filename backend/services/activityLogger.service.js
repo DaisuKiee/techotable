@@ -290,13 +290,13 @@ async function getUserActivitySummary(userId) {
         .lean(),
 
       ActivityLog.aggregate([
-        { $match: { user: mongoose.Types.ObjectId(userId) } },
+        { $match: { user: new mongoose.Types.ObjectId(userId) } },
         { $group: { _id: '$action', count: { $sum: 1 } } },
         { $sort: { count: -1 } }
       ]),
 
       ActivityLog.aggregate([
-        { $match: { user: mongoose.Types.ObjectId(userId) } },
+        { $match: { user: new mongoose.Types.ObjectId(userId) } },
         { $group: { _id: '$resource', count: { $sum: 1 } } },
         { $sort: { count: -1 } }
       ])

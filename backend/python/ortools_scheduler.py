@@ -3,7 +3,8 @@ Google OR-Tools timetable optimizer (CP-SAT).
 
 Modelling notes
 ---------------
-Each class (one subject for one section) is broken into MEETING BLOCKS - a
+Each 
+class (one subject for one section) is broken into MEETING BLOCKS - a
 3-hour lab is one 3-hour block, a 3-unit lecture becomes 2h + 1h - and every
 block is an interval on a single timeline where
 
@@ -45,6 +46,36 @@ import sys
 from collections import defaultdict
 
 from ortools.sat.python import cp_model
+
+# A teacher's cap and carried load, in subject units.
+#
+# `int(x or 24)` turned an explicit cap of 0 into 24, so a teacher given no
+# teaching load for the term was still handed a full 24 units. Only a missing
+# or unreadable value falls back to the default. Mirrored in
+# services/builtinSolver.service.js.
+DEFAULT_MAX_UNITS = 24
+
+
+def _cap_units(faculty):
+    raw = faculty.get('max_teaching_load')
+    if raw is None or raw == '':
+        return DEFAULT_MAX_UNITS
+    try:
+        return max(0, int(raw))
+    except (TypeError, ValueError):
+        return DEFAULT_MAX_UNITS
+
+
+def _load_units(faculty):
+    try:
+        return max(0, int(faculty.get('current_load') or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _remaining_units(faculty):
+    return max(0, _cap_units(faculty) - _load_units(faculty))
+
 
 # Room types that can host a laboratory session
 LAB_ROOM_TYPES = {'Laboratory', 'Computer Lab', 'Workshop'}
@@ -258,8 +289,8 @@ class TimetableOptimizer:
         ]
         candidates = [
             f_idx for f_idx in allowed
-            if int(self.faculty[f_idx].get('current_load') or 0) + units
-            <= int(self.faculty[f_idx].get('max_teaching_load') or 24)
+            if _load_units(self.faculty[f_idx]) + units
+            <= _cap_units(self.faculty[f_idx])
         ]
         return candidates or allowed or list(range(len(self.faculty)))
 
@@ -584,8 +615,8 @@ class TimetableOptimizer:
                 units = int(klass['subject'].get('units') or 3)
                 terms.append(self.fac_vars[(c_idx, f_idx)] * units)
             if terms:
-                cap = int(f.get('max_teaching_load') or 24) - int(f.get('current_load') or 0)
-                self.model.Add(sum(terms) <= max(0, cap))
+                cap = _remaining_units(f)
+                self.model.Add(sum(terms) <= cap)
 
     def _window_interval(self, window, name):
         """Turn a {day, start, end} window into a fixed interval, if it lands in the grid."""
@@ -743,10 +774,7 @@ class TimetableOptimizer:
         total_units = sum(
             int(k['subject'].get('units') or 3) for k in self.classes
         )
-        available = sum(
-            max(0, int(f.get('max_teaching_load') or 24) - int(f.get('current_load') or 0))
-            for f in self.faculty
-        )
+        available = sum(_remaining_units(f) for f in self.faculty)
         if total_units > available:
             problems.append(
                 f'The schedule needs {total_units} teaching units but the available '

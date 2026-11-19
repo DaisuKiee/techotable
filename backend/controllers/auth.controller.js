@@ -56,8 +56,15 @@ exports.register = async (req, res) => {
       });
     }
 
-    // Validate role
-    const validRoles = ['admin', 'scheduling_officer', 'faculty', 'student'];
+    // Validate role.
+    //
+    // `role` is caller-supplied, so this list is the only thing standing
+    // between the request and an administrator account. The route is
+    // admin-only (see routes/auth.routes.js) precisely because of that.
+    // `program_manager` belongs here too - it is one of the system's five
+    // roles, and leaving it out meant an admin could not create a
+    // chairperson account through the one endpoint meant for the job.
+    const validRoles = ['admin', 'scheduling_officer', 'program_manager', 'faculty', 'student'];
     if (role && !validRoles.includes(role)) {
       return res.status(400).json({
         success: false,

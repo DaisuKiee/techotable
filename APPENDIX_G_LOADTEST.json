@@ -1,0 +1,238 @@
+{
+  "generatedAt": "2026-11-19T16:52:05.960Z",
+  "target": "http://127.0.0.1:5000",
+  "hostKind": "local Node server",
+  "node": "v21.7.3",
+  "platform": "win32 x64",
+  "settings": {
+    "levels": [
+      10,
+      20,
+      30
+    ],
+    "durationMsPerLevel": 10000
+  },
+  "passThreshold": {
+    "note": "Local Node server against a remote MongoDB Atlas cluster.",
+    "avgMsUnder": 2000,
+    "server5xxAtMost": 0
+  },
+  "results": [
+    {
+      "id": "CU-01",
+      "label": "Dashboard statistics",
+      "url": "http://127.0.0.1:5000/api/dashboard/stats",
+      "as": "admin",
+      "connections": 10,
+      "durationMs": 10000,
+      "requests": 1068,
+      "requestsPerSecond": 106.8,
+      "avgMs": 93.86,
+      "medianMs": 72,
+      "p95Ms": 338,
+      "p99Ms": 399,
+      "slowestMs": 438,
+      "fastestMs": 38,
+      "statuses": {
+        "200": 1068
+      },
+      "non2xx": 0,
+      "server5xx": 0,
+      "transportErrors": 0,
+      "sampleError": null,
+      "pass": true
+    },
+    {
+      "id": "CU-01",
+      "label": "Dashboard statistics",
+      "url": "http://127.0.0.1:5000/api/dashboard/stats",
+      "as": "admin",
+      "connections": 20,
+      "durationMs": 10000,
+      "requests": 1086,
+      "requestsPerSecond": 108.6,
+      "avgMs": 184.77,
+      "medianMs": 110,
+      "p95Ms": 547,
+      "p99Ms": 610,
+      "slowestMs": 1648,
+      "fastestMs": 64,
+      "statuses": {
+        "200": 1086
+      },
+      "non2xx": 0,
+      "server5xx": 0,
+      "transportErrors": 0,
+      "sampleError": null,
+      "pass": true
+    },
+    {
+      "id": "CU-01",
+      "label": "Dashboard statistics",
+      "url": "http://127.0.0.1:5000/api/dashboard/stats",
+      "as": "admin",
+      "connections": 30,
+      "durationMs": 10000,
+      "requests": 1129,
+      "requestsPerSecond": 112.9,
+      "avgMs": 268.29,
+      "medianMs": 201,
+      "p95Ms": 578,
+      "p99Ms": 683,
+      "slowestMs": 1053,
+      "fastestMs": 68,
+      "statuses": {
+        "200": 1129
+      },
+      "non2xx": 0,
+      "server5xx": 0,
+      "transportErrors": 0,
+      "sampleError": null,
+      "pass": true
+    },
+    {
+      "id": "CU-02",
+      "label": "Timetable grid query",
+      "url": "http://127.0.0.1:5000/api/schedules",
+      "as": "admin",
+      "connections": 10,
+      "durationMs": 10000,
+      "requests": 184,
+      "requestsPerSecond": 18.4,
+      "avgMs": 561.07,
+      "medianMs": 589,
+      "p95Ms": 922,
+      "p99Ms": 1006,
+      "slowestMs": 1085,
+      "fastestMs": 200,
+      "statuses": {
+        "200": 184
+      },
+      "non2xx": 0,
+      "server5xx": 0,
+      "transportErrors": 0,
+      "sampleError": null,
+      "pass": true
+    },
+    {
+      "id": "CU-02",
+      "label": "Timetable grid query",
+      "url": "http://127.0.0.1:5000/api/schedules",
+      "as": "admin",
+      "connections": 20,
+      "durationMs": 10000,
+      "requests": 203,
+      "requestsPerSecond": 20.3,
+      "avgMs": 1017.18,
+      "medianMs": 1006,
+      "p95Ms": 1156,
+      "p99Ms": 1735,
+      "slowestMs": 1768,
+      "fastestMs": 333,
+      "statuses": {
+        "200": 203
+      },
+      "non2xx": 0,
+      "server5xx": 0,
+      "transportErrors": 0,
+      "sampleError": null,
+      "pass": true
+    },
+    {
+      "id": "CU-02",
+      "label": "Timetable grid query",
+      "url": "http://127.0.0.1:5000/api/schedules",
+      "as": "admin",
+      "connections": 30,
+      "durationMs": 10000,
+      "requests": 208,
+      "requestsPerSecond": 20.8,
+      "avgMs": 1518.57,
+      "medianMs": 1285,
+      "p95Ms": 2043,
+      "p99Ms": 2754,
+      "slowestMs": 2959,
+      "fastestMs": 442,
+      "statuses": {
+        "200": 208
+      },
+      "non2xx": 0,
+      "server5xx": 0,
+      "transportErrors": 0,
+      "sampleError": null,
+      "pass": true
+    },
+    {
+      "id": "CU-03",
+      "label": "Student class list",
+      "url": "http://127.0.0.1:5000/api/classSpaces/my-classes",
+      "as": "student",
+      "connections": 10,
+      "durationMs": 10000,
+      "requests": 541,
+      "requestsPerSecond": 54.1,
+      "avgMs": 186,
+      "medianMs": 127,
+      "p95Ms": 555,
+      "p99Ms": 583,
+      "slowestMs": 597,
+      "fastestMs": 68,
+      "statuses": {
+        "200": 541
+      },
+      "non2xx": 0,
+      "server5xx": 0,
+      "transportErrors": 0,
+      "sampleError": null,
+      "pass": true
+    },
+    {
+      "id": "CU-03",
+      "label": "Student class list",
+      "url": "http://127.0.0.1:5000/api/classSpaces/my-classes",
+      "as": "student",
+      "connections": 20,
+      "durationMs": 10000,
+      "requests": 578,
+      "requestsPerSecond": 57.8,
+      "avgMs": 352.96,
+      "medianMs": 164,
+      "p95Ms": 806,
+      "p99Ms": 850,
+      "slowestMs": 877,
+      "fastestMs": 80,
+      "statuses": {
+        "200": 578
+      },
+      "non2xx": 0,
+      "server5xx": 0,
+      "transportErrors": 0,
+      "sampleError": null,
+      "pass": true
+    },
+    {
+      "id": "CU-03",
+      "label": "Student class list",
+      "url": "http://127.0.0.1:5000/api/classSpaces/my-classes",
+      "as": "student",
+      "connections": 30,
+      "durationMs": 10000,
+      "requests": 601,
+      "requestsPerSecond": 60.1,
+      "avgMs": 501.83,
+      "medianMs": 274,
+      "p95Ms": 884,
+      "p99Ms": 930,
+      "slowestMs": 955,
+      "fastestMs": 118,
+      "statuses": {
+        "200": 601
+      },
+      "non2xx": 0,
+      "server5xx": 0,
+      "transportErrors": 0,
+      "sampleError": null,
+      "pass": true
+    }
+  ]
+}

@@ -544,6 +544,18 @@ async function checkScheduleConflicts({
     return conflicts;
   }
 
+  // Both callers hand us `subject` as a stored id - `req.body.subject` when a
+  // class is created, `schedule.subject` when one is edited. The NSTP
+  // exception below reads `subject.subjectCode`, so against an id it was
+  // always undefined and the exception never fired: a teacher could not be
+  // given a second NSTP section, which is the one case it exists to allow.
+  // Resolve it here, and accept a document from callers that already have one.
+  const subjectDoc = subject && typeof subject === 'object' && subject.subjectCode
+    ? subject
+    : subject
+      ? await Subject.findById(subject).select('subjectCode subjectName').lean()
+      : null;
+
   // Build base query
   let query = {
     academicYear,
@@ -562,7 +574,10 @@ async function checkScheduleConflicts({
       select: 'employeeId',
       populate: { path: 'user', select: 'firstName lastName' }
     })
-    .populate('subject', 'subjectCode')
+    // `subjectName` matters as well as the code: mentionsNSTP looks at both,
+    // and a subject named "National Service Training Program" under a local
+    // code would otherwise go unrecognised.
+    .populate('subject', 'subjectCode subjectName')
     .lean();
 
   // Resolve room ids so the message names the room instead of an id
@@ -624,7 +639,7 @@ async function checkScheduleConflicts({
         // NSTP is exempt — it is one combined class taught across sections.
         if (sameFaculty && FACULTY_PREP_GAP_MINUTES > 0) {
           const gap = gapBetween(newSlot, existingSlot);
-          const bothNSTP = mentionsNSTP({ subject })
+          const bothNSTP = mentionsNSTP({ subject: subjectDoc })
             && mentionsNSTP(existingSchedule);
           if (gap >= 0 && gap < FACULTY_PREP_GAP_MINUTES && !bothNSTP) {
             const who = existingSchedule.faculty?.user
@@ -659,14 +674,15 @@ async function checkScheduleConflicts({
         // Faculty double-booking (overlap). `existingFacultyId` / `sameFaculty`
         // were resolved above for the preparation-gap check.
         if (sameFaculty) {
-          // EXCEPTION: NSTP is a combined class where one instructor teaches multiple sections simultaneously
-          const isNewNSTP = (subject?.subjectCode || '').toUpperCase().includes('NSTP') ||
-                           (subject?.subjectName || '').toUpperCase().includes('NSTP');
-          const isExistingNSTP = (existingSchedule.subject?.subjectCode || '').toUpperCase().includes('NSTP') ||
-                                (existingSchedule.subject?.subjectName || '').toUpperCase().includes('NSTP');
-          
+          // EXCEPTION: NSTP is a combined class where one instructor teaches
+          // several sections at once. This used to repeat the test inline
+          // against the raw `subject`; it now shares `mentionsNSTP` with the
+          // preparation-gap check above, so the two can never disagree.
+          const bothCombinedNSTP = mentionsNSTP({ subject: subjectDoc })
+            && mentionsNSTP(existingSchedule);
+
           // Only report conflict if NOT both NSTP (NSTP combined class is allowed)
-          if (!(isNewNSTP && isExistingNSTP)) {
+          if (!bothCombinedNSTP) {
             const name = existingSchedule.faculty?.user
               ? `${existingSchedule.faculty.user.firstName} ${existingSchedule.faculty.user.lastName}`
               : 'This instructor';

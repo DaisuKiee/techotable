@@ -139,6 +139,22 @@ const FacultySchema = new mongoose.Schema({
     },
     selfRatedAt: Date
   }],
+  /**
+   * The cap the timetable generator enforces, in SUBJECT UNITS.
+   *
+   * The generator's load constraint is expressed in units (see
+   * `utils/facultyLoad.js`), not hours, so it needs its own field. The bridge
+   * used to read `fac.maxTeachingLoad`, which has never been part of this
+   * schema - so the configured cap was ignored and every teacher was held to
+   * the hard-coded fallback of 24 units, whatever the chairperson had set.
+   * The default below keeps that same 24 for every existing record.
+   */
+  maxTeachingUnits: {
+    type: Number,
+    default: 24,
+    min: 0,
+    max: 60
+  },
   maxTeachingHours: {
     type: Number,
     default: 36, // Standard: 36 hours for regular/part-time

@@ -10,6 +10,7 @@
 const lazy = {
   get User() { return require('../models/User.model'); },
   get Faculty() { return require('../models/Faculty.model'); },
+  get Schedule() { return require('../models/Schedule.model'); },
 };
 
 /** The program a request is limited to, or null for admins / scheduling office. */
@@ -26,6 +27,18 @@ const facultyInProgram = (faculty, program) => {
   const programs = faculty?.programs || [];
   return programs.length === 0 || programs.includes(program);
 };
+
+/**
+ * A teacher is borrowed into a program when they actually teach a published
+ * class in it, which is the same rule the faculty list uses to show them with
+ * a "Cross Referenced" badge. Their home program is unchanged.
+ */
+const isBorrowedInto = async (facultyId, program) => !!(await lazy.Schedule.exists({
+  faculty: facultyId,
+  program,
+  status: 'published',
+  isActive: true,
+}));
 
 /** User ids that belong to a program: its students and manager, and its faculty. */
 const programUserIds = async (program) => {
@@ -60,6 +73,31 @@ const facultyProgramGuard = async (req, res, next) => {
 };
 
 /**
+ * For reading one teacher: the manager's own, plus anyone borrowed into their
+ * program.
+ *
+ * The faculty list already shows a borrowed teacher once their assignment is
+ * published, so denying the profile behind it left the drawer saying it
+ * couldn't load - the list offered a person the detail route refused. Reading
+ * their load and the week they are already committed to is the point of
+ * borrowing them; changing their record is not, so the writes above keep the
+ * strict guard.
+ */
+const facultyReadGuard = async (req, res, next) => {
+  try {
+    const program = managerProgram(req);
+    if (!program || !req.params.id) return next();
+    const faculty = await lazy.Faculty.findById(req.params.id).select('programs').lean();
+    if (!faculty) return res.status(404).json({ success: false, message: 'Faculty not found' });
+    if (facultyInProgram(faculty, program)) return next();
+    if (await isBorrowedInto(req.params.id, program)) return next();
+    return deny(res, program, 'faculty');
+  } catch (error) {
+    return next(error);
+  }
+};
+
+/**
  * For /faculty/:id/approve and /reject, where :id is the applicant's *user*
  * id. facultyProgramGuard looked it up as a faculty id, so a program manager
  * approving anyone got "Faculty not found".
@@ -88,4 +126,6 @@ module.exports = {
   programUserIds,
   restrictProgramParam,
   facultyProgramGuard,
+  facultyReadGuard,
+  isBorrowedInto,
 };

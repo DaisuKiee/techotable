@@ -235,8 +235,12 @@ function preparePythonInput(data) {
       name: `${fac.user?.firstName || ''} ${fac.user?.lastName || ''}`.trim() || fac.employeeId,
       user_id: fac.user?._id?.toString(),
       specializations: fac.specializations || [],
-      max_teaching_load: fac.maxTeachingLoad || 24,
-      current_load: loads ? (loads.get(String(fac._id))?.units || 0) : (fac.currentLoad || 0),
+      // Both sides of the cap are in subject units. `maxTeachingLoad` and
+      // `currentLoad` were read here for a long time, and neither is a field
+      // on Faculty - Mongoose never stored them, so the cap was always the
+      // literal 24 below and the teacher's own setting did nothing.
+      max_teaching_load: fac.maxTeachingUnits ?? 24,
+      current_load: loads ? (loads.get(String(fac._id))?.units || 0) : 0,
       qualifications: (fac.qualifications || []).map(q => ({ degree: q.degree, field: q.field })),
       unavailable: (fac.unavailableTimeSlots || []).map(u => ({
         day: u.day, start: u.startTime, end: u.endTime,

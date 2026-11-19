@@ -16,6 +16,49 @@ const Student = require('../models/Student.model');
 const count = (Model, filter) => Model.countDocuments(filter);
 const distinctCount = async (Model, field, filter) => (await Model.distinct(field, filter)).filter(Boolean).length;
 
+/**
+ * A short cache, keyed by scope.
+ *
+ * These counts take eighteen separate round trips to the database (one
+ * `findOne` plus seventeen counts). They are already issued in parallel, so
+ * the cost is not the work but the latency: against a remote Atlas cluster a
+ * round trip measures ~59 ms here, and at thirty concurrent dashboards that is
+ * ~540 queries in flight, which overruns the connection pool and queues. The
+ * measured result was 1.4 s average at ten users and 3.6 s at thirty.
+ *
+ * Dashboard counts are a summary that nobody expects to be live to the second,
+ * so one caller pays for the queries and everyone arriving in the next few
+ * seconds is served from memory. A single in-flight promise per scope is kept
+ * as well, so a burst of simultaneous first requests makes one trip to the
+ * database between them rather than one each.
+ *
+ * Cache lifetime is deliberately short. Publishing a timetable changes these
+ * numbers, and a chairperson refreshing the page should see that quickly.
+ */
+const STATS_TTL_MS = Number(process.env.DASHBOARD_STATS_TTL_MS || 15000);
+const statsCache = new Map(); // scope -> { at, value } | { inFlight }
+
+const cachedStats = async (scopeKey, build) => {
+  const now = Date.now();
+  const hit = statsCache.get(scopeKey);
+
+  if (hit?.value && now - hit.at < STATS_TTL_MS) return hit.value;
+  if (hit?.inFlight) return hit.inFlight;
+
+  const inFlight = build()
+    .then((value) => {
+      statsCache.set(scopeKey, { at: Date.now(), value });
+      return value;
+    })
+    .catch((err) => {
+      statsCache.delete(scopeKey);
+      throw err;
+    });
+
+  statsCache.set(scopeKey, { inFlight, at: now, value: hit?.value });
+  return inFlight;
+};
+
 // @route   GET /api/dashboard/stats
 // @desc    Dashboard counts. Program managers get their own program only.
 // @access  Private (Admin, Scheduling Officer, Program Manager)
@@ -32,6 +75,8 @@ router.get(
       const program = req.user.role === 'program_manager' ? req.user.program || '__none__' : null;
       const byProgram = program ? { program } : {};
       const liveSchedules = { isActive: true, ...byProgram };
+
+      const data = await cachedStats(program || '__all__', async () => {
 
       // Subject coverage only makes sense for the semester being scheduled;
       // counting both semesters' subjects reported half the catalogue as
@@ -77,35 +122,35 @@ router.get(
         count(Student, { ...byProgram, sectionCode: { $in: [null, ''] } }),
       ]);
 
-      res.json({
-        success: true,
-        data: {
-          scope: program || 'all',
-          term,
-          totalUsers,
-          activeUsers,
-          inactiveUsers: totalUsers - activeUsers,
-          pendingFaculty,
-          totalFaculty,
-          activeFaculty,
-          teachingFaculty,
-          totalSubjects,
-          scheduledSubjects,
-          totalRooms,
-          totalSchedules,
-          publishedSchedules,
-          draftSchedules,
-          totalSections,
-          totalClasses,
-          totalStudents,
-          enrolledStudents,
-          unassignedStudents,
-          // Older field names, kept for any screen still reading them
-          programStudents: program ? totalStudents : 0,
-          programSubjects: program ? totalSubjects : 0,
-          programSchedules: program ? totalSchedules : 0,
-        },
+      return {
+        scope: program || 'all',
+        term,
+        totalUsers,
+        activeUsers,
+        inactiveUsers: totalUsers - activeUsers,
+        pendingFaculty,
+        totalFaculty,
+        activeFaculty,
+        teachingFaculty,
+        totalSubjects,
+        scheduledSubjects,
+        totalRooms,
+        totalSchedules,
+        publishedSchedules,
+        draftSchedules,
+        totalSections,
+        totalClasses,
+        totalStudents,
+        enrolledStudents,
+        unassignedStudents,
+        // Older field names, kept for any screen still reading them
+        programStudents: program ? totalStudents : 0,
+        programSubjects: program ? totalSubjects : 0,
+        programSchedules: program ? totalSchedules : 0,
+      };
       });
+
+      res.json({ success: true, data });
     } catch (error) {
       sendError(res, error, 'Failed to load dashboard statistics');
     }

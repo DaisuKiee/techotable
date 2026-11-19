@@ -54,8 +54,23 @@ const publicUser = (user, { self = false } = {}) => {
   strip(plain, SECRET_FIELDS);
   if (!self) strip(plain, PRIVATE_FIELDS);
 
-  // The two-factor state the UI needs, without the secrets behind it
+  // The two-factor state the UI needs, without the secrets behind it.
+  //
+  // `twoFactorEnabled` is a stored Boolean on the User document, kept in step
+  // with what is actually enrolled by `twoFactor.service.syncEnabledFlag()`,
+  // and it is the flag the login path reads. The enrolment details live in a
+  // separate `TwoFactor` collection, so `user.twoFactor` is only ever present
+  // when a caller has deliberately attached it.
+  //
+  // This used to branch on `if (user.twoFactor)` and fall through to
+  // `plain.twoFactorEnabled = false` - and because nothing attaches that
+  // subdocument, the `else` ran every time and overwrote the stored `true`.
+  // Anyone who had set up a second factor was told by `/auth/me`, the Settings
+  // page and the admin user list that they had none.
+  plain.twoFactorEnabled = Boolean(user.twoFactorEnabled);
+
   if (user.twoFactor) {
+    // A caller handed us the enrolment record; trust it over the cached flag.
     plain.twoFactorEnabled = !!user.twoFactor.enabled;
     if (self) {
       plain.twoFactorMethods = {
@@ -67,8 +82,6 @@ const publicUser = (user, { self = false } = {}) => {
           : 0,
       };
     }
-  } else {
-    plain.twoFactorEnabled = false;
   }
 
   return plain;

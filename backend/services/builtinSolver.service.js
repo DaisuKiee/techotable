@@ -58,6 +58,25 @@ const mulberry32 = (seed) => () => {
   return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
 };
 
+/**
+ * A teacher's cap and the load they already carry, in subject units.
+ *
+ * `parseInt(x) || 24` turned an explicit cap of 0 into 24, so a teacher given
+ * no teaching load for the term - on study leave, or purely administrative -
+ * was still handed a full 24 units. Only a missing or unreadable value falls
+ * back to the default. Mirrored in python/ortools_scheduler.py.
+ */
+const DEFAULT_MAX_UNITS = 24;
+const capUnits = (f) => {
+  const v = parseInt(f?.max_teaching_load, 10);
+  return Number.isFinite(v) ? Math.max(0, v) : DEFAULT_MAX_UNITS;
+};
+const loadUnits = (f) => {
+  const v = parseInt(f?.current_load, 10);
+  return Number.isFinite(v) ? Math.max(0, v) : 0;
+};
+const remainingUnits = (f) => Math.max(0, capUnits(f) - loadUnits(f));
+
 class BuiltinSolver {
   constructor(data) {
     this.data = data;
@@ -323,8 +342,7 @@ class BuiltinSolver {
   }
 
   prepare() {
-    this.loadCap = this.faculty.map(f => Math.max(0,
-      (parseInt(f.max_teaching_load, 10) || 24) - (parseInt(f.current_load, 10) || 0)));
+    this.loadCap = this.faculty.map(remainingUnits);
     this.buildFixed();
 
     for (const klass of this.classes) {
@@ -388,8 +406,7 @@ class BuiltinSolver {
     }
 
     const totalUnits = this.classes.reduce((n, k) => n + k.units, 0);
-    const available = this.faculty.reduce((n, f) => n + Math.max(0,
-      (parseInt(f.max_teaching_load, 10) || 24) - (parseInt(f.current_load, 10) || 0)), 0);
+    const available = this.faculty.reduce((n, f) => n + remainingUnits(f), 0);
     if (totalUnits > available) {
       problems.push(
         `The schedule needs ${totalUnits} teaching units but the available faculty can only `

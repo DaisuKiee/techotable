@@ -57,6 +57,13 @@ const PROBES = [
   /\b(mongo|mongodb|sql|nosql|database|db dump|server data|backend|api key|token|jwt|\.env|admin panel|admin password|source code)\b/i,
   /\b(who (else )?is (enrolled|in (section|class))|classmates?'?s?\s+(names?|emails?|numbers?))\b/i,
   /\b(ignore|disregard|forget)\b[^.?!]{0,30}\b(instructions?|rules?|prompt)\b|\bsystem prompt\b|\bjailbreak\b|\bpretend (you are|to be)\b|\bdeveloper mode\b/i,
+  // Possessive forms: "Prof. Santos's email", "Maria's phone number".
+  // Every pattern above needs the word "of" ("the email of X"), so the most
+  // natural way to ask for someone else's details went straight through.
+  // "my" and "our" are excluded: asking about your own record is fine.
+  new RegExp(`\\b(?!my\\b|our\\b)[A-Za-z][\\w.'-]*['\u2019]s\\s+(?:\\w+\\s+){0,2}${DATA_WORDS}\\b`, 'i'),
+  // Third-party pronouns: "show me his email", "their contact number".
+  new RegExp(`\\b(his|her|their|someone else|somebody else|another (student|teacher|instructor|faculty))\\b[^.?!]{0,25}\\b${DATA_WORDS}\\b`, 'i'),
 ];
 
 const isDataProbe = (message) => PROBES.some((rx) => rx.test(String(message || '')));

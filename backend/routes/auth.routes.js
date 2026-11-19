@@ -60,8 +60,16 @@ const loginValidation = [
     .withMessage('Password is required')
 ];
 
-// Public routes
-router.post('/register', registerValidation, register);
+// Account creation is an administrative act, not a public one.
+//
+// This route used to sit here unprotected while `register` read `role`
+// straight from the body, so an anonymous POST with `{ role: 'admin' }`
+// returned 201 and a working session token - a complete authentication
+// bypass for anyone who knew the URL. Students sign up through
+// `/auth/signup` (email-verified, always role 'student') and teachers
+// through `/auth/faculty-signup` (invite-token only); neither can choose a
+// role. Nothing else needs an open door.
+router.post('/register', protect, authorize('admin'), registerValidation, register);
 // Per-IP cap on password guessing and reset-email spam, on top of the
 // per-account lock in the login controller. Unlike the global limiter it
 // also applies on localhost.

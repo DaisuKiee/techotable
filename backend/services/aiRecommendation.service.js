@@ -13,6 +13,31 @@ const axios = require('axios');
 const Faculty = require('../models/Faculty.model');
 const Subject = require('../models/Subject.model');
 const { summarizeSubjectExperience } = require('../utils/teachingExperience');
+const { getFacultyLoads, EMPTY_LOAD } = require('../utils/facultyLoad');
+
+/**
+ * A teacher's load, in subject units, and the cap it is measured against.
+ *
+ * `currentLoad` and `maxTeachingLoad` were read all through this file, and
+ * neither has ever been a field on Faculty. Every read produced `undefined`,
+ * which meant:
+ *
+ *   - the eligibility filter `f.currentLoad < f.maxTeachingLoad` compared
+ *     undefined with undefined, was therefore always false, and left the
+ *     candidate list empty - so the endpoint always answered "no suitable
+ *     faculty found", whatever the data said;
+ *   - `workloadRatio` was `undefined / undefined`, i.e. NaN, which propagated
+ *     into the returned `total` and came out of the API as `null`.
+ *
+ * Load is computed from the saved schedules (`utils/facultyLoad`), the same
+ * source the generator and the workload page use, so the three cannot drift.
+ */
+const loadOf = (faculty, loads) => {
+  const measured = loads ? loads.get(String(faculty._id)) : null;
+  const used = measured ? measured.units : 0;
+  const cap = Number(faculty.maxTeachingUnits) || 24;
+  return { used, cap: cap > 0 ? cap : 24 };
+};
 
 // AI Provider configurations
 const AI_PROVIDERS = {
@@ -58,10 +83,18 @@ async function recommendInstructorForSubject(params) {
       .populate('user', 'firstName lastName email')
       .lean();
 
+    // Real load per teacher, for this term when one was given.
+    const loads = await getFacultyLoads({
+      facultyIds: allFaculty.map(f => f._id),
+      academicYear,
+      semester,
+    });
+
     // Filter faculty by basic criteria
     const eligibleFaculty = allFaculty.filter(f => {
-      // Must have available teaching load
-      const hasCapacity = f.currentLoad < f.maxTeachingLoad;
+      // Must have room for this subject's units
+      const { used, cap } = loadOf(f, loads);
+      const hasCapacity = used + (subject.units || 0) <= cap;
       
       // Must have required qualifications (if specified)
       const meetsQualifications = subject.requiredQualifications.length === 0 ||
@@ -85,10 +118,12 @@ async function recommendInstructorForSubject(params) {
 
     // Calculate scores for each faculty
     const scoredFaculty = eligibleFaculty.map(faculty => {
-      const score = calculateFacultyScore(faculty, subject);
+      const load = loadOf(faculty, loads);
+      const score = calculateFacultyScore(faculty, subject, load);
       return {
         faculty,
         score,
+        load,
         breakdown: score.breakdown
       };
     });
@@ -120,9 +155,9 @@ async function recommendInstructorForSubject(params) {
         employeeId: item.faculty.employeeId,
         score: item.score.total,
         scoreBreakdown: item.breakdown,
-        currentLoad: item.faculty.currentLoad,
-        maxLoad: item.faculty.maxTeachingLoad,
-        availableLoad: item.faculty.maxTeachingLoad - item.faculty.currentLoad,
+        currentLoad: item.load.used,
+        maxLoad: item.load.cap,
+        availableLoad: item.load.cap - item.load.used,
         specializations: item.faculty.specializations,
         qualifications: item.faculty.qualifications
       })),
@@ -138,7 +173,7 @@ async function recommendInstructorForSubject(params) {
 /**
  * Calculate faculty score for a subject (rule-based)
  */
-function calculateFacultyScore(faculty, subject) {
+function calculateFacultyScore(faculty, subject, load) {
   let total = 0;
   const breakdown = {};
 
@@ -174,7 +209,14 @@ function calculateFacultyScore(faculty, subject) {
   total += historyScore;
 
   // 3. Workload Balance (0-20 points)
-  const workloadRatio = faculty.currentLoad / faculty.maxTeachingLoad;
+  //
+  // `load` is `{ used, cap }` in subject units. It is clamped to 0-1 so a
+  // teacher already past their cap scores 0 rather than a negative number,
+  // and a missing or zero cap can never produce NaN or Infinity - the whole
+  // score used to come out as NaN whenever either side was absent.
+  const used = Number(load?.used) || 0;
+  const cap = Number(load?.cap) > 0 ? Number(load.cap) : 24;
+  const workloadRatio = Math.min(1, Math.max(0, used / cap));
   const workloadScore = (1 - workloadRatio) * 20; // Prefer less loaded faculty
   breakdown.workload = Math.round(workloadScore);
   total += workloadScore;
@@ -214,7 +256,7 @@ ${index + 1}. ${item.faculty.user.firstName} ${item.faculty.user.lastName}
    - Employee ID: ${item.faculty.employeeId}
    - Specializations: ${item.faculty.specializations.join(', ')}
    - Qualifications: ${item.faculty.qualifications.map(q => `${q.degree} in ${q.field}`).join(', ')}
-   - Current Load: ${item.faculty.currentLoad}/${item.faculty.maxTeachingLoad} units
+   - Current Load: ${item.load.used}/${item.load.cap} units
    - Teaching History: ${item.faculty.teachingHistory.length} courses taught
    - Base Score: ${item.score.total}/100
 `).join('\n')}
@@ -256,8 +298,8 @@ Format:
         aiRank: aiRanking?.rank || index + 1,
         aiReason: aiRanking?.reason || 'No AI analysis available',
         aiConfidence: aiRanking?.confidence || 0,
-        currentLoad: item.faculty.currentLoad,
-        maxLoad: item.faculty.maxTeachingLoad,
+        currentLoad: item.load.used,
+        maxLoad: item.load.cap,
         specializations: item.faculty.specializations,
         qualifications: item.faculty.qualifications
       };
@@ -367,21 +409,33 @@ function getActiveProvider() {
 /**
  * Analyze workload balance across faculty
  */
-async function analyzeWorkloadBalance() {
+async function analyzeWorkloadBalance({ academicYear, semester } = {}) {
   const faculty = await Faculty.find({ isActive: true })
-    .populate('user', 'firstName lastName');
+    .populate('user', 'firstName lastName')
+    .lean();
 
-  const analysis = faculty.map(f => ({
-    name: `${f.user.firstName} ${f.user.lastName}`,
-    currentLoad: f.currentLoad,
-    maxLoad: f.maxTeachingLoad,
-    utilizationRate: ((f.currentLoad / f.maxTeachingLoad) * 100).toFixed(1),
-    status: f.currentLoad >= f.maxTeachingLoad ? 'overloaded' :
-            f.currentLoad >= f.maxTeachingLoad * 0.8 ? 'near_capacity' : 'available'
-  }));
+  const loads = await getFacultyLoads({
+    facultyIds: faculty.map(f => f._id),
+    academicYear,
+    semester,
+  });
 
-  const avgUtilization = analysis.reduce((sum, f) => 
-    sum + parseFloat(f.utilizationRate), 0) / analysis.length;
+  const analysis = faculty.map(f => {
+    const { used, cap } = loadOf(f, loads);
+    return {
+      name: `${f.user?.firstName || ''} ${f.user?.lastName || ''}`.trim() || f.employeeId,
+      currentLoad: used,
+      maxLoad: cap,
+      utilizationRate: ((used / cap) * 100).toFixed(1),
+      status: used >= cap ? 'overloaded'
+        : used >= cap * 0.8 ? 'near_capacity' : 'available',
+    };
+  });
+
+  // An empty faculty list used to divide by zero and report "NaN%".
+  const avgUtilization = analysis.length
+    ? analysis.reduce((sum, f) => sum + parseFloat(f.utilizationRate), 0) / analysis.length
+    : 0;
 
   return {
     faculty: analysis,

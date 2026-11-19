@@ -10,6 +10,30 @@
 
 const mongoose = require('mongoose');
 
+const OBJECT_ID = /^[a-f\d]{24}$/i;
+
+/**
+ * The id of the single resource a request is about, or null.
+ *
+ * This middleware is mounted with `router.use(...)`, and Express does not
+ * populate `req.params` for a `use` handler - route parameters only exist
+ * inside the handler whose path declared them. So `req.params.id` was always
+ * undefined here, and every by-id branch below (read one, update, delete) was
+ * unreachable: a program manager could read, edit and delete another
+ * program's classes, and because an accepted update also auto-stamps
+ * `req.body.program` with the caller's own program, editing one silently
+ * moved it into their program.
+ *
+ * The id is taken from the path instead, and only when the segment actually
+ * looks like one - so `/ortools-status`, `/check-conflicts`, `/publish` and
+ * `/program/:program/:yearLevel` are left alone.
+ */
+const resourceIdOf = (req) => {
+  if (req.params && req.params.id) return req.params.id;
+  const first = String(req.path || '').split('/').filter(Boolean)[0];
+  return OBJECT_ID.test(first || '') ? first : null;
+};
+
 /**
  * Check if user has access to program-specific resources
  * 
@@ -41,12 +65,14 @@ const checkProgramAccess = (resourceModel) => {
           });
         }
 
+        const resourceId = resourceIdOf(req);
+
         // For GET requests - add program filter to query
         if (req.method === 'GET') {
           // If fetching a specific resource by ID
-          if (req.params.id) {
+          if (resourceId) {
             const Model = mongoose.model(resourceModel);
-            const resource = await Model.findById(req.params.id);
+            const resource = await Model.findById(resourceId);
 
             if (!resource) {
               return res.status(404).json({ 
@@ -85,9 +111,9 @@ const checkProgramAccess = (resourceModel) => {
           }
 
           // For UPDATE operations, verify existing resource
-          if (req.params.id && ['PUT', 'PATCH'].includes(req.method)) {
+          if (resourceId && ['PUT', 'PATCH'].includes(req.method)) {
             const Model = mongoose.model(resourceModel);
-            const resource = await Model.findById(req.params.id);
+            const resource = await Model.findById(resourceId);
 
             if (!resource) {
               return res.status(404).json({ 
@@ -113,9 +139,9 @@ const checkProgramAccess = (resourceModel) => {
         }
 
         // For DELETE - verify resource belongs to user's program
-        if (req.method === 'DELETE' && req.params.id) {
+        if (req.method === 'DELETE' && resourceId) {
           const Model = mongoose.model(resourceModel);
-          const resource = await Model.findById(req.params.id);
+          const resource = await Model.findById(resourceId);
 
           if (!resource) {
             return res.status(404).json({ 

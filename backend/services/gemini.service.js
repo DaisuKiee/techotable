@@ -75,6 +75,17 @@ const markKeyAsFailed = (keyIndex) => {
 /**
  * System prompt for RAG-based timetabling assistant with multilingual support
  */
+/**
+ * Which Gemini model to call.
+ *
+ * The name was written out at four call sites, so changing it meant four
+ * edits and a redeploy. It is also the unit the free-tier daily quota is
+ * counted against ("requests per day per project per model"), so being able
+ * to point the system at another model without a code change is what lets an
+ * operator keep working when one model's quota is spent.
+ */
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
+
 const getSystemPrompt = (context = {}) => {
   const { schedules = [], subjects = [], faculty = [], rooms = [], sections = [], programs = [], stats = {} } = context;
 
@@ -222,11 +233,39 @@ const getSystemPrompt = (context = {}) => {
       .sort((a, b) => (b.utilizationCount || 0) - (a.utilizationCount || 0));
     
     roomInventory = `\n\n**🏫 ROOM INVENTORY (${rooms.length} total):**\n` +
-      sortedRooms.map(r => 
-        `• **${r.roomNumber}** (${r.building || 'Main Building'})
+      sortedRooms.map(r =>
+        // Rooms are identified by `roomCode` ("COTE-26"). This printed
+        // `roomNumber`, which is not a populated field, so every room came
+        // through as "undefined" and the assistant could count laboratories
+        // but never name one.
+        `• **${r.roomCode || r.roomNumber || 'Unnamed room'}** (${r.building || 'Main Building'})
   - Type: ${r.roomType}, Capacity: ${r.capacity} students
   - Utilization: ${r.utilizationCount || 0} schedules${r.isHighlyUtilized ? ' ⚠️ HIGH' : ''}`
       ).join('\n');
+  }
+
+  // The class schedule itself: which subject, for which section, taught by
+  // whom, where and when. The prompt carried counts of schedules but never
+  // the schedules, so the one question a timetabling assistant exists to
+  // answer - "who teaches X for section Y?" - could not be answered.
+  let classSchedule = '';
+  const scheduleRows = Array.isArray(context.schedules) ? context.schedules : [];
+  if (scheduleRows.length > 0) {
+    const line = (s) => {
+      const subject = s.subject?.subjectCode || 'Unknown subject';
+      const name = s.subject?.subjectName ? ` (${s.subject.subjectName})` : '';
+      const who = s.faculty?.user
+        ? `${s.faculty.user.firstName || ''} ${s.faculty.user.lastName || ''}`.trim()
+        : 'unassigned';
+      const where = s.roomLabel || 'room not set';
+      const when = (s.timeSlots || [])
+        .map((t) => `${t.day} ${t.startTime}-${t.endTime}`)
+        .join(', ') || 'time not set';
+      const state = s.status === 'published' ? 'published' : (s.status || 'draft');
+      return `• ${subject}${name} — ${s.sectionCode || 'no section'} — ${who} — ${where} — ${when} [${state}]`;
+    };
+    classSchedule = `\n\n**📅 CLASS SCHEDULE (${scheduleRows.length} classes this term):**\n`
+      + scheduleRows.map(line).join('\n');
   }
 
   // Build section overview
@@ -239,22 +278,31 @@ const getSystemPrompt = (context = {}) => {
       ).join('\n');
   }
 
-  // Build complete student directory
+  // Student ENROLMENT NUMBERS. Never a directory.
+  //
+  // This block used to be a "COMPLETE STUDENT DIRECTORY" listing every
+  // student's name, student number, section, enrolment status and GPA, and it
+  // was sent to the external model on every staff message. Scheduling a class
+  // needs the size of a cohort, not the identity of anyone in it, so only
+  // counts are sent now (RA 10173, the Data Privacy Act of 2012).
   let studentDirectory = '';
-  const { students = [] } = context;
-  if (students.length > 0) {
-    studentDirectory = `\n\n**👨‍🎓 COMPLETE STUDENT DIRECTORY (${students.length} students):**\n` +
-      students.map(s => {
-        const fullName = `${s.user?.firstName || ''} ${s.user?.lastName || ''}`.trim();
-        const enrolledCount = s.enrolledClasses?.length || 0;
-        const status = s.enrollmentStatus || 'Unknown';
-        const gpaDisplay = s.gpa ? s.gpa.toFixed(2) : 'N/A';
-        
-        return `• **${fullName}** (ID: ${s.studentId})
-  Program: ${s.program} | Year: ${s.yearLevel || 'N/A'} | Section: ${s.sectionCode || 'Not assigned'}
-  Type: ${s.studentType || 'Regular'} | Status: ${status} | GPA: ${gpaDisplay}
-  Enrolled in: ${enrolledCount} classes | Semester: ${s.semester} ${s.academicYear || ''}`;
-      }).join('\n');
+  const counts = context.studentCounts;
+  if (counts && counts.total > 0) {
+    const table = (label, bucket) => {
+      const entries = Object.entries(bucket || {}).sort((a, b) => b[1] - a[1]);
+      if (!entries.length) return '';
+      return `\n${label}: ` + entries.map(([k, n]) => `${k} = ${n}`).join(', ');
+    };
+    studentDirectory = `\n\n**👨‍🎓 STUDENT ENROLMENT NUMBERS (${counts.total} enrolled; headcounts only, no personal records):**`
+      + table('By program', counts.byProgram)
+      + table('By year level', counts.byYearLevel)
+      + table('By section', counts.bySection)
+      + table('Regular / irregular', counts.byType)
+      + table('By enrolment status', counts.byStatus)
+      + `\n\nYou do NOT have access to any individual student's name, student number, `
+      + `email address, contact number or grades, and no such record appears anywhere above. `
+      + `If you are asked about a specific student, say that the system does not expose `
+      + `individual student records here and point the user to the Students page.`;
   }
 
   // Build detailed statistics
@@ -333,6 +381,7 @@ ${studentDirectory}
 ${subjectCatalog}
 ${roomInventory}
 ${sectionOverview}
+${classSchedule}
 
 **🎯 ANSWERING QUESTIONS:**
 When users ask about:
@@ -342,11 +391,13 @@ When users ask about:
 3. **Faculty**: Use real faculty names, IDs, and experience data from the profiles above
    - **TEACHING HISTORY**: Check the "FACULTY TEACHING HISTORY DATABASE" section to see exactly which faculty have taught which subjects before
    - **RECOMMENDATIONS**: When recommending faculty for a subject, prioritize those who have taught it before
-4. **Students**: Use real student names, IDs, programs, sections, and enrollment data from the directory above
-   - Answer questions about specific students by name or ID
-   - Provide enrollment status, GPA, program, and section information
+4. **Students**: Use ONLY the enrolment numbers above - headcounts by program, year level, section and regular/irregular status
+   - You have NO individual student records: no names, student numbers, email addresses, contact numbers or grades
+   - If asked about a specific student, say that individual student records are not available to you and point the user to the Students page. Never guess a name, a number or a grade.
 5. **Rooms**: Reference actual room numbers, buildings, and capacities from the inventory
-6. **Schedules**: Use actual schedule counts and distribution data
+6. **Schedules**: The CLASS SCHEDULE section above lists every class this term - subject, section, teacher, room and meeting times
+   - Answer "who teaches X for section Y", "when does X meet", "which room is X in" straight from those rows
+   - If a class is not in that list, say so rather than guessing
 
 **📚 TEACHING HISTORY USAGE:**
 The system maintains a detailed teaching history for each faculty member showing:
@@ -464,7 +515,7 @@ const generateChatResponseStream = async (userMessage, context = {}, conversatio
       const systemContext = options.systemPrompt || getSystemPrompt(context);
 
       const model = genAI.getGenerativeModel({ 
-        model: 'gemini-3.6-flash',
+        model: GEMINI_MODEL,
         systemInstruction: systemContext,
         generationConfig: {
           temperature: options.temperature ?? 0.7,
@@ -580,9 +631,9 @@ const generateChatResponse = async (userMessage, context = {}, conversationHisto
       const genAI = new GoogleGenerativeAI(key);
       const systemContext = options.systemPrompt || getSystemPrompt(context);
 
-      // Use gemini-3.6-flash - latest stable model
+      // Model name comes from GEMINI_MODEL (see the constant above).
       const model = genAI.getGenerativeModel({ 
-        model: 'gemini-3.6-flash',
+        model: GEMINI_MODEL,
         systemInstruction: systemContext,
         generationConfig: {
           temperature: options.temperature ?? 0.7,
@@ -974,7 +1025,7 @@ Format your response as JSON:
 
     const genAI = new GoogleGenerativeAI(key);
     const model = genAI.getGenerativeModel({ 
-      model: 'gemini-3.6-flash',
+      model: GEMINI_MODEL,
       generationConfig: {
         temperature: 0.7,
         topK: 40,
@@ -1094,6 +1145,9 @@ module.exports = {
   recommendFacultyForSubject,
   getApiStats,
   analyzeFacultySubjectCompatibility,
-  generateFacultyBackgroundSummary
+  generateFacultyBackgroundSummary,
+  // Exposed for Appendix G D-12: the staff system prompt is exactly what is
+  // sent to the external model, so a privacy test has to be able to read it.
+  __test__: { getSystemPrompt }
 };
 

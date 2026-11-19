@@ -21,7 +21,7 @@ const {
 } = require('../controllers/faculty.controller');
 const { protect, authorize } = require('../middleware/auth.middleware');
 const { checkProgramAccess } = require('../middleware/programAccess.middleware');
-const { facultyProgramGuard, applicantProgramGuard } = require('../utils/programScope');
+const { facultyProgramGuard, facultyReadGuard, applicantProgramGuard } = require('../utils/programScope');
 
 // Validation middleware
 // No .normalizeEmail(): it strips dots from Gmail addresses, so the stored
@@ -62,9 +62,9 @@ router.get('/', checkProgramAccess('Faculty'), getAllFaculty);
 router.get('/pending', authorize('admin', 'scheduling_officer', 'program_manager'), getPendingFaculty);
 router.get('/available', checkProgramAccess('Faculty'), getAvailableFaculty);
 router.get('/specialization/:specialization', getFacultyBySpecialization);
-router.get('/:id', facultyProgramGuard, getFacultyById);
-router.get('/:id/workload', facultyProgramGuard, getFacultyWorkload);
-router.get('/:id/background-summary', facultyProgramGuard, authorize('admin', 'scheduling_officer', 'program_manager', 'faculty'), getFacultyBackgroundSummary);
+router.get('/:id', facultyReadGuard, getFacultyById);
+router.get('/:id/workload', facultyReadGuard, getFacultyWorkload);
+router.get('/:id/background-summary', facultyReadGuard, authorize('admin', 'scheduling_officer', 'program_manager', 'faculty'), getFacultyBackgroundSummary);
 router.post('/:id/analyze-subject-compatibility', facultyProgramGuard, authorize('admin', 'scheduling_officer', 'program_manager', 'faculty'), analyzeFacultySubjectCompatibility);
 
 // Admin/Scheduling Officer/Program Manager only routes

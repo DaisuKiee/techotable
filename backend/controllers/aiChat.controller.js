@@ -85,18 +85,27 @@ const loadRAGContext = async (program = null) => {
       .select('employeeId specializations maxTeachingLoad maxTeachingHours position teachingHistory averageRating qualifications')
       .lean(),
 
-    // Rooms with full specifications
+    // Rooms with full specifications.
+    // `roomCode` is the identifier people actually use ("COTE-26"), and it was
+    // missing from this list, so the assistant could count laboratories but
+    // could not name one.
     Room.find()
-      .select('roomNumber building capacity roomType features availability')
+      .select('roomCode roomNumber building capacity roomType facilities isActive')
       .lean(),
 
-    // Schedules with relationships
+    // Schedules with relationships.
+    //
+    // `.select()` has to name the reference fields themselves, or Mongoose
+    // never fetches them and the `.populate()` calls above have nothing to
+    // populate. It did not, so every schedule reached the assistant stripped
+    // of its subject, teacher, room and section - which is why B-LO answered
+    // "I don't have that information" to "who teaches CC 4112 for BSIT-4B-N?"
+    // while the answer sat in the database. `sectionCode` is stored on the
+    // schedule itself and is what the rest of the system matches on.
     Schedule.find({ isActive: true, ...only })
       .populate('subject', 'subjectCode subjectName units')
-      .populate('faculty', 'employeeId')
-      .populate('room', 'roomNumber building')
-      .populate('section', 'sectionCode')
-      .select('program yearLevel semester shift day startTime endTime timeSlots isPublished status createdAt')
+      .populate({ path: 'faculty', select: 'employeeId', populate: { path: 'user', select: 'firstName lastName' } })
+      .select('subject faculty room section sectionCode program yearLevel semester shift day startTime endTime timeSlots isPublished status createdAt')
       .lean(),
 
     // Sections with enrollment data
@@ -104,23 +113,28 @@ const loadRAGContext = async (program = null) => {
       .select('sectionCode program yearLevel semester shift maxStudents currentStudents')
       .lean(),
 
-    // Students with enrollment info
+    // Students: HEADCOUNTS ONLY.
+    //
+    // This used to load every student's name, email, student number and GPA
+    // and hand all of it to Google on every staff message. Building a
+    // timetable needs to know how many people are in a section, never who
+    // they are, so nothing that identifies a student is read here at all -
+    // the personal fields are not selected, and `user` is not populated.
+    // See the RA 10173 note on `studentCounts` below.
     Student.find(only)
-      .populate('user', 'firstName lastName email')
-      .populate('enrolledClasses', 'subject section day startTime endTime')
-      .select('studentId program studentType sectionCode subjectCodes enrollmentStatus academicYear semester gpa')
-      .limit(500) // Limit for performance
+      .select('program yearLevel sectionCode studentType enrollmentStatus -_id')
       .lean(),
 
-    // ClassSpace schedules (published/active schedules)
+    // ClassSpace: seat counts, not rosters. `enrolledStudents` holds student
+    // ids and is deliberately excluded.
     ClassSpace.find(only)
-      .populate('schedule', 'subject faculty room section day startTime endTime program yearLevel semester shift')
-      .select('sectionCode enrollmentCode isActive enrolledStudents')
+      .select('sectionCode isActive')
       .lean(),
 
-    // Users (for authentication and role management)
+    // Users: role counts only. Names and email addresses are never needed to
+    // schedule a class, so they are not read.
     User.find(program ? { program } : {})
-      .select('firstName lastName email role program department isActive createdAt')
+      .select('role program isActive -_id')
       .lean(),
 
     // Programs (the authoritative list of program codes/names)
@@ -131,6 +145,12 @@ const loadRAGContext = async (program = null) => {
   ]);
 
   // Build rich context with statistics
+  // `Schedule.room` is a String holding a Room id, so it cannot be populated
+  // (see utils/roomLabel.js). Resolve the readable labels in one batched
+  // query, the same way every other screen does, so the assistant can say
+  // "COTE-26" instead of a 24-character hex id.
+  await require('../utils/roomLabel').attachScheduleRoomLabels(schedules);
+
   const facultyWithLoads = await withRealLoads(faculty);
   const facultyStats = facultyWithLoads.map(f => {
     const fullName = `${f.user?.firstName || ''} ${f.user?.lastName || ''}`.trim();
@@ -186,18 +206,41 @@ const loadRAGContext = async (program = null) => {
     };
   });
 
+  /**
+   * Student headcounts, and nothing else.
+   *
+   * RA 10173 (Data Privacy Act of 2012). The assistant is a timetabling aid
+   * for chairpersons: it needs to know how many students a section has, never
+   * which students. Everything below is a count. No name, email address,
+   * student number, GPA or enrolment record is produced here, so none of it
+   * can reach the external model however the prompt is later assembled.
+   *
+   * `tests/defects.test.js` (D-12) asserts this.
+   */
+  const bump = (bucket, key) => {
+    const k = key === undefined || key === null || key === '' ? 'unassigned' : String(key);
+    bucket[k] = (bucket[k] || 0) + 1;
+  };
+
   const studentStats = {
     total: students.length,
     byProgram: {},
+    byYearLevel: {},
+    bySection: {},
     byType: {},
     byStatus: {}
   };
 
   students.forEach(s => {
-    studentStats.byProgram[s.program] = (studentStats.byProgram[s.program] || 0) + 1;
-    studentStats.byType[s.studentType] = (studentStats.byType[s.studentType] || 0) + 1;
-    studentStats.byStatus[s.enrollmentStatus] = (studentStats.byStatus[s.enrollmentStatus] || 0) + 1;
+    bump(studentStats.byProgram, s.program);
+    bump(studentStats.byYearLevel, s.yearLevel);
+    bump(studentStats.bySection, s.sectionCode);
+    bump(studentStats.byType, s.studentType);
+    bump(studentStats.byStatus, s.enrollmentStatus);
   });
+
+  const userStats = { total: users.length, byRole: {} };
+  users.forEach(u => bump(userStats.byRole, u.role));
 
   const context = {
     subjects: subjects || [],
@@ -205,9 +248,9 @@ const loadRAGContext = async (program = null) => {
     rooms: roomStats || [],
     schedules: schedules || [],
     sections: sections || [],
-    students: students || [],
+    // Deliberately NOT a student roster - see studentStats above.
+    studentCounts: studentStats,
     classSpaces: classSpaces || [],
-    users: users || [],
     programs: programs || [],
     stats: {
       totalSubjects: subjects.length,
@@ -220,11 +263,12 @@ const loadRAGContext = async (program = null) => {
       totalUsers: users.length,
       totalPrograms: programs.length,
       scheduleStats,
-      studentStats
+      studentStats,
+      userStats
     }
   };
 
-  console.log(`RAG Context loaded: ${programs.length} programs, ${subjects.length} subjects, ${faculty.length} faculty, ${rooms.length} rooms, ${schedules.length} schedules, ${sections.length} sections, ${students.length} students, ${classSpaces.length} classSpaces, ${users.length} users`);
+  console.log(`RAG Context loaded: ${programs.length} programs, ${subjects.length} subjects, ${faculty.length} faculty, ${rooms.length} rooms, ${schedules.length} schedules, ${sections.length} sections, ${students.length} student headcounts (no personal data), ${classSpaces.length} classSpaces, ${users.length} user role counts`);
 
   return context;
 };

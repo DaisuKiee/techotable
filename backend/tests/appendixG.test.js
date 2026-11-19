@@ -142,12 +142,18 @@ describe('Appendix G — Table 40 Unit Testing (authentication)', () => {
 });
 
 describe('Appendix G — Table 40 Unit Testing (instructor recommendation)', () => {
-  const subject = { subjectCode: 'CC 112', subjectName: 'Data Structures', requiredQualifications: ['Programming'] };
-  const base = { qualifications: [{ degree: 'MS' }], teachingHistory: [], currentLoad: 12, maxTeachingLoad: 36 };
+  const subject = { subjectCode: 'CC 112', subjectName: 'Data Structures', requiredQualifications: ['Programming'], units: 3 };
+  // Shaped like a real Faculty document. These fixtures used to carry
+  // `currentLoad` / `maxTeachingLoad`, which are not fields on Faculty - so
+  // the tests passed while the same code returned NaN for every real record
+  // (D-07). Load now arrives as the third argument, measured from the saved
+  // schedules by utils/facultyLoad, which is how the service calls it.
+  const base = { qualifications: [{ degree: 'MS' }], teachingHistory: [] };
+  const HALF = { used: 12, cap: 24 };
 
   test('UT-13 a specialization match scores higher than no match', () => {
-    const match = calculateFacultyScore({ ...base, specializations: ['Programming'] }, subject);
-    const noMatch = calculateFacultyScore({ ...base, specializations: ['Cookery'] }, subject);
+    const match = calculateFacultyScore({ ...base, specializations: ['Programming'] }, subject, HALF);
+    const noMatch = calculateFacultyScore({ ...base, specializations: ['Cookery'] }, subject, HALF);
     expect(match.breakdown.specialization).toBeGreaterThan(noMatch.breakdown.specialization);
     expect(match.total).toBeGreaterThan(noMatch.total);
   });
@@ -155,17 +161,20 @@ describe('Appendix G — Table 40 Unit Testing (instructor recommendation)', () 
   test('UT-14 recent teaching history scores higher than history over five years old', () => {
     const hist = (year) => ({ ...base, specializations: ['Programming'],
       teachingHistory: [{ subjectCode: 'CC 112', subjectName: 'Data Structures', academicYear: year, semester: 1, program: 'BSIT' }] });
-    const recent = calculateFacultyScore(hist('2025-2026'), subject);
-    const old = calculateFacultyScore(hist('2019-2020'), subject);
+    const recent = calculateFacultyScore(hist('2025-2026'), subject, HALF);
+    const old = calculateFacultyScore(hist('2019-2020'), subject, HALF);
     expect(recent.breakdown.history).toBeGreaterThan(old.breakdown.history);
   });
 
   test('UT-15 a maxed-out teacher scores lower than a lightly loaded one', () => {
-    const maxed = calculateFacultyScore({ ...base, specializations: ['Programming'], currentLoad: 36, maxTeachingLoad: 36 }, subject);
-    const light = calculateFacultyScore({ ...base, specializations: ['Programming'], currentLoad: 0, maxTeachingLoad: 36 }, subject);
+    const who = { ...base, specializations: ['Programming'] };
+    const maxed = calculateFacultyScore(who, subject, { used: 24, cap: 24 });
+    const light = calculateFacultyScore(who, subject, { used: 0, cap: 24 });
     expect(maxed.breakdown.workload).toBe(0);
     expect(light.breakdown.workload).toBeGreaterThan(maxed.breakdown.workload);
     expect(maxed.total).toBeLessThan(light.total);
+    // Neither score may be NaN, whatever the load looks like.
+    for (const r of [maxed, light]) expect(Number.isFinite(r.total)).toBe(true);
   });
 });
 
@@ -186,5 +195,118 @@ describe('Appendix G — Table 40 Unit Testing (file upload)', () => {
     const exe = await runFilter('malware.exe');
     expect(exe.err).toBeInstanceOf(Error);
     expect(exe.ok).toBeUndefined();
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * UT-05  NSTP combined sections
+ * ------------------------------------------------------------------ */
+
+describe('Appendix G — Table 40 Unit Testing (NSTP combined sections)', () => {
+  const Subject = require('../models/Subject.model');
+  let nstp1, nstp2, ordinary, NSTP_FAC;
+
+  beforeAll(async () => {
+    const fields = { units: 3, program: 'BSIT', semester: 1, yearLevel: 1, lectureHours: 3, labHours: 0 };
+    nstp1 = await Subject.create({ subjectCode: 'NSTP 1', subjectName: 'National Service Training Program 1', ...fields });
+    nstp2 = await Subject.create({ subjectCode: 'NSTP 2', subjectName: 'National Service Training Program 2', ...fields });
+    ordinary = await Subject.create({ subjectCode: 'GE 101', subjectName: 'Understanding the Self', ...fields });
+
+    const user = await User.create({
+      email: 'nstp.teacher@ctu.edu.ph', password: 'correct horse battery staple',
+      role: 'faculty', firstName: 'Nestor', lastName: 'Pita',
+    });
+    const fac = await Faculty.create({ user: user._id, employeeId: 'T-NSTP', position: 'Instructor' });
+    NSTP_FAC = fac._id;
+
+    // The teacher already takes NSTP 1 for BSIT-1A-D on Saturday morning.
+    await Schedule.create({
+      subject: nstp1._id, faculty: NSTP_FAC, room: ROOM_X,
+      program: 'BSIT', yearLevel: 1, section: 'A', sectionCode: 'BSIT-1A-D', shift: 'Day',
+      ...TERM, status: 'published', isActive: true,
+      timeSlots: [{ day: 'Saturday', startTime: '08:00', endTime: '11:00' }],
+    });
+  });
+
+  // Callers pass the subject as a stored id, which is how the real routes do it.
+  const placeNSTP = ({ subject, faculty = NSTP_FAC, sectionCode, startTime, endTime }) =>
+    checkScheduleConflicts({
+      subject, faculty, room: new mongoose.Types.ObjectId(), sectionCode,
+      timeSlots: [{ day: 'Saturday', startTime, endTime }], ...TERM,
+    });
+
+  test('UT-05 the same teacher may take a second NSTP section in the same hour', async () => {
+    const r = await placeNSTP({
+      subject: nstp2._id, sectionCode: 'BSIT-1B-D', startTime: '08:00', endTime: '11:00',
+    });
+    expect(typesOf(r)).not.toContain('faculty');
+    expect(typesOf(r)).not.toContain('faculty-gap');
+  });
+
+  test('UT-05a an ordinary subject in that same hour is still refused', async () => {
+    const r = await placeNSTP({
+      subject: ordinary._id, sectionCode: 'BSIT-1C-D', startTime: '08:00', endTime: '11:00',
+    });
+    expect(typesOf(r)).toContain('faculty');
+  });
+
+  test('UT-05b NSTP is also exempt from the preparation gap', async () => {
+    // Starts the moment the first NSTP block ends: no hour between them.
+    const r = await placeNSTP({
+      subject: nstp2._id, sectionCode: 'BSIT-1D-D', startTime: '11:00', endTime: '12:00',
+    });
+    expect(typesOf(r)).not.toContain('faculty-gap');
+  });
+
+  test('UT-05c an ordinary subject right after NSTP still needs the gap', async () => {
+    const r = await placeNSTP({
+      subject: ordinary._id, sectionCode: 'BSIT-1E-D', startTime: '11:00', endTime: '12:00',
+    });
+    expect(typesOf(r)).toContain('faculty-gap');
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * UT-09..12  Faculty load status
+ * ------------------------------------------------------------------ */
+
+describe('Appendix G — Table 40 Unit Testing (faculty load)', () => {
+  // `totalHours` and `loadStatus` are virtuals on the Faculty model, so they
+  // are exercised through a real document rather than a copy of the rule.
+  const facultyWith = ({ position = 'Instructor', teaching }) => new Faculty({
+    user: new mongoose.Types.ObjectId(),
+    employeeId: `LOAD-${position}-${teaching}`,
+    position,
+    currentTeachingHours: teaching,
+  });
+
+  test('UT-09 36 total hours is a normal load', () => {
+    const f = facultyWith({ teaching: 36 });
+    expect(f.totalHours).toBe(36);
+    expect(f.loadStatus.status).toBe('normal');
+  });
+
+  test('UT-10 38 total hours is a warning, still within the 40-hour allowance', () => {
+    const f = facultyWith({ teaching: 38 });
+    expect(f.totalHours).toBe(38);
+    expect(f.loadStatus.status).toBe('warning');
+  });
+
+  test('UT-11 41 total hours is an overload', () => {
+    const f = facultyWith({ teaching: 41 });
+    expect(f.totalHours).toBe(41);
+    expect(f.loadStatus.status).toBe('overload');
+  });
+
+  test('UT-12 a Chairman’s 12-hour release plus 24 teaching hours totals 36', () => {
+    const f = facultyWith({ position: 'Chairman', teaching: 24 });
+    expect(f.positionHours).toBe(12);
+    expect(f.totalHours).toBe(36);
+    expect(f.loadStatus.status).toBe('normal');
+  });
+
+  test('UT-12a the 40-hour ceiling is the boundary between warning and overload', () => {
+    expect(facultyWith({ teaching: 40 }).loadStatus.status).toBe('warning');
+    expect(facultyWith({ teaching: 40.5 }).loadStatus.status).toBe('overload');
   });
 });

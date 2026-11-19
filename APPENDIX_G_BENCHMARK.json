@@ -1,0 +1,2195 @@
+{
+  "generatedAt": "2026-11-19T16:49:39.879Z",
+  "readOnly": true,
+  "term": {
+    "academicYear": "2026-2027",
+    "semester": 1
+  },
+  "settings": {
+    "timeLimitSeconds": 10,
+    "runsPerYearLevel": 3
+  },
+  "environment": {
+    "node": "v21.7.3",
+    "platform": "win32 x64",
+    "ortools": {
+      "available": true,
+      "pythonFound": true,
+      "python": "python",
+      "ortoolsVersion": "9.15.6755",
+      "scriptPath": "C:\\Programming\\new timetable\\backend\\python\\ortools_scheduler.py"
+    },
+    "mongoServer": "8.0.37"
+  },
+  "inventory": {
+    "activeRooms": 30,
+    "activeFaculty": 78,
+    "activeSchedules": 55,
+    "publishedSchedules": 54
+  },
+  "programs": [
+    {
+      "program": "BSIT",
+      "programName": "Bachelor of Science in Information Technology",
+      "activeSections": 11,
+      "activeSubjects": 58,
+      "facultyAssigned": 17,
+      "yearLevels": [
+        {
+          "program": "BSIT",
+          "yearLevel": 1,
+          "shift": "Day",
+          "sectionsInDatabase": 4,
+          "sectionCodes": [
+            "BSIT-1A-D",
+            "BSIT-1B-D",
+            "BSIT-1C-D",
+            "BSIT-1D-N"
+          ],
+          "syntheticSection": false,
+          "runs": [
+            {
+              "run": 1,
+              "seconds": 14.071,
+              "solverSeconds": 10.033,
+              "success": true,
+              "status": "FEASIBLE",
+              "engineThatRan": "ortools",
+              "fellBackToJS": false,
+              "classesPlaced": 18,
+              "subjectsTotal": 9,
+              "subjectsScheduled": 18,
+              "subjectsFailed": 0,
+              "conflicts": 0,
+              "relaxedPrepGap": false,
+              "busiestFacultyUnits": 6,
+              "message": null
+            },
+            {
+              "run": 2,
+              "seconds": 13.413,
+              "solverSeconds": 10.044,
+              "success": true,
+              "status": "FEASIBLE",
+              "engineThatRan": "ortools",
+              "fellBackToJS": false,
+              "classesPlaced": 18,
+              "subjectsTotal": 9,
+              "subjectsScheduled": 18,
+              "subjectsFailed": 0,
+              "conflicts": 0,
+              "relaxedPrepGap": false,
+              "busiestFacultyUnits": 6,
+              "message": null
+            },
+            {
+              "run": 3,
+              "seconds": 13.538,
+              "solverSeconds": 10.056,
+              "success": true,
+              "status": "FEASIBLE",
+              "engineThatRan": "ortools",
+              "fellBackToJS": false,
+              "classesPlaced": 18,
+              "subjectsTotal": 9,
+              "subjectsScheduled": 18,
+              "subjectsFailed": 0,
+              "conflicts": 0,
+              "relaxedPrepGap": false,
+              "busiestFacultyUnits": 6,
+              "message": null
+            }
+          ],
+          "averageSeconds": 13.674,
+          "engineUsed": "ortools",
+          "conflictsFound": 0,
+          "allRunsSucceeded": true,
+          "prepGapHeld": true
+        },
+        {
+          "program": "BSIT",
+          "yearLevel": 2,
+          "shift": "Day",
+          "sectionsInDatabase": 3,
+          "sectionCodes": [
+            "BSIT-2A-D",
+            "BSIT-2B-D",
+            "BSIT-2C-N"
+          ],
+          "syntheticSection": false,
+          "runs": [
+            {
+              "run": 1,
+              "seconds": 2.364,
+              "solverSeconds": 0.041,
+              "success": true,
+              "status": "OPTIMAL",
+              "engineThatRan": "ortools",
+              "fellBackToJS": false,
+              "classesPlaced": 1,
+              "subjectsTotal": 9,
+              "subjectsScheduled": 1,
+              "subjectsFailed": 0,
+              "conflicts": 0,
+              "relaxedPrepGap": false,
+              "busiestFacultyUnits": 3,
+              "message": null
+            },
+            {
+              "run": 2,
+              "seconds": 2.333,
+              "solverSeconds": 0.033,
+              "success": true,
+              "status": "OPTIMAL",
+              "engineThatRan": "ortools",
+              "fellBackToJS": false,
+              "classesPlaced": 1,
+              "subjectsTotal": 9,
+              "subjectsScheduled": 1,
+              "subjectsFailed": 0,
+              "conflicts": 0,
+              "relaxedPrepGap": false,
+              "busiestFacultyUnits": 3,
+              "message": null
+            },
+            {
+              "run": 3,
+              "seconds": 2.417,
+              "solverSeconds": 0.044,
+              "success": true,
+              "status": "OPTIMAL",
+              "engineThatRan": "ortools",
+              "fellBackToJS": false,
+              "classesPlaced": 1,
+              "subjectsTotal": 9,
+              "subjectsScheduled": 1,
+              "subjectsFailed": 0,
+              "conflicts": 0,
+              "relaxedPrepGap": false,
+              "busiestFacultyUnits": 3,
+              "message": null
+            }
+          ],
+          "averageSeconds": 2.371,
+          "engineUsed": "ortools",
+          "conflictsFound": 0,
+          "allRunsSucceeded": true,
+          "prepGapHeld": true
+        },
+        {
+          "program": "BSIT",
+          "yearLevel": 3,
+          "shift": "Day",
+          "sectionsInDatabase": 2,
+          "sectionCodes": [
+            "BSIT-3A-D",
+            "BSIT-3B-D"
+          ],
+          "syntheticSection": false,
+          "runs": [
+            {
+              "run": 1,
+              "seconds": 2.473,
+              "solverSeconds": 0,
+              "success": true,
+              "status": "NOTHING_TO_SCHEDULE",
+              "engineThatRan": "ortools",
+              "fellBackToJS": false,
+              "classesPlaced": 0,
+              "subjectsTotal": 7,
+              "subjectsScheduled": 0,
+              "subjectsFailed": 0,
+              "conflicts": 0,
+              "relaxedPrepGap": false,
+              "busiestFacultyUnits": 0,
+              "message": null
+            },
+            {
+              "run": 2,
+              "seconds": 2.668,
+              "solverSeconds": 0,
+              "success": true,
+              "status": "NOTHING_TO_SCHEDULE",
+              "engineThatRan": "ortools",
+              "fellBackToJS": false,
+              "classesPlaced": 0,
+              "subjectsTotal": 7,
+              "subjectsScheduled": 0,
+              "subjectsFailed": 0,
+              "conflicts": 0,
+              "relaxedPrepGap": false,
+              "busiestFacultyUnits": 0,
+              "message": null
+            },
+            {
+              "run": 3,
+              "seconds": 2.797,
+              "solverSeconds": 0,
+              "success": true,
+              "status": "NOTHING_TO_SCHEDULE",
+              "engineThatRan": "ortools",
+              "fellBackToJS": false,
+              "classesPlaced": 0,
+              "subjectsTotal": 7,
+              "subjectsScheduled": 0,
+              "subjectsFailed": 0,
+              "conflicts": 0,
+              "relaxedPrepGap": false,
+              "busiestFacultyUnits": 0,
+              "message": null
+            }
+          ],
+          "averageSeconds": 2.646,
+          "engineUsed": "ortools",
+          "conflictsFound": 0,
+          "allRunsSucceeded": true,
+          "prepGapHeld": true
+        },
+        {
+          "program": "BSIT",
+          "yearLevel": 4,
+          "shift": "Day",
+          "sectionsInDatabase": 2,
+          "sectionCodes": [
+            "BSIT-4A-D",
+            "BSIT-4B-N"
+          ],
+          "syntheticSection": false,
+          "runs": [
+            {
+              "run": 1,
+              "seconds": 2.799,
+              "solverSeconds": 0,
+              "success": true,
+              "status": "NOTHING_TO_SCHEDULE",
+              "engineThatRan": "ortools",
+              "fellBackToJS": false,
+              "classesPlaced": 0,
+              "subjectsTotal": 6,
+              "subjectsScheduled": 0,
+              "subjectsFailed": 0,
+              "conflicts": 0,
+              "relaxedPrepGap": false,
+              "busiestFacultyUnits": 0,
+              "message": null
+            },
+            {
+              "run": 2,
+              "seconds": 2.842,
+              "solverSeconds": 0,
+              "success": true,
+              "status": "NOTHING_TO_SCHEDULE",
+              "engineThatRan": "ortools",
+              "fellBackToJS": false,
+              "classesPlaced": 0,
+              "subjectsTotal": 6,
+              "subjectsScheduled": 0,
+              "subjectsFailed": 0,
+              "conflicts": 0,
+              "relaxedPrepGap": false,
+              "busiestFacultyUnits": 0,
+              "message": null
+            },
+            {
+              "run": 3,
+              "seconds": 2.911,
+              "solverSeconds": 0,
+              "success": true,
+              "status": "NOTHING_TO_SCHEDULE",
+              "engineThatRan": "ortools",
+              "fellBackToJS": false,
+              "classesPlaced": 0,
+              "subjectsTotal": 6,
+              "subjectsScheduled": 0,
+              "subjectsFailed": 0,
+              "conflicts": 0,
+              "relaxedPrepGap": false,
+              "busiestFacultyUnits": 0,
+              "message": null
+            }
+          ],
+          "averageSeconds": 2.851,
+          "engineUsed": "ortools",
+          "conflictsFound": 0,
+          "allRunsSucceeded": true,
+          "prepGapHeld": true
+        }
+      ]
+    },
+    {
+      "program": "BSHM",
+      "programName": "Bachelor of Science in Hospitality Management",
+      "activeSections": 0,
+      "activeSubjects": 58,
+      "facultyAssigned": 12,
+      "yearLevels": [
+        {
+          "program": "BSHM",
+          "yearLevel": 1,
+          "shift": "Day",
+          "sectionsInDatabase": 0,
+          "sectionCodes": [],
+          "syntheticSection": true,
+          "runs": [
+            {
+              "run": 1,
+              "seconds": 13.879,
+              "solverSeconds": 10.089,
+              "success": true,
+              "status": "FEASIBLE",
+              "engineThatRan": "ortools",
+              "fellBackToJS": false,
+              "classesPlaced": 9,
+              "subjectsTotal": 9,
+              "subjectsScheduled": 9,
+              "subjectsFailed": 0,
+              "conflicts": 0,
+              "relaxedPrepGap": false,
+              "busiestFacultyUnits": 3,
+              "message": null
+            },
+            {
+              "run": 2,
+              "seconds": 13.407,
+              "solverSeconds": 10.036,
+              "success": true,
+              "status": "FEASIBLE",
+              "engineThatRan": "ortools",
+              "fellBackToJS": false,
+              "classesPlaced": 9,
+              "subjectsTotal": 9,
+              "subjectsScheduled": 9,
+              "subjectsFailed": 0,
+              "conflicts": 0,
+              "relaxedPrepGap": false,
+              "busiestFacultyUnits": 3,
+              "message": null
+            },
+            {
+              "run": 3,
+              "seconds": 13.703,
+              "solverSeconds": 10.047,
+              "success": true,
+              "status": "FEASIBLE",
+              "engineThatRan": "ortools",
+              "fellBackToJS": false,
+              "classesPlaced": 9,
+              "subjectsTotal": 9,
+              "subjectsScheduled": 9,
+              "subjectsFailed": 0,
+              "conflicts": 0,
+              "relaxedPrepGap": false,
+              "busiestFacultyUnits": 3,
+              "message": null
+            }
+          ],
+          "averageSeconds": 13.663,
+          "engineUsed": "ortools",
+          "conflictsFound": 0,
+          "allRunsSucceeded": true,
+          "prepGapHeld": true
+        },
+        {
+          "program": "BSHM",
+          "yearLevel": 2,
+          "shift": "Day",
+          "sectionsInDatabase": 0,
+          "sectionCodes": [],
+          "syntheticSection": true,
+          "runs": [
+            {
+              "run": 1,
+              "seconds": 13.407,
+              "solverSeconds": 10.065,
+              "success": true,
+              "status": "FEASIBLE",
+              "engineThatRan": "ortools",
+              "fellBackToJS": false,
+              "classesPlaced": 9,
+              "subjectsTotal": 9,
+              "subjectsScheduled": 9,
+              "subjectsFailed": 0,
+              "conflicts": 0,
+              "relaxedPrepGap": false,
+              "busiestFacultyUnits": 6,
+              "message": null
+            },
+            {
+              "run": 2,
+              "seconds": 13.426,
+              "solverSeconds": 10.054,
+              "success": true,
+              "status": "FEASIBLE",
+              "engineThatRan": "ortools",
+              "fellBackToJS": false,
+              "classesPlaced": 9,
+              "subjectsTotal": 9,
+              "subjectsScheduled": 9,
+              "subjectsFailed": 0,
+              "conflicts": 0,
+              "relaxedPrepGap": false,
+              "busiestFacultyUnits": 6,
+              "message": null
+            },
+            {
+              "run": 3,
+              "seconds": 13.361,
+              "solverSeconds": 10.048,
+              "success": true,
+              "status": "FEASIBLE",
+              "engineThatRan": "ortools",
+              "fellBackToJS": false,
+              "classesPlaced": 9,
+              "subjectsTotal": 9,
+              "subjectsScheduled": 9,
+              "subjectsFailed": 0,
+              "conflicts": 0,
+              "relaxedPrepGap": false,
+              "busiestFacultyUnits": 6,
+              "message": null
+            }
+          ],
+          "averageSeconds": 13.398,
+          "engineUsed": "ortools",
+          "conflictsFound": 0,
+          "allRunsSucceeded": true,
+          "prepGapHeld": true
+        },
+        {
+          "program": "BSHM",
+          "yearLevel": 3,
+          "shift": "Day",
+          "sectionsInDatabase": 0,
+          "sectionCodes": [],
+          "syntheticSection": true,
+          "runs": [
+            {
+              "run": 1,
+              "seconds": 13.399,
+              "solverSeconds": 10.03,
+              "success": true,
+              "status": "FEASIBLE",
+              "engineThatRan": "ortools",
+              "fellBackToJS": false,
+              "classesPlaced": 8,
+              "subjectsTotal": 8,
+              "subjectsScheduled": 8,
+              "subjectsFailed": 0,
+              "conflicts": 0,
+              "relaxedPrepGap": false,
+              "busiestFacultyUnits": 9,
+              "message": null
+            },
+            {
+              "run": 2,
+              "seconds": 13.379,
+              "solverSeconds": 10.073,
+              "success": true,
+              "status": "FEASIBLE",
+              "engineThatRan": "ortools",
+              "fellBackToJS": false,
+              "classesPlaced": 8,
+              "subjectsTotal": 8,
+              "subjectsScheduled": 8,
+              "subjectsFailed": 0,
+              "conflicts": 0,
+              "relaxedPrepGap": false,
+              "busiestFacultyUnits": 9,
+              "message": null
+            },
+            {
+              "run": 3,
+              "seconds": 13.48,
+              "solverSeconds": 10.073,
+              "success": true,
+              "status": "FEASIBLE",
+              "engineThatRan": "ortools",
+              "fellBackToJS": false,
+              "classesPlaced": 8,
+              "subjectsTotal": 8,
+              "subjectsScheduled": 8,
+              "subjectsFailed": 0,
+              "conflicts": 0,
+              "relaxedPrepGap": false,
+              "busiestFacultyUnits": 9,
+              "message": null
+            }
+          ],
+          "averageSeconds": 13.419,
+          "engineUsed": "ortools",
+          "conflictsFound": 0,
+          "allRunsSucceeded": true,
+          "prepGapHeld": true
+        },
+        {
+          "program": "BSHM",
+          "yearLevel": 4,
+          "shift": "Day",
+          "sectionsInDatabase": 0,
+          "sectionCodes": [],
+          "syntheticSection": true,
+          "runs": [
+            {
+              "run": 1,
+              "seconds": 2.616,
+              "solverSeconds": 0.067,
+              "success": true,
+              "status": "OPTIMAL",
+              "engineThatRan": "ortools",
+              "fellBackToJS": false,
+              "classesPlaced": 1,
+              "subjectsTotal": 1,
+              "subjectsScheduled": 1,
+              "subjectsFailed": 0,
+              "conflicts": 0,
+              "relaxedPrepGap": false,
+              "busiestFacultyUnits": 7,
+              "message": null
+            },
+            {
+              "run": 2,
+              "seconds": 2.978,
+              "solverSeconds": 0.08,
+              "success": true,
+              "status": "OPTIMAL",
+              "engineThatRan": "ortools",
+              "fellBackToJS": false,
+              "classesPlaced": 1,
+              "subjectsTotal": 1,
+              "subjectsScheduled": 1,
+              "subjectsFailed": 0,
+              "conflicts": 0,
+              "relaxedPrepGap": false,
+              "busiestFacultyUnits": 7,
+              "message": null
+            },
+            {
+              "run": 3,
+              "seconds": 2.532,
+              "solverSeconds": 0.052,
+              "success": true,
+              "status": "OPTIMAL",
+              "engineThatRan": "ortools",
+              "fellBackToJS": false,
+              "classesPlaced": 1,
+              "subjectsTotal": 1,
+              "subjectsScheduled": 1,
+              "subjectsFailed": 0,
+              "conflicts": 0,
+              "relaxedPrepGap": false,
+              "busiestFacultyUnits": 7,
+              "message": null
+            }
+          ],
+          "averageSeconds": 2.709,
+          "engineUsed": "ortools",
+          "conflictsFound": 0,
+          "allRunsSucceeded": true,
+          "prepGapHeld": true
+        }
+      ]
+    },
+    {
+      "program": "BIT-ET",
+      "programName": "Bachelor of Industrial Technology - Electronics Technology",
+      "activeSections": 1,
+      "activeSubjects": 48,
+      "facultyAssigned": 11,
+      "yearLevels": [
+        {
+          "program": "BIT-ET",
+          "yearLevel": 1,
+          "shift": "Day",
+          "sectionsInDatabase": 1,
+          "sectionCodes": [
+            "BIT-ET-1A-D"
+          ],
+          "syntheticSection": false,
+          "runs": [
+            {
+              "run": 1,
+              "seconds": 13.2,
+              "solverSeconds": 10.036,
+              "success": true,
+              "status": "FEASIBLE",
+              "engineThatRan": "ortools",
+              "fellBackToJS": false,
+              "classesPlaced": 9,
+              "subjectsTotal": 9,
+              "subjectsScheduled": 9,
+              "subjectsFailed": 0,
+              "conflicts": 0,
+              "relaxedPrepGap": false,
+              "busiestFacultyUnits": 7,
+              "message": null
+            },
+            {
+              "run": 2,
+              "seconds": 13.568,
+              "solverSeconds": 10.032,
+              "success": true,
+              "status": "FEASIBLE",
+              "engineThatRan": "ortools",
+              "fellBackToJS": false,
+              "classesPlaced": 9,
+              "subjectsTotal": 9,
+              "subjectsScheduled": 9,
+              "subjectsFailed": 0,
+              "conflicts": 0,
+              "relaxedPrepGap": false,
+              "busiestFacultyUnits": 7,
+              "message": null
+            },
+            {
+              "run": 3,
+              "seconds": 13.252,
+              "solverSeconds": 10.032,
+              "success": true,
+              "status": "FEASIBLE",
+              "engineThatRan": "ortools",
+              "fellBackToJS": false,
+              "classesPlaced": 9,
+              "subjectsTotal": 9,
+              "subjectsScheduled": 9,
+              "subjectsFailed": 0,
+              "conflicts": 0,
+              "relaxedPrepGap": false,
+              "busiestFacultyUnits": 7,
+              "message": null
+            }
+          ],
+          "averageSeconds": 13.34,
+          "engineUsed": "ortools",
+          "conflictsFound": 0,
+          "allRunsSucceeded": true,
+          "prepGapHeld": true
+        }
+      ]
+    },
+    {
+      "program": "BIT-CT",
+      "programName": "Bachelor of Industrial Technology - Computer Technology",
+      "activeSections": 0,
+      "activeSubjects": 49,
+      "facultyAssigned": 11,
+      "yearLevels": [
+        {
+          "program": "BIT-CT",
+          "yearLevel": 1,
+          "shift": "Day",
+          "sectionsInDatabase": 0,
+          "sectionCodes": [],
+          "syntheticSection": true,
+          "runs": [
+            {
+              "run": 1,
+              "seconds": 13.12,
+              "solverSeconds": 10.028,
+              "success": true,
+              "status": "FEASIBLE",
+              "engineThatRan": "ortools",
+              "fellBackToJS": false,
+              "classesPlaced": 8,
+              "subjectsTotal": 8,
+              "subjectsScheduled": 8,
+              "subjectsFailed": 0,
+              "conflicts": 0,
+              "relaxedPrepGap": false,
+              "busiestFacultyUnits": 7,
+              "message": null
+            },
+            {
+              "run": 2,
+              "seconds": 13.107,
+              "solverSeconds": 10.064,
+              "success": true,
+              "status": "FEASIBLE",
+              "engineThatRan": "ortools",
+              "fellBackToJS": false,
+              "classesPlaced": 8,
+              "subjectsTotal": 8,
+              "subjectsScheduled": 8,
+              "subjectsFailed": 0,
+              "conflicts": 0,
+              "relaxedPrepGap": false,
+              "busiestFacultyUnits": 7,
+              "message": null
+            },
+            {
+              "run": 3,
+              "seconds": 13.128,
+              "solverSeconds": 10.087,
+              "success": true,
+              "status": "FEASIBLE",
+              "engineThatRan": "ortools",
+              "fellBackToJS": false,
+              "classesPlaced": 8,
+              "subjectsTotal": 8,
+              "subjectsScheduled": 8,
+              "subjectsFailed": 0,
+              "conflicts": 0,
+              "relaxedPrepGap": false,
+              "busiestFacultyUnits": 7,
+              "message": null
+            }
+          ],
+          "averageSeconds": 13.118,
+          "engineUsed": "ortools",
+          "conflictsFound": 0,
+          "allRunsSucceeded": true,
+          "prepGapHeld": true
+        },
+        {
+          "program": "BIT-CT",
+          "yearLevel": 2,
+          "shift": "Day",
+          "sectionsInDatabase": 0,
+          "sectionCodes": [],
+          "syntheticSection": true,
+          "runs": [
+            {
+              "run": 1,
+              "seconds": 13.801,
+              "solverSeconds": 10.031,
+              "success": true,
+              "status": "FEASIBLE",
+              "engineThatRan": "ortools",
+              "fellBackToJS": false,
+              "classesPlaced": 8,
+              "subjectsTotal": 8,
+              "subjectsScheduled": 8,
+              "subjectsFailed": 0,
+              "conflicts": 0,
+              "relaxedPrepGap": false,
+              "busiestFacultyUnits": 7,
+              "message": null
+            },
+            {
+              "run": 2,
+              "seconds": 13.923,
+              "solverSeconds": 10.037,
+              "success": true,
+              "status": "FEASIBLE",
+              "engineThatRan": "ortools",
+              "fellBackToJS": false,
+              "classesPlaced": 8,
+              "subjectsTotal": 8,
+              "subjectsScheduled": 8,
+              "subjectsFailed": 0,
+              "conflicts": 0,
+              "relaxedPrepGap": false,
+              "busiestFacultyUnits": 7,
+              "message": null
+            },
+            {
+              "run": 3,
+              "seconds": 13.654,
+              "solverSeconds": 10.053,
+              "success": true,
+              "status": "FEASIBLE",
+              "engineThatRan": "ortools",
+              "fellBackToJS": false,
+              "classesPlaced": 8,
+              "subjectsTotal": 8,
+              "subjectsScheduled": 8,
+              "subjectsFailed": 0,
+              "conflicts": 0,
+              "relaxedPrepGap": false,
+              "busiestFacultyUnits": 7,
+              "message": null
+            }
+          ],
+          "averageSeconds": 13.793,
+          "engineUsed": "ortools",
+          "conflictsFound": 0,
+          "allRunsSucceeded": true,
+          "prepGapHeld": true
+        },
+        {
+          "program": "BIT-CT",
+          "yearLevel": 3,
+          "shift": "Day",
+          "sectionsInDatabase": 0,
+          "sectionCodes": [],
+          "syntheticSection": true,
+          "runs": [
+            {
+              "run": 1,
+              "seconds": 13.022,
+              "solverSeconds": 10.044,
+              "success": true,
+              "status": "FEASIBLE",
+              "engineThatRan": "ortools",
+              "fellBackToJS": false,
+              "classesPlaced": 8,
+              "subjectsTotal": 8,
+              "subjectsScheduled": 8,
+              "subjectsFailed": 0,
+              "conflicts": 0,
+              "relaxedPrepGap": false,
+              "busiestFacultyUnits": 7,
+              "message": null
+            },
+            {
+              "run": 2,
+              "seconds": 13.008,
+              "solverSeconds": 10.042,
+              "success": true,
+              "status": "FEASIBLE",
+              "engineThatRan": "ortools",
+              "fellBackToJS": false,
+              "classesPlaced": 8,
+              "subjectsTotal": 8,
+              "subjectsScheduled": 8,
+              "subjectsFailed": 0,
+              "conflicts": 0,
+              "relaxedPrepGap": false,
+              "busiestFacultyUnits": 7,
+              "message": null
+            },
+            {
+              "run": 3,
+              "seconds": 13.203,
+              "solverSeconds": 10.038,
+              "success": true,
+              "status": "FEASIBLE",
+              "engineThatRan": "ortools",
+              "fellBackToJS": false,
+              "classesPlaced": 8,
+              "subjectsTotal": 8,
+              "subjectsScheduled": 8,
+              "subjectsFailed": 0,
+              "conflicts": 0,
+              "relaxedPrepGap": false,
+              "busiestFacultyUnits": 7,
+              "message": null
+            }
+          ],
+          "averageSeconds": 13.078,
+          "engineUsed": "ortools",
+          "conflictsFound": 0,
+          "allRunsSucceeded": true,
+          "prepGapHeld": true
+        }
+      ]
+    },
+    {
+      "program": "BIT-AT",
+      "programName": "Bachelor of Industrial Technology - Automotive Technology",
+      "activeSections": 0,
+      "activeSubjects": 48,
+      "facultyAssigned": 11,
+      "yearLevels": [
+        {
+          "program": "BIT-AT",
+          "yearLevel": 1,
+          "shift": "Day",
+          "sectionsInDatabase": 0,
+          "sectionCodes": [],
+          "syntheticSection": true,
+          "runs": [
+            {
+              "run": 1,
+              "seconds": 13.123,
+              "solverSeconds": 10.053,
+              "success": true,
+              "status": "FEASIBLE",
+              "engineThatRan": "ortools",
+              "fellBackToJS": false,
+              "classesPlaced": 8,
+              "subjectsTotal": 8,
+              "subjectsScheduled": 8,
+              "subjectsFailed": 0,
+              "conflicts": 0,
+              "relaxedPrepGap": false,
+              "busiestFacultyUnits": 7,
+              "message": null
+            },
+            {
+              "run": 2,
+              "seconds": 13.295,
+              "solverSeconds": 10.052,
+              "success": true,
+              "status": "FEASIBLE",
+              "engineThatRan": "ortools",
+              "fellBackToJS": false,
+              "classesPlaced": 8,
+              "subjectsTotal": 8,
+              "subjectsScheduled": 8,
+              "subjectsFailed": 0,
+              "conflicts": 0,
+              "relaxedPrepGap": false,
+              "busiestFacultyUnits": 7,
+              "message": null
+            },
+            {
+              "run": 3,
+              "seconds": 13.111,
+              "solverSeconds": 10.047,
+              "success": true,
+              "status": "FEASIBLE",
+              "engineThatRan": "ortools",
+              "fellBackToJS": false,
+              "classesPlaced": 8,
+              "subjectsTotal": 8,
+              "subjectsScheduled": 8,
+              "subjectsFailed": 0,
+              "conflicts": 0,
+              "relaxedPrepGap": false,
+              "busiestFacultyUnits": 7,
+              "message": null
+            }
+          ],
+          "averageSeconds": 13.176,
+          "engineUsed": "ortools",
+          "conflictsFound": 0,
+          "allRunsSucceeded": true,
+          "prepGapHeld": true
+        },
+        {
+          "program": "BIT-AT",
+          "yearLevel": 2,
+          "shift": "Day",
+          "sectionsInDatabase": 0,
+          "sectionCodes": [],
+          "syntheticSection": true,
+          "runs": [
+            {
+              "run": 1,
+              "seconds": 13.293,
+              "solverSeconds": 10.096,
+              "success": true,
+              "status": "FEASIBLE",
+              "engineThatRan": "ortools",
+              "fellBackToJS": false,
+              "classesPlaced": 8,
+              "subjectsTotal": 8,
+              "subjectsScheduled": 8,
+              "subjectsFailed": 0,
+              "conflicts": 0,
+              "relaxedPrepGap": false,
+              "busiestFacultyUnits": 7,
+              "message": null
+            },
+            {
+              "run": 2,
+              "seconds": 13.24,
+              "solverSeconds": 10.089,
+              "success": true,
+              "status": "FEASIBLE",
+              "engineThatRan": "ortools",
+              "fellBackToJS": false,
+              "classesPlaced": 8,
+              "subjectsTotal": 8,
+              "subjectsScheduled": 8,
+              "subjectsFailed": 0,
+              "conflicts": 0,
+              "relaxedPrepGap": false,
+              "busiestFacultyUnits": 7,
+              "message": null
+            },
+            {
+              "run": 3,
+              "seconds": 13.352,
+              "solverSeconds": 10.087,
+              "success": true,
+              "status": "FEASIBLE",
+              "engineThatRan": "ortools",
+              "fellBackToJS": false,
+              "classesPlaced": 8,
+              "subjectsTotal": 8,
+              "subjectsScheduled": 8,
+              "subjectsFailed": 0,
+              "conflicts": 0,
+              "relaxedPrepGap": false,
+              "busiestFacultyUnits": 7,
+              "message": null
+            }
+          ],
+          "averageSeconds": 13.295,
+          "engineUsed": "ortools",
+          "conflictsFound": 0,
+          "allRunsSucceeded": true,
+          "prepGapHeld": true
+        },
+        {
+          "program": "BIT-AT",
+          "yearLevel": 3,
+          "shift": "Day",
+          "sectionsInDatabase": 0,
+          "sectionCodes": [],
+          "syntheticSection": true,
+          "runs": [
+            {
+              "run": 1,
+              "seconds": 13.158,
+              "solverSeconds": 10.087,
+              "success": true,
+              "status": "FEASIBLE",
+              "engineThatRan": "ortools",
+              "fellBackToJS": false,
+              "classesPlaced": 8,
+              "subjectsTotal": 8,
+              "subjectsScheduled": 8,
+              "subjectsFailed": 0,
+              "conflicts": 0,
+              "relaxedPrepGap": false,
+              "busiestFacultyUnits": 7,
+              "message": null
+            },
+            {
+              "run": 2,
+              "seconds": 13.353,
+              "solverSeconds": 10.028,
+              "success": true,
+              "status": "FEASIBLE",
+              "engineThatRan": "ortools",
+              "fellBackToJS": false,
+              "classesPlaced": 8,
+              "subjectsTotal": 8,
+              "subjectsScheduled": 8,
+              "subjectsFailed": 0,
+              "conflicts": 0,
+              "relaxedPrepGap": false,
+              "busiestFacultyUnits": 7,
+              "message": null
+            },
+            {
+              "run": 3,
+              "seconds": 13.161,
+              "solverSeconds": 10.093,
+              "success": true,
+              "status": "FEASIBLE",
+              "engineThatRan": "ortools",
+              "fellBackToJS": false,
+              "classesPlaced": 8,
+              "subjectsTotal": 8,
+              "subjectsScheduled": 8,
+              "subjectsFailed": 0,
+              "conflicts": 0,
+              "relaxedPrepGap": false,
+              "busiestFacultyUnits": 7,
+              "message": null
+            }
+          ],
+          "averageSeconds": 13.224,
+          "engineUsed": "ortools",
+          "conflictsFound": 0,
+          "allRunsSucceeded": true,
+          "prepGapHeld": true
+        }
+      ]
+    },
+    {
+      "program": "BSFI",
+      "programName": "Bachelor of Science in Fisheries",
+      "activeSections": 0,
+      "activeSubjects": 0,
+      "facultyAssigned": 11,
+      "yearLevels": [],
+      "notBenchmarked": "No active subjects exist for this program, so the generator has nothing to place."
+    },
+    {
+      "program": "BSIE",
+      "programName": "Bachelor of Science in Industrial Engineering",
+      "activeSections": 0,
+      "activeSubjects": 0,
+      "facultyAssigned": 11,
+      "yearLevels": [],
+      "notBenchmarked": "No active subjects exist for this program, so the generator has nothing to place."
+    }
+  ],
+  "workload": {
+    "term": {
+      "academicYear": "2026-2027",
+      "semester": 1
+    },
+    "allActiveFaculty": {
+      "count": 78,
+      "teachingHours": {
+        "n": 78,
+        "mean": 3.05,
+        "sd": 7.25,
+        "min": 0,
+        "max": 40
+      },
+      "totalHours": {
+        "n": 78,
+        "mean": 3.21,
+        "sd": 7.69,
+        "min": 0,
+        "max": 40
+      },
+      "units": {
+        "n": 78,
+        "mean": 1.97,
+        "sd": 4.35,
+        "min": 0,
+        "max": 24
+      },
+      "within36": 77,
+      "within40": 78,
+      "over40": 0
+    },
+    "facultyWithAtLeastOneClass": {
+      "count": 18,
+      "teachingHours": {
+        "n": 18,
+        "mean": 13.22,
+        "sd": 9.8,
+        "min": 3,
+        "max": 40
+      },
+      "totalHours": {
+        "n": 18,
+        "mean": 13.89,
+        "sd": 10.52,
+        "min": 3,
+        "max": 40
+      },
+      "units": {
+        "n": 18,
+        "mean": 8.56,
+        "sd": 5.11,
+        "min": 3,
+        "max": 24
+      },
+      "within36": 17,
+      "within40": 18,
+      "over40": 0
+    },
+    "rows": [
+      {
+        "employeeId": "CANALES-II",
+        "name": "Ihgie Canales",
+        "position": "Instructor",
+        "programs": [
+          "BSIT",
+          "BSICT"
+        ],
+        "teachingHours": 40,
+        "positionHours": 0,
+        "totalHours": 40,
+        "units": 24,
+        "classes": 8
+      },
+      {
+        "employeeId": "GULBE-IL",
+        "name": "Iris Gulbe",
+        "position": "Chairman",
+        "programs": [
+          "BSIT",
+          "BSICT"
+        ],
+        "teachingHours": 18,
+        "positionHours": 12,
+        "totalHours": 30,
+        "units": 6,
+        "classes": 2
+      },
+      {
+        "employeeId": "URSABIA-CA",
+        "name": "Christian Ursabia",
+        "position": "Instructor",
+        "programs": [
+          "BSIT"
+        ],
+        "teachingHours": 28,
+        "positionHours": 0,
+        "totalHours": 28,
+        "units": 12,
+        "classes": 4
+      },
+      {
+        "employeeId": "DESAMPARADO-DN",
+        "name": "Darwin Desamparado",
+        "position": "Instructor",
+        "programs": [
+          "BSIT"
+        ],
+        "teachingHours": 22,
+        "positionHours": 0,
+        "totalHours": 22,
+        "units": 10,
+        "classes": 4
+      },
+      {
+        "employeeId": "DUALOS-S",
+        "name": "Shem Dualos",
+        "position": "Instructor",
+        "programs": [
+          "BSIT",
+          "BSICT"
+        ],
+        "teachingHours": 20,
+        "positionHours": 0,
+        "totalHours": 20,
+        "units": 12,
+        "classes": 4
+      },
+      {
+        "employeeId": "CANALES-JE",
+        "name": "Juvy Canales",
+        "position": "Instructor",
+        "programs": [
+          "BSIT",
+          "BSICT"
+        ],
+        "teachingHours": 15,
+        "positionHours": 0,
+        "totalHours": 15,
+        "units": 11,
+        "classes": 4
+      },
+      {
+        "employeeId": "ESLAWAN-J",
+        "name": "Jesus Eslawan",
+        "position": "Instructor",
+        "programs": [
+          "BSIT"
+        ],
+        "teachingHours": 15,
+        "positionHours": 0,
+        "totalHours": 15,
+        "units": 9,
+        "classes": 3
+      },
+      {
+        "employeeId": "OMPAD-GA",
+        "name": "Gemma Ompad",
+        "position": "Instructor",
+        "programs": [
+          "BSIT",
+          "BSICT"
+        ],
+        "teachingHours": 14,
+        "positionHours": 0,
+        "totalHours": 14,
+        "units": 14,
+        "classes": 5
+      },
+      {
+        "employeeId": "DESABILLE-CA",
+        "name": "Christine Desabille",
+        "position": "Instructor",
+        "programs": [
+          "BSIT",
+          "BSICT"
+        ],
+        "teachingHours": 13,
+        "positionHours": 0,
+        "totalHours": 13,
+        "units": 7,
+        "classes": 3
+      },
+      {
+        "employeeId": "MELENDRES-JMS",
+        "name": "John Mello Melendres",
+        "position": "Instructor",
+        "programs": [
+          "BSIT"
+        ],
+        "teachingHours": 10,
+        "positionHours": 0,
+        "totalHours": 10,
+        "units": 6,
+        "classes": 2
+      },
+      {
+        "employeeId": "YGOT-RV",
+        "name": "Roca Ygot",
+        "position": "Instructor",
+        "programs": [
+          "BSIT",
+          "BSICT"
+        ],
+        "teachingHours": 9,
+        "positionHours": 0,
+        "totalHours": 9,
+        "units": 9,
+        "classes": 3
+      },
+      {
+        "employeeId": "SAYSON-VG",
+        "name": "Virgilio Sayson",
+        "position": "Instructor",
+        "programs": [
+          "BSIT",
+          "BSICT"
+        ],
+        "teachingHours": 7,
+        "positionHours": 0,
+        "totalHours": 7,
+        "units": 7,
+        "classes": 3
+      },
+      {
+        "employeeId": "ESCULTOR-JC",
+        "name": "Jane Escultor",
+        "position": "Instructor",
+        "programs": [
+          "BSIT",
+          "BSICT"
+        ],
+        "teachingHours": 7,
+        "positionHours": 0,
+        "totalHours": 7,
+        "units": 9,
+        "classes": 3
+      },
+      {
+        "employeeId": "ESCALA-J",
+        "name": "Joshua Escala",
+        "position": "Instructor",
+        "programs": [
+          "BSIT",
+          "BSICT"
+        ],
+        "teachingHours": 7,
+        "positionHours": 0,
+        "totalHours": 7,
+        "units": 5,
+        "classes": 2
+      },
+      {
+        "employeeId": "GAHOB-KO",
+        "name": "Keith Gahob",
+        "position": "Instructor",
+        "programs": [
+          "BSIT"
+        ],
+        "teachingHours": 4,
+        "positionHours": 0,
+        "totalHours": 4,
+        "units": 4,
+        "classes": 2
+      },
+      {
+        "employeeId": "FAC-BSHM-006",
+        "name": "Rick Mel Cadiente",
+        "position": "Instructor",
+        "programs": [
+          "BSHM"
+        ],
+        "teachingHours": 3,
+        "positionHours": 0,
+        "totalHours": 3,
+        "units": 3,
+        "classes": 1
+      },
+      {
+        "employeeId": "LUCABON-FL",
+        "name": "Felixberto Lucabon Jr.",
+        "position": "Instructor",
+        "programs": [
+          "BIT-AT",
+          "BIT-CT",
+          "BIT-ET",
+          "BSFI",
+          "BSHM",
+          "BSICT",
+          "BSIE",
+          "BSIT"
+        ],
+        "teachingHours": 3,
+        "positionHours": 0,
+        "totalHours": 3,
+        "units": 3,
+        "classes": 1
+      },
+      {
+        "employeeId": "PENDING-6B2B11",
+        "name": "Montamarcs Hon",
+        "position": "Instructor",
+        "programs": [
+          "BSIT"
+        ],
+        "teachingHours": 3,
+        "positionHours": 0,
+        "totalHours": 3,
+        "units": 3,
+        "classes": 1
+      },
+      {
+        "employeeId": "FAC-BSHM-001",
+        "name": "Desiree Reyes",
+        "position": "Associate Professor",
+        "programs": [
+          "BSHM"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BSHM-002",
+        "name": "Sutero Macabudbud",
+        "position": "Associate Professor",
+        "programs": [
+          "BSHM"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BSHM-003",
+        "name": "Honey Lou Layon",
+        "position": "Professor",
+        "programs": [
+          "BSHM"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BSHM-004",
+        "name": "Anthony Toñacao",
+        "position": "Associate Professor",
+        "programs": [
+          "BSHM"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BSHM-005",
+        "name": "Jason Punay",
+        "position": "Instructor",
+        "programs": [
+          "BSHM"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BSHM-007",
+        "name": "Anna Lim",
+        "position": "Instructor",
+        "programs": [
+          "BSHM"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BSHM-008",
+        "name": "Xela Lauron",
+        "position": "Instructor",
+        "programs": [
+          "BSHM"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BSHM-009",
+        "name": "Angelica Espinosa",
+        "position": "Instructor",
+        "programs": [
+          "BSHM"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BSHM-010",
+        "name": "Jhea Panilaga",
+        "position": "Instructor",
+        "programs": [
+          "BSHM"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BIT-ET-001",
+        "name": "Teach-BITET 1",
+        "position": "Associate Professor",
+        "programs": [
+          "BIT-ET"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BIT-ET-002",
+        "name": "Teach-BITET 2",
+        "position": "Assistant Professor",
+        "programs": [
+          "BIT-ET"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BIT-ET-003",
+        "name": "Teach-BITET 3",
+        "position": "Instructor",
+        "programs": [
+          "BIT-ET"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BIT-ET-004",
+        "name": "Teach-BITET 4",
+        "position": "Professor",
+        "programs": [
+          "BIT-ET"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BIT-ET-005",
+        "name": "Teach-BITET 5",
+        "position": "Associate Professor",
+        "programs": [
+          "BIT-ET"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BIT-ET-006",
+        "name": "Teach-BITET 6",
+        "position": "Assistant Professor",
+        "programs": [
+          "BIT-ET"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BIT-ET-007",
+        "name": "Teach-BITET 7",
+        "position": "Instructor",
+        "programs": [
+          "BIT-ET"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BIT-ET-008",
+        "name": "Teach-BITET 8",
+        "position": "Professor",
+        "programs": [
+          "BIT-ET"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BIT-ET-009",
+        "name": "Teach-BITET 9",
+        "position": "Associate Professor",
+        "programs": [
+          "BIT-ET"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BIT-ET-010",
+        "name": "Teach-BITET 10",
+        "position": "Assistant Professor",
+        "programs": [
+          "BIT-ET"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BIT-CT-001",
+        "name": "Teach-BITCT 1",
+        "position": "Associate Professor",
+        "programs": [
+          "BIT-CT"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BIT-CT-002",
+        "name": "Teach-BITCT 2",
+        "position": "Assistant Professor",
+        "programs": [
+          "BIT-CT"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BIT-CT-003",
+        "name": "Teach-BITCT 3",
+        "position": "Instructor",
+        "programs": [
+          "BIT-CT"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BIT-CT-004",
+        "name": "Teach-BITCT 4",
+        "position": "Professor",
+        "programs": [
+          "BIT-CT"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BIT-CT-005",
+        "name": "Teach-BITCT 5",
+        "position": "Associate Professor",
+        "programs": [
+          "BIT-CT"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BIT-CT-006",
+        "name": "Teach-BITCT 6",
+        "position": "Assistant Professor",
+        "programs": [
+          "BIT-CT"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BIT-CT-007",
+        "name": "Teach-BITCT 7",
+        "position": "Instructor",
+        "programs": [
+          "BIT-CT"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BIT-CT-008",
+        "name": "Teach-BITCT 8",
+        "position": "Professor",
+        "programs": [
+          "BIT-CT"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BIT-CT-009",
+        "name": "Teach-BITCT 9",
+        "position": "Associate Professor",
+        "programs": [
+          "BIT-CT"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BIT-CT-010",
+        "name": "Teach-BITCT 10",
+        "position": "Assistant Professor",
+        "programs": [
+          "BIT-CT"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BIT-AT-001",
+        "name": "Teach-BITAT 1",
+        "position": "Associate Professor",
+        "programs": [
+          "BIT-AT"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BIT-AT-002",
+        "name": "Teach-BITAT 2",
+        "position": "Assistant Professor",
+        "programs": [
+          "BIT-AT"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BIT-AT-003",
+        "name": "Teach-BITAT 3",
+        "position": "Instructor",
+        "programs": [
+          "BIT-AT"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BIT-AT-004",
+        "name": "Teach-BITAT 4",
+        "position": "Professor",
+        "programs": [
+          "BIT-AT"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BIT-AT-005",
+        "name": "Teach-BITAT 5",
+        "position": "Associate Professor",
+        "programs": [
+          "BIT-AT"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BIT-AT-006",
+        "name": "Teach-BITAT 6",
+        "position": "Assistant Professor",
+        "programs": [
+          "BIT-AT"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BIT-AT-007",
+        "name": "Teach-BITAT 7",
+        "position": "Instructor",
+        "programs": [
+          "BIT-AT"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BIT-AT-008",
+        "name": "Teach-BITAT 8",
+        "position": "Professor",
+        "programs": [
+          "BIT-AT"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BIT-AT-009",
+        "name": "Teach-BITAT 9",
+        "position": "Associate Professor",
+        "programs": [
+          "BIT-AT"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BIT-AT-010",
+        "name": "Teach-BITAT 10",
+        "position": "Assistant Professor",
+        "programs": [
+          "BIT-AT"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BSFI-001",
+        "name": "Teach-BSFI 1",
+        "position": "Associate Professor",
+        "programs": [
+          "BSFI"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BSFI-002",
+        "name": "Teach-BSFI 2",
+        "position": "Assistant Professor",
+        "programs": [
+          "BSFI"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BSFI-003",
+        "name": "Teach-BSFI 3",
+        "position": "Instructor",
+        "programs": [
+          "BSFI"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BSFI-004",
+        "name": "Teach-BSFI 4",
+        "position": "Professor",
+        "programs": [
+          "BSFI"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BSFI-005",
+        "name": "Teach-BSFI 5",
+        "position": "Associate Professor",
+        "programs": [
+          "BSFI"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BSFI-006",
+        "name": "Teach-BSFI 6",
+        "position": "Assistant Professor",
+        "programs": [
+          "BSFI"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BSFI-007",
+        "name": "Teach-BSFI 7",
+        "position": "Instructor",
+        "programs": [
+          "BSFI"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BSFI-008",
+        "name": "Teach-BSFI 8",
+        "position": "Professor",
+        "programs": [
+          "BSFI"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BSFI-009",
+        "name": "Teach-BSFI 9",
+        "position": "Associate Professor",
+        "programs": [
+          "BSFI"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BSFI-010",
+        "name": "Teach-BSFI 10",
+        "position": "Assistant Professor",
+        "programs": [
+          "BSFI"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BSIE-001",
+        "name": "Teach-BSIE 1",
+        "position": "Associate Professor",
+        "programs": [
+          "BSIE"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BSIE-002",
+        "name": "Teach-BSIE 2",
+        "position": "Assistant Professor",
+        "programs": [
+          "BSIE"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BSIE-003",
+        "name": "Teach-BSIE 3",
+        "position": "Instructor",
+        "programs": [
+          "BSIE"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BSIE-004",
+        "name": "Teach-BSIE 4",
+        "position": "Professor",
+        "programs": [
+          "BSIE"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BSIE-005",
+        "name": "Teach-BSIE 5",
+        "position": "Associate Professor",
+        "programs": [
+          "BSIE"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BSIE-006",
+        "name": "Teach-BSIE 6",
+        "position": "Assistant Professor",
+        "programs": [
+          "BSIE"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BSIE-007",
+        "name": "Teach-BSIE 7",
+        "position": "Instructor",
+        "programs": [
+          "BSIE"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BSIE-008",
+        "name": "Teach-BSIE 8",
+        "position": "Professor",
+        "programs": [
+          "BSIE"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BSIE-009",
+        "name": "Teach-BSIE 9",
+        "position": "Associate Professor",
+        "programs": [
+          "BSIE"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "FAC-BSIE-010",
+        "name": "Teach-BSIE 10",
+        "position": "Assistant Professor",
+        "programs": [
+          "BSIE"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      },
+      {
+        "employeeId": "BARGAYO-M",
+        "name": "Marco Bargayo",
+        "position": "Instructor",
+        "programs": [
+          "BSHM"
+        ],
+        "teachingHours": 0,
+        "positionHours": 0,
+        "totalHours": 0,
+        "units": 0,
+        "classes": 0
+      }
+    ]
+  }
+}

@@ -93,7 +93,11 @@ async function importStudents(data) {
         studentId: row.studentId,
         program: row.program,
         yearLevel: parseInt(row.yearLevel) || 1,
-        section: row.section || 'A'
+        // An imported roster is already vouched for by the office that
+        // supplied it, and `login` refuses any student whose address is
+        // unverified - so leaving this at its `false` default locked out
+        // every student the import created.
+        isEmailVerified: true
       });
 
       // Create student profile
@@ -102,7 +106,7 @@ async function importStudents(data) {
         studentId: row.studentId,
         program: row.program,
         yearLevel: parseInt(row.yearLevel) || 1,
-        section: row.section || 'A',
+        sectionCode: resolveSectionCode(row),
         studentType: row.studentType || 'regular',
         academicYear: row.academicYear || '2024-2025',
         semester: parseInt(row.semester) || 1,
@@ -184,7 +188,8 @@ async function importFaculty(data) {
         firstName: row.firstName,
         lastName: row.lastName,
         middleName: row.middleName || '',
-        role: 'faculty'
+        role: 'faculty',
+        isEmailVerified: true
       });
 
       // Parse specializations (comma-separated)
@@ -199,10 +204,14 @@ async function importFaculty(data) {
         department: row.department || 'CoTE',
         position: row.position || 'Instructor',
         specializations,
-        maxTeachingLoad: parseInt(row.maxTeachingLoad) || 24,
-        currentLoad: 0,
-        contactNumber: row.contactNumber,
-        officeLocation: row.officeLocation
+        // `Faculty` has `maxTeachingHours` / `currentTeachingHours`, and no
+        // `officeLocation` at all. The old field names were silently dropped,
+        // so an imported teacher's cap from the workbook never took effect -
+        // the solver saw the schema default of 36 hours instead. Both column
+        // spellings are accepted so existing workbooks keep working.
+        maxTeachingHours: parseInt(row.maxTeachingHours || row.maxTeachingLoad, 10) || 36,
+        currentTeachingHours: 0,
+        contactNumber: row.contactNumber
       });
 
       results.success.push({
@@ -298,6 +307,36 @@ async function importSubjects(data) {
 }
 
 /**
+ * Work out the section code the rest of the system matches on.
+ *
+ * `Student` has no `section` field - it has `sectionCode`, in the campus form
+ * `BSIT-4A-D` (program, year, letter, first letter of the shift), the same
+ * shape `section.controller.js` builds. The importer used to write
+ * `section: 'A'`, which Mongoose silently dropped, so every student imported
+ * from a workbook ended up with no section at all: they were invisible to the
+ * class spaces, to `GET /api/schedules` (which filters on the student's
+ * `sectionCode`) and to the schedule notifier.
+ *
+ * A workbook may give a full code, or just the letter plus the year and
+ * program in their own columns. Both are accepted.
+ */
+function resolveSectionCode(row) {
+  const explicit = String(row.sectionCode || '').trim();
+  if (explicit) return explicit.toUpperCase();
+
+  const section = String(row.section || 'A').trim();
+  // Already a full code, e.g. "BSIT-4A-D"
+  if (section.includes('-')) return section.toUpperCase();
+
+  const program = String(row.program || '').trim().toUpperCase();
+  const yearLevel = parseInt(row.yearLevel, 10) || 1;
+  const shift = String(row.shift || 'Day').trim() || 'Day';
+  if (!program) return section.toUpperCase();
+
+  return `${program}-${yearLevel}${section.toUpperCase()}-${shift[0].toUpperCase()}`;
+}
+
+/**
  * Generate Excel template for download
  * @param {String} type - Type of template (students, faculty, subjects)
  * @returns {Buffer} Excel file buffer
@@ -320,6 +359,7 @@ function generateTemplate(type) {
           program: 'BSIT',
           yearLevel: 1,
           section: 'A',
+          shift: 'Day',
           studentType: 'regular',
           academicYear: '2024-2025',
           semester: 1,
@@ -344,9 +384,8 @@ function generateTemplate(type) {
           department: 'CoTE',
           position: 'Instructor',
           specializations: 'Programming, Database',
-          maxTeachingLoad: 24,
-          contactNumber: '09123456789',
-          officeLocation: 'Room 201'
+          maxTeachingHours: 36,
+          contactNumber: '09123456789'
         }
       ];
       break;

@@ -1,0 +1,212 @@
+{
+  "generatedAt": "2026-11-19T16:30:34.909Z",
+  "target": "http://127.0.0.1:5000",
+  "frontend": "http://localhost:3000",
+  "readOnly": true,
+  "note": "ST ids reconstructed from the system's behaviour; the original Table 42 wording was not supplied. Write-path scenarios are covered in tests/appendixGIntegration2.test.js against an in-memory database.",
+  "accountsUsed": {
+    "admin": "admin",
+    "officer": "scheduling_officer",
+    "manager": "program_manager (BSIT)",
+    "faculty": "faculty",
+    "student": "student"
+  },
+  "summary": {
+    "total": 15,
+    "passed": 15,
+    "failed": 0
+  },
+  "results": [
+    {
+      "id": "ST-01",
+      "area": "platform",
+      "what": "The API answers a health check",
+      "expected": "HTTP 200",
+      "observed": "HTTP 200",
+      "pass": true,
+      "ms": 112
+    },
+    {
+      "id": "ST-02",
+      "area": "security",
+      "what": "Timetable data is refused without a token",
+      "expected": "HTTP 401",
+      "observed": "HTTP 401",
+      "pass": true,
+      "ms": 11
+    },
+    {
+      "id": "ST-03",
+      "area": "security",
+      "what": "Anonymous account creation is refused before validation",
+      "expected": "HTTP 401",
+      "observed": "HTTP 401",
+      "pass": true
+    },
+    {
+      "id": "ST-04",
+      "area": "scheduling",
+      "what": "The scheduling office can list timetables",
+      "expected": "HTTP 200 with rows",
+      "observed": "HTTP 200, 55 rows",
+      "pass": true,
+      "ms": 438,
+      "rows": 55
+    },
+    {
+      "id": "ST-05",
+      "area": "dashboard",
+      "what": "Dashboard statistics load with real counts",
+      "expected": "HTTP 200 with non-zero totals",
+      "observed": "HTTP 200, schedules=55, faculty=78, rooms=30",
+      "pass": true,
+      "ms": 202,
+      "stats": {
+        "scope": "all",
+        "term": {
+          "academicYear": "2026-2027",
+          "semester": 1
+        },
+        "totalUsers": 108,
+        "activeUsers": 106,
+        "inactiveUsers": 2,
+        "pendingFaculty": 0,
+        "totalFaculty": 84,
+        "activeFaculty": 78,
+        "teachingFaculty": 18,
+        "totalSubjects": 131,
+        "scheduledSubjects": 31,
+        "totalRooms": 30,
+        "totalSchedules": 55,
+        "publishedSchedules": 54,
+        "draftSchedules": 1,
+        "totalSections": 12,
+        "totalClasses": 55,
+        "totalStudents": 25,
+        "enrolledStudents": 14,
+        "unassignedStudents": 19,
+        "programStudents": 0,
+        "programSubjects": 0,
+        "programSchedules": 0
+      }
+    },
+    {
+      "id": "ST-06",
+      "area": "program isolation",
+      "what": "A BSIT manager's timetable list contains only their program",
+      "expected": "0 rows from another program",
+      "observed": "HTTP 200, 55 rows, 0 from another program",
+      "pass": true,
+      "ms": 500,
+      "rows": 55,
+      "program": "BSIT"
+    },
+    {
+      "id": "ST-07",
+      "area": "faculty",
+      "what": "A teacher can load their own timetable",
+      "expected": "HTTP 200",
+      "observed": "HTTP 200, 54 rows",
+      "pass": true,
+      "ms": 550
+    },
+    {
+      "id": "ST-08",
+      "area": "students",
+      "what": "A student can load their class list",
+      "expected": "HTTP 200",
+      "observed": "HTTP 200",
+      "pass": true,
+      "ms": 172
+    },
+    {
+      "id": "ST-09",
+      "area": "security",
+      "what": "A student is refused the campus conflict scan",
+      "expected": "HTTP 403",
+      "observed": "HTTP 403",
+      "pass": true,
+      "ms": 91
+    },
+    {
+      "id": "ST-10",
+      "area": "scheduling",
+      "what": "The campus-wide conflict scan completes",
+      "expected": "HTTP 200 with a conflict breakdown",
+      "observed": "HTTP 200, total=0, high=0, medium=0",
+      "pass": true,
+      "ms": 468,
+      "conflicts": 0,
+      "high": 0,
+      "medium": 0
+    },
+    {
+      "id": "ST-11",
+      "area": "solver",
+      "what": "The server reports which scheduling engine it will use",
+      "expected": "HTTP 200 naming the engine",
+      "observed": "HTTP 200, available=true, ortools=9.15.6755",
+      "pass": true,
+      "ms": 3498,
+      "engine": {
+        "available": true,
+        "pythonFound": true,
+        "python": "python",
+        "ortoolsVersion": "9.15.6755",
+        "scriptPath": "C:\\Programming\\new timetable\\backend\\python\\ortools_scheduler.py"
+      }
+    },
+    {
+      "id": "ST-12",
+      "area": "notifications",
+      "what": "A student can load their notifications",
+      "expected": "HTTP 200",
+      "observed": "HTTP 200",
+      "pass": true,
+      "ms": 152
+    },
+    {
+      "id": "ST-13",
+      "area": "privacy",
+      "what": "A student data probe is refused by the help desk, not passed to the model",
+      "expected": "HTTP 200 and guarded=true",
+      "observed": "HTTP 200, guarded=true",
+      "pass": true,
+      "reply": "⚠️ **I can’t look up or share information stored in the system.**\n\nI don’t have access to student, faculty, schedule or account records, and asking for other pe"
+    },
+    {
+      "id": "ST-14",
+      "area": "public site",
+      "what": "The public documentation page is served",
+      "expected": "HTTP 200",
+      "observed": "HTTP 200",
+      "pass": true,
+      "ms": 18
+    },
+    {
+      "id": "ST-15",
+      "area": "export",
+      "what": "The CSV export declares the full 15-column record",
+      "expected": "15 columns",
+      "observed": "15 columns",
+      "pass": true,
+      "headers": [
+        "Subject Code",
+        "Subject Name",
+        "Faculty",
+        "Room",
+        "Program",
+        "Year",
+        "Section",
+        "Day",
+        "Start Time",
+        "End Time",
+        "Type",
+        "Max Students",
+        "Semester",
+        "Academic Year",
+        "Status"
+      ]
+    }
+  ]
+}

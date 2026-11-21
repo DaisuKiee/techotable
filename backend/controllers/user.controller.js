@@ -211,11 +211,35 @@ exports.uploadAvatar = async (req, res) => {
       });
     }
 
-    // Store avatar path (relative to uploads folder)
-    const avatarPath = `/uploads/avatars/${req.file.filename}`;
-    user.profilePicture = avatarPath;
+    // Hand the bytes to the storage layer, which puts them in Cloudflare R2
+    // when configured and on local disk otherwise. What comes back is what
+    // gets stored: an absolute URL for R2, "/uploads/..." for local. The
+    // frontend's fileUrl() helper copes with both.
+    const fileStorage = require('../services/fileStorage.service');
+    const previous = user.profilePicture;
 
+    let stored;
+    try {
+      stored = await fileStorage.save({
+        buffer: req.file.buffer,
+        folder: 'avatars',
+        contentType: req.file.mimetype,
+        // Refuse anything whose bytes are not actually an image, whatever the
+        // filename and the browser claimed.
+        imageOnly: true,
+      });
+    } catch (err) {
+      return res.status(400).json({ success: false, message: err.message });
+    }
+
+    user.profilePicture = stored.url;
     await user.save();
+
+    // The old photo is now unreachable; clean it up once the new one is saved,
+    // so a failed upload never leaves the user with no picture at all.
+    if (previous && previous !== stored.url) {
+      fileStorage.remove(previous).catch(() => {});
+    }
 
     const updatedUser = publicUser(user);
 
@@ -252,15 +276,13 @@ exports.deleteAvatar = async (req, res) => {
       });
     }
 
-    // Delete avatar file if exists
+    // Remove the stored file, wherever it lives. This used to join the stored
+    // value onto the backend directory and unlink it, which only ever worked
+    // for local paths and would have silently done nothing once avatars moved
+    // to R2 - leaving orphaned objects in the bucket for every removal.
     if (user.profilePicture) {
-      const fs = require('fs');
-      const path = require('path');
-      const avatarPath = path.join(__dirname, '..', user.profilePicture);
-
-      if (fs.existsSync(avatarPath)) {
-        fs.unlinkSync(avatarPath);
-      }
+      const fileStorage = require('../services/fileStorage.service');
+      await fileStorage.remove(user.profilePicture);
     }
 
     user.profilePicture = null;

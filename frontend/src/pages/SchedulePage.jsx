@@ -41,6 +41,10 @@ const STATUS_FILTERS = [
 
 const SELECT_CLASS =
   'px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm transition-all';
+// Small caption that labels each filter group, so the bare dropdown values
+// ("2026-2027", "1st Sem") read as what they control.
+const FILTER_LABEL =
+  'flex-shrink-0 text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500';
 const CHIP_CLASS =
   'inline-flex items-center gap-1 px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 text-xs rounded-md';
 const TH_CLASS =
@@ -930,17 +934,6 @@ const SchedulePage = () => {
               )}
             </p>
             <div className="flex gap-2">
-              {/* No "Add Schedule": a timetable is generated or built by hand
-                  in the builder, both of which check for clashes as you go. */}
-              {canEditSchedules && (
-                <button
-                  onClick={handleGenerate}
-                  className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-md hover:shadow-lg text-sm"
-                >
-                  <Wand2 className="w-5 h-5" />
-                  <span className="hidden sm:inline">Generate</span>
-                </button>
-              )}
               <div className="relative" ref={exportMenuRef}>
                 <button
                   onClick={() => setShowExportMenu((open) => !open)}
@@ -1022,77 +1015,88 @@ const SchedulePage = () => {
               )}
             </div>
 
-            {/* Filters */}
-            <div className="flex flex-wrap gap-2">
-              <select
-                value={filters.academicYear}
-                onChange={(e) => handleContextChange({ academicYear: e.target.value })}
-                title="Academic year"
-                aria-label="Academic year"
-                className={SELECT_CLASS}
-              >
-                {academicYearOptions.map((ay) => (
-                  <option key={ay} value={ay}>{ay}</option>
-                ))}
-              </select>
-
-              <select
-                value={filters.semester}
-                onChange={(e) => handleContextChange({ semester: parseInt(e.target.value, 10) })}
-                title="Semester"
-                aria-label="Semester"
-                className={SELECT_CLASS}
-              >
-                <option value={1}>1st Sem</option>
-                <option value={2}>2nd Sem</option>
-              </select>
+            {/* Filters, grouped and labelled so the bare values are legible */}
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+              {/* Term: academic year + semester, the "what period" context */}
+              <div className="flex items-center gap-2">
+                <span className={FILTER_LABEL}>Term</span>
+                <select
+                  value={filters.academicYear}
+                  onChange={(e) => handleContextChange({ academicYear: e.target.value })}
+                  title="Academic year"
+                  aria-label="Academic year"
+                  className={SELECT_CLASS}
+                >
+                  {academicYearOptions.map((ay) => (
+                    <option key={ay} value={ay}>{ay}</option>
+                  ))}
+                </select>
+                <select
+                  value={filters.semester}
+                  onChange={(e) => handleContextChange({ semester: parseInt(e.target.value, 10) })}
+                  title="Semester"
+                  aria-label="Semester"
+                  className={SELECT_CLASS}
+                >
+                  <option value={1}>1st Sem</option>
+                  <option value={2}>2nd Sem</option>
+                </select>
+              </div>
 
               {/* Program: program managers are always in their own */}
               {!isProgramManager && (
-                <select
-                  value={filters.program}
-                  onChange={(e) => handleProgramChange(e.target.value)}
-                  title="Program"
-                  aria-label="Program"
-                  className={SELECT_CLASS}
-                >
-                  <option value="">All Programs</option>
-                  {PROGRAMS.map((prog) => (
-                    <option key={prog} value={prog}>{prog}</option>
-                  ))}
-                </select>
+                <div className="flex items-center gap-2">
+                  <span className={FILTER_LABEL}>Program</span>
+                  <select
+                    value={filters.program}
+                    onChange={(e) => handleProgramChange(e.target.value)}
+                    title="Program"
+                    aria-label="Program"
+                    className={SELECT_CLASS}
+                  >
+                    <option value="">All Programs</option>
+                    {PROGRAMS.map((prog) => (
+                      <option key={prog} value={prog}>{prog}</option>
+                    ))}
+                  </select>
+                </div>
               )}
 
               {/* Section: the primary control. Choosing one sets program, year
-                  level, semester and shift together. */}
+                  level, semester and shift together. A gentle filled tint when
+                  empty invites a choice without the old dashed-border shout. */}
               {canEditSchedules && (
-                <select
-                  value={selectedSection?._id || ''}
-                  onChange={(e) => handleSectionSelect(e.target.value)}
-                  title="Section to work on"
-                  aria-label="Section to work on"
-                  className={`px-3 py-2.5 rounded-lg text-sm font-semibold transition-all focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white ${
-                    selectedSection
-                      ? 'border-2 border-blue-500 text-blue-700 dark:text-blue-300'
-                      : 'border-2 border-dashed border-blue-400 text-blue-600 dark:text-blue-400 ring-2 ring-blue-200 dark:ring-blue-900'
-                  }`}
-                >
-                  <option value="">
-                    {sectionOptions.length === 0 ? 'No sections available' : 'Choose a section…'}
-                  </option>
-                  {sectionOptions.map((s) => (
-                    <option key={s._id} value={s._id}>
-                      {s.sectionCode} — Year {s.yearLevel} · Sem {s.semester} · {s.shift}
+                <div className="flex items-center gap-2">
+                  <span className={FILTER_LABEL}>Section</span>
+                  <select
+                    value={selectedSection?._id || ''}
+                    onChange={(e) => handleSectionSelect(e.target.value)}
+                    title="Section to work on"
+                    aria-label="Section to work on"
+                    className={`px-3 py-2.5 rounded-lg text-sm font-semibold transition-all focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white ${
+                      selectedSection
+                        ? 'border border-blue-500 text-blue-700 dark:text-blue-300'
+                        : 'border border-blue-400 bg-blue-50 text-blue-700 dark:border-blue-500/70 dark:bg-blue-900/20 dark:text-blue-300'
+                    }`}
+                  >
+                    <option value="">
+                      {sectionOptions.length === 0 ? 'No sections available' : 'Choose a section…'}
                     </option>
-                  ))}
-                </select>
+                    {sectionOptions.map((s) => (
+                      <option key={s._id} value={s._id}>
+                        {s.sectionCode} — Year {s.yearLevel} · Sem {s.semester} · {s.shift}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               )}
 
-              {/* The builder is its own page; the chosen section carries over */}
+              {/* The builder is its own page; the chosen section carries over.
+                  Generating a whole timetable now lives inside the builder. */}
               {canEditSchedules && (
                 <Link
                   to={selectedSection ? `/schedules/builder?section=${selectedSection._id}` : '/schedules/builder'}
-                  className="inline-flex items-center gap-2 rounded-lg border border-blue-600 px-3 py-2 text-sm font-semibold text-blue-700 transition-colors hover:bg-blue-50 dark:border-blue-500 dark:text-blue-300 dark:hover:bg-blue-900/30"
+                  className="inline-flex items-center gap-2 rounded-lg border border-blue-600 px-3 py-2.5 text-sm font-semibold text-blue-700 transition-colors hover:bg-blue-50 dark:border-blue-500 dark:text-blue-300 dark:hover:bg-blue-900/30"
                   title="Open the drag-and-drop schedule builder"
                 >
                   <Grid className="h-4 w-4" />
@@ -1142,16 +1146,47 @@ const SchedulePage = () => {
               </button>
             )}
 
+            {/* Active filter chips share this line with the status tabs — both
+                describe "what's being shown" — so they use the gap that used to
+                sit empty beside the status control instead of a lonely row. */}
+            {hasActiveFilters && (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs text-gray-500 dark:text-gray-400">Active:</span>
+                {searchTerm && <FilterChip label={`Search: ${searchTerm}`} onRemove={() => setSearchTerm('')} />}
+                {statusFilter !== 'all' && (
+                  <FilterChip
+                    label={statusFilter === 'published' ? 'Published' : 'Draft'}
+                    onRemove={() => setStatusFilter('all')}
+                  />
+                )}
+                {filters.program && (
+                  <FilterChip
+                    label={`Program: ${filters.program}`}
+                    onRemove={isProgramManager ? undefined : () => handleProgramChange('')}
+                  />
+                )}
+                {filters.yearLevel && (
+                  <FilterChip label={`Year ${filters.yearLevel}`} onRemove={clearYearLevel} />
+                )}
+                {filters.shift && (
+                  <FilterChip label={`${filters.shift} Shift`} onRemove={clearShift} />
+                )}
+                <button
+                  onClick={clearAllFilters}
+                  className="text-xs text-red-600 dark:text-red-400 hover:underline"
+                >
+                  Clear all
+                </button>
+              </div>
+            )}
+
             {/* Actions sit with the list they act on, rather than in a third
                 row of their own below the filters. */}
             <div className="ml-auto flex flex-wrap items-center gap-2">
               {canEditSchedules && (
                 <>
-                  {!builderReady && (
-                    <span className="text-xs text-gray-500 dark:text-gray-400 hidden sm:inline">
-                      Choose a section to enable
-                    </span>
-                  )}
+                  {/* The buttons below are disabled with explanatory tooltips
+                      until a section is chosen, so no separate hint is needed. */}
                   <button
                     onClick={handleCheckConflicts}
                     disabled={!builderReady || checkingConflicts}
@@ -1191,38 +1226,6 @@ const SchedulePage = () => {
             </div>
           </div>
 
-          {/* Active filter chips get their own line so they can wrap without
-              shoving the controls above around. */}
-          {hasActiveFilters && (
-            <div className="flex flex-wrap items-center gap-2 mt-3">
-              <span className="text-xs text-gray-500 dark:text-gray-400">Active filters:</span>
-                {searchTerm && <FilterChip label={`Search: ${searchTerm}`} onRemove={() => setSearchTerm('')} />}
-                {statusFilter !== 'all' && (
-                  <FilterChip
-                    label={statusFilter === 'published' ? 'Published' : 'Draft'}
-                    onRemove={() => setStatusFilter('all')}
-                  />
-                )}
-                {filters.program && (
-                  <FilterChip
-                    label={`Program: ${filters.program}`}
-                    onRemove={isProgramManager ? undefined : () => handleProgramChange('')}
-                  />
-                )}
-                {filters.yearLevel && (
-                  <FilterChip label={`Year ${filters.yearLevel}`} onRemove={clearYearLevel} />
-                )}
-                {filters.shift && (
-                  <FilterChip label={`${filters.shift} Shift`} onRemove={clearShift} />
-                )}
-              <button
-                onClick={clearAllFilters}
-                className="text-xs text-red-600 dark:text-red-400 hover:underline"
-              >
-                Clear all
-              </button>
-            </div>
-          )}
         </div>
 
         {/* Selected section. A single line rather than the four-line card it

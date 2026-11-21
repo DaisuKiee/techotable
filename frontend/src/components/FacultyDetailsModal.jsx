@@ -14,6 +14,7 @@ import {
   describeRecency,
   STALE_AFTER_YEARS,
 } from '../utils/teachingExperience';
+import { fileUrl } from '../utils/fileUrl';
 
 const TABS = [
   { id: 'overview', label: 'Overview', icon: User },
@@ -256,7 +257,7 @@ const FacultyDetailsModal = ({ faculty: listFaculty, onClose, onEdit }) => {
   const programs = faculty.programs || [];
 
   const imgSrc = faculty.user?.profilePicture
-    ? `${(process.env.REACT_APP_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '')}${faculty.user.profilePicture}`
+    ? fileUrl(faculty.user.profilePicture)
     : null;
 
   const rated = subjectExperience.filter((s) => s.avgRating);

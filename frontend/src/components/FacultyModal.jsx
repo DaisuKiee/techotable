@@ -5,6 +5,7 @@ import { Plus, Trash2, User, Users, Mail, Award, BookOpen, Clock } from 'lucide-
 import BaseModal from './BaseModal';
 import { useAuth } from '../context/AuthContext';
 import AnimatedUserCheck from './AnimatedUserCheck';
+import { fileUrl } from '../utils/fileUrl';
 
 const FacultyModal = ({ mode, faculty, onClose }) => {
   const { user } = useAuth();
@@ -246,7 +247,7 @@ const FacultyModal = ({ mode, faculty, onClose }) => {
                 <div className="flex-shrink-0">
                   {faculty.user?.profilePicture ? (
                     <img
-                      src={`${process.env.REACT_APP_API_URL?.replace('/api', '')}${faculty.user.profilePicture}`}
+                      src={fileUrl(faculty.user.profilePicture)}
                       alt={`${faculty.user.firstName} ${faculty.user.lastName}`}
                       className="h-16 w-16 rounded-full object-cover ring-4 ring-blue-200 dark:ring-blue-800"
                       onError={(e) => {

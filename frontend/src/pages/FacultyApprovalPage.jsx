@@ -4,6 +4,7 @@ import { ModalShell, ModalHeader, ModalBody, ModalFooter, ModalButton } from '..
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import Layout from '../components/Layout';
+import AnimatedCheckIcon from '../components/AnimatedCheckIcon';
 import { Bone, SkeletonRegion } from '../components/ui/Skeleton';
 import dashboardBg from '../assets/images/backgrounds/bg.jpg';
 import { useConfirm } from '../context/ConfirmContext';
@@ -180,72 +181,7 @@ const FacultyApprovalPage = () => {
           ) : pendingFaculty.length === 0 ? (
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg px-6 py-10 sm:p-12 text-center">
               <div className="w-20 h-20 mx-auto mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="80" height="80" role="img" aria-label="Done">
-                  <style>
-                    {`
-                      .circle {
-                        fill: none;
-                        stroke: #22c55e;
-                        stroke-width: 6;
-                        stroke-linecap: round;
-                        stroke-dasharray: 327;
-                        stroke-dashoffset: 327;
-                        transform: rotate(-90deg);
-                        transform-origin: 60px 60px;
-                        animation: draw-circle 0.7s ease-out forwards;
-                      }
-                      .fill {
-                        fill: #22c55e;
-                        opacity: 0;
-                        transform-origin: 60px 60px;
-                        animation: fill-in 0.35s ease-out 0.7s forwards;
-                      }
-                      .check {
-                        fill: none;
-                        stroke: #ffffff;
-                        stroke-width: 8;
-                        stroke-linecap: round;
-                        stroke-linejoin: round;
-                        stroke-dasharray: 60;
-                        stroke-dashoffset: 60;
-                        animation: draw-check 0.4s ease-out 0.9s forwards;
-                      }
-                      .badge {
-                        transform-origin: 60px 60px;
-                        animation: pop 0.5s ease-out 1.1s;
-                      }
-                      .ring {
-                        fill: none;
-                        stroke: #22c55e;
-                        stroke-width: 3;
-                        opacity: 0;
-                        transform-origin: 60px 60px;
-                        animation: pulse 0.8s ease-out 1.1s;
-                      }
-                      @keyframes draw-circle { to { stroke-dashoffset: 0; } }
-                      @keyframes fill-in { to { opacity: 1; } }
-                      @keyframes draw-check { to { stroke-dashoffset: 0; } }
-                      @keyframes pop {
-                        0%   { transform: scale(1); }
-                        50%  { transform: scale(1.12); }
-                        100% { transform: scale(1); }
-                      }
-                      @keyframes pulse {
-                        0%   { opacity: 0.6; transform: scale(1); }
-                        100% { opacity: 0;   transform: scale(1.5); }
-                      }
-                      @media (prefers-reduced-motion: reduce) {
-                        .circle, .fill, .check, .badge, .ring { animation-duration: 0.01s; animation-delay: 0s; }
-                      }
-                    `}
-                  </style>
-                  <g className="badge">
-                    <circle className="fill" cx="60" cy="60" r="52"/>
-                    <circle className="circle" cx="60" cy="60" r="52"/>
-                    <path className="check" d="M38 62 L54 78 L83 44"/>
-                  </g>
-                  <circle className="ring" cx="60" cy="60" r="52"/>
-                </svg>
+                <AnimatedCheckIcon className="w-20 h-20" variant="solid" />
               </div>
               <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-2">
                 All Caught Up!

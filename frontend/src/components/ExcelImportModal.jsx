@@ -53,9 +53,11 @@ const ExcelImportModal = ({ type = 'students', onClose, onComplete }) => {
       templateType: 'subjects',
       instructions: [
         'Download the Excel template using the button below',
-        'Fill in subject data: subjectCode, subjectName, program, yearLevel, semester',
         'Required columns: subjectCode, subjectName, program, yearLevel',
-        'Required qualifications should be comma-separated',
+        'Use a program code (e.g. BSIT) or "General" for GE courses shared by every program',
+        'Set labHours for courses with a laboratory; leave it 0 for lecture-only courses',
+        'Required qualifications should be comma-separated (or left blank)',
+        'The "Instructions" tab lists every column and its accepted values',
         'Upload the completed Excel file (.xlsx or .xls)'
       ]
     }

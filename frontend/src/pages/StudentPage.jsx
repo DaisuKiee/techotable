@@ -1,14 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import {
-  Plus, Upload, Edit2, Trash2, Search, X, Users, GraduationCap, Grid3x3, List,
-  Download, FileText, BookOpen, AlertTriangle, UserCheck, Shuffle, RefreshCw, Mail, User,
+  Plus, Edit2, Trash2, Search, X, Users, GraduationCap, Grid3x3, List,
+  Download, BookOpen, AlertTriangle, UserCheck, Shuffle, RefreshCw, Mail, User,
 } from 'lucide-react';
 import Layout from '../components/Layout';
 import { Bone, SkeletonRegion } from '../components/ui/Skeleton';
 import { studentAPI, getErrorMessage } from '../services/api';
 import StudentModal from '../components/StudentModal';
-import BulkImportModal from '../components/BulkImportModal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import StatCard from '../components/StatCard';
 import { useAuth } from '../context/AuthContext';
@@ -171,7 +170,6 @@ const StudentPage = () => {
     try { return localStorage.getItem('students.view') || 'grid'; } catch (_) { return 'grid'; }
   });
   const [modal, setModal] = useState(null); // { student } | { student: null } | null
-  const [showImport, setShowImport] = useState(false);
   const [confirm, setConfirm] = useState(null);
   const requestId = useRef(0);
   const searchRef = useRef(null);
@@ -286,12 +284,6 @@ const StudentPage = () => {
     toast.success(`Exported ${students.length} student${students.length === 1 ? '' : 's'}`);
   };
 
-  const downloadTemplate = () => downloadCsv('student_import_template.csv', [
-    ['studentId', 'email', 'password', 'firstName', 'lastName', 'middleName', 'program', 'yearLevel', 'sectionCode', 'studentType', 'subjectCodes', 'contactNumber'],
-    ['2025-00001', 'juan.delacruz@example.com', '', 'Juan', 'Dela Cruz', 'Santos', isManager ? user.program : 'BSIT', '1', '', 'regular', '', '09123456789'],
-    ['2025-00002', 'maria.garcia@example.com', 'ChangeMe2025', 'Maria', 'Garcia', 'Lopez', isManager ? user.program : 'BSIT', '2', '', 'irregular', 'CC 111; GEC-RPH', '09123456788'],
-  ]);
-
   const actions = (student, compact) => (
     <>
       <button
@@ -333,12 +325,6 @@ const StudentPage = () => {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={downloadTemplate} className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700" title="CSV template for importing">
-              <FileText className="h-4 w-4" /> <span className="hidden sm:inline">Template</span>
-            </button>
-            <button type="button" onClick={() => setShowImport(true)} className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700">
-              <Upload className="h-4 w-4" /> Import
-            </button>
             <button type="button" onClick={exportCsv} className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700" title="Download the students shown as CSV (opens in Excel)">
               <Download className="h-4 w-4" /> Export
             </button>
@@ -458,25 +444,18 @@ const StudentPage = () => {
               {hasFilters
                 ? 'Try a different search or clear the filters.'
                 : canAddStudent
-                  ? 'Add students one by one, or import a CSV of the whole class.'
-                  : 'Import a CSV of the whole class to get started.'}
+                  ? 'Add students one by one here.'
+                  : 'Students appear here once they join with their section’s enrollment code.'}
             </p>
             {hasFilters ? (
               <button type="button" onClick={clearFilters} className="rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">
                 Clear filters
               </button>
-            ) : (
-              <div className="flex justify-center gap-2">
-                <button type="button" onClick={() => setShowImport(true)} className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">
-                  <Upload className="h-4 w-4" /> Import CSV
-                </button>
-                {canAddStudent && (
-                  <button type="button" onClick={() => setModal({ student: null })} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
-                    <Plus className="h-4 w-4" /> Add student
-                  </button>
-                )}
-              </div>
-            )}
+            ) : canAddStudent ? (
+              <button type="button" onClick={() => setModal({ student: null })} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
+                <Plus className="h-4 w-4" /> Add student
+              </button>
+            ) : null}
           </div>
         ) : viewMode === 'grid' ? (
           <div className={`grid grid-cols-1 gap-4 sk-stagger transition-opacity md:grid-cols-2 lg:grid-cols-3 ${refreshing ? 'opacity-60' : ''}`}>
@@ -580,13 +559,6 @@ const StudentPage = () => {
       </div>
 
       {modal && <StudentModal student={modal.student} onClose={handleModalClose} />}
-
-      {showImport && (
-        <BulkImportModal
-          onClose={() => setShowImport(false)}
-          onComplete={() => { setShowImport(false); load(); }}
-        />
-      )}
 
       <ConfirmDialog
         isOpen={!!confirm}

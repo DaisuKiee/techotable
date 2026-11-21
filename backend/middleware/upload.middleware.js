@@ -27,35 +27,42 @@ if (!fs.existsSync(UPLOAD_ROOT)) {
 
 const MAX_FILE_SIZE = parseInt(process.env.MAX_FILE_SIZE, 10) || 10 * 1024 * 1024; // 10 MB
 
-const diskStorage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, UPLOAD_ROOT),
-  filename: (req, file, cb) => {
-    // Keep the extension, randomise the stem so originals can't collide or
-    // be guessed from the uploaded name.
-    const ext = path.extname(file.originalname).toLowerCase();
-    const stem = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    cb(null, `${stem}${ext}`);
-  },
-});
+// Class materials can include video, which does not fit a 10 MB cap, so they
+// get their own larger limit. Held in memory (see below), so the ceiling also
+// bounds how much RAM one upload uses - raise it on a host with room to spare.
+const MATERIAL_MAX_FILE_SIZE = parseInt(process.env.MATERIAL_MAX_FILE_SIZE, 10) || 100 * 1024 * 1024; // 100 MB
 
-const DOCUMENT_EXTENSIONS = /\.(pdf|doc|docx|ppt|pptx|xls|xlsx|txt|csv|zip|rar|png|jpe?g|gif|webp)$/i;
+const DOCUMENT_EXTENSIONS = /\.(pdf|doc|docx|ppt|pptx|xls|xlsx|txt|csv|zip|rar|png|jpe?g|gif|webp|svg|mp4|webm|mov|m4v|avi|mkv|ogv|mp3|wav|m4a|ogg)$/i;
 
 const documentFilter = (req, file, cb) => {
   if (!DOCUMENT_EXTENSIONS.test(file.originalname)) {
     return cb(
       new Error(
-        'Unsupported file type. Allowed: pdf, doc(x), ppt(x), xls(x), txt, csv, zip, rar, and images.'
+        'Unsupported file type. Allowed: pdf, doc(x), ppt(x), xls(x), txt, csv, zip, rar, images, audio and video.'
       )
     );
   }
   cb(null, true);
 };
 
-/** Class materials: documents and images, written to disk. */
+/**
+ * Class materials: documents, images, audio and video.
+ *
+ * Kept in memory and handed to services/fileStorage, which writes to
+ * Cloudflare R2 when configured and to local disk otherwise - the same path
+ * avatars take. Writing straight to disk here tied materials to one backend,
+ * and on the Pterodactyl host that disk does not survive a rebuild, so every
+ * uploaded handout was one redeploy from vanishing while the ClassSpace record
+ * still pointed at it.
+ *
+ * The trade-off of memory storage: the whole file sits in RAM until it is
+ * stored, so `MATERIAL_MAX_FILE_SIZE` doubles as a RAM guard. For large videos
+ * on a small container, streaming straight to R2 would be the next step.
+ */
 const uploadMaterial = multer({
-  storage: diskStorage,
+  storage: multer.memoryStorage(),
   limits: {
-    fileSize: MAX_FILE_SIZE,
+    fileSize: MATERIAL_MAX_FILE_SIZE,
     // One file per request, and a cap on the non-file fields that come with
     // it. Without these a single request can open thousands of parts and
     // keep the parser busy long after the size limit would have stopped a
@@ -70,6 +77,7 @@ const uploadMaterial = multer({
 module.exports = {
   UPLOAD_ROOT,
   MAX_FILE_SIZE,
+  MATERIAL_MAX_FILE_SIZE,
   uploadMaterial,
   // Exposed for unit testing (Appendix G).
   DOCUMENT_EXTENSIONS,

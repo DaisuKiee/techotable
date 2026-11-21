@@ -118,6 +118,10 @@ const SectionModal = ({ section, faculty, onClose, onSubmit }) => {
       subtitle={section ? 'Update section information' : 'Add a new section to the system'}
       icon={GraduationCap}
       size="lg"
+      // Slides in from the right on a grey canvas, so the white cards below
+      // read as cards. Same as RoomModal and the subject drawers.
+      variant="drawer"
+      panelClassName="bg-gray-50 dark:bg-gray-900"
       formId="section-form"
       submitText={section ? 'Update Section' : 'Create Section'}
       submitIcon={Check}

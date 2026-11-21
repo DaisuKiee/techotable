@@ -219,6 +219,10 @@ const SubjectEnrollmentModal = ({ subject, onClose }) => {
       subtitle={subject.subjectName}
       icon={BookOpen}
       size="xl"
+      // Opened from a subject row to inspect one subject, so it slides in from
+      // the right like the room details drawer rather than covering the list.
+      variant="drawer"
+      panelClassName="bg-gray-50 dark:bg-gray-900"
       onClose={onClose}
       showFooter={true}
       footerContent={

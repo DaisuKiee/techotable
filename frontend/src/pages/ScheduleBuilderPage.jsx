@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, School } from 'lucide-react';
+import { ArrowLeft, School, Wand2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Layout from '../components/Layout';
 import ScheduleBuilder from '../components/ScheduleBuilder';
+import GenerateScheduleModal from '../components/GenerateScheduleModal';
 import CampusWalkLoader from '../components/CampusWalkLoader';
 import { sectionAPI, subjectAPI, facultyAPI, roomAPI, getErrorMessage } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -30,6 +31,12 @@ const ScheduleBuilderPage = () => {
   const [rooms, setRooms] = useState([]);
   const [subjects, setSubjects] = useState([]);
   const [academicYear, setAcademicYear] = useState(currentAcademicYear);
+  // Auto-generate lives here now, inside the builder, rather than on the
+  // Schedules page. A save bumps `reloadNonce`, which remounts the builder so
+  // the newly generated drafts appear.
+  const [showGenerate, setShowGenerate] = useState(false);
+  const [reloadNonce, setReloadNonce] = useState(0);
+  const canGenerate = ['admin', 'scheduling_officer', 'program_manager'].includes(user?.role);
 
   // Sections, faculty and rooms: once
   useEffect(() => {
@@ -118,6 +125,17 @@ const ScheduleBuilderPage = () => {
           </Link>
           <h1 className="text-xl font-bold text-gray-900 dark:text-white">Schedule builder</h1>
           <div className="ml-auto flex flex-wrap items-center gap-2">
+            {canGenerate && (
+              <button
+                type="button"
+                onClick={() => setShowGenerate(true)}
+                className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-md transition-colors hover:bg-blue-700 hover:shadow-lg"
+                title="Auto-generate a timetable for a section"
+              >
+                <Wand2 className="h-4 w-4" />
+                Generate
+              </button>
+            )}
             <select
               value={academicYear}
               onChange={(e) => { setAcademicYear(e.target.value); if (selectedSection) selectSection(''); }}
@@ -150,7 +168,7 @@ const ScheduleBuilderPage = () => {
             <CampusWalkLoader inline compact duration={1.3} />
           ) : ready ? (
             <ScheduleBuilder
-              key={selectedSection._id}
+              key={`${selectedSection._id}-${reloadNonce}`}
               fill
               filters={filters}
               subjects={subjects}
@@ -191,6 +209,18 @@ const ScheduleBuilderPage = () => {
           )}
         </div>
       </div>
+
+      {showGenerate && (
+        <GenerateScheduleModal
+          defaultSection={selectedSection?._id || ''}
+          onClose={(saved) => {
+            setShowGenerate(false);
+            // The modal passes `true` once it has saved generated classes;
+            // remount the builder so they show up.
+            if (saved) setReloadNonce((n) => n + 1);
+          }}
+        />
+      )}
     </Layout>
   );
 };

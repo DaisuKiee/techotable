@@ -186,6 +186,11 @@ const useCachedData = (fetchFunction, cacheKey, options = {}) => {
       }, 100);
     } else {
       console.log(`[useCachedData] No cache found for ${cacheKey}, fetching with spinner`);
+      // No cache for this key. Drop any data still held from a PREVIOUS key so a
+      // stale list from the old filter doesn't linger under the new one while we
+      // fetch — otherwise switching e.g. Active → Inactive keeps showing the old
+      // list and the toggle looks like it did nothing.
+      setData(null);
       // No cache, show loading spinner and fetch
       fetchData(true);
     }

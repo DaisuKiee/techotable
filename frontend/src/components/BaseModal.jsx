@@ -61,6 +61,11 @@ const BaseModal = ({
 
   // Style
   headerColor = 'navy', // kept for compatibility; picks the icon tile colour
+  // 'dialog' (centred, the default every existing caller gets) or 'drawer'
+  // (full-height, slides in from the right) - the same choice RoomModal and
+  // RoomDetailsDrawer make directly on ModalShell.
+  variant = 'dialog',
+  panelClassName,
 
   // Form
   formId,
@@ -86,6 +91,8 @@ const BaseModal = ({
       label={ariaLabel}
       busy={blocked || !closeOnEscape}
       closeOnBackdrop={closeOnBackdrop}
+      variant={variant}
+      panelClassName={panelClassName}
     >
       <ModalHeader
         id={titleId}

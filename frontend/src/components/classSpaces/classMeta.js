@@ -3,6 +3,8 @@
  * time maths (what's on now / next) and file-type labels.
  */
 
+import { fileUrl } from '../../utils/fileUrl';
+
 /* Each subject gets one accent, picked by hashing its code so it stays the
    same everywhere. Inline hex rather than Tailwind classes so the colour can
    be computed at runtime; the tints use alpha so they work in dark mode too. */
@@ -46,9 +48,11 @@ export const roomOf = (cs) => cs?.schedule?.roomLabel || null;
 export const initialsOf = (name) =>
   (name || '').split(' ').filter(Boolean).map((p) => p[0]).slice(0, 2).join('').toUpperCase() || '?';
 
-/** Full URL for a profile picture stored as a server-relative path. */
-export const avatarSrc = (path) =>
-  path ? `${process.env.REACT_APP_API_URL?.replace('/api', '')}${path}` : null;
+/**
+ * Full URL for a profile picture, whether it is stored as a server-relative
+ * path or as an absolute object-storage URL. See utils/fileUrl.
+ */
+export const avatarSrc = (path) => fileUrl(path);
 
 /* ---- Time -------------------------------------------------------------- */
 

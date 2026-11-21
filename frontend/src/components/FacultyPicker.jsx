@@ -92,6 +92,9 @@ const FacultyPicker = ({
   const [loadingScores, setLoadingScores] = useState(false);
   const [rankingNote, setRankingNote] = useState(null);
   const [query, setQuery] = useState('');
+  // The "from other departments" list can run to the whole college, so it gets
+  // its own search, scoped to that list, right where the list is.
+  const [otherQuery, setOtherQuery] = useState('');
   // Other departments: who has taught this subject, and who is approved for it
   const [subjectProgram, setSubjectProgram] = useState('');
   const [otherScores, setOtherScores] = useState({});
@@ -267,19 +270,24 @@ const FacultyPicker = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pool, facultyScores, otherScores, query, subjectProgram, approvedIds]);
 
-  // Other departments: everyone capable outside this program (ranked), or anyone matching a search
+  // Everyone outside this program, ranked by fit, narrowed by the section's own
+  // search box rather than the main one above.
+  const otherFacultyAll = useMemo(
+    () => pool.filter((f) => f.isActive && f.user && !inDepartment(f) && !approvedIds.has(String(f._id))),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [pool, subjectProgram, approvedIds]
+  );
   const otherFaculty = useMemo(() => {
     if (!subjectProgram) return [];
-    const q = query.trim().toLowerCase();
-    return pool
-      .filter((f) => f.isActive && f.user && !inDepartment(f) && !approvedIds.has(String(f._id)))
+    const q = otherQuery.trim().toLowerCase();
+    return otherFacultyAll
       .filter((f) => (q
         ? `${f.user.firstName} ${f.user.lastName} ${f.employeeId || ''}`.toLowerCase().includes(q)
         : !!otherScores[String(f._id)]))
-      .sort((a, b) => (otherScores[String(a._id)]?.rank || 99) - (otherScores[String(b._id)]?.rank || 99))
-      .slice(0, 20);
+      // No cap: every teacher from other programs is shown, ranked by fit.
+      .sort((a, b) => (otherScores[String(a._id)]?.rank || 99) - (otherScores[String(b._id)]?.rank || 99));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pool, otherScores, query, subjectProgram, approvedIds]);
+  }, [otherFacultyAll, otherScores, otherQuery, subjectProgram]);
 
   return (
     <Section
@@ -391,17 +399,54 @@ const FacultyPicker = ({
       </ul>
 
       {/* Borrow a teacher from another department for this subject */}
-      {subjectProgram && (otherFaculty.length > 0 || [...approvedIds].length > 0) && (
+      {subjectProgram && (otherFacultyAll.length > 0 || [...approvedIds].length > 0) && (
         <div className="mt-4 border-t border-gray-200 pt-3 dark:border-gray-700">
-          <p className="flex items-center gap-1.5 text-xs font-semibold text-gray-900 dark:text-white">
-            <ArrowLeftRight className="h-3.5 w-3.5 text-blue-600" /> From other departments
-          </p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="flex items-center gap-1.5 text-xs font-semibold text-gray-900 dark:text-white">
+              <ArrowLeftRight className="h-3.5 w-3.5 text-blue-600" /> From other departments
+            </p>
+            {otherFacultyAll.length > 0 && (
+              <span className="text-[11px] text-gray-400 dark:text-gray-500">
+                {otherQuery ? `${otherFaculty.length} of ${otherFacultyAll.length}` : otherFacultyAll.length}
+              </span>
+            )}
+          </div>
           <p className="mb-2 text-[11px] text-gray-500 dark:text-gray-400">
-            Capable teachers outside {subjectProgram}, ranked by fit for {subjectCode || 'this subject'}. Approve one to let the
+            Every teacher outside {subjectProgram}, ranked by fit for {subjectCode || 'this subject'}. Approve one to let the
             generator and B-LO use them for {subjectCode || 'this subject'} only; their own department&apos;s load still counts.
           </p>
+
+          {/* Dedicated search for this list, which can run to the whole college */}
+          {otherFacultyAll.length > 0 && (
+            <div className="relative mb-2">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                value={otherQuery}
+                onChange={(e) => setOtherQuery(e.target.value)}
+                placeholder={`Search ${otherFacultyAll.length} teachers from other departments`}
+                data-modal-ignore-dirty
+                className="w-full rounded-lg border border-gray-300 bg-white py-1.5 pl-8 pr-8 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              />
+              {otherQuery && (
+                <button
+                  type="button"
+                  onClick={() => setOtherQuery('')}
+                  aria-label="Clear search"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          )}
+
           {otherFaculty.length === 0 ? (
-            <p className="text-[11px] text-gray-500 dark:text-gray-400">No one outside {subjectProgram} is available. Search by name to find someone.</p>
+            <p className="text-[11px] text-gray-500 dark:text-gray-400">
+              {otherQuery
+                ? `No one outside ${subjectProgram} matches “${otherQuery}”.`
+                : `No one outside ${subjectProgram} is available.`}
+            </p>
           ) : (
             <ul className="max-h-56 space-y-1.5 overflow-y-auto pr-1">
               {otherFaculty.map((fac) => {

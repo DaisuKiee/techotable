@@ -4,6 +4,7 @@ import { ModalShell, ModalHeader, ModalFooter, ModalButton, useModalTitleId } fr
 import { studentAPI, getErrorMessage } from '../services/api';
 import toast from 'react-hot-toast';
 import AnimatedUserCheck from './AnimatedUserCheck';
+import { fileUrl } from '../utils/fileUrl';
 
 const ManageSectionStudentsModal = ({ section, onClose, onSuccess }) => {
   const [students, setStudents] = useState([]);
@@ -129,7 +130,7 @@ const ManageSectionStudentsModal = ({ section, onClose, onSuccess }) => {
                           <div className="flex items-center gap-3">
                             {student.user?.profilePicture ? (
                               <img
-                                src={`${process.env.REACT_APP_API_URL?.replace('/api', '')}${student.user.profilePicture}`}
+                                src={fileUrl(student.user.profilePicture)}
                                 alt=""
                                 className="w-10 h-10 rounded-full object-cover"
                               />
@@ -189,7 +190,7 @@ const ManageSectionStudentsModal = ({ section, onClose, onSuccess }) => {
                             <div className="flex items-center gap-3 flex-1">
                               {student.user?.profilePicture ? (
                                 <img
-                                  src={`${process.env.REACT_APP_API_URL?.replace('/api', '')}${student.user.profilePicture}`}
+                                  src={fileUrl(student.user.profilePicture)}
                                   alt=""
                                   className="w-10 h-10 rounded-full object-cover"
                                 />

@@ -196,6 +196,20 @@ describe('Appendix G — Table 40 Unit Testing (file upload)', () => {
     expect(exe.err).toBeInstanceOf(Error);
     expect(exe.ok).toBeUndefined();
   });
+
+  test('UT-28a class materials now accept video and audio, not just documents', async () => {
+    for (const name of ['lecture.mp4', 'demo.webm', 'clip.mov', 'podcast.mp3', 'slides.pptx', 'photo.png']) {
+      const r = await runFilter(name);
+      expect(r.err).toBeFalsy();
+      expect(r.ok).toBe(true);
+    }
+  });
+
+  test('UT-28b the material size cap is larger than the avatar cap, for video', () => {
+    const { MATERIAL_MAX_FILE_SIZE } = require('../middleware/upload.middleware');
+    expect(MATERIAL_MAX_FILE_SIZE).toBeGreaterThan(MAX_FILE_SIZE);
+    expect(MATERIAL_MAX_FILE_SIZE).toBeGreaterThanOrEqual(50 * 1024 * 1024);
+  });
 });
 
 /* ------------------------------------------------------------------ *

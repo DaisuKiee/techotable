@@ -236,8 +236,13 @@ async function importFaculty(data) {
  * @param {Array} data - Array of subject objects from Excel
  * @returns {Object} Import results
  */
-async function importSubjects(data) {
+async function importSubjects(data, options = {}) {
   const results = { success: [], failed: [] };
+  // When set (program managers), rows for any other program are rejected so a
+  // manager can't create subjects outside their own program.
+  const allowedProgram = options.allowedProgram
+    ? String(options.allowedProgram).trim().toUpperCase()
+    : null;
 
   for (let i = 0; i < data.length; i++) {
     const row = data[i];
@@ -250,6 +255,16 @@ async function importSubjects(data) {
           row: rowNumber,
           subjectCode: row.subjectCode || 'N/A',
           error: 'Missing required fields'
+        });
+        continue;
+      }
+
+      // Program managers may only import their own program's subjects
+      if (allowedProgram && String(row.program).trim().toUpperCase() !== allowedProgram) {
+        results.failed.push({
+          row: rowNumber,
+          subjectCode: row.subjectCode,
+          error: `Program "${row.program}" is outside your program (${options.allowedProgram}) — you can only import ${options.allowedProgram} subjects`
         });
         continue;
       }
@@ -392,18 +407,47 @@ function generateTemplate(type) {
 
     case 'subjects':
       sheetName = 'Subjects';
+      // Three worked examples that cover the shapes staff actually enter:
+      //  1. a lecture-only major course,
+      //  2. a course with lab hours (lecture + lab split),
+      //  3. a General Education course shared by every program ('General').
+      // Keep every row's columns identical so they line up in the sheet.
       data = [
         {
-          subjectCode: 'PROG101',
-          subjectName: 'Introduction to Programming',
+          subjectCode: 'CC 101',
+          subjectName: 'Introduction to Computing',
           program: 'BSIT',
           yearLevel: 1,
           semester: 1,
           units: 3,
           lectureHours: 3,
           labHours: 0,
-          requiredQualifications: 'Programming, Computer Science',
-          description: 'Basic programming concepts'
+          requiredQualifications: 'Computer Science, Programming',
+          description: 'Fundamental concepts of computing and information technology'
+        },
+        {
+          subjectCode: 'CC 102',
+          subjectName: 'Computer Programming 1',
+          program: 'BSIT',
+          yearLevel: 1,
+          semester: 1,
+          units: 3,
+          lectureHours: 2,
+          labHours: 3,
+          requiredQualifications: 'Programming',
+          description: 'Structured programming with hands-on laboratory sessions'
+        },
+        {
+          subjectCode: 'GEC-UTS',
+          subjectName: 'Understanding the Self',
+          program: 'General',
+          yearLevel: 1,
+          semester: 1,
+          units: 3,
+          lectureHours: 3,
+          labHours: 0,
+          requiredQualifications: '',
+          description: 'General Education core course shared across all programs'
         }
       ];
       break;
@@ -416,6 +460,28 @@ function generateTemplate(type) {
   const workbook = XLSX.utils.book_new();
   const worksheet = XLSX.utils.json_to_sheet(data);
   XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+
+  // A plain-language column guide so people know which fields are required and
+  // what the accepted values are. It is a SECOND sheet, appended after the data
+  // sheet, so the importer (which reads the first sheet) never tries to import
+  // it. Example rows above show the format; this sheet explains the rules.
+  if (type === 'subjects') {
+    const guide = [
+      { Column: 'subjectCode', Required: 'Yes', 'Accepted values / notes': 'Unique course code, e.g. "CC 101", "GEC-UTS". Must be unique across the system.' },
+      { Column: 'subjectName', Required: 'Yes', 'Accepted values / notes': 'Full course title.' },
+      { Column: 'program', Required: 'Yes', 'Accepted values / notes': 'A program code (e.g. BSIT, BSHM, BIT-ET) — or "General" for GE courses shared by every program.' },
+      { Column: 'yearLevel', Required: 'Yes', 'Accepted values / notes': 'Whole number 1 to 4.' },
+      { Column: 'semester', Required: 'No', 'Accepted values / notes': '1 or 2. Defaults to 1 if left blank.' },
+      { Column: 'units', Required: 'No', 'Accepted values / notes': 'Credit units, 0 to 12. Defaults to 3.' },
+      { Column: 'lectureHours', Required: 'No', 'Accepted values / notes': 'Lecture hours per week. Defaults to 3.' },
+      { Column: 'labHours', Required: 'No', 'Accepted values / notes': 'Laboratory hours per week. Defaults to 0 (leave 0 for lecture-only courses).' },
+      { Column: 'requiredQualifications', Required: 'No', 'Accepted values / notes': 'Specializations a teacher should have, comma-separated (e.g. "Programming, Database"). Leave blank if none.' },
+      { Column: 'description', Required: 'No', 'Accepted values / notes': 'Short course description.' }
+    ];
+    const guideSheet = XLSX.utils.json_to_sheet(guide);
+    guideSheet['!cols'] = [{ wch: 22 }, { wch: 10 }, { wch: 70 }];
+    XLSX.utils.book_append_sheet(workbook, guideSheet, 'Instructions');
+  }
 
   // Generate buffer
   const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });

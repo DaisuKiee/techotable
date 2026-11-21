@@ -347,13 +347,13 @@ exports.recommendFacultyForSubject = async (req, res) => {
       const outsiders = await Faculty.find({ isActive: true, _id: { $nin: inProgramIds } })
         .populate('user', 'firstName lastName email')
         .lean();
-      // Show capable teachers from other programs so the officer can choose
-      // freely, ranked by fit — not only those who already taught it. Approved
-      // borrows are always included (the picker renders them from here).
+      // Every teacher from other programs, ranked by fit, so the picker can
+      // offer the whole college rather than a top handful. Approved borrows
+      // come first; the rest follow in rank order with no cap.
       const rankedOut = rankFacultyForSubject(outsiders, subject, { onlyWithCapacity: false });
       otherDepartments = [
         ...rankedOut.filter(r => approved.has(String(r.faculty._id))),
-        ...rankedOut.filter(r => !approved.has(String(r.faculty._id))).slice(0, 20),
+        ...rankedOut.filter(r => !approved.has(String(r.faculty._id))),
       ];
     }
     // Real teaching load for the borrowable outsiders, for the workload capsule.

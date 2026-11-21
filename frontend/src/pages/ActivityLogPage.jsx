@@ -7,6 +7,7 @@ import {
   Activity, Download, RefreshCw, XCircle, AlertTriangle, CheckCircle2, Search, ChevronLeft,
   ChevronRight, ChevronDown, X, Globe, Monitor, Timer, Hash, CalendarDays,
 } from 'lucide-react';
+import { fileUrl } from '../utils/fileUrl';
 
 const PAGE_SIZE = 50;
 
@@ -75,7 +76,7 @@ const describe = (log) => {
 
 const nameOf = (u) => (u ? `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email : 'Deleted user');
 const roleLabel = (r) => ({ admin: 'Admin', scheduling_officer: 'Scheduler', program_manager: 'Program manager', faculty: 'Faculty', student: 'Student' }[r] || r);
-const avatarSrc = (p) => (p ? `${process.env.REACT_APP_API_URL?.replace('/api', '')}${p}` : null);
+const avatarSrc = (p) => fileUrl(p);
 
 const deviceOf = (ua = '') => {
   if (!ua) return null;

@@ -493,7 +493,7 @@ const AIChatBubble = () => {
                   className="relative h-10 w-10"
                   style={{ visibility: flight ? 'hidden' : 'visible' }}
                 >
-                  <AnimatedRobotHeadNoChatBubble className="h-10 w-10" />
+                  <AnimatedRobotHeadNoChatBubble className="h-10 w-10" talking={loading} />
                   <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-400 dark:border-gray-900" />
                 </div>
                 <div>
@@ -538,7 +538,7 @@ const AIChatBubble = () => {
                     <div key={message.id} className={`blo-in group flex gap-2 ${mine ? 'justify-end' : 'justify-start'}`}>
                       {!mine && (
                         <span className="mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-100 dark:bg-blue-900/50" aria-hidden="true">
-                          <AnimatedRobotHeadNoChatBubble className="h-6 w-6" />
+                          <AnimatedRobotHeadNoChatBubble className="h-6 w-6" talking={message.streaming} />
                         </span>
                       )}
                       <div className={`min-w-0 max-w-[82%] ${mine ? 'items-end' : 'items-start'} flex flex-col`}>
@@ -705,9 +705,15 @@ const AIChatBubble = () => {
         title="Ask B-LO"
         aria-label="Open the B-LO assistant"
       >
-        <div className="relative transition-transform duration-300 group-hover:scale-110 group-active:scale-95 group-active:rotate-12">
-          <AnimatedRobotHead className="w-20 h-20 drop-shadow-lg" />
-          <span className="absolute top-0 right-0 w-4 h-4 bg-emerald-400 rounded-full border-2 border-white animate-pulse"></span>
+        {/* Invite ring: a soft sonar pulse that draws the eye to the bot */}
+        <span className="blo-ring pointer-events-none absolute inset-2 rounded-full bg-blue-500/30 group-hover:[animation-play-state:paused]" aria-hidden="true" />
+        {/* Attention wrapper: an occasional excited wiggle, paused on hover so the
+            hover scale feels deliberate. Composes with the head's gentle float. */}
+        <div className="blo-attention relative group-hover:[animation-play-state:paused]">
+          <div className="relative transition-transform duration-300 group-hover:scale-110 group-active:scale-95 group-active:rotate-12">
+            <AnimatedRobotHead className="w-20 h-20 drop-shadow-lg" />
+            <span className="absolute top-0 right-0 w-4 h-4 bg-emerald-400 rounded-full border-2 border-white animate-pulse"></span>
+          </div>
         </div>
       </button>
 
@@ -715,9 +721,21 @@ const AIChatBubble = () => {
         @keyframes blo-dot { 0%, 60%, 100% { opacity: .3; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-3px); } }
         @keyframes blo-in  { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
         @keyframes blo-caret { 50% { opacity: 0; } }
+        /* FAB sonar ring: a soft halo expands and fades on a loop to invite a click */
+        @keyframes blo-ring { 0% { transform: scale(.8); opacity: 0; } 15% { opacity: .55; } 60% { opacity: 0; } 100% { transform: scale(1.9); opacity: 0; } }
+        /* FAB attention: the bot rests, then every few seconds gives an excited wiggle */
+        @keyframes blo-attention {
+          0%, 68%, 100% { transform: translateY(0) rotate(0); }
+          74% { transform: translateY(-6px) rotate(-9deg); }
+          80% { transform: translateY(0) rotate(7deg); }
+          86% { transform: translateY(-3px) rotate(-5deg); }
+          92% { transform: translateY(0) rotate(2deg); }
+        }
         .blo-dot { animation: blo-dot 1.3s ease-in-out infinite; }
         .blo-in  { animation: blo-in .22s ease-out both; }
-        @media (prefers-reduced-motion: reduce) { .blo-dot, .blo-in { animation: none; } }
+        .blo-ring { animation: blo-ring 3.4s ease-out infinite; }
+        .blo-attention { animation: blo-attention 6s ease-in-out infinite; transform-origin: 50% 70%; }
+        @media (prefers-reduced-motion: reduce) { .blo-dot, .blo-in, .blo-ring, .blo-attention { animation: none; } }
 
         .blo-md { overflow-wrap: anywhere; }
         .blo-md > * + * { margin-top: .5rem; }

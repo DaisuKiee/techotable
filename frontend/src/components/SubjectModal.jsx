@@ -127,7 +127,17 @@ const SubjectModal = ({ mode, subject, onClose }) => {
   };
 
   return (
-    <ModalShell variant="drawer" size="lg" onClose={() => onClose(false)} label={mode === 'edit' ? 'Edit subject' : 'Add subject'} busy={loading}>
+    <ModalShell
+      variant="drawer"
+      size="lg"
+      onClose={() => onClose(false)}
+      label={mode === 'edit' ? 'Edit subject' : 'Add subject'}
+      busy={loading}
+      // Grey canvas, so the white "Basic Information" and "Scheduling" cards
+      // below read as cards instead of blending into the panel. Same as
+      // RoomModal, which is what makes that one look like a drawer.
+      panelClassName="bg-gray-50 dark:bg-gray-900"
+    >
         {/* Header */}
         <div className="px-6 py-4 bg-gradient-to-br from-blue-600 to-blue-600 text-white flex-shrink-0">
           <div className="flex items-start justify-between gap-3">

@@ -29,13 +29,17 @@ const upload = multer({
   }
 });
 
-// Template download routes (GET)
-router.get('/template/:type', protect, authorize('admin', 'scheduling_officer'), downloadTemplate);
+// Template download routes (GET). Program managers manage their program's
+// subjects (they can add and bulk-import them), so they can download templates
+// too; the file is a blank guide and carries no data.
+router.get('/template/:type', protect, authorize('admin', 'scheduling_officer', 'program_manager'), downloadTemplate);
 
 // Import routes (POST)
 router.post('/excel', protect, authorize('admin', 'scheduling_officer'), upload.single('file'), importExcel);
 router.post('/students', protect, authorize('admin', 'scheduling_officer'), upload.single('file'), importStudentsExcel);
 router.post('/faculty', protect, authorize('admin', 'scheduling_officer'), upload.single('file'), importFacultyExcel);
-router.post('/subjects', protect, authorize('admin', 'scheduling_officer'), upload.single('file'), importSubjectsExcel);
+// Program managers may import subjects, but the controller scopes the rows to
+// their own program so they cannot create subjects for another program.
+router.post('/subjects', protect, authorize('admin', 'scheduling_officer', 'program_manager'), upload.single('file'), importSubjectsExcel);
 
 module.exports = router;

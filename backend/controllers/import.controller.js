@@ -116,7 +116,20 @@ exports.importSubjectsExcel = async (req, res) => {
     const sheetName = workbook.SheetNames[0];
     const data = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { raw: false });
 
-    const results = await importSubjects(data);
+    // A program manager may only import subjects for their own program; the
+    // importer rejects any row for another program. Admins and scheduling
+    // officers import across all programs.
+    let allowedProgram = null;
+    if (req.user?.role === 'program_manager') {
+      if (!req.user.program) {
+        return res.status(403).json({
+          success: false,
+          message: 'Program managers must have an assigned program to import subjects'
+        });
+      }
+      allowedProgram = req.user.program;
+    }
+    const results = await importSubjects(data, { allowedProgram });
 
     res.status(200).json({
       success: true,

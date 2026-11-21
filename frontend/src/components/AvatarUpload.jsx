@@ -3,17 +3,21 @@ import { userAPI } from '../services/api';
 import toast from 'react-hot-toast';
 import { FiCamera, FiTrash2, FiUpload } from 'react-icons/fi';
 import { useConfirm } from '../context/ConfirmContext';
+import AvatarCropper from './AvatarCropper';
+import { fileUrl } from '../utils/fileUrl';
 
 const AvatarUpload = ({ user, onUpdate }) => {
   const confirm = useConfirm();
   const [uploading, setUploading] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [preview, setPreview] = useState(null);
+  // The file waiting to be cropped. Nothing is sent until the crop is applied.
+  const [pendingFile, setPendingFile] = useState(null);
 
   const getAvatarUrl = () => {
     if (preview) return preview;
     if (user?.profilePicture) {
-      return `${process.env.REACT_APP_API_URL?.replace('/api', '')}${user.profilePicture}`;
+      return fileUrl(user.profilePicture);
     }
     return null;
   };
@@ -25,47 +29,47 @@ const AvatarUpload = ({ user, onUpdate }) => {
     return '??';
   };
 
-  const handleFileSelect = async (e) => {
-    const file = e.target.files[0];
+  /**
+   * Picking a file opens the cropper; it does not upload.
+   *
+   * The 2 MB limit is the server's, and it used to be applied here to the
+   * original file, so an ordinary phone photo was simply refused. The cropper
+   * re-encodes to a 512px JPEG, which lands far under the limit, so the only
+   * check left here is that the file is an image at all.
+   */
+  const handleFileSelect = (e) => {
+    const file = e.target.files?.[0];
+    // Allow picking the same file twice in a row (after cancelling a crop).
+    e.target.value = '';
     if (!file) return;
 
-    console.log('Selected file:', file.name, file.type, file.size);
-
-    // Validate file type
     if (!file.type.startsWith('image/')) {
-      toast.error('Please select an image file');
+      toast.error('Please choose an image file');
       return;
     }
 
-    // Validate file size (2MB)
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error('Image size must be less than 2MB');
-      return;
-    }
+    setPendingFile(file);
+  };
 
-    // Preview
+  /** Called by the cropper with the square it produced. */
+  const handleCropped = async (croppedFile) => {
+    setPendingFile(null);
+
+    // Show the crop straight away rather than the pre-crop original.
     const reader = new FileReader();
-    reader.onloadend = () => {
-      setPreview(reader.result);
-    };
-    reader.readAsDataURL(file);
+    reader.onloadend = () => setPreview(reader.result);
+    reader.readAsDataURL(croppedFile);
 
-    // Upload
     setUploading(true);
     const formData = new FormData();
-    formData.append('avatar', file);
-
-    console.log('Uploading to user ID:', user._id);
+    formData.append('avatar', croppedFile);
 
     try {
       const response = await userAPI.uploadAvatar(user._id, formData);
-      console.log('Upload response:', response.data);
-      toast.success('Avatar uploaded successfully');
+      toast.success('Profile photo updated');
       if (onUpdate) onUpdate(response.data.data);
-      setPreview(null); // Clear preview after successful upload
+      setPreview(null); // the saved photo takes over from here
     } catch (error) {
-      console.error('Upload error:', error);
-      console.error('Error response:', error.response);
       toast.error(error.response?.data?.message || 'Upload failed');
       setPreview(null);
     } finally {
@@ -163,6 +167,15 @@ const AvatarUpload = ({ user, onUpdate }) => {
           </button>
         )}
       </div>
+
+      {pendingFile && (
+        <AvatarCropper
+          file={pendingFile}
+          busy={uploading}
+          onCancel={() => setPendingFile(null)}
+          onCropped={handleCropped}
+        />
+      )}
     </div>
   );
 };

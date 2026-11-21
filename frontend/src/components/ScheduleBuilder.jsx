@@ -309,6 +309,37 @@ const ScheduleBuilder = ({
   );
 
   /**
+   * A section takes a subject at most once a day: two sessions of the same
+   * subject must fall on different days, even at different times (e.g. CC 101
+   * cannot sit at 8–9 AM and again at 11–12 on the same day). Returns the time
+   * range of the session already on `day`, or null if there is none. The
+   * generator already enforces this; this brings the manual builder in line.
+   */
+  const sameSubjectOnDay = useCallback((day, subjectKey, ignore) => {
+    if (!subjectKey || (!subjectKey.id && !subjectKey.code)) return null;
+    const matches = (sid, scode) =>
+      (subjectKey.id && sid && String(sid) === String(subjectKey.id)) ||
+      (subjectKey.code && scode && String(scode).toUpperCase() === String(subjectKey.code).toUpperCase());
+    const onDay = (timeSlots) => (timeSlots || []).find((ts) => ts.day === day);
+
+    for (const p of pendingSchedules) {
+      if (ignore && ignore.kind === 'pending' && String(p.tempId) === String(ignore.id)) continue;
+      if (matches(p.subject, p.subjectData?.subjectCode)) {
+        const ts = onDay(p.timeSlots);
+        if (ts) return `${ts.startTime}–${ts.endTime}`;
+      }
+    }
+    for (const s of savedSchedules) {
+      if (ignore && ignore.kind === 'saved' && String(s._id) === String(ignore.id)) continue;
+      if (matches(s.subject?._id || s.subject, s.subject?.subjectCode)) {
+        const ts = onDay(s.timeSlots);
+        if (ts) return `${ts.startTime}–${ts.endTime}`;
+      }
+    }
+    return null;
+  }, [pendingSchedules, savedSchedules]);
+
+  /**
    * Monotonic temp id. `Date.now()` collided when two drops landed in the same
    * millisecond, and removing one then removed both.
    */
@@ -350,10 +381,20 @@ const ScheduleBuilder = ({
    *        it already sat was rejected as "already taken" - by itself.
    * @returns {{ok: true, startTime: string, endTime: string} | {ok: false, reason: string}}
    */
-  const resolveRange = useCallback((day, slotIndex, hours, ignore = null) => {
+  const resolveRange = useCallback((day, slotIndex, hours, ignore = null, subjectKey = null) => {
     const startSlot = TIME_SLOTS[slotIndex];
     if (!startSlot) return { ok: false, reason: 'Invalid time slot' };
     if (startSlot.isLunch) return { ok: false, reason: 'Cannot schedule over lunch break' };
+
+    // One session per subject per day: a repeat of the same subject has to go
+    // on a different day, whatever the time.
+    const existingOnDay = sameSubjectOnDay(day, subjectKey, ignore);
+    if (existingOnDay) {
+      return {
+        ok: false,
+        reason: `${subjectKey?.code || 'This subject'} is already on ${day} (${existingOnDay}). A subject can meet only once a day — place the next session on another day.`,
+      };
+    }
 
     const startTime = startSlot.time.split('-')[0];
     let endTime = startSlot.time.split('-')[1];
@@ -395,7 +436,7 @@ const ScheduleBuilder = ({
     }
 
     return { ok: true, startTime, endTime };
-  }, [TIME_SLOTS, entriesAt, nightCellBlocked]);
+  }, [TIME_SLOTS, entriesAt, nightCellBlocked, sameSubjectOnDay]);
 
   /** Move an already-placed pending card to a new day/slot. */
   const movePending = useCallback((tempId, day, slotIndex) => {
@@ -403,7 +444,8 @@ const ScheduleBuilder = ({
     if (!card) return;
 
     const hours = getDurationHours(card);
-    const range = resolveRange(day, slotIndex, hours, { kind: 'pending', id: card.tempId });
+    const range = resolveRange(day, slotIndex, hours, { kind: 'pending', id: card.tempId },
+      { id: card.subject, code: card.subjectData?.subjectCode });
     if (!range.ok) {
       toast.error(range.reason);
       return;
@@ -436,7 +478,8 @@ const ScheduleBuilder = ({
 
     const hours = slotDuration(slot);
 
-    const range = resolveRange(day, slotIndex, hours, { kind: 'saved', id: scheduleId });
+    const range = resolveRange(day, slotIndex, hours, { kind: 'saved', id: scheduleId },
+      { id: schedule.subject?._id || schedule.subject, code: schedule.subject?.subjectCode });
     if (!range.ok) {
       toast.error(range.reason);
       return;
@@ -754,7 +797,8 @@ const ScheduleBuilder = ({
     const slotIndex = TIME_SLOTS.findIndex(t => t.time.split('-')[0] === slot.startTime);
     if (slotIndex === -1) return;
 
-    const range = resolveRange(slot.day, slotIndex, target, { kind: 'pending', id: ps.tempId });
+    const range = resolveRange(slot.day, slotIndex, target, { kind: 'pending', id: ps.tempId },
+      { id: ps.subject, code: ps.subjectData?.subjectCode });
     if (!range.ok) {
       toast.error(range.reason);
       return;
@@ -794,7 +838,10 @@ const ScheduleBuilder = ({
 
     // A card being moved must not collide with the spot it currently occupies.
     const ignore = drag.kind === 'subject' ? null : { kind: drag.kind, id: drag.id };
-    const range = resolveRange(day, slotIndex, hours, ignore);
+    const subjectKey = drag.kind === 'subject'
+      ? { id: drag.subject?._id, code: drag.subject?.subjectCode }
+      : { id: null, code: drag.code };
+    const range = resolveRange(day, slotIndex, hours, ignore, subjectKey);
 
     if (!range.ok) {
       setHover({ day, cells, ok: false, reason: range.reason });
@@ -855,7 +902,8 @@ const ScheduleBuilder = ({
       return;
     }
 
-    const range = resolveRange(day, slotIndex, selectedHours);
+    const range = resolveRange(day, slotIndex, selectedHours, null,
+      { id: draggedSubject._id, code: draggedSubject.subjectCode });
     if (!range.ok) {
       toast.error(range.reason);
       return;
@@ -1337,7 +1385,9 @@ const ScheduleBuilder = ({
     for (const t of suggestion.timeSlots || []) {
       const slotIndex = TIME_SLOTS.findIndex(x => x.time.startsWith(`${t.startTime}-`));
       const hours = slotDuration(t);
-      const range = slotIndex >= 0 ? resolveRange(t.day, slotIndex, hours) : { ok: false, reason: `${t.startTime} isn’t on this shift’s grid` };
+      const range = slotIndex >= 0
+        ? resolveRange(t.day, slotIndex, hours, null, { id: subject._id, code: subject.subjectCode })
+        : { ok: false, reason: `${t.startTime} isn’t on this shift’s grid` };
       if (!range.ok) { skipped.push(`${t.day.slice(0, 3)} ${t.startTime}: ${range.reason}`); continue; }
       cards.push({
         tempId: nextTempId(),
@@ -2182,20 +2232,26 @@ const ScheduleBuilder = ({
         const chosen = subjectFaculty[pickerSubject._id] || '';
 
         return (
-          // Picking is a choice, not a form: no "discard changes?" for its search box
+          // A right-side drawer: picking a teacher is a quick aside to the
+          // grid, not a full-screen task. Picking is a choice, not a form, so
+          // no "discard changes?" for its search box.
           <ModalShell
             onClose={() => setPickerSubject(null)}
             size="md"
-            label={`Assign faculty to ${code}`}
+            variant="drawer"
+            label={`Assign a teacher to ${code}`}
             guardDirty={false}
             panelClassName="bg-gray-50 dark:bg-gray-900"
           >
-              <div className={`${color.bg} flex-shrink-0 px-6 pb-5 pt-6 sm:rounded-t-2xl`}>
+              {/* Compact subject header. One clear line of purpose, with the
+                  current state as a chip — no separate status bar and no
+                  duplicate "required" messages below. */}
+              <div className={`${color.bg} flex-shrink-0 px-5 py-4`}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
-                    <p className="mb-1 text-xs font-medium text-white/70">Assign faculty before scheduling</p>
-                    <h2 className="break-words text-2xl font-bold text-white">{code}</h2>
-                    <p className="mt-0.5 line-clamp-2 text-sm text-white/85">{pickerSubject.subjectName}</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-white/70">Assign a teacher</p>
+                    <h2 className="break-words text-xl font-bold text-white">{code}</h2>
+                    <p className="mt-0.5 line-clamp-1 text-sm text-white/85">{pickerSubject.subjectName}</p>
                   </div>
                   <button
                     onClick={() => setPickerSubject(null)}
@@ -2205,35 +2261,22 @@ const ScheduleBuilder = ({
                     <X className="h-4 w-4" />
                   </button>
                 </div>
+                <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-black/15 px-2.5 py-1 text-xs font-medium text-white">
+                  {chosen ? (
+                    <>
+                      <CheckCircle className="h-3.5 w-3.5" />
+                      {facultyName(chosen)} will teach {code} — drag it onto the week
+                    </>
+                  ) : (
+                    <>
+                      <AlertCircle className="h-3.5 w-3.5" />
+                      Choose who teaches {code} to place it on the timetable
+                    </>
+                  )}
+                </div>
               </div>
 
-              {/* Mirrors the status bar of the assign-room panel, so the two
-                  steps of the flow read the same way. */}
-              <div
-                className={`flex flex-shrink-0 items-center gap-2 border-b px-6 py-2.5 text-sm ${
-                  chosen
-                    ? 'border-emerald-100 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-900/20'
-                    : 'border-orange-100 bg-orange-50 dark:border-orange-800 dark:bg-orange-900/20'
-                }`}
-              >
-                {chosen ? (
-                  <>
-                    <CheckCircle className="h-4 w-4 text-emerald-600" />
-                    <span className="font-medium text-emerald-700 dark:text-emerald-300">
-                      {facultyName(chosen)} — ready to drag onto the grid
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <AlertCircle className="h-4 w-4 text-orange-600" />
-                    <span className="font-medium text-orange-700 dark:text-orange-300">
-                      Pick a faculty to enable dragging
-                    </span>
-                  </>
-                )}
-              </div>
-
-              <div className="flex-1 overflow-y-auto p-5">
+              <div className="flex-1 overflow-y-auto p-4">
                 <FacultyPicker
                   faculty={faculty}
                   selectedFacultyId={chosen}
@@ -2241,22 +2284,22 @@ const ScheduleBuilder = ({
                   subjectId={pickerSubject._id}
                   subjectCode={code}
                   subjectName={pickerSubject.subjectName}
-                  hint={chosen ? 'Faculty selected' : 'Required before dragging'}
-                  requiredWarning={!chosen}
+                  hint="Ranked by fit for this subject"
+                  requiredWarning={false}
                 />
               </div>
 
-              <div className="flex flex-shrink-0 items-center gap-3 border-t border-gray-200 bg-white px-5 py-4 dark:border-gray-700 dark:bg-gray-800">
+              <div className="flex flex-shrink-0 items-center gap-3 border-t border-gray-200 bg-white px-5 py-3 dark:border-gray-700 dark:bg-gray-800">
                 <button
                   onClick={() => assignSubjectFaculty(pickerSubject._id, null)}
                   disabled={!chosen}
-                  className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:opacity-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:opacity-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
                 >
                   Clear
                 </button>
                 <button
                   onClick={() => setPickerSubject(null)}
-                  className="flex-1 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
+                  className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
                 >
                   Done
                 </button>

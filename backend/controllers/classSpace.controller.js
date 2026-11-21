@@ -5,7 +5,6 @@ const Section = require('../models/Section.model');
 const Student = require('../models/Student.model');
 const Subject = require('../models/Subject.model');
 const { validationResult } = require('express-validator');
-const fs = require('fs').promises;
 const path = require('path');
 const { notifyAnnouncement, notifyMaterial } = require('../services/emailNotification.service');
 const { 
@@ -847,15 +846,30 @@ exports.uploadMaterial = async (req, res) => {
 
     const classSpace = await ClassSpace.findById(req.params.id);
     if (!classSpace) {
-      await fs.unlink(req.file.path).catch(() => {});
+      // Nothing was written yet (the file is in memory), so there is no orphan
+      // to clean up - the upload simply ends here.
       return res.status(404).json({ success: false, message: 'Class space not found' });
     }
 
     const access = await resolveAccess(req.user, classSpace);
     if (!access.canPost) {
-      // Don't leave an orphan file behind on a rejected upload
-      await fs.unlink(req.file.path).catch(() => {});
       return res.status(403).json({ success: false, message: access.reason || 'Only the class’s teacher can post announcements and materials.' });
+    }
+
+    // Store the file, to Cloudflare R2 when configured and to local disk
+    // otherwise. Only `fileUrl` is persisted, so this works either way.
+    const fileStorage = require('../services/fileStorage.service');
+    const ext = path.extname(req.file.originalname || '').replace(/^\./, '');
+    let stored;
+    try {
+      stored = await fileStorage.save({
+        buffer: req.file.buffer,
+        folder: 'materials',
+        contentType: req.file.mimetype,
+        extension: ext,
+      });
+    } catch (err) {
+      return res.status(400).json({ success: false, message: err.message });
     }
 
     const { title, description } = req.body;
@@ -863,7 +877,7 @@ exports.uploadMaterial = async (req, res) => {
     classSpace.materials.push({
       title: title || req.file.originalname,
       description: description || '',
-      fileUrl: `/uploads/${req.file.filename}`,
+      fileUrl: stored.url,
       fileName: req.file.originalname,
       fileSize: req.file.size,
       fileType: req.file.mimetype,
@@ -899,7 +913,8 @@ exports.uploadMaterial = async (req, res) => {
       data: newMaterial,
     });
   } catch (error) {
-    if (req.file) await fs.unlink(req.file.path).catch(() => {});
+    // The file is held in memory, not on disk, so there is nothing to unlink
+    // on failure - it is simply discarded when the request ends.
     sendError(res, error, 'Error uploading material');
   }
 };
@@ -927,13 +942,9 @@ exports.deleteMaterial = async (req, res) => {
       });
     }
 
-    // Remove the file, but never let a missing file block the DB update
-    try {
-      const uploadRoot = process.env.UPLOAD_PATH || path.join(__dirname, '..', 'uploads');
-      await fs.unlink(path.join(uploadRoot, path.basename(material.fileUrl)));
-    } catch (fileError) {
-      console.warn('Could not delete file from disk:', fileError.message);
-    }
+    // Remove the stored file wherever it lives (R2 or local disk), but never
+    // let a missing file block the DB update.
+    await require('../services/fileStorage.service').remove(material.fileUrl);
 
     // Mongoose 7 removed subdoc.remove(); pull by id instead
     classSpace.materials.pull({ _id: req.params.materialId });

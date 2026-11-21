@@ -380,7 +380,7 @@ const SectionInsight = ({ sectionId }) => {
 };
 
 
-const GenerateScheduleModal = ({ onClose }) => {
+const GenerateScheduleModal = ({ onClose, defaultSection = '' }) => {
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [previewData, setPreviewData] = useState(null);
@@ -397,7 +397,9 @@ const GenerateScheduleModal = ({ onClose }) => {
   const [showSettings, setShowSettings] = useState(true);
   const [showSubjectList, setShowSubjectList] = useState(false);
   const [formData, setFormData] = useState({
-    section: '', // Section ID
+    // Pre-selected when opened from the builder, where a section is already
+    // chosen; empty on the Schedules page, where the user picks one here.
+    section: defaultSection || '', // Section ID
     // 'ortools' runs OR-Tools and falls back to the built-in solver on the
     // server if it cannot run there; 'builtin' goes straight to the built-in
     // solver. Both take the same input and enforce the same rules - the old

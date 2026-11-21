@@ -215,7 +215,7 @@ const BuilderAssistant = ({ sectionKey, sectionLabel, onSuggest, onAsk, onAdd, f
       <div className="flex-shrink-0 border-b border-gray-100 px-4 pt-3 dark:border-gray-700">
         <div className="mb-2 flex items-center gap-2">
           <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg bg-blue-600 text-white">
-            <AnimatedRobotHeadNoChatBubble className="h-7 w-7" />
+            <AnimatedRobotHeadNoChatBubble className="h-7 w-7" talking={busy || messages[messages.length - 1]?.streaming} />
           </span>
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold leading-tight text-gray-900 dark:text-white">B-LO</p>

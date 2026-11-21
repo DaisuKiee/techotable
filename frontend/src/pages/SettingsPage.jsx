@@ -15,6 +15,7 @@ import {
 import ConfirmDialog from '../components/ConfirmDialog';
 import ClassReminderPrompt from '../components/ClassReminderPrompt';
 import TwoFactorSettings from '../components/settings/TwoFactorSettings';
+import { fileUrl } from '../utils/fileUrl';
 
 /* ---------- Reusable UI pieces ---------- */
 
@@ -464,7 +465,7 @@ const SettingsPage = () => {
 
   const displayName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.email || 'Account';
   const initials = displayName.split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
-  const avatar = user?.profilePicture ? `${process.env.REACT_APP_API_URL?.replace('/api', '')}${user.profilePicture}` : null;
+  const avatar = fileUrl(user?.profilePicture);
 
   // Real account state, instead of an always-green card
   const verified = user?.isEmailVerified !== false || !isStudent; // only students verify by email

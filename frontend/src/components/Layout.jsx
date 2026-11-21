@@ -15,6 +15,7 @@ import AnimatedUserCheck from './AnimatedUserCheck';
 import AIChatBubble from './AIChatBubble';
 import NotificationBell from './NotificationBell';
 import TwoFactorBanner from './auth/TwoFactorBanner';
+import { fileUrl } from '../utils/fileUrl';
 
 /** Nav categories the user has collapsed. Remembered between visits. */
 const COLLAPSED_GROUPS_KEY = 'layout.collapsedNavGroups';
@@ -314,7 +315,7 @@ const AppShell = ({ children }) => {
   // Get avatar URL
   const getAvatarUrl = () => {
     if (user?.profilePicture) {
-      return `${process.env.REACT_APP_API_URL?.replace('/api', '')}${user.profilePicture}`;
+      return fileUrl(user.profilePicture);
     }
     return null;
   };
